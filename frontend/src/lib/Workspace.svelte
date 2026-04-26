@@ -10,6 +10,8 @@
   import MetricsPanel from "./MetricsPanel.svelte";
   import KeysPanel from "./KeysPanel.svelte";
   import LogsPanel from "./LogsPanel.svelte";
+  import ForwardsPanel from "./ForwardsPanel.svelte";
+  import RecordingsPanel from "./RecordingsPanel.svelte";
   import SettingsPanel from "./SettingsPanel.svelte";
   import Palette from "./Palette.svelte";
   import AIDrawer from "./AIDrawer.svelte";
@@ -28,7 +30,9 @@
     Folder,
     Activity,
     KeyRound,
+    Network,
     ScrollText,
+    Film,
     Settings as SettingsIcon,
     Lock,
     Unlock,
@@ -157,6 +161,8 @@
     { id: "files", label: "Files", Icon: Folder },
     { id: "metrics", label: "Metrics", Icon: Activity },
     { id: "logs", label: "Logs", Icon: ScrollText },
+    { id: "forwards", label: "Forwards", Icon: Network },
+    { id: "recordings", label: "Recordings", Icon: Film },
     { id: "keys", label: "Keys", Icon: KeyRound },
     { id: "settings", label: "Settings", Icon: SettingsIcon },
   ];
@@ -319,6 +325,10 @@
           <MetricsPanel />
         {:else if app.view === "logs"}
           <LogsPanel />
+        {:else if app.view === "forwards"}
+          <ForwardsPanel />
+        {:else if app.view === "recordings"}
+          <RecordingsPanel />
         {:else if app.view === "keys"}
           <KeysPanel />
         {:else if app.view === "settings"}

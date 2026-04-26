@@ -4,6 +4,7 @@ import {
   KeyService,
   SettingsService,
   AIService,
+  RecordingService,
 } from "../../bindings/github.com/blacknode/blacknode";
 import type { Host } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
 import type {
@@ -18,6 +19,8 @@ type View =
   | "files"
   | "metrics"
   | "logs"
+  | "forwards"
+  | "recordings"
   | "keys"
   | "settings";
 
@@ -38,6 +41,7 @@ class AppState {
   loading = $state(false);
   paletteOpen = $state(false);
   aiOpen = $state(false);
+  recordingsEnabled = $state(false);
 
   // Cross-component channel: AIDrawer/palette set this; the matching Terminal
   // sees the change via $effect and writes the text to its xterm/PTY.
@@ -71,6 +75,7 @@ class AppState {
   async refreshSettings() {
     if (!this.vault.unlocked) return;
     this.settings = (await SettingsService.Get()) as AppSettings;
+    this.recordingsEnabled = (await RecordingService.IsEnabled()) ?? false;
   }
 
   async refreshAll() {

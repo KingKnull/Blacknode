@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/blacknode/blacknode/internal/db"
+	"github.com/blacknode/blacknode/internal/recorder"
 	"github.com/blacknode/blacknode/internal/sshconn"
 	"github.com/blacknode/blacknode/internal/store"
 	"github.com/blacknode/blacknode/internal/vault"
@@ -35,6 +36,9 @@ func main() {
 	keys := store.NewKeys(conn.DB)
 	knownHosts := store.NewKnownHosts(conn.DB)
 	settings := store.NewSettings(conn.DB)
+	forwards := store.NewForwards(conn.DB)
+	recordings := store.NewRecordings(conn.DB)
+	recMgr := recorder.NewManager()
 	v := vault.New(conn.DB)
 	dialer := sshconn.New(v, keys, knownHosts)
 	pool := sshconn.NewPool(dialer)
@@ -42,6 +46,7 @@ func main() {
 	settingsSvc := NewSettingsService(settings, v)
 	autoLock := NewAutoLockService(v, settingsSvc)
 	autoLock.Start()
+	pfSvc := NewPortForwardService(pool, hosts, forwards)
 
 	app := application.New(application.Options{
 		Name:        "blacknode",
@@ -51,14 +56,16 @@ func main() {
 			application.NewService(settingsSvc),
 			application.NewService(NewKeyService(keys, v)),
 			application.NewService(NewHostService(hosts)),
-			application.NewService(NewLocalShellService()),
-			application.NewService(NewSSHService(dialer, hosts)),
+			application.NewService(NewLocalShellService(recMgr, recordings, settings)),
+			application.NewService(NewSSHService(dialer, hosts, recMgr, recordings, settings)),
 			application.NewService(NewSFTPService(pool, hosts)),
 			application.NewService(NewExecService(pool, hosts)),
 			application.NewService(NewMetricsService(pool, hosts)),
 			application.NewService(NewLogsService(pool, hosts)),
 			application.NewService(NewAIService(settingsSvc)),
 			application.NewService(autoLock),
+			application.NewService(pfSvc),
+			application.NewService(NewRecordingService(recordings, settings)),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),

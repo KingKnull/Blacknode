@@ -14,6 +14,8 @@
     Sparkles,
     Lock,
     Search,
+    Network,
+    Film,
   } from "@lucide/svelte";
 
   type Action = {
@@ -41,6 +43,8 @@
     { id: "files", label: "Go to Files", icon: Folder },
     { id: "metrics", label: "Go to Metrics", icon: Activity },
     { id: "logs", label: "Go to Logs", icon: ScrollText },
+    { id: "forwards", label: "Go to Forwards", icon: Network },
+    { id: "recordings", label: "Go to Recordings", icon: Film },
     { id: "keys", label: "Go to Keys", icon: KeyRound },
     { id: "settings", label: "Go to Settings", icon: SettingsIcon },
   ];

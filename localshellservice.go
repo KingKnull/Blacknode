@@ -10,6 +10,8 @@ import (
 	"sync"
 
 	"github.com/aymanbagabas/go-pty"
+	"github.com/blacknode/blacknode/internal/recorder"
+	"github.com/blacknode/blacknode/internal/store"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
@@ -20,12 +22,21 @@ type localSession struct {
 }
 
 type LocalShellService struct {
+	rec      *recorder.Manager
+	recStore *store.Recordings
+	settings *store.Settings
+
 	mu       sync.Mutex
 	sessions map[string]*localSession
 }
 
-func NewLocalShellService() *LocalShellService {
-	return &LocalShellService{sessions: make(map[string]*localSession)}
+func NewLocalShellService(rec *recorder.Manager, rs *store.Recordings, settings *store.Settings) *LocalShellService {
+	return &LocalShellService{
+		rec:      rec,
+		recStore: rs,
+		settings: settings,
+		sessions: make(map[string]*localSession),
+	}
 }
 
 func (s *LocalShellService) emitData(id, chunk string) {
@@ -88,6 +99,15 @@ func (s *LocalShellService) Open(sessionID string, cols, rows int) error {
 	s.sessions[sessionID] = state
 	s.mu.Unlock()
 
+	if s.recordingEnabled() {
+		_ = s.rec.Start(sessionID, recorder.StartMeta{
+			SessionID: sessionID,
+			Title:     "local: " + shell,
+			Cols:      cols,
+			Rows:      rows,
+		})
+	}
+
 	go s.pump(sessionID, p, state.cancel)
 	go func() {
 		err := cmd.Wait()
@@ -111,11 +131,33 @@ func (s *LocalShellService) pump(id string, r io.Reader, cancel <-chan struct{})
 		n, err := r.Read(buf)
 		if n > 0 {
 			s.emitData(id, string(buf[:n]))
+			s.rec.WriteOutput(id, buf[:n])
 		}
 		if err != nil {
 			return
 		}
 	}
+}
+
+func (s *LocalShellService) recordingEnabled() bool {
+	v, err := s.settings.GetPlain("record_sessions")
+	return err == nil && v == "1"
+}
+
+func (s *LocalShellService) finishRecording(sessionID, title string) {
+	fin := s.rec.Stop(sessionID)
+	if fin == nil {
+		return
+	}
+	dur := fin.EndedAt - fin.StartedAt
+	if dur < 0 {
+		dur = 0
+	}
+	_ = s.recStore.Insert(store.Recording{
+		ID: fin.ID, Title: title, IsLocal: true, Path: fin.Path,
+		StartedAt: fin.StartedAt, EndedAt: fin.EndedAt,
+		DurationSeconds: dur, SizeBytes: fin.SizeBytes,
+	})
 }
 
 func (s *LocalShellService) Write(sessionID, data string) error {
@@ -156,6 +198,7 @@ func (s *LocalShellService) cleanup(sessionID, reason string) {
 	}
 	close(state.cancel)
 	_ = state.pty.Close()
+	s.finishRecording(sessionID, "local shell")
 	s.emitExit(sessionID, reason)
 }
 

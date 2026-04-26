@@ -15,9 +15,10 @@ type Host struct {
 	Host            string   `json:"host"`
 	Port            int      `json:"port"`
 	Username        string   `json:"username"`
-	AuthMethod      string   `json:"authMethod"` // "password" | "key" | "agent"
+	AuthMethod      string   `json:"authMethod"`     // "password" | "key" | "agent"
 	KeyID           string   `json:"keyID,omitempty"`
 	Group           string   `json:"group,omitempty"`
+	Environment     string   `json:"environment,omitempty"` // "dev" | "staging" | "production" | ""
 	Tags            []string `json:"tags"`
 	Notes           string   `json:"notes,omitempty"`
 	CreatedAt       int64    `json:"createdAt"`
@@ -47,9 +48,9 @@ func (s *Hosts) Create(h Host) (Host, error) {
 
 	tags, _ := json.Marshal(h.Tags)
 	_, err := s.db.Exec(
-		`INSERT INTO hosts (id, name, host, port, username, auth_method, key_id, group_name, tags, notes, created_at, updated_at, last_connected_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
-		h.ID, h.Name, h.Host, h.Port, h.Username, h.AuthMethod, h.KeyID, h.Group, string(tags), h.Notes, h.CreatedAt, h.UpdatedAt,
+		`INSERT INTO hosts (id, name, host, port, username, auth_method, key_id, group_name, environment, tags, notes, created_at, updated_at, last_connected_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+		h.ID, h.Name, h.Host, h.Port, h.Username, h.AuthMethod, h.KeyID, h.Group, h.Environment, string(tags), h.Notes, h.CreatedAt, h.UpdatedAt,
 	)
 	return h, err
 }
@@ -61,8 +62,8 @@ func (s *Hosts) Update(h Host) error {
 	h.UpdatedAt = time.Now().Unix()
 	tags, _ := json.Marshal(h.Tags)
 	_, err := s.db.Exec(
-		`UPDATE hosts SET name=?, host=?, port=?, username=?, auth_method=?, key_id=?, group_name=?, tags=?, notes=?, updated_at=? WHERE id=?`,
-		h.Name, h.Host, h.Port, h.Username, h.AuthMethod, h.KeyID, h.Group, string(tags), h.Notes, h.UpdatedAt, h.ID,
+		`UPDATE hosts SET name=?, host=?, port=?, username=?, auth_method=?, key_id=?, group_name=?, environment=?, tags=?, notes=?, updated_at=? WHERE id=?`,
+		h.Name, h.Host, h.Port, h.Username, h.AuthMethod, h.KeyID, h.Group, h.Environment, string(tags), h.Notes, h.UpdatedAt, h.ID,
 	)
 	return err
 }
@@ -73,12 +74,12 @@ func (s *Hosts) Delete(id string) error {
 }
 
 func (s *Hosts) Get(id string) (Host, error) {
-	row := s.db.QueryRow(`SELECT id, name, host, port, username, auth_method, key_id, group_name, tags, notes, created_at, updated_at, last_connected_at FROM hosts WHERE id = ?`, id)
+	row := s.db.QueryRow(`SELECT id, name, host, port, username, auth_method, key_id, group_name, environment, tags, notes, created_at, updated_at, last_connected_at FROM hosts WHERE id = ?`, id)
 	return scanHost(row)
 }
 
 func (s *Hosts) List() ([]Host, error) {
-	rows, err := s.db.Query(`SELECT id, name, host, port, username, auth_method, key_id, group_name, tags, notes, created_at, updated_at, last_connected_at FROM hosts ORDER BY name COLLATE NOCASE`)
+	rows, err := s.db.Query(`SELECT id, name, host, port, username, auth_method, key_id, group_name, environment, tags, notes, created_at, updated_at, last_connected_at FROM hosts ORDER BY name COLLATE NOCASE`)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +109,7 @@ func scanHost(r rowScanner) (Host, error) {
 		keyID    sql.NullString
 		tagsJSON string
 	)
-	err := r.Scan(&h.ID, &h.Name, &h.Host, &h.Port, &h.Username, &h.AuthMethod, &keyID, &h.Group, &tagsJSON, &h.Notes, &h.CreatedAt, &h.UpdatedAt, &h.LastConnectedAt)
+	err := r.Scan(&h.ID, &h.Name, &h.Host, &h.Port, &h.Username, &h.AuthMethod, &keyID, &h.Group, &h.Environment, &tagsJSON, &h.Notes, &h.CreatedAt, &h.UpdatedAt, &h.LastConnectedAt)
 	if err != nil {
 		return Host{}, err
 	}

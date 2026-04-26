@@ -6,6 +6,7 @@ import (
 	"io"
 	"sync"
 
+	"github.com/blacknode/blacknode/internal/recorder"
 	"github.com/blacknode/blacknode/internal/sshconn"
 	"github.com/blacknode/blacknode/internal/store"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -44,18 +45,26 @@ type sshSession struct {
 }
 
 type SSHService struct {
-	dialer *sshconn.Dialer
-	hosts  *store.Hosts
+	dialer   *sshconn.Dialer
+	hosts    *store.Hosts
+	rec      *recorder.Manager
+	recStore *store.Recordings
+	settings *store.Settings
 
 	mu       sync.Mutex
 	sessions map[string]*sshSession
+	hostMeta map[string]string // sessionID → "user@host" for recording titles
 }
 
-func NewSSHService(d *sshconn.Dialer, h *store.Hosts) *SSHService {
+func NewSSHService(d *sshconn.Dialer, h *store.Hosts, rec *recorder.Manager, rs *store.Recordings, settings *store.Settings) *SSHService {
 	return &SSHService{
 		dialer:   d,
 		hosts:    h,
+		rec:      rec,
+		recStore: rs,
+		settings: settings,
 		sessions: make(map[string]*sshSession),
+		hostMeta: make(map[string]string),
 	}
 }
 
@@ -159,7 +168,19 @@ func (s *SSHService) connectWith(sessionID string, t sshconn.Target, cols, rows 
 	state := &sshSession{client: client, session: sess, stdin: stdin, cancel: make(chan struct{})}
 	s.mu.Lock()
 	s.sessions[sessionID] = state
+	title := fmt.Sprintf("%s@%s", t.User, t.Host)
+	s.hostMeta[sessionID] = title
 	s.mu.Unlock()
+
+	if s.recordingEnabled() {
+		_ = s.rec.Start(sessionID, recorder.StartMeta{
+			SessionID: sessionID,
+			Title:     title,
+			HostID:    hostID,
+			Cols:      cols,
+			Rows:      rows,
+		})
+	}
 
 	go s.pump(sessionID, stdout, state.cancel)
 	go s.pump(sessionID, stderr, state.cancel)
@@ -190,11 +211,39 @@ func (s *SSHService) pump(id string, r io.Reader, cancel <-chan struct{}) {
 		n, err := r.Read(buf)
 		if n > 0 {
 			s.emitData(id, string(buf[:n]))
+			s.rec.WriteOutput(id, buf[:n])
 		}
 		if err != nil {
 			return
 		}
 	}
+}
+
+func (s *SSHService) recordingEnabled() bool {
+	v, err := s.settings.GetPlain("record_sessions")
+	return err == nil && v == "1"
+}
+
+func (s *SSHService) finishRecording(sessionID string) {
+	fin := s.rec.Stop(sessionID)
+	if fin == nil {
+		return
+	}
+	s.mu.Lock()
+	title := s.hostMeta[sessionID]
+	delete(s.hostMeta, sessionID)
+	s.mu.Unlock()
+	dur := fin.EndedAt - fin.StartedAt
+	if dur < 0 {
+		dur = 0
+	}
+	hostName := title
+	_ = s.recStore.Insert(store.Recording{
+		ID: fin.ID, Title: title, HostID: fin.HostID, HostName: hostName,
+		IsLocal: false, Path: fin.Path,
+		StartedAt: fin.StartedAt, EndedAt: fin.EndedAt,
+		DurationSeconds: dur, SizeBytes: fin.SizeBytes,
+	})
 }
 
 func (s *SSHService) Write(sessionID string, data string) error {
@@ -237,5 +286,6 @@ func (s *SSHService) cleanup(sessionID, reason string) {
 	_ = state.stdin.Close()
 	_ = state.session.Close()
 	_ = state.client.Close()
+	s.finishRecording(sessionID)
 	s.emitExit(sessionID, reason)
 }

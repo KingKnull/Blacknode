@@ -18,6 +18,7 @@ CREATE TABLE hosts (
     auth_method TEXT NOT NULL,
     key_id TEXT,
     group_name TEXT NOT NULL DEFAULT '',
+    environment TEXT NOT NULL DEFAULT '',
     tags TEXT NOT NULL DEFAULT '[]',
     notes TEXT NOT NULL DEFAULT '',
     created_at INTEGER NOT NULL,

@@ -9,6 +9,7 @@
     SSHService,
   } from "../../bindings/github.com/blacknode/blacknode";
   import { app } from "./state.svelte";
+  import { envBadge } from "./envColor";
   import {
     TerminalIcon,
     Server,
@@ -16,6 +17,8 @@
     Unplug,
     Loader2,
     Lock,
+    AlertTriangle,
+    Circle,
   } from "@lucide/svelte";
 
   type Props = { sessionID: string };
@@ -150,11 +153,17 @@
 
   async function switchToRemote(hostID: string) {
     showHostPicker = false;
+    const host = app.hosts.find((h) => h.id === hostID);
+    if (!host) return;
+    if ((host.environment ?? "").toLowerCase() === "production") {
+      const ok = confirm(
+        `⚠️ ${host.name} is tagged PRODUCTION.\n\nConnect anyway?`,
+      );
+      if (!ok) return;
+    }
     if (mode === "local" && status === "running") {
       await LocalShellService.Close(sessionID);
     }
-    const host = app.hosts.find((h) => h.id === hostID);
-    if (!host) return;
     app.selectedHostID = hostID;
     mode = "remote";
 
@@ -211,9 +220,22 @@
   let connectedHost = $derived(
     connectedHostID ? app.hosts.find((h) => h.id === connectedHostID) : null,
   );
+  let connectedEnv = $derived(envBadge(connectedHost?.environment));
 </script>
 
 <div class="relative flex h-full w-full flex-col bg-[var(--color-surface-0)]">
+  {#if connectedEnv.isProd && status === "connected"}
+    <div
+      class="flex items-center justify-center gap-1.5 border-b py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em]"
+      style:background={connectedEnv.bg}
+      style:color={connectedEnv.color}
+      style:border-color={connectedEnv.border}
+    >
+      <AlertTriangle size="10" />
+      production session
+      <AlertTriangle size="10" />
+    </div>
+  {/if}
   <div
     class="flex items-center gap-2 border-b hairline px-3 py-1.5 text-xs surface-1"
   >
@@ -298,6 +320,19 @@
       <span class="ml-2 truncate font-mono text-[10px] text-[var(--color-danger)]"
         title={errorMsg}>{errorMsg}</span
       >
+    {/if}
+
+    {#if app.recordingsEnabled && (status === "running" || status === "connected")}
+      <span
+        class="ml-1 flex items-center gap-1 rounded-md border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-[var(--color-danger)]"
+        title="This session is being recorded"
+      >
+        <Circle
+          size="6"
+          class="fill-[var(--color-danger)] text-[var(--color-danger)] pulse-soft"
+        />
+        REC
+      </span>
     {/if}
   </div>
 

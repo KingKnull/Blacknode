@@ -5,6 +5,9 @@
   import type { ExecResult } from "../../bindings/github.com/blacknode/blacknode/models";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
+  import ConfirmDanger from "./ConfirmDanger.svelte";
+  import { checkCommand, anyProduction } from "./danger";
+  import { envBadge } from "./envColor";
   import {
     Zap,
     Play,
@@ -19,6 +22,15 @@
   let running = $state(false);
   let runID = $state("");
   let results = $state<Record<string, ExecResult>>({});
+
+  type Confirmation = {
+    title: string;
+    body: string;
+    severity: "warn" | "block-without-confirm";
+    requirePhrase?: string;
+    productionHosts: string[];
+  };
+  let pendingConfirm: Confirmation | null = $state(null);
 
   onMount(() => {
     return Events.On("exec:progress", (e: any) => {
@@ -42,8 +54,60 @@
     selected = new Set();
   }
 
+  function selectedHosts() {
+    return [...selected]
+      .map((id) => app.hosts.find((h) => h.id === id))
+      .filter((h): h is NonNullable<typeof h> => !!h);
+  }
+
+  function buildConfirmation(): Confirmation | null {
+    const hosts = selectedHosts();
+    const prodNames = hosts
+      .filter((h) => (h.environment ?? "").toLowerCase() === "production")
+      .map((h) => h.name);
+    const hasProd = anyProduction(hosts.map((h) => h.environment));
+    const danger = checkCommand(command);
+
+    if (danger && danger.level === "block-without-confirm") {
+      return {
+        title: `Dangerous command — ${danger.reason}`,
+        body: `The command matches a known destructive pattern (\`${danger.matched}\`) and will run on ${selected.size} host${selected.size === 1 ? "" : "s"}. Type the phrase below if you really mean this.`,
+        severity: "block-without-confirm",
+        requirePhrase: hasProd ? "destroy production" : "I understand",
+        productionHosts: prodNames,
+      };
+    }
+    if (danger) {
+      return {
+        title: `Risky command — ${danger.reason}`,
+        body: `The command matches \`${danger.matched}\`. Confirm before running on ${selected.size} host${selected.size === 1 ? "" : "s"}.`,
+        severity: "warn",
+        productionHosts: prodNames,
+      };
+    }
+    if (hasProd) {
+      return {
+        title: "Production hosts in scope",
+        body: `${prodNames.length} of the selected hosts are tagged production. Confirm you want to run \`${command}\` against them.`,
+        severity: "warn",
+        productionHosts: prodNames,
+      };
+    }
+    return null;
+  }
+
   async function run() {
     if (!command || selected.size === 0) return;
+    const confirm = buildConfirmation();
+    if (confirm) {
+      pendingConfirm = confirm;
+      return;
+    }
+    await actuallyRun();
+  }
+
+  async function actuallyRun() {
+    pendingConfirm = null;
     running = true;
     runID = crypto.randomUUID();
     results = {};
@@ -114,6 +178,7 @@
   <div class="grid h-full grid-cols-[260px_1fr] overflow-hidden">
     <div class="overflow-y-auto border-r hairline">
       {#each app.hosts as h (h.id)}
+        {@const env = envBadge(h.environment)}
         <label
           class="flex cursor-pointer items-center gap-2.5 border-b hairline px-3 py-2 text-[11px] transition-colors hover:bg-[var(--color-surface-2)]"
         >
@@ -125,7 +190,18 @@
           />
           <Server size="12" class="text-[var(--color-text-3)]" />
           <div class="min-w-0 flex-1">
-            <div class="truncate text-[var(--color-text-1)]">{h.name}</div>
+            <div class="flex items-center gap-1.5 truncate text-[var(--color-text-1)]">
+              <span class="truncate">{h.name}</span>
+              {#if env.label}
+                <span
+                  class="shrink-0 rounded-sm px-1 text-[8px] font-mono font-semibold"
+                  style:color={env.color}
+                  style:background={env.bg}
+                  style:border="1px solid {env.border}"
+                  >{env.label}</span
+                >
+              {/if}
+            </div>
             <div class="truncate text-[10px] text-[var(--color-text-3)]">
               {h.username}@{h.host}
             </div>
@@ -198,4 +274,16 @@
       {/if}
     </div>
   </div>
+
+  {#if pendingConfirm}
+    <ConfirmDanger
+      title={pendingConfirm.title}
+      body={pendingConfirm.body}
+      severity={pendingConfirm.severity}
+      productionHosts={pendingConfirm.productionHosts}
+      requirePhrase={pendingConfirm.requirePhrase}
+      onCancel={() => (pendingConfirm = null)}
+      onConfirm={actuallyRun}
+    />
+  {/if}
 </div>

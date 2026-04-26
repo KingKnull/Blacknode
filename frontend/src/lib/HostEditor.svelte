@@ -26,6 +26,8 @@
   // svelte-ignore state_referenced_locally
   let group = $state(host?.group ?? "");
   // svelte-ignore state_referenced_locally
+  let environment = $state(host?.environment ?? "");
+  // svelte-ignore state_referenced_locally
   let notes = $state(host?.notes ?? "");
   let busy = $state(false);
   let err = $state("");
@@ -48,6 +50,7 @@
           authMethod,
           keyID: authMethod === "key" ? keyID : "",
           group,
+          environment,
           notes,
         } as Host);
       } else {
@@ -59,6 +62,7 @@
           authMethod,
           keyID: authMethod === "key" ? keyID : "",
           group,
+          environment,
           notes,
           tags: [],
         } as unknown as Host);
@@ -171,16 +175,33 @@
           </select>
         </label>
       {/if}
-      <label class="block">
-        <span class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
-          >Group</span
-        >
-        <input
-          class="mt-1 w-full rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 outline-none"
-          bind:value={group}
-          placeholder="web · db · cache"
-        />
-      </label>
+      <div class="grid grid-cols-2 gap-2">
+        <label class="block">
+          <span class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+            >Group</span
+          >
+          <input
+            class="mt-1 w-full rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 outline-none"
+            bind:value={group}
+            placeholder="web · db · cache"
+          />
+        </label>
+        <label class="block">
+          <span class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+            >Environment</span
+          >
+          <select
+            class="mt-1 w-full rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 outline-none"
+            class:!border-red-500={environment === "production"}
+            bind:value={environment}
+          >
+            <option value="">— none —</option>
+            <option value="dev">dev</option>
+            <option value="staging">staging</option>
+            <option value="production">production ⚠</option>
+          </select>
+        </label>
+      </div>
       <label class="block">
         <span class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
           >Notes</span

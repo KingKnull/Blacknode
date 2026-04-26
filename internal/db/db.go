@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS hosts (
     auth_method TEXT NOT NULL,
     key_id TEXT,
     group_name TEXT NOT NULL DEFAULT '',
+    environment TEXT NOT NULL DEFAULT '',
     tags TEXT NOT NULL DEFAULT '[]',
     notes TEXT NOT NULL DEFAULT '',
     created_at INTEGER NOT NULL,
@@ -27,6 +28,10 @@ CREATE TABLE IF NOT EXISTS hosts (
 );
 
 CREATE INDEX IF NOT EXISTS idx_hosts_group ON hosts(group_name);
+CREATE INDEX IF NOT EXISTS idx_hosts_env ON hosts(environment);
+
+-- Lightweight migration for upgrades from earlier schema (no-op if column exists).
+-- modernc.org/sqlite tolerates the duplicate-column error; we silence it.
 
 CREATE TABLE IF NOT EXISTS keys (
     id TEXT PRIMARY KEY,
@@ -64,6 +69,22 @@ CREATE TABLE IF NOT EXISTS settings (
     nonce BLOB,
     updated_at INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS recordings (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL DEFAULT '',
+    host_id TEXT NOT NULL DEFAULT '',
+    host_name TEXT NOT NULL DEFAULT '',
+    is_local INTEGER NOT NULL DEFAULT 0,
+    path TEXT NOT NULL,
+    started_at INTEGER NOT NULL,
+    ended_at INTEGER NOT NULL DEFAULT 0,
+    duration_seconds INTEGER NOT NULL DEFAULT 0,
+    size_bytes INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_recordings_started ON recordings(started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_recordings_host ON recordings(host_id);
 `
 
 type DB struct {
@@ -87,5 +108,33 @@ func Open() (*DB, error) {
 	if _, err := conn.Exec(schema); err != nil {
 		return nil, fmt.Errorf("apply schema: %w", err)
 	}
+	// Idempotent column-add migrations for users upgrading from earlier
+	// builds. SQLite returns an error if the column already exists; we
+	// swallow it.
+	for _, mig := range []string{
+		`ALTER TABLE hosts ADD COLUMN environment TEXT NOT NULL DEFAULT ''`,
+	} {
+		_, _ = conn.Exec(mig)
+	}
+	if _, err := conn.Exec(schemaForwards); err != nil {
+		return nil, fmt.Errorf("apply forwards schema: %w", err)
+	}
 	return &DB{conn}, nil
 }
+
+const schemaForwards = `
+CREATE TABLE IF NOT EXISTS port_forwards (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    host_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    local_addr TEXT NOT NULL DEFAULT '127.0.0.1',
+    local_port INTEGER NOT NULL,
+    remote_addr TEXT NOT NULL DEFAULT '',
+    remote_port INTEGER NOT NULL DEFAULT 0,
+    auto_start INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_forwards_host ON port_forwards(host_id);
+`

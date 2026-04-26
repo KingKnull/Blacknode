@@ -3,6 +3,7 @@
   import type { Host } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { app } from "./state.svelte";
   import HostEditor from "./HostEditor.svelte";
+  import { envBadge } from "./envColor";
   import {
     Search,
     Plus,
@@ -88,12 +89,19 @@
       </div>
       {#each list as h (h.id)}
         {@const Icon = authIcon(h.authMethod)}
+        {@const env = envBadge(h.environment)}
         <div
-          class="group mx-2 my-0.5 flex items-center gap-2 rounded-md border border-transparent px-2 py-1.5 transition-colors {app.selectedHostID ===
+          class="group relative mx-2 my-0.5 flex items-center gap-2 overflow-hidden rounded-md border border-transparent px-2 py-1.5 transition-colors {app.selectedHostID ===
           h.id
             ? 'border-[var(--color-accent)]/30 bg-[var(--color-accent-soft)] text-[var(--color-text-1)]'
             : 'text-[var(--color-text-2)] hover:bg-[var(--color-surface-2)]'}"
         >
+          {#if env.label}
+            <span
+              class="absolute inset-y-0 left-0 w-0.5"
+              style:background={env.color}
+            ></span>
+          {/if}
           <Server
             size="13"
             class={app.selectedHostID === h.id
@@ -106,6 +114,16 @@
           >
             <div class="flex items-center gap-1.5 truncate text-xs">
               <span class="truncate">{h.name}</span>
+              {#if env.label}
+                <span
+                  class="shrink-0 rounded-sm px-1 text-[8px] font-mono font-semibold"
+                  style:color={env.color}
+                  style:background={env.bg}
+                  style:border="1px solid {env.border}"
+                >
+                  {env.label}
+                </span>
+              {/if}
               <Icon size="9" class="shrink-0 text-[var(--color-text-4)]" />
             </div>
             <div class="truncate text-[10px] text-[var(--color-text-3)]">
