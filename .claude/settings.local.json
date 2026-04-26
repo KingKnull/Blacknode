@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go version *)",
+      "Bash(npm --version)",
+      "Bash(wails3 version *)",
+      "Bash(wails3 init *)",
+      "Bash(mv blacknode/* blacknode/.* .)",
+      "Bash(rmdir blacknode *)",
+      "Bash(go mod *)",
+      "Bash(npm install *)",
+      "Bash(go build *)",
+      "Bash(npm run *)",
+      "Bash(wails3 generate *)",
+      "Bash(rm \"C:\\\\Users\\\\Maverick\\\\Desktop\\\\Blacknode\\\\blacknode-test.exe\")",
+      "Bash(npx svelte-check *)",
+      "Bash(npm view *)",
+      "Skill(claude-api)",
+      "Skill(claude-api:*)",
+      "Bash(go test *)",
+      "Bash(git init *)",
+      "Bash(git add *)"
+    ]
+  }
+}

@@ -1,0 +1,34 @@
+version: "2"
+
+run:
+  timeout: 3m
+  tests: true
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gocritic
+    - gosec
+    - misspell
+    - revive
+
+  settings:
+    gosec:
+      excludes:
+        # We use math/rand only in non-cryptographic places (UI IDs, jitter).
+        # Real crypto paths use crypto/rand explicitly.
+        - G404
+    revive:
+      rules:
+        - name: var-naming
+        - name: unused-parameter
+          disabled: true
+    gocritic:
+      disabled-checks:
+        - paramTypeCombine
+        - hugeParam

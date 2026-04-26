@@ -1,0 +1,19 @@
+# Normalize line endings — LF in repo, native checkout on Windows.
+* text=auto eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.exe binary
+*.dll binary
+
+# Lockfiles — keep as-is, no normalization
+package-lock.json -text
+go.sum -text

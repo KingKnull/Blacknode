@@ -1,0 +1,123 @@
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
+@import "tailwindcss";
+@import "@xterm/xterm/css/xterm.css";
+
+@theme {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, "Cascadia Mono",
+    Consolas, monospace;
+
+  /* Surface stack: darkest at the back, lightest in front. */
+  --color-surface-0: #08080b; /* app bg */
+  --color-surface-1: #0d0d12; /* panels */
+  --color-surface-2: #14141a; /* cards */
+  --color-surface-3: #1c1c24; /* inputs / hover */
+  --color-surface-4: #262630; /* borders raised */
+
+  --color-line: #1f1f28;
+  --color-line-strong: #2a2a36;
+
+  --color-text-1: #ededf3;
+  --color-text-2: #a4a4b3;
+  --color-text-3: #6b6b7c;
+  --color-text-4: #4a4a58;
+
+  /* Brand accent — electric cyan, paired with the deep navy surface stack. */
+  --color-accent: #22d3ee;
+  --color-accent-soft: rgba(34, 211, 238, 0.12);
+  --color-accent-strong: rgba(34, 211, 238, 0.38);
+  --color-danger: #ef4444;
+  --color-warn: #f59e0b;
+  --color-info: #3b82f6;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  background: var(--color-surface-0);
+  color: var(--color-text-1);
+}
+
+body {
+  font-family: var(--font-sans);
+  font-feature-settings:
+    "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Global scrollbar — slim, blends with surfaces. */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-line-strong);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #3a3a48;
+  background-clip: content-box;
+  border: 2px solid transparent;
+}
+
+/* xterm.js polish */
+.xterm-viewport::-webkit-scrollbar {
+  width: 8px;
+}
+
+/* Inputs default styling — quieter focus ring than Tailwind's blue. */
+input,
+textarea,
+select,
+button {
+  font-family: inherit;
+}
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 1px solid var(--color-accent);
+  outline-offset: -1px;
+}
+
+/* Reusable utility shells (kept tiny — most styling stays in components). */
+@utility surface-1 {
+  background-color: var(--color-surface-1);
+}
+@utility surface-2 {
+  background-color: var(--color-surface-2);
+}
+@utility surface-3 {
+  background-color: var(--color-surface-3);
+}
+@utility hairline {
+  border-color: var(--color-line);
+}
+@utility hairline-strong {
+  border-color: var(--color-line-strong);
+}
+
+/* Subtle gradient strip we use under the top bar to add depth. */
+@utility gloss {
+  background-image: linear-gradient(
+    180deg,
+    rgba(16, 217, 160, 0.06) 0%,
+    rgba(16, 217, 160, 0) 60%
+  );
+}
+
+/* Soft pulse for live indicators. */
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.pulse-soft {
+  animation: pulse-soft 2s ease-in-out infinite;
+}

@@ -1,0 +1,38 @@
+# Build artifacts
+.task
+bin
+blacknode-test.exe
+blacknode-final.exe
+blacknode-pty.exe
+blacknode-ai.exe
+blacknode-logs.exe
+*.exe
+
+# Frontend
+frontend/dist
+frontend/node_modules
+frontend/.svelte-kit
+
+# Wails
+build/linux/appimage/build
+build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
+build/bin
+
+# Editor / OS
+.vscode
+.idea
+*.swp
+.DS_Store
+Thumbs.db
+
+# Local data — vault DB lives in XDG data dir; in case it ever lands here
+data
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
