@@ -19,8 +19,11 @@ type Host struct {
 	KeyID           string   `json:"keyID,omitempty"`
 	Group           string   `json:"group,omitempty"`
 	Environment     string   `json:"environment,omitempty"` // "dev" | "staging" | "production" | ""
-	Tags            []string `json:"tags"`
-	Notes           string   `json:"notes,omitempty"`
+	// ProxyJump references another saved host (by Name) to use as a bastion.
+	// Empty = direct connect. Cycles are detected at connect time.
+	ProxyJump string   `json:"proxyJump,omitempty"`
+	Tags      []string `json:"tags"`
+	Notes     string   `json:"notes,omitempty"`
 	CreatedAt       int64    `json:"createdAt"`
 	UpdatedAt       int64    `json:"updatedAt"`
 	LastConnectedAt int64    `json:"lastConnectedAt"`
@@ -48,9 +51,9 @@ func (s *Hosts) Create(h Host) (Host, error) {
 
 	tags, _ := json.Marshal(h.Tags)
 	_, err := s.db.Exec(
-		`INSERT INTO hosts (id, name, host, port, username, auth_method, key_id, group_name, environment, tags, notes, created_at, updated_at, last_connected_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
-		h.ID, h.Name, h.Host, h.Port, h.Username, h.AuthMethod, h.KeyID, h.Group, h.Environment, string(tags), h.Notes, h.CreatedAt, h.UpdatedAt,
+		`INSERT INTO hosts (id, name, host, port, username, auth_method, key_id, group_name, environment, proxy_jump, tags, notes, created_at, updated_at, last_connected_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+		h.ID, h.Name, h.Host, h.Port, h.Username, h.AuthMethod, h.KeyID, h.Group, h.Environment, h.ProxyJump, string(tags), h.Notes, h.CreatedAt, h.UpdatedAt,
 	)
 	return h, err
 }
@@ -62,8 +65,8 @@ func (s *Hosts) Update(h Host) error {
 	h.UpdatedAt = time.Now().Unix()
 	tags, _ := json.Marshal(h.Tags)
 	_, err := s.db.Exec(
-		`UPDATE hosts SET name=?, host=?, port=?, username=?, auth_method=?, key_id=?, group_name=?, environment=?, tags=?, notes=?, updated_at=? WHERE id=?`,
-		h.Name, h.Host, h.Port, h.Username, h.AuthMethod, h.KeyID, h.Group, h.Environment, string(tags), h.Notes, h.UpdatedAt, h.ID,
+		`UPDATE hosts SET name=?, host=?, port=?, username=?, auth_method=?, key_id=?, group_name=?, environment=?, proxy_jump=?, tags=?, notes=?, updated_at=? WHERE id=?`,
+		h.Name, h.Host, h.Port, h.Username, h.AuthMethod, h.KeyID, h.Group, h.Environment, h.ProxyJump, string(tags), h.Notes, h.UpdatedAt, h.ID,
 	)
 	return err
 }
@@ -74,12 +77,20 @@ func (s *Hosts) Delete(id string) error {
 }
 
 func (s *Hosts) Get(id string) (Host, error) {
-	row := s.db.QueryRow(`SELECT id, name, host, port, username, auth_method, key_id, group_name, environment, tags, notes, created_at, updated_at, last_connected_at FROM hosts WHERE id = ?`, id)
+	row := s.db.QueryRow(`SELECT id, name, host, port, username, auth_method, key_id, group_name, environment, proxy_jump, tags, notes, created_at, updated_at, last_connected_at FROM hosts WHERE id = ?`, id)
+	return scanHost(row)
+}
+
+// GetByName looks up a host by its (case-sensitive) Name. Used by the
+// dialer to resolve ProxyJump references — saved hosts identify each other
+// by name, not ID.
+func (s *Hosts) GetByName(name string) (Host, error) {
+	row := s.db.QueryRow(`SELECT id, name, host, port, username, auth_method, key_id, group_name, environment, proxy_jump, tags, notes, created_at, updated_at, last_connected_at FROM hosts WHERE name = ?`, name)
 	return scanHost(row)
 }
 
 func (s *Hosts) List() ([]Host, error) {
-	rows, err := s.db.Query(`SELECT id, name, host, port, username, auth_method, key_id, group_name, environment, tags, notes, created_at, updated_at, last_connected_at FROM hosts ORDER BY name COLLATE NOCASE`)
+	rows, err := s.db.Query(`SELECT id, name, host, port, username, auth_method, key_id, group_name, environment, proxy_jump, tags, notes, created_at, updated_at, last_connected_at FROM hosts ORDER BY name COLLATE NOCASE`)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +120,7 @@ func scanHost(r rowScanner) (Host, error) {
 		keyID    sql.NullString
 		tagsJSON string
 	)
-	err := r.Scan(&h.ID, &h.Name, &h.Host, &h.Port, &h.Username, &h.AuthMethod, &keyID, &h.Group, &h.Environment, &tagsJSON, &h.Notes, &h.CreatedAt, &h.UpdatedAt, &h.LastConnectedAt)
+	err := r.Scan(&h.ID, &h.Name, &h.Host, &h.Port, &h.Username, &h.AuthMethod, &keyID, &h.Group, &h.Environment, &h.ProxyJump, &tagsJSON, &h.Notes, &h.CreatedAt, &h.UpdatedAt, &h.LastConnectedAt)
 	if err != nil {
 		return Host{}, err
 	}

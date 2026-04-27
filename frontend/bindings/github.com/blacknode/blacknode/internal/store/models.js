@@ -279,6 +279,15 @@ export class Host {
              */
             this["environment"] = undefined;
         }
+        if (/** @type {any} */(false)) {
+            /**
+             * ProxyJump references another saved host (by Name) to use as a bastion.
+             * Empty = direct connect. Cycles are detected at connect time.
+             * @member
+             * @type {string | undefined}
+             */
+            this["proxyJump"] = undefined;
+        }
         if (!("tags" in $$source)) {
             /**
              * @member
@@ -324,10 +333,10 @@ export class Host {
      * @returns {Host}
      */
     static createFrom($$source = {}) {
-        const $$createField9_0 = $$createType0;
+        const $$createField10_0 = $$createType0;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("tags" in $$parsedSource) {
-            $$parsedSource["tags"] = $$createField9_0($$parsedSource["tags"]);
+            $$parsedSource["tags"] = $$createField10_0($$parsedSource["tags"]);
         }
         return new Host(/** @type {Partial<Host>} */($$parsedSource));
     }

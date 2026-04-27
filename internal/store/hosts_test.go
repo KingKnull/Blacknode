@@ -19,6 +19,7 @@ CREATE TABLE hosts (
     key_id TEXT,
     group_name TEXT NOT NULL DEFAULT '',
     environment TEXT NOT NULL DEFAULT '',
+    proxy_jump TEXT NOT NULL DEFAULT '',
     tags TEXT NOT NULL DEFAULT '[]',
     notes TEXT NOT NULL DEFAULT '',
     created_at INTEGER NOT NULL,

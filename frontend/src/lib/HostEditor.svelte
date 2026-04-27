@@ -28,6 +28,8 @@
   // svelte-ignore state_referenced_locally
   let environment = $state(host?.environment ?? "");
   // svelte-ignore state_referenced_locally
+  let proxyJump = $state(host?.proxyJump ?? "");
+  // svelte-ignore state_referenced_locally
   let notes = $state(host?.notes ?? "");
   let busy = $state(false);
   let err = $state("");

@@ -53,7 +53,7 @@ func main() {
 	recMgr := recorder.NewManager()
 	v := vault.New(conn.DB)
 	dialer := sshconn.New(v, keys, knownHosts)
-	pool := sshconn.NewPool(dialer)
+	pool := sshconn.NewPool(dialer, hosts)
 
 	settingsSvc := NewSettingsService(settings, v)
 	autoLock := NewAutoLockService(v, settingsSvc)

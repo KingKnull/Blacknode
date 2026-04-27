@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS hosts (
     key_id TEXT,
     group_name TEXT NOT NULL DEFAULT '',
     environment TEXT NOT NULL DEFAULT '',
+    proxy_jump TEXT NOT NULL DEFAULT '',
     tags TEXT NOT NULL DEFAULT '[]',
     notes TEXT NOT NULL DEFAULT '',
     created_at INTEGER NOT NULL,
@@ -155,6 +156,7 @@ func Open() (*DB, error) {
 	// where the column hasn't been added yet.
 	for _, mig := range []string{
 		`ALTER TABLE hosts ADD COLUMN environment TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE hosts ADD COLUMN proxy_jump TEXT NOT NULL DEFAULT ''`,
 	} {
 		_, _ = conn.Exec(mig)
 	}

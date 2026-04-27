@@ -3,9 +3,14 @@ package sshconn
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
+	"fmt"
+	"net"
+	"strconv"
 	"sync"
 	"time"
 
+	"github.com/blacknode/blacknode/internal/store"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -17,6 +22,7 @@ import (
 // that would have produced an identical client share the connection.
 type Pool struct {
 	dialer *Dialer
+	hosts  *store.Hosts
 
 	mu      sync.Mutex
 	entries map[string]*pooled
@@ -30,9 +36,10 @@ type pooled struct {
 	closeOnce sync.Once
 }
 
-func NewPool(d *Dialer) *Pool {
+func NewPool(d *Dialer, hosts *store.Hosts) *Pool {
 	p := &Pool{
 		dialer:  d,
+		hosts:   hosts,
 		entries: make(map[string]*pooled),
 		idleTTL: 5 * time.Minute,
 	}
@@ -62,6 +69,9 @@ func keyFor(t Target) string {
 // If the client has dropped (closed in a goroutine, network blip), the next
 // caller dials a fresh one transparently.
 func (p *Pool) Get(t Target) (*ssh.Client, func(), error) {
+	if t.ProxyJump != "" {
+		return p.getThroughProxy(t, nil)
+	}
 	key := keyFor(t)
 
 	p.mu.Lock()
@@ -138,6 +148,69 @@ func (p *Pool) reaper() {
 			e.closeOnce.Do(func() { _ = e.client.Close() })
 		}
 	}
+}
+
+// getThroughProxy dials `t` via t.ProxyJump (a saved-host name). Recurses
+// when the proxy itself has a ProxyJump. The `chain` set carries names
+// already in flight to detect cycles — without it, a host pointing at
+// itself (or two hosts pointing at each other) would infinite-loop.
+//
+// Proxy clients are pooled normally (their cache key includes their own
+// proxy chain via keyFor → ProxyJump in the hash). The *target* client of
+// a proxied dial is intentionally NOT pooled — including the proxy chain
+// in cache identity is brittle, and target connections per-tab/per-request
+// is the conservative default. Optimize later if it bites.
+func (p *Pool) getThroughProxy(t Target, chain map[string]bool) (*ssh.Client, func(), error) {
+	if p.hosts == nil {
+		return nil, func() {}, errors.New("pool not configured with hosts store; ProxyJump unavailable")
+	}
+	if chain == nil {
+		chain = make(map[string]bool)
+	}
+	if chain[t.ProxyJump] {
+		return nil, func() {}, fmt.Errorf("ProxyJump cycle detected at %q", t.ProxyJump)
+	}
+	chain[t.ProxyJump] = true
+
+	proxyHost, err := p.hosts.GetByName(t.ProxyJump)
+	if err != nil {
+		return nil, func() {}, fmt.Errorf("proxy host %q not found: %w", t.ProxyJump, err)
+	}
+	proxyT := FromHost(proxyHost, "")
+
+	// Recurse if the proxy itself has a proxy. Direct proxies use the
+	// regular pooled path so they share connections across callers.
+	var proxyClient *ssh.Client
+	var releaseProxy func()
+	if proxyT.ProxyJump != "" {
+		proxyClient, releaseProxy, err = p.getThroughProxy(proxyT, chain)
+	} else {
+		proxyClient, releaseProxy, err = p.Get(proxyT)
+	}
+	if err != nil {
+		return nil, func() {}, fmt.Errorf("dial proxy: %w", err)
+	}
+
+	// Tunnel a TCP conn from the proxy to the target host:port and
+	// perform the SSH handshake on top.
+	addr := net.JoinHostPort(t.Host, strconv.Itoa(t.Port))
+	raw, err := proxyClient.Dial("tcp", addr)
+	if err != nil {
+		releaseProxy()
+		return nil, func() {}, fmt.Errorf("dial through proxy: %w", err)
+	}
+	client, err := p.dialer.HandshakeOver(raw, t)
+	if err != nil {
+		_ = raw.Close()
+		releaseProxy()
+		return nil, func() {}, err
+	}
+
+	release := func() {
+		_ = client.Close()
+		releaseProxy()
+	}
+	return client, release, nil
 }
 
 // Close drops every pooled client; call on app shutdown.

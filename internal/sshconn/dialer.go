@@ -35,6 +35,10 @@ type Target struct {
 
 	Password string // password auth
 	KeyID    string // key auth → vault lookup
+
+	// ProxyJump references another saved host (by Name) to use as a bastion.
+	// Empty = direct connect. Pool.Get resolves the chain recursively.
+	ProxyJump string
 }
 
 type Dialer struct {
@@ -125,5 +129,31 @@ func FromHost(h store.Host, password string) Target {
 		AuthMethod: AuthMethod(h.AuthMethod),
 		Password:   password,
 		KeyID:      h.KeyID,
+		ProxyJump:  h.ProxyJump,
 	}
+}
+
+// HandshakeOver performs only the SSH client handshake on top of an
+// already-dialed conn (e.g. one tunneled through a bastion via
+// ssh.Client.Dial). Used by Pool.Get when t.ProxyJump is set.
+func (d *Dialer) HandshakeOver(raw net.Conn, t Target) (*ssh.Client, error) {
+	if t.Host == "" || t.User == "" {
+		return nil, errors.New("host and user required")
+	}
+	auth, err := d.authFor(t)
+	if err != nil {
+		return nil, err
+	}
+	cfg := &ssh.ClientConfig{
+		User:            t.User,
+		Auth:            auth,
+		HostKeyCallback: d.KnownHosts.Callback(),
+		Timeout:         15 * time.Second,
+	}
+	addr := net.JoinHostPort(t.Host, strconv.Itoa(t.Port))
+	sshConn, chans, reqs, err := ssh.NewClientConn(raw, addr, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("ssh handshake over tunnel: %w", err)
+	}
+	return ssh.NewClient(sshConn, chans, reqs), nil
 }
