@@ -20,6 +20,7 @@
     AlertTriangle,
     Circle,
     Radio,
+    Activity,
   } from "@lucide/svelte";
 
   type Props = { sessionID: string };
@@ -42,6 +43,10 @@
   let dataOff: (() => void) | undefined;
   let exitOff: (() => void) | undefined;
   let resizeObs: ResizeObserver | undefined;
+  // Latency state — only populated for connected SSH sessions, polled every
+  // 5s. Null means "not measured yet" or "ping failed".
+  let latencyMs = $state<number | null>(null);
+  let latencyTimer: ReturnType<typeof setInterval> | undefined;
 
   // When the AI drawer asks us to insert a command, write it to the active
   // session (local PTY or SSH stdin). Only the matching session reacts.
@@ -170,6 +175,7 @@
     dataOff?.();
     exitOff?.();
     resizeObs?.disconnect();
+    stopLatencyPolling();
     app.unregisterBroadcastSink(sessionID);
     term?.dispose();
     if (mode === "local" && status === "running") void LocalShellService.Close(sessionID);
@@ -257,9 +263,41 @@
       status = "connected";
       connectedHostID = hostID;
       term?.focus();
+      startLatencyPolling();
     } catch (e: any) {
       status = "error";
       errorMsg = String(e?.message ?? e);
+    }
+  }
+
+  // Polls the SSH connection's RTT every 5s. Stops when the session leaves
+  // the "connected" state.
+  function startLatencyPolling() {
+    stopLatencyPolling();
+    void measureLatency();
+    latencyTimer = setInterval(() => {
+      if (status !== "connected") {
+        stopLatencyPolling();
+        return;
+      }
+      void measureLatency();
+    }, 5_000);
+  }
+
+  function stopLatencyPolling() {
+    if (latencyTimer) {
+      clearInterval(latencyTimer);
+      latencyTimer = undefined;
+    }
+    latencyMs = null;
+  }
+
+  async function measureLatency() {
+    try {
+      const ms = (await SSHService.Latency(sessionID)) as number;
+      latencyMs = ms;
+    } catch {
+      latencyMs = null;
     }
   }
 
@@ -269,6 +307,7 @@
     } finally {
       connectedHostID = null;
       status = "idle";
+      stopLatencyPolling();
       await openLocal();
     }
   }
@@ -359,6 +398,21 @@
         <span
           class="ml-1 h-1.5 w-1.5 rounded-full bg-[var(--color-accent)] pulse-soft"
         ></span>
+        {#if latencyMs !== null}
+          {@const tone =
+            latencyMs < 50
+              ? "text-[var(--color-accent)]"
+              : latencyMs < 200
+                ? "text-[var(--color-warn)]"
+                : "text-[var(--color-danger)]"}
+          <span
+            class="ml-1 inline-flex items-center gap-0.5 rounded border hairline px-1.5 py-0.5 font-mono text-[10px] {tone}"
+            title="Round-trip time to the SSH server"
+          >
+            <Activity size="9" />
+            {latencyMs}ms
+          </span>
+        {/if}
       {:else if status === "connecting"}
         <Loader2 size="12" class="animate-spin text-[var(--color-text-3)]" />
         <span class="text-[var(--color-text-3)]">connecting…</span>

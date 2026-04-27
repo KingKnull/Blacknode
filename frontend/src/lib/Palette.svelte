@@ -23,6 +23,8 @@
     Boxes,
     Radar,
     Cpu,
+    Globe2,
+    Database,
     Bookmark,
     History as HistoryIcon,
   } from "@lucide/svelte";
@@ -58,6 +60,8 @@
     { id: "containers", label: "Go to Containers", icon: Boxes },
     { id: "network", label: "Go to Network diagnostics", icon: Radar },
     { id: "processes", label: "Go to Processes", icon: Cpu },
+    { id: "http", label: "Go to HTTP", icon: Globe2 },
+    { id: "database", label: "Go to Database", icon: Database },
     { id: "snippets", label: "Go to Snippets", icon: Bookmark },
     { id: "history", label: "Go to History", icon: HistoryIcon },
     { id: "keys", label: "Go to Keys", icon: KeyRound },

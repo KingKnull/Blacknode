@@ -37,6 +37,17 @@
   let activeStreamID = $state<string | null>(null);
   let off: (() => void) | undefined;
 
+  // Watch the global aiPrefill channel — when ExecPanel (or any other panel)
+  // wants to hand us an error/output to explain, it sets app.aiPrefill and
+  // opens the drawer; we apply it once and clear.
+  $effect(() => {
+    const p = app.aiPrefill;
+    if (!p) return;
+    mode = p.mode;
+    prompt = p.prompt;
+    app.aiPrefill = null;
+  });
+
   onMount(() => {
     off = Events.On("ai:chunk", (e: any) => {
       const p = e?.data;

@@ -15,6 +15,8 @@
   import ContainersPanel from "./ContainersPanel.svelte";
   import NetworkPanel from "./NetworkPanel.svelte";
   import ProcessesPanel from "./ProcessesPanel.svelte";
+  import HTTPPanel from "./HTTPPanel.svelte";
+  import DBPanel from "./DBPanel.svelte";
   import SnippetsPanel from "./SnippetsPanel.svelte";
   import HistoryPanel from "./HistoryPanel.svelte";
   import SettingsPanel from "./SettingsPanel.svelte";
@@ -43,6 +45,8 @@
     Boxes,
     Radar,
     Cpu,
+    Globe2,
+    Database,
     Bookmark,
     History as HistoryIcon,
     Radio,
@@ -201,6 +205,8 @@
     { id: "containers", label: "Containers", Icon: Boxes },
     { id: "network", label: "Network", Icon: Radar },
     { id: "processes", label: "Processes", Icon: Cpu },
+    { id: "http", label: "HTTP", Icon: Globe2 },
+    { id: "database", label: "Database", Icon: Database },
     { id: "snippets", label: "Snippets", Icon: Bookmark },
     { id: "history", label: "History", Icon: HistoryIcon },
     { id: "keys", label: "Keys", Icon: KeyRound },
@@ -405,6 +411,10 @@
           <NetworkPanel />
         {:else if app.view === "processes"}
           <ProcessesPanel />
+        {:else if app.view === "http"}
+          <HTTPPanel />
+        {:else if app.view === "database"}
+          <DBPanel />
         {:else if app.view === "snippets"}
           <SnippetsPanel />
         {:else if app.view === "history"}

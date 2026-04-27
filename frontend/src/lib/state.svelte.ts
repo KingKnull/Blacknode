@@ -24,6 +24,8 @@ type View =
   | "containers"
   | "network"
   | "processes"
+  | "http"
+  | "database"
   | "snippets"
   | "history"
   | "keys"
@@ -47,6 +49,16 @@ class AppState {
   paletteOpen = $state(false);
   aiOpen = $state(false);
   recordingsEnabled = $state(false);
+
+  // Cross-component channel: any panel can prefill the AI drawer with a mode
+  // and a body, then open it. AIDrawer watches this and applies it.
+  aiPrefill = $state<
+    { id: string; mode: "translate" | "explain"; prompt: string } | null
+  >(null);
+  prefillAI(mode: "translate" | "explain", prompt: string) {
+    this.aiPrefill = { id: crypto.randomUUID(), mode, prompt };
+    this.aiOpen = true;
+  }
 
   // Multi-cursor broadcast: when `broadcastEnabled` is true, every keystroke
   // typed in any session that's a member of `broadcastSet` is also written

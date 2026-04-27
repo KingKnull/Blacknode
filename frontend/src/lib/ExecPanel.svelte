@@ -15,6 +15,7 @@
     Check,
     AlertTriangle,
     Server,
+    Sparkles,
   } from "@lucide/svelte";
 
   let command = $state("uname -a");
@@ -241,6 +242,22 @@
                 <span class="ml-auto font-mono text-[var(--color-text-4)]"
                   >{item.r.durationMs}ms</span
                 >
+                {#if (item.r.exitCode !== 0 || item.r.error) && app.settings.hasAnthropicKey}
+                  {@const errBody = item.r.error
+                    ? item.r.error
+                    : item.r.stderr || item.r.stdout || ""}
+                  <button
+                    class="flex items-center gap-1 rounded border hairline-strong px-1.5 py-0.5 text-[10px] text-[var(--color-text-2)] hover:bg-[var(--color-accent-soft)] hover:text-[var(--color-accent)]"
+                    title="Hand this output to the AI assistant for an explanation"
+                    onclick={() =>
+                      app.prefillAI(
+                        "explain",
+                        `Command: ${command}\nHost: ${item.host?.name ?? ""}\nExit: ${item.r.exitCode}\n\n${errBody}`,
+                      )}
+                  >
+                    <Sparkles size="9" /> explain
+                  </button>
+                {/if}
               {:else if running}
                 <span class="flex items-center gap-1 text-[var(--color-text-3)]">
                   <Loader2 size="11" class="animate-spin" /> running…

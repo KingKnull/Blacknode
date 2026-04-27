@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
 
 	"github.com/blacknode/blacknode/internal/recorder"
 	"github.com/blacknode/blacknode/internal/sshconn"
@@ -270,6 +271,25 @@ func (s *SSHService) Resize(sessionID string, cols, rows int) error {
 func (s *SSHService) Disconnect(sessionID string) error {
 	s.cleanup(sessionID, "disconnected by user")
 	return nil
+}
+
+// Latency measures one round-trip via the SSH `keepalive@blacknode` request
+// and returns it in milliseconds. The remote will reject the request type
+// (we don't ship a server-side handler), but the rejection is itself a
+// round trip — that's exactly what we want to time.
+func (s *SSHService) Latency(sessionID string) (int, error) {
+	s.mu.Lock()
+	state, ok := s.sessions[sessionID]
+	s.mu.Unlock()
+	if !ok {
+		return 0, fmt.Errorf("session %s not found", sessionID)
+	}
+	start := time.Now()
+	_, _, err := state.client.SendRequest("keepalive@blacknode", true, nil)
+	if err != nil {
+		return 0, err
+	}
+	return int(time.Since(start).Milliseconds()), nil
 }
 
 func (s *SSHService) cleanup(sessionID, reason string) {

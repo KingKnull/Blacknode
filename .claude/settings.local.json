@@ -30,7 +30,8 @@
       "Bash(go run *)",
       "Bash(rm -f blacknode.exe wails_windows_amd64.syso)",
       "Bash(/c/Users/Maverick/go/bin/task.exe windows:build)",
-      "Bash(grep -n \"Pane$\\\\|<Pane\" 'C:\\\\Users\\\\Maverick\\\\Desktop\\\\Blacknode\\\\frontend\\\\src\\\\lib\\\\Workspace.svelte')"
+      "Bash(grep -n \"Pane$\\\\|<Pane\" 'C:\\\\Users\\\\Maverick\\\\Desktop\\\\Blacknode\\\\frontend\\\\src\\\\lib\\\\Workspace.svelte')",
+      "Bash(grep -n \"{:else if !err && !busy}\\\\|Type a query and hit\\\\|{/if}\\\\s*$\\\\|^</div>\" 'C:\\\\Users\\\\Maverick\\\\Desktop\\\\Blacknode\\\\frontend\\\\src\\\\lib\\\\DBPanel.svelte')"
     ]
   }
 }

@@ -115,6 +115,16 @@ CREATE TABLE IF NOT EXISTS log_queries (
     use_regex INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS db_connections (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'postgres',
+    host_id TEXT NOT NULL,
+    dsn_cipher BLOB NOT NULL,
+    dsn_nonce BLOB NOT NULL,
+    created_at INTEGER NOT NULL
+);
 `
 
 type DB struct {

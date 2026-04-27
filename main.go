@@ -49,6 +49,7 @@ func main() {
 	snippets := store.NewSnippets(conn.DB)
 	history := store.NewHistory(conn.DB)
 	logQueries := store.NewLogQueries(conn.DB)
+	dbConnections := store.NewDBConnections(conn.DB)
 	recMgr := recorder.NewManager()
 	v := vault.New(conn.DB)
 	dialer := sshconn.New(v, keys, knownHosts)
@@ -83,6 +84,8 @@ func main() {
 			application.NewService(NewHistoryService(history)),
 			application.NewService(NewNetworkService(pool, hosts)),
 			application.NewService(NewProcessService(pool, hosts)),
+			application.NewService(NewHTTPService(pool, hosts)),
+			application.NewService(NewDBService(pool, hosts, dbConnections, v)),
 			application.NewService(notifySvc),
 		},
 		Assets: application.AssetOptions{

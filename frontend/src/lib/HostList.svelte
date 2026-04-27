@@ -3,6 +3,7 @@
   import type { Host } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { app } from "./state.svelte";
   import HostEditor from "./HostEditor.svelte";
+  import SSHConfigImport from "./SSHConfigImport.svelte";
   import { envBadge } from "./envColor";
   import {
     Search,
@@ -12,10 +13,12 @@
     Trash2,
     KeyRound,
     Lock,
+    FileText,
   } from "@lucide/svelte";
 
   let editing: Host | null = $state(null);
   let creating = $state(false);
+  let importing = $state(false);
   let filter = $state("");
 
   let visible = $derived(
@@ -60,6 +63,13 @@
     >
     <button
       class="ml-auto flex h-6 w-6 items-center justify-center rounded-md text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-accent)]"
+      onclick={() => (importing = true)}
+      title="Import from ~/.ssh/config"
+    >
+      <FileText size="12" />
+    </button>
+    <button
+      class="flex h-6 w-6 items-center justify-center rounded-md text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-accent)]"
       onclick={() => (creating = true)}
       title="New host"
     >
@@ -175,5 +185,20 @@
     host={editing}
     onclose={() => (editing = null)}
     onsaved={() => (editing = null)}
+  />
+{/if}
+{#if importing}
+  <SSHConfigImport
+    onclose={() => (importing = false)}
+    onimported={async (n) => {
+      importing = false;
+      await app.refreshHosts();
+      if (n > 0) {
+        // Tiny success cue — leveraging the existing toast event channel.
+        // Nothing fires on the backend for client-only events, so we use
+        // a quick browser confirm-less acknowledgement.
+        console.log(`Imported ${n} host${n === 1 ? "" : "s"}`);
+      }
+    }}
   />
 {/if}
