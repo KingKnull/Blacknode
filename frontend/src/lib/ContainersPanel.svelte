@@ -375,7 +375,7 @@
           <X size="14" />
         </button>
       </div>
-      <div class="flex-1 overflow-auto bg-black/40 p-3">
+      <div class="flex-1 overflow-auto bg-[var(--color-code-bg)] p-3">
         {#if logs.loading}
           <div
             class="flex h-32 items-center justify-center gap-2 text-xs text-[var(--color-text-3)]"

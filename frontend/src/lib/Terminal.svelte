@@ -57,6 +57,60 @@
     app.pendingTerminalInsert = null;
   });
 
+  // Pick the xterm palette to match the app theme. We don't hot-swap — if
+  // the user toggles theme, existing sessions keep the theme they spawned
+  // with; new sessions pick up the new theme.
+  function termTheme() {
+    if (app.settings.theme === "light") {
+      return {
+        background: "#ffffff",
+        foreground: "#0a0e18",
+        cursor: "#0891b2",
+        cursorAccent: "#ffffff",
+        selectionBackground: "rgba(8, 145, 178, 0.20)",
+        black: "#1f2533",
+        brightBlack: "#525866",
+        red: "#c53030",
+        brightRed: "#9b1c1c",
+        green: "#16a34a",
+        brightGreen: "#15803d",
+        yellow: "#b25800",
+        brightYellow: "#92400e",
+        blue: "#1d4ed8",
+        brightBlue: "#1e3a8a",
+        magenta: "#7e22ce",
+        brightMagenta: "#581c87",
+        cyan: "#0891b2",
+        brightCyan: "#0e7490",
+        white: "#7a8092",
+        brightWhite: "#0a0e18",
+      };
+    }
+    return {
+      background: "#08080b",
+      foreground: "#ededf3",
+      cursor: "#22d3ee",
+      cursorAccent: "#08080b",
+      selectionBackground: "rgba(34, 211, 238, 0.25)",
+      black: "#08080b",
+      brightBlack: "#4a4a58",
+      red: "#ef4444",
+      brightRed: "#fca5a5",
+      green: "#10b981",
+      brightGreen: "#6ee7b7",
+      yellow: "#f59e0b",
+      brightYellow: "#fcd34d",
+      blue: "#3b82f6",
+      brightBlue: "#93c5fd",
+      magenta: "#a855f7",
+      brightMagenta: "#d8b4fe",
+      cyan: "#22d3ee",
+      brightCyan: "#67e8f9",
+      white: "#a4a4b3",
+      brightWhite: "#ededf3",
+    };
+  }
+
   onMount(() => {
     term = new Terminal({
       fontFamily: '"JetBrains Mono Variable", "Cascadia Mono", Menlo, Consolas, monospace',
@@ -67,29 +121,7 @@
       cursorStyle: "bar",
       allowProposedApi: true,
       scrollback: 5000,
-      theme: {
-        background: "#08080b",
-        foreground: "#ededf3",
-        cursor: "#22d3ee",
-        cursorAccent: "#08080b",
-        selectionBackground: "rgba(34, 211, 238, 0.25)",
-        black: "#08080b",
-        brightBlack: "#4a4a58",
-        red: "#ef4444",
-        brightRed: "#fca5a5",
-        green: "#10b981",
-        brightGreen: "#6ee7b7",
-        yellow: "#f59e0b",
-        brightYellow: "#fcd34d",
-        blue: "#3b82f6",
-        brightBlue: "#93c5fd",
-        magenta: "#a855f7",
-        brightMagenta: "#d8b4fe",
-        cyan: "#22d3ee",
-        brightCyan: "#67e8f9",
-        white: "#a4a4b3",
-        brightWhite: "#ededf3",
-      },
+      theme: termTheme(),
     });
     fit = new FitAddon();
     term.loadAddon(fit);

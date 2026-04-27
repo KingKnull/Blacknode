@@ -252,7 +252,7 @@
             {#if item.r}
               {#if item.r.stdout}
                 <pre
-                  class="overflow-x-auto bg-black/40 px-4 py-2 font-mono text-[11px] text-[var(--color-text-1)]">{item.r.stdout}</pre>
+                  class="overflow-x-auto bg-[var(--color-code-bg)] px-4 py-2 font-mono text-[11px] text-[var(--color-text-1)]">{item.r.stdout}</pre>
               {/if}
               {#if item.r.stderr}
                 <pre

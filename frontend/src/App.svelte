@@ -7,6 +7,13 @@
   onMount(() => {
     void app.refreshVault();
   });
+
+  // Apply theme to <html data-theme="..."> whenever the saved theme
+  // setting changes. Drives every CSS-variable-based token across the app.
+  $effect(() => {
+    const theme = app.settings.theme === "light" ? "light" : "dark";
+    document.documentElement.dataset.theme = theme;
+  });
 </script>
 
 <VaultGate>

@@ -8,7 +8,8 @@
   --font-mono: "JetBrains Mono Variable", ui-monospace, "Cascadia Mono",
     Consolas, monospace;
 
-  /* Surface stack: darkest at the back, lightest in front. */
+  /* Default = dark. Light overrides live in [data-theme="light"] below.
+     Surface stack: lower index = further back. */
   --color-surface-0: #08080b; /* app bg */
   --color-surface-1: #0d0d12; /* panels */
   --color-surface-2: #14141a; /* cards */
@@ -30,6 +31,41 @@
   --color-danger: #ef4444;
   --color-warn: #f59e0b;
   --color-info: #3b82f6;
+
+  /* Solid color used in the few places we still need a literal "raised
+     surface on top of dark" — terminal background, code block backdrops.
+     The dark theme uses near-black, the light theme uses a soft slate. */
+  --color-code-bg: #08080b;
+}
+
+/* ----- Light theme ------------------------------------------------------- */
+/* Applied when document.documentElement.dataset.theme === "light".
+   Same tokens, light palette. We deliberately do NOT just invert — light
+   UIs need warmer mid-greys to avoid harsh banding, and the accent shifts
+   one step darker for contrast against pale surfaces. */
+[data-theme="light"] {
+  --color-surface-0: #f7f8fa;
+  --color-surface-1: #ffffff;
+  --color-surface-2: #f3f4f7;
+  --color-surface-3: #eaecf1;
+  --color-surface-4: #dde0e7;
+
+  --color-line: #e6e8ed;
+  --color-line-strong: #d2d6df;
+
+  --color-text-1: #0a0e18;
+  --color-text-2: #4d5260;
+  --color-text-3: #7a8092;
+  --color-text-4: #aab0bd;
+
+  --color-accent: #0891b2;
+  --color-accent-soft: rgba(8, 145, 178, 0.10);
+  --color-accent-strong: rgba(8, 145, 178, 0.28);
+  --color-danger: #c53030;
+  --color-warn: #b25800;
+  --color-info: #1d4ed8;
+
+  --color-code-bg: #f0f1f4;
 }
 
 html,

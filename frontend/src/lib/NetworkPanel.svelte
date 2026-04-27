@@ -319,7 +319,7 @@
               >raw output</summary
             >
             <pre
-              class="overflow-x-auto bg-black/30 px-4 py-2 font-mono text-[11px] text-[var(--color-text-2)]">{pingResult.rawOutput}</pre>
+              class="overflow-x-auto bg-[var(--color-code-bg)] px-4 py-2 font-mono text-[11px] text-[var(--color-text-2)]">{pingResult.rawOutput}</pre>
           </details>
         </div>
       {/if}
@@ -361,7 +361,7 @@
               >raw output</summary
             >
             <pre
-              class="overflow-x-auto bg-black/30 px-4 py-2 font-mono text-[11px] text-[var(--color-text-2)]">{dnsResult.rawOutput}</pre>
+              class="overflow-x-auto bg-[var(--color-code-bg)] px-4 py-2 font-mono text-[11px] text-[var(--color-text-2)]">{dnsResult.rawOutput}</pre>
           </details>
         </div>
       {/if}

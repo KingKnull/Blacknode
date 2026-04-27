@@ -19,6 +19,7 @@
     Loader2,
     Bell,
     Send,
+    Palette,
   } from "@lucide/svelte";
 
   let apiKeyInput = $state("");
@@ -29,6 +30,7 @@
   let savingLock = $state(false);
   let savingShell = $state(false);
   let savingMetrics = $state(false);
+  let savingTheme = $state(false);
 
   let autoLockMinutes = $state(15);
   let defaultShellPath = $state("");
@@ -145,6 +147,20 @@
       await app.refreshSettings();
     } finally {
       savingMetrics = false;
+    }
+  }
+
+  async function setTheme(t: "dark" | "light") {
+    if (t === app.settings.theme) return;
+    savingTheme = true;
+    try {
+      await SettingsService.SetTheme(t);
+      // Optimistic update so the App.svelte $effect picks it up immediately;
+      // refreshSettings round-trips and confirms.
+      app.settings = { ...app.settings, theme: t };
+      await app.refreshSettings();
+    } finally {
+      savingTheme = false;
     }
   }
 </script>
@@ -283,6 +299,43 @@
             </button>
           </div>
         </label>
+      </section>
+
+      <!-- Appearance -->
+      <section class="rounded-lg border hairline surface-2 p-5">
+        <div class="mb-4 flex items-center gap-2">
+          <Palette size="14" class="text-[var(--color-accent)]" />
+          <h3 class="text-sm font-semibold">Appearance</h3>
+        </div>
+        <p class="text-xs text-[var(--color-text-3)]">
+          Switches every panel between the dark navy / cyan brand palette and a
+          light slate variant. Active terminals and code editors keep their
+          current theme until reopened.
+        </p>
+        <div class="mt-4 flex items-center gap-2">
+          <button
+            class="flex flex-1 items-center justify-center gap-2 rounded-md border px-4 py-3 text-xs transition-colors {app
+              .settings.theme === 'dark'
+              ? 'border-[var(--color-accent)]/40 bg-[var(--color-accent-soft)] text-[var(--color-text-1)]'
+              : 'hairline text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)]'}"
+            disabled={savingTheme}
+            onclick={() => setTheme("dark")}
+          >
+            <div class="h-3 w-6 rounded border hairline-strong" style="background:#08080b"></div>
+            Dark
+          </button>
+          <button
+            class="flex flex-1 items-center justify-center gap-2 rounded-md border px-4 py-3 text-xs transition-colors {app
+              .settings.theme === 'light'
+              ? 'border-[var(--color-accent)]/40 bg-[var(--color-accent-soft)] text-[var(--color-text-1)]'
+              : 'hairline text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)]'}"
+            disabled={savingTheme}
+            onclick={() => setTheme("light")}
+          >
+            <div class="h-3 w-6 rounded border hairline-strong" style="background:#f7f8fa"></div>
+            Light
+          </button>
+        </div>
       </section>
 
       <!-- Notifications -->

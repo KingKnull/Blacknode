@@ -134,7 +134,6 @@
 
     const exts: Extension[] = [
       basicSetup,
-      oneDark,
       keymap.of([
         {
           key: "Mod-s",
@@ -158,6 +157,10 @@
         },
       }),
     ];
+    // CodeMirror's default styling is light. Only push oneDark when the app
+    // is in dark mode. Active editors keep the theme they spawned with —
+    // toggling settings.theme requires reopening the file to switch.
+    if (app.settings.theme !== "light") exts.push(oneDark);
     if (language) exts.push(language);
 
     view = new EditorView({

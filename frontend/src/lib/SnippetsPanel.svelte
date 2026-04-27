@@ -226,7 +226,7 @@
               </p>
             {/if}
             <pre
-              class="mt-2 overflow-x-auto rounded bg-black/30 px-3 py-2 font-mono text-[11px] text-[var(--color-text-2)]">{preview(s.body)}</pre>
+              class="mt-2 overflow-x-auto rounded bg-[var(--color-code-bg)] px-3 py-2 font-mono text-[11px] text-[var(--color-text-2)]">{preview(s.body)}</pre>
           </div>
         {/each}
       </div>

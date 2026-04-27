@@ -497,7 +497,7 @@
           ×
         </button>
       </div>
-      <div class="flex-1 overflow-auto bg-black/40 p-3">
+      <div class="flex-1 overflow-auto bg-[var(--color-code-bg)] p-3">
         <pre
           class="overflow-x-auto whitespace-pre-wrap font-mono text-[11px] text-[var(--color-text-1)]">{serviceLog.body || "(no output)"}</pre>
       </div>

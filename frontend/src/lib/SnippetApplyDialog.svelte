@@ -124,7 +124,7 @@
           Preview
         </div>
         <pre
-          class="overflow-x-auto rounded-md border hairline bg-black/30 px-3 py-2 font-mono text-[12px] text-[var(--color-text-1)]">{preview}</pre>
+          class="overflow-x-auto rounded-md border hairline bg-[var(--color-code-bg)] px-3 py-2 font-mono text-[12px] text-[var(--color-text-1)]">{preview}</pre>
       </div>
     </div>
 

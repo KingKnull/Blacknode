@@ -229,7 +229,7 @@
               </div>
               {#if m.kind === "translate"}
                 <pre
-                  class="mt-1 overflow-x-auto rounded bg-black/40 px-2 py-1.5 font-mono text-[11px] text-[var(--color-text-1)]">{m.text}</pre>
+                  class="mt-1 overflow-x-auto rounded bg-[var(--color-code-bg)] px-2 py-1.5 font-mono text-[11px] text-[var(--color-text-1)]">{m.text}</pre>
                 {#if m.text}
                   <div class="mt-2 flex gap-1">
                     <button
