@@ -22,8 +22,15 @@ type HostMetrics struct {
 	MemPercent  float64 `json:"memPercent"`
 	DiskPercent float64 `json:"diskPercent"`
 	LoadAvg1    float64 `json:"loadAvg1"`
-	Timestamp   int64   `json:"timestamp"`
-	Error       string  `json:"error,omitempty"`
+	// Network throughput averaged over the interval since the previous tick.
+	// Aggregated across all non-loopback interfaces. First sample after Start
+	// has rates of zero (no prior to compare against).
+	RxBytesPerSec float64 `json:"rxBytesPerSec"`
+	TxBytesPerSec float64 `json:"txBytesPerSec"`
+	RxBytesTotal  int64   `json:"rxBytesTotal"`
+	TxBytesTotal  int64   `json:"txBytesTotal"`
+	Timestamp     int64   `json:"timestamp"`
+	Error         string  `json:"error,omitempty"`
 }
 
 // metricsCommand is a single shot script executed via SSH that prints four
@@ -52,7 +59,9 @@ END {
   print "LOAD1=" la[1]
 }
 ' /dev/null
-df -P / | awk 'NR==2 { sub("%","",$5); print "DISK_PCT=" $5 }'`
+df -P / | awk 'NR==2 { sub("%","",$5); print "DISK_PCT=" $5 }'
+awk '/:/ && $1 !~ /^lo:/ { gsub(":", "", $1); rx += $2; tx += $10 }
+     END { print "NET_RX=" rx; print "NET_TX=" tx }' /proc/net/dev`
 
 type MetricsService struct {
 	pool   *sshconn.Pool
@@ -62,6 +71,14 @@ type MetricsService struct {
 	mu      sync.Mutex
 	cancels map[string]context.CancelFunc
 	prevCPU map[string]struct{ total, idle float64 }
+	// prevNet stores the (rx, tx, wall-clock-time) of the previous sample so
+	// the next collect can compute bytes/sec. Cleared on Stop.
+	prevNet map[string]netSample
+}
+
+type netSample struct {
+	rx, tx int64
+	at     time.Time
 }
 
 func NewMetricsService(pool *sshconn.Pool, h *store.Hosts, n *NotificationService) *MetricsService {
@@ -71,6 +88,7 @@ func NewMetricsService(pool *sshconn.Pool, h *store.Hosts, n *NotificationServic
 		notify:  n,
 		cancels: make(map[string]context.CancelFunc),
 		prevCPU: make(map[string]struct{ total, idle float64 }),
+		prevNet: make(map[string]netSample),
 	}
 }
 
@@ -97,6 +115,7 @@ func (s *MetricsService) Stop(hostID string) {
 		delete(s.cancels, hostID)
 	}
 	delete(s.prevCPU, hostID)
+	delete(s.prevNet, hostID)
 	s.mu.Unlock()
 }
 
@@ -204,6 +223,34 @@ func (s *MetricsService) collect(hostID, password string) HostMetrics {
 		m.DiskPercent = d
 	}
 	m.LoadAvg1 = parsed["LOAD1"]
+
+	// Network throughput. First sample on a (re)started host has no prior
+	// reference and reports zero rate.
+	if rxF, ok := parsed["NET_RX"]; ok {
+		txF := parsed["NET_TX"]
+		now := time.Now()
+		rx := int64(rxF)
+		tx := int64(txF)
+		m.RxBytesTotal = rx
+		m.TxBytesTotal = tx
+		s.mu.Lock()
+		prev, has := s.prevNet[hostID]
+		s.prevNet[hostID] = netSample{rx: rx, tx: tx, at: now}
+		s.mu.Unlock()
+		if has {
+			elapsed := now.Sub(prev.at).Seconds()
+			if elapsed > 0 {
+				dRx := rx - prev.rx
+				dTx := tx - prev.tx
+				if dRx >= 0 {
+					m.RxBytesPerSec = float64(dRx) / elapsed
+				}
+				if dTx >= 0 {
+					m.TxBytesPerSec = float64(dTx) / elapsed
+				}
+			}
+		}
+	}
 	return m
 }
 

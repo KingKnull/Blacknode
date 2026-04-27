@@ -13,9 +13,20 @@
     Cpu,
     MemoryStick,
     HardDrive,
+    Network,
   } from "@lucide/svelte";
 
-  type Series = { cpu: number[]; mem: number[]; disk: number[] };
+  type Series = {
+    cpu: number[];
+    mem: number[];
+    disk: number[];
+    // Combined rx + tx bytes/sec, used for the network sparkline.
+    netRate: number[];
+    // Track the rolling max so the network sparkline auto-scales — unlike
+    // CPU/MEM/DISK which have a fixed 0–100% range, network throughput has
+    // no natural ceiling.
+    netMax: number;
+  };
   const HISTORY = 60;
 
   let latest = $state<Record<string, HostMetrics>>({});
@@ -28,10 +39,21 @@
       const m: HostMetrics = e?.data;
       if (!m) return;
       latest[m.hostID] = m;
-      const s = history[m.hostID] ?? { cpu: [], mem: [], disk: [] };
+      const s = history[m.hostID] ?? {
+        cpu: [],
+        mem: [],
+        disk: [],
+        netRate: [],
+        netMax: 1,
+      };
       s.cpu = [...s.cpu, m.cpuPercent].slice(-HISTORY);
       s.mem = [...s.mem, m.memPercent].slice(-HISTORY);
       s.disk = [...s.disk, m.diskPercent].slice(-HISTORY);
+      const totalRate = (m.rxBytesPerSec ?? 0) + (m.txBytesPerSec ?? 0);
+      s.netRate = [...s.netRate, totalRate].slice(-HISTORY);
+      // Rolling max with a small floor so the line isn't pinned to the top
+      // when nothing's happening.
+      s.netMax = Math.max(1024, ...s.netRate);
       history[m.hostID] = s;
     });
   });
@@ -77,6 +99,14 @@
     const h = 36;
     const lastX = ((HISTORY - 1) * w) / Math.max(1, HISTORY - 1);
     return `${path} L${lastX.toFixed(1)},${h} L0,${h} Z`;
+  }
+
+  function fmtBytes(n: number): string {
+    if (!isFinite(n) || n < 0) return "0 B/s";
+    if (n < 1024) return `${n.toFixed(0)} B/s`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB/s`;
+    if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(2)} MB/s`;
+    return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB/s`;
   }
 </script>
 
@@ -128,7 +158,7 @@
         {#if m?.error}
           <div class="px-4 py-3 text-xs text-[var(--color-danger)]">{m.error}</div>
         {:else if m}
-          <div class="grid grid-cols-3 divide-x divide-[var(--color-line)]">
+          <div class="grid grid-cols-4 divide-x divide-[var(--color-line)]">
             <div class="p-3">
               <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-[var(--color-text-3)]">
                 <Cpu size="10" /> CPU
@@ -168,6 +198,36 @@
                 <svg viewBox="0 0 220 36" class="mt-1 h-9 w-full text-[var(--color-warn)]">
                   <path d={sparkArea(s.disk)} fill="currentColor" opacity="0.12"></path>
                   <path d={spark(s.disk)} fill="none" stroke="currentColor" stroke-width="1.5"></path>
+                </svg>
+              {/if}
+            </div>
+            <div class="p-3">
+              <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-[var(--color-text-3)]">
+                <Network size="10" /> NET
+              </div>
+              <div class="mt-0.5 flex flex-col font-mono text-[11px] text-[var(--color-text-1)]">
+                <span title="Receive rate">
+                  <span class="text-[var(--color-accent)]">↓</span>
+                  {fmtBytes(m.rxBytesPerSec ?? 0)}
+                </span>
+                <span title="Transmit rate">
+                  <span class="text-[var(--color-warn)]">↑</span>
+                  {fmtBytes(m.txBytesPerSec ?? 0)}
+                </span>
+              </div>
+              {#if s && s.netRate.length > 0}
+                <svg viewBox="0 0 220 36" class="mt-1 h-9 w-full" style="color: #a855f7">
+                  <path
+                    d={sparkArea(s.netRate, s.netMax)}
+                    fill="currentColor"
+                    opacity="0.12"
+                  ></path>
+                  <path
+                    d={spark(s.netRate, s.netMax)}
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                  ></path>
                 </svg>
               {/if}
             </div>

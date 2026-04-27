@@ -438,6 +438,16 @@ export class HostMetrics {
     "memPercent": number;
     "diskPercent": number;
     "loadAvg1": number;
+
+    /**
+     * Network throughput averaged over the interval since the previous tick.
+     * Aggregated across all non-loopback interfaces. First sample after Start
+     * has rates of zero (no prior to compare against).
+     */
+    "rxBytesPerSec": number;
+    "txBytesPerSec": number;
+    "rxBytesTotal": number;
+    "txBytesTotal": number;
     "timestamp": number;
     "error"?: string;
 
@@ -463,6 +473,18 @@ export class HostMetrics {
         }
         if (!("loadAvg1" in $$source)) {
             this["loadAvg1"] = 0;
+        }
+        if (!("rxBytesPerSec" in $$source)) {
+            this["rxBytesPerSec"] = 0;
+        }
+        if (!("txBytesPerSec" in $$source)) {
+            this["txBytesPerSec"] = 0;
+        }
+        if (!("rxBytesTotal" in $$source)) {
+            this["rxBytesTotal"] = 0;
+        }
+        if (!("txBytesTotal" in $$source)) {
+            this["txBytesTotal"] = 0;
         }
         if (!("timestamp" in $$source)) {
             this["timestamp"] = 0;
