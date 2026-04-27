@@ -55,18 +55,20 @@ END {
 df -P / | awk 'NR==2 { sub("%","",$5); print "DISK_PCT=" $5 }'`
 
 type MetricsService struct {
-	pool  *sshconn.Pool
-	hosts *store.Hosts
+	pool   *sshconn.Pool
+	hosts  *store.Hosts
+	notify *NotificationService
 
 	mu      sync.Mutex
 	cancels map[string]context.CancelFunc
 	prevCPU map[string]struct{ total, idle float64 }
 }
 
-func NewMetricsService(pool *sshconn.Pool, h *store.Hosts) *MetricsService {
+func NewMetricsService(pool *sshconn.Pool, h *store.Hosts, n *NotificationService) *MetricsService {
 	return &MetricsService{
 		pool:    pool,
 		hosts:   h,
+		notify:  n,
 		cancels: make(map[string]context.CancelFunc),
 		prevCPU: make(map[string]struct{ total, idle float64 }),
 	}
@@ -126,6 +128,34 @@ func (s *MetricsService) tick(hostID, password string) {
 	if app := application.Get(); app != nil {
 		app.Event.Emit("metrics:update", m)
 	}
+	s.maybeAlert(m)
+}
+
+// maybeAlert fires a notification when CPU/MEM/DISK crosses 90%. Debounced
+// per (host, metric) so a sustained spike doesn't spam every poll — see
+// NotificationService.NotifyDebounced.
+func (s *MetricsService) maybeAlert(m HostMetrics) {
+	if s.notify == nil || !m.Online || m.Error != "" {
+		return
+	}
+	check := func(metric string, pct float64, label string) {
+		if pct < 90 {
+			return
+		}
+		s.notify.NotifyDebounced(
+			fmt.Sprintf("metrics:%s:%s", metric, m.HostID),
+			Notification{
+				Kind:     NotifyWarn,
+				Title:    fmt.Sprintf("%s high on %s", label, m.HostName),
+				Body:     fmt.Sprintf("%s = %.1f%% (threshold 90%%)", label, pct),
+				Source:   "metrics",
+				HostName: m.HostName,
+			},
+		)
+	}
+	check("cpu", m.CPUPercent, "CPU")
+	check("mem", m.MemPercent, "Memory")
+	check("disk", m.DiskPercent, "Disk")
 }
 
 func (s *MetricsService) collect(hostID, password string) HostMetrics {

@@ -16,6 +16,7 @@ declare module "@wailsio/runtime" {
             "exec:progress": main$0.ExecProgress;
             "logs:line": main$0.LogLine;
             "metrics:update": main$0.HostMetrics;
+            "notification:toast": main$0.Notification;
             "terminal:data": main$0.TerminalData;
             "terminal:exit": main$0.TerminalExit;
             "vault:locked": main$0.VaultLockEvent;

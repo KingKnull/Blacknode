@@ -28,10 +28,6 @@ CREATE TABLE IF NOT EXISTS hosts (
 );
 
 CREATE INDEX IF NOT EXISTS idx_hosts_group ON hosts(group_name);
-CREATE INDEX IF NOT EXISTS idx_hosts_env ON hosts(environment);
-
--- Lightweight migration for upgrades from earlier schema (no-op if column exists).
--- modernc.org/sqlite tolerates the duplicate-column error; we silence it.
 
 CREATE TABLE IF NOT EXISTS keys (
     id TEXT PRIMARY KEY,
@@ -85,6 +81,40 @@ CREATE TABLE IF NOT EXISTS recordings (
 
 CREATE INDEX IF NOT EXISTS idx_recordings_started ON recordings(started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_recordings_host ON recordings(host_id);
+
+CREATE TABLE IF NOT EXISTS snippets (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    body TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    tags TEXT NOT NULL DEFAULT '[]',
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS command_history (
+    id TEXT PRIMARY KEY,
+    command TEXT NOT NULL,
+    host_id TEXT NOT NULL DEFAULT '',
+    host_name TEXT NOT NULL DEFAULT '',
+    source TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT '',
+    exit_code INTEGER NOT NULL DEFAULT 0,
+    executed_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_history_executed ON command_history(executed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_history_host ON command_history(host_id);
+
+CREATE TABLE IF NOT EXISTS log_queries (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    command TEXT NOT NULL,
+    host_ids TEXT NOT NULL DEFAULT '[]',
+    filter TEXT NOT NULL DEFAULT '',
+    use_regex INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL
+);
 `
 
 type DB struct {
@@ -109,18 +139,30 @@ func Open() (*DB, error) {
 		return nil, fmt.Errorf("apply schema: %w", err)
 	}
 	// Idempotent column-add migrations for users upgrading from earlier
-	// builds. SQLite returns an error if the column already exists; we
-	// swallow it.
+	// builds. SQLite returns "duplicate column" if the column already exists;
+	// we silence it. These run BEFORE post-migration indexes that reference
+	// the new columns, otherwise the index creation fails on an upgraded DB
+	// where the column hasn't been added yet.
 	for _, mig := range []string{
 		`ALTER TABLE hosts ADD COLUMN environment TEXT NOT NULL DEFAULT ''`,
 	} {
 		_, _ = conn.Exec(mig)
+	}
+	if _, err := conn.Exec(postMigrationIndexes); err != nil {
+		return nil, fmt.Errorf("apply post-migration indexes: %w", err)
 	}
 	if _, err := conn.Exec(schemaForwards); err != nil {
 		return nil, fmt.Errorf("apply forwards schema: %w", err)
 	}
 	return &DB{conn}, nil
 }
+
+// postMigrationIndexes contains indexes that reference columns added by
+// migrations. They must run AFTER the ALTER TABLE statements, otherwise
+// existing-DB upgrades fail at startup.
+const postMigrationIndexes = `
+CREATE INDEX IF NOT EXISTS idx_hosts_env ON hosts(environment);
+`
 
 const schemaForwards = `
 CREATE TABLE IF NOT EXISTS port_forwards (

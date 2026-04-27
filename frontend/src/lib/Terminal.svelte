@@ -19,6 +19,7 @@
     Lock,
     AlertTriangle,
     Circle,
+    Radio,
   } from "@lucide/svelte";
 
   type Props = { sessionID: string };
@@ -97,9 +98,14 @@
     fit.fit();
 
     term.onData((d) => {
-      if (mode === "local" && status === "running") void LocalShellService.Write(sessionID, d);
-      if (mode === "remote" && status === "connected") void SSHService.Write(sessionID, d);
+      writeLocal(d);
+      // If broadcast is on and we're in the group, fan out to siblings.
+      app.fanOutBroadcast(sessionID, d);
     });
+
+    // Register a sink so other terminals can broadcast keystrokes into us
+    // without knowing whether we're a local PTY or an SSH session.
+    app.registerBroadcastSink(sessionID, writeLocal);
     term.onResize(({ cols, rows }) => {
       if (mode === "local" && status === "running") void LocalShellService.Resize(sessionID, cols, rows);
       if (mode === "remote" && status === "connected") void SSHService.Resize(sessionID, cols, rows);
@@ -132,10 +138,28 @@
     dataOff?.();
     exitOff?.();
     resizeObs?.disconnect();
+    app.unregisterBroadcastSink(sessionID);
     term?.dispose();
     if (mode === "local" && status === "running") void LocalShellService.Close(sessionID);
     if (mode === "remote" && status === "connected") void SSHService.Disconnect(sessionID);
   });
+
+  // Single write path the terminal and the broadcast bus both call. Picks
+  // the right backend (local PTY vs SSH stdin) based on current mode/status.
+  function writeLocal(d: string) {
+    if (mode === "local" && status === "running") {
+      void LocalShellService.Write(sessionID, d);
+    } else if (mode === "remote" && status === "connected") {
+      void SSHService.Write(sessionID, d);
+    }
+  }
+
+  function toggleBroadcastMember() {
+    app.toggleBroadcastMember(sessionID);
+  }
+
+  let inBroadcast = $derived(app.broadcastSet.has(sessionID));
+  let broadcastActive = $derived(app.broadcastEnabled && inBroadcast);
 
   async function openLocal() {
     status = "starting";
@@ -334,6 +358,21 @@
         REC
       </span>
     {/if}
+
+    <button
+      class="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] {inBroadcast
+        ? broadcastActive
+          ? 'bg-[var(--color-warn)]/15 text-[var(--color-warn)] border border-[var(--color-warn)]/40'
+          : 'bg-[var(--color-surface-3)] text-[var(--color-text-1)] border hairline-strong'
+        : 'text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)] border border-transparent'}"
+      onclick={toggleBroadcastMember}
+      title={inBroadcast
+        ? "Remove this pane from the broadcast group"
+        : "Add this pane to the broadcast group"}
+    >
+      <Radio size="10" class={broadcastActive ? "pulse-soft" : ""} />
+      <span>cast</span>
+    </button>
   </div>
 
   <div bind:this={containerEl} class="flex-1 overflow-hidden p-2"></div>

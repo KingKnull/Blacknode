@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"path"
 
 	"github.com/blacknode/blacknode/internal/sshconn"
@@ -110,6 +111,33 @@ func (s *SFTPService) Upload(hostID, password, remoteDir, filename, payloadB64 s
 	return s.withClient(hostID, password, func(c *sftp.Client) error {
 		full := path.Join(remoteDir, filename)
 		f, err := c.Create(full)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		_, err = f.Write(data)
+		return err
+	})
+}
+
+// WriteFile overwrites a remote file at an absolute path. Used by the
+// in-app editor — Upload (which appends a filename onto a directory) is the
+// wrong shape there. Capped at 50MB to mirror the Download cap.
+func (s *SFTPService) WriteFile(hostID, password, remotePath, payloadB64 string) error {
+	if remotePath == "" {
+		return errors.New("remotePath required")
+	}
+	data, err := base64.StdEncoding.DecodeString(payloadB64)
+	if err != nil {
+		return fmt.Errorf("decode payload: %w", err)
+	}
+	if len(data) > 50*1024*1024 {
+		return errors.New("file exceeds 50MB cap")
+	}
+	return s.withClient(hostID, password, func(c *sftp.Client) error {
+		// Use OpenFile with O_WRONLY|O_CREATE|O_TRUNC so we can overwrite
+		// without first removing — preserves inode for tools watching it.
+		f, err := c.OpenFile(remotePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
 		if err != nil {
 			return err
 		}

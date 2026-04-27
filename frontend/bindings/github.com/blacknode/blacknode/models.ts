@@ -180,6 +180,178 @@ export class CastEvent {
     }
 }
 
+export class CertInfo {
+    "subject": string;
+    "issuer": string;
+    "notBefore": number;
+    "notAfter": number;
+    "daysUntilExpiry": number;
+    "dnsNames": string[];
+    "fingerprint": string;
+    "serialNumber": string;
+
+    /**
+     * each peer subject, leaf-first
+     */
+    "chain": string[];
+
+    /** Creates a new CertInfo instance. */
+    constructor($$source: Partial<CertInfo> = {}) {
+        if (!("subject" in $$source)) {
+            this["subject"] = "";
+        }
+        if (!("issuer" in $$source)) {
+            this["issuer"] = "";
+        }
+        if (!("notBefore" in $$source)) {
+            this["notBefore"] = 0;
+        }
+        if (!("notAfter" in $$source)) {
+            this["notAfter"] = 0;
+        }
+        if (!("daysUntilExpiry" in $$source)) {
+            this["daysUntilExpiry"] = 0;
+        }
+        if (!("dnsNames" in $$source)) {
+            this["dnsNames"] = [];
+        }
+        if (!("fingerprint" in $$source)) {
+            this["fingerprint"] = "";
+        }
+        if (!("serialNumber" in $$source)) {
+            this["serialNumber"] = "";
+        }
+        if (!("chain" in $$source)) {
+            this["chain"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new CertInfo instance from a string or object.
+     */
+    static createFrom($$source: any = {}): CertInfo {
+        const $$createField5_0 = $$createType0;
+        const $$createField8_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("dnsNames" in $$parsedSource) {
+            $$parsedSource["dnsNames"] = $$createField5_0($$parsedSource["dnsNames"]);
+        }
+        if ("chain" in $$parsedSource) {
+            $$parsedSource["chain"] = $$createField8_0($$parsedSource["chain"]);
+        }
+        return new CertInfo($$parsedSource as Partial<CertInfo>);
+    }
+}
+
+/**
+ * Container is the wire shape returned to the frontend. We deliberately keep
+ * this language-agnostic — Docker, Podman, and Kubernetes pods all map onto it.
+ */
+export class Container {
+    "id": string;
+    "name": string;
+    "image": string;
+    "status": string;
+    "state": string;
+    "ports": string;
+    "created": string;
+
+    /** Creates a new Container instance. */
+    constructor($$source: Partial<Container> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("image" in $$source)) {
+            this["image"] = "";
+        }
+        if (!("status" in $$source)) {
+            this["status"] = "";
+        }
+        if (!("state" in $$source)) {
+            this["state"] = "";
+        }
+        if (!("ports" in $$source)) {
+            this["ports"] = "";
+        }
+        if (!("created" in $$source)) {
+            this["created"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Container instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Container {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Container($$parsedSource as Partial<Container>);
+    }
+}
+
+export class DNSAnswer {
+    "type": string;
+    "value": string;
+
+    /** Creates a new DNSAnswer instance. */
+    constructor($$source: Partial<DNSAnswer> = {}) {
+        if (!("type" in $$source)) {
+            this["type"] = "";
+        }
+        if (!("value" in $$source)) {
+            this["value"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DNSAnswer instance from a string or object.
+     */
+    static createFrom($$source: any = {}): DNSAnswer {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new DNSAnswer($$parsedSource as Partial<DNSAnswer>);
+    }
+}
+
+export class DNSResult {
+    "target": string;
+    "answers": DNSAnswer[];
+    "rawOutput": string;
+
+    /** Creates a new DNSResult instance. */
+    constructor($$source: Partial<DNSResult> = {}) {
+        if (!("target" in $$source)) {
+            this["target"] = "";
+        }
+        if (!("answers" in $$source)) {
+            this["answers"] = [];
+        }
+        if (!("rawOutput" in $$source)) {
+            this["rawOutput"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DNSResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): DNSResult {
+        const $$createField1_0 = $$createType2;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("answers" in $$parsedSource) {
+            $$parsedSource["answers"] = $$createField1_0($$parsedSource["answers"]);
+        }
+        return new DNSResult($$parsedSource as Partial<DNSResult>);
+    }
+}
+
 export class ExecProgress {
     "runID": string;
     "result": ExecResult;
@@ -200,7 +372,7 @@ export class ExecProgress {
      * Creates a new ExecProgress instance from a string or object.
      */
     static createFrom($$source: any = {}): ExecProgress {
-        const $$createField1_0 = $$createType0;
+        const $$createField1_0 = $$createType3;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("result" in $$parsedSource) {
             $$parsedSource["result"] = $$createField1_0($$parsedSource["result"]);
@@ -356,6 +528,322 @@ export class LogLine {
 }
 
 /**
+ * Notification is the wire shape: matches what the in-app toast renders and
+ * what the webhook receives.
+ */
+export class Notification {
+    "id": string;
+    "kind": NotifyKind;
+    "title": string;
+    "body": string;
+
+    /**
+     * "exec" | "metrics" | "test" | etc.
+     */
+    "source": string;
+    "hostName"?: string;
+    "timestamp": number;
+
+    /** Creates a new Notification instance. */
+    constructor($$source: Partial<Notification> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("kind" in $$source)) {
+            this["kind"] = NotifyKind.$zero;
+        }
+        if (!("title" in $$source)) {
+            this["title"] = "";
+        }
+        if (!("body" in $$source)) {
+            this["body"] = "";
+        }
+        if (!("source" in $$source)) {
+            this["source"] = "";
+        }
+        if (!("timestamp" in $$source)) {
+            this["timestamp"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Notification instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Notification {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Notification($$parsedSource as Partial<Notification>);
+    }
+}
+
+/**
+ * NotifyConfig is what we expose to the frontend Settings panel.
+ */
+export class NotifyConfig {
+    "desktopEnabled": boolean;
+    "webhookURL": string;
+    "longExecSeconds": number;
+
+    /** Creates a new NotifyConfig instance. */
+    constructor($$source: Partial<NotifyConfig> = {}) {
+        if (!("desktopEnabled" in $$source)) {
+            this["desktopEnabled"] = false;
+        }
+        if (!("webhookURL" in $$source)) {
+            this["webhookURL"] = "";
+        }
+        if (!("longExecSeconds" in $$source)) {
+            this["longExecSeconds"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new NotifyConfig instance from a string or object.
+     */
+    static createFrom($$source: any = {}): NotifyConfig {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new NotifyConfig($$parsedSource as Partial<NotifyConfig>);
+    }
+}
+
+/**
+ * NotifyKind classifies the notification so the UI can pick an icon/colour.
+ */
+export enum NotifyKind {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    NotifyInfo = "info",
+    NotifyOK = "ok",
+    NotifyWarn = "warn",
+    NotifyError = "error",
+};
+
+export class PingResult {
+    "target": string;
+    "reachable": boolean;
+    "sent": number;
+    "received": number;
+    "lost": number;
+    "lossPercent": number;
+    "avgLatencyMs": number;
+    "minLatencyMs": number;
+    "maxLatencyMs": number;
+    "rawOutput": string;
+
+    /** Creates a new PingResult instance. */
+    constructor($$source: Partial<PingResult> = {}) {
+        if (!("target" in $$source)) {
+            this["target"] = "";
+        }
+        if (!("reachable" in $$source)) {
+            this["reachable"] = false;
+        }
+        if (!("sent" in $$source)) {
+            this["sent"] = 0;
+        }
+        if (!("received" in $$source)) {
+            this["received"] = 0;
+        }
+        if (!("lost" in $$source)) {
+            this["lost"] = 0;
+        }
+        if (!("lossPercent" in $$source)) {
+            this["lossPercent"] = 0;
+        }
+        if (!("avgLatencyMs" in $$source)) {
+            this["avgLatencyMs"] = 0;
+        }
+        if (!("minLatencyMs" in $$source)) {
+            this["minLatencyMs"] = 0;
+        }
+        if (!("maxLatencyMs" in $$source)) {
+            this["maxLatencyMs"] = 0;
+        }
+        if (!("rawOutput" in $$source)) {
+            this["rawOutput"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new PingResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): PingResult {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new PingResult($$parsedSource as Partial<PingResult>);
+    }
+}
+
+export class Pod {
+    "name": string;
+    "namespace": string;
+    "ready": string;
+    "status": string;
+    "restarts": number;
+    "age": string;
+    "node": string;
+
+    /** Creates a new Pod instance. */
+    constructor($$source: Partial<Pod> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("namespace" in $$source)) {
+            this["namespace"] = "";
+        }
+        if (!("ready" in $$source)) {
+            this["ready"] = "";
+        }
+        if (!("status" in $$source)) {
+            this["status"] = "";
+        }
+        if (!("restarts" in $$source)) {
+            this["restarts"] = 0;
+        }
+        if (!("age" in $$source)) {
+            this["age"] = "";
+        }
+        if (!("node" in $$source)) {
+            this["node"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Pod instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Pod {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Pod($$parsedSource as Partial<Pod>);
+    }
+}
+
+export class PortScanResult {
+    "target": string;
+    "results": PortStatus[];
+
+    /** Creates a new PortScanResult instance. */
+    constructor($$source: Partial<PortScanResult> = {}) {
+        if (!("target" in $$source)) {
+            this["target"] = "";
+        }
+        if (!("results" in $$source)) {
+            this["results"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new PortScanResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): PortScanResult {
+        const $$createField1_0 = $$createType5;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("results" in $$parsedSource) {
+            $$parsedSource["results"] = $$createField1_0($$parsedSource["results"]);
+        }
+        return new PortScanResult($$parsedSource as Partial<PortScanResult>);
+    }
+}
+
+export class PortStatus {
+    "port": number;
+    "open": boolean;
+    "latencyMs": number;
+    "banner"?: string;
+
+    /** Creates a new PortStatus instance. */
+    constructor($$source: Partial<PortStatus> = {}) {
+        if (!("port" in $$source)) {
+            this["port"] = 0;
+        }
+        if (!("open" in $$source)) {
+            this["open"] = false;
+        }
+        if (!("latencyMs" in $$source)) {
+            this["latencyMs"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new PortStatus instance from a string or object.
+     */
+    static createFrom($$source: any = {}): PortStatus {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new PortStatus($$parsedSource as Partial<PortStatus>);
+    }
+}
+
+/**
+ * ProcessInfo is a single row of the remote process table. We use the same
+ * shape for all platforms even though we currently only parse Linux ps output;
+ * adding macOS/BSD parsing later just fills these same fields.
+ */
+export class ProcessInfo {
+    "pid": number;
+    "ppid": number;
+    "user": string;
+    "cpuPct": number;
+    "memPct": number;
+    "rssKB": number;
+    "state": string;
+    "startTime": string;
+    "command": string;
+
+    /** Creates a new ProcessInfo instance. */
+    constructor($$source: Partial<ProcessInfo> = {}) {
+        if (!("pid" in $$source)) {
+            this["pid"] = 0;
+        }
+        if (!("ppid" in $$source)) {
+            this["ppid"] = 0;
+        }
+        if (!("user" in $$source)) {
+            this["user"] = "";
+        }
+        if (!("cpuPct" in $$source)) {
+            this["cpuPct"] = 0;
+        }
+        if (!("memPct" in $$source)) {
+            this["memPct"] = 0;
+        }
+        if (!("rssKB" in $$source)) {
+            this["rssKB"] = 0;
+        }
+        if (!("state" in $$source)) {
+            this["state"] = "";
+        }
+        if (!("startTime" in $$source)) {
+            this["startTime"] = "";
+        }
+        if (!("command" in $$source)) {
+            this["command"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ProcessInfo instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ProcessInfo {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ProcessInfo($$parsedSource as Partial<ProcessInfo>);
+    }
+}
+
+/**
  * PublicKeyView is the safe shape returned to the frontend — never the
  * private material.
  */
@@ -458,7 +946,7 @@ export class RecordingDetail {
      * Creates a new RecordingDetail instance from a string or object.
      */
     static createFrom($$source: any = {}): RecordingDetail {
-        const $$createField12_0 = $$createType2;
+        const $$createField12_0 = $$createType7;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("events" in $$parsedSource) {
             $$parsedSource["events"] = $$createField12_0($$parsedSource["events"]);
@@ -562,6 +1050,48 @@ export class SSHConnectOptions {
     }
 }
 
+export class SSLResult {
+    "target": string;
+    "handshakeOK": boolean;
+    "tlsVersion": string;
+    "cipherSuite": string;
+    "cert": CertInfo;
+    "error"?: string;
+
+    /** Creates a new SSLResult instance. */
+    constructor($$source: Partial<SSLResult> = {}) {
+        if (!("target" in $$source)) {
+            this["target"] = "";
+        }
+        if (!("handshakeOK" in $$source)) {
+            this["handshakeOK"] = false;
+        }
+        if (!("tlsVersion" in $$source)) {
+            this["tlsVersion"] = "";
+        }
+        if (!("cipherSuite" in $$source)) {
+            this["cipherSuite"] = "";
+        }
+        if (!("cert" in $$source)) {
+            this["cert"] = (new CertInfo());
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SSLResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SSLResult {
+        const $$createField4_0 = $$createType8;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("cert" in $$parsedSource) {
+            $$parsedSource["cert"] = $$createField4_0($$parsedSource["cert"]);
+        }
+        return new SSLResult($$parsedSource as Partial<SSLResult>);
+    }
+}
+
 /**
  * SearchHit ties a recording to one or more matched lines for the search UI.
  */
@@ -585,8 +1115,8 @@ export class SearchHit {
      * Creates a new SearchHit instance from a string or object.
      */
     static createFrom($$source: any = {}): SearchHit {
-        const $$createField0_0 = $$createType3;
-        const $$createField1_0 = $$createType5;
+        const $$createField0_0 = $$createType9;
+        const $$createField1_0 = $$createType11;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("recording" in $$parsedSource) {
             $$parsedSource["recording"] = $$createField0_0($$parsedSource["recording"]);
@@ -595,6 +1125,113 @@ export class SearchHit {
             $$parsedSource["matches"] = $$createField1_0($$parsedSource["matches"]);
         }
         return new SearchHit($$parsedSource as Partial<SearchHit>);
+    }
+}
+
+/**
+ * Validate is a small helper the UI can call before saving — surfaces
+ * undefined-default warnings, which a future rev could escalate to errors.
+ */
+export class SnippetValidation {
+    "variables": SnippetVariable[];
+    "warnings": string[];
+
+    /** Creates a new SnippetValidation instance. */
+    constructor($$source: Partial<SnippetValidation> = {}) {
+        if (!("variables" in $$source)) {
+            this["variables"] = [];
+        }
+        if (!("warnings" in $$source)) {
+            this["warnings"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SnippetValidation instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SnippetValidation {
+        const $$createField0_0 = $$createType13;
+        const $$createField1_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("variables" in $$parsedSource) {
+            $$parsedSource["variables"] = $$createField0_0($$parsedSource["variables"]);
+        }
+        if ("warnings" in $$parsedSource) {
+            $$parsedSource["warnings"] = $$createField1_0($$parsedSource["warnings"]);
+        }
+        return new SnippetValidation($$parsedSource as Partial<SnippetValidation>);
+    }
+}
+
+/**
+ * SnippetVariable describes one {{var}} or {{var|default}} placeholder found
+ * in a snippet body, deduplicated, in first-occurrence order.
+ */
+export class SnippetVariable {
+    "name": string;
+    "default": string;
+
+    /** Creates a new SnippetVariable instance. */
+    constructor($$source: Partial<SnippetVariable> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("default" in $$source)) {
+            this["default"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SnippetVariable instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SnippetVariable {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SnippetVariable($$parsedSource as Partial<SnippetVariable>);
+    }
+}
+
+/**
+ * SystemdUnit is a single systemctl-listed service. ActiveState is what most
+ * people mean by "is it running": active / inactive / failed.
+ */
+export class SystemdUnit {
+    "name": string;
+    "loadState": string;
+    "activeState": string;
+    "subState": string;
+    "description": string;
+
+    /** Creates a new SystemdUnit instance. */
+    constructor($$source: Partial<SystemdUnit> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("loadState" in $$source)) {
+            this["loadState"] = "";
+        }
+        if (!("activeState" in $$source)) {
+            this["activeState"] = "";
+        }
+        if (!("subState" in $$source)) {
+            this["subState"] = "";
+        }
+        if (!("description" in $$source)) {
+            this["description"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SystemdUnit instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SystemdUnit {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SystemdUnit($$parsedSource as Partial<SystemdUnit>);
     }
 }
 
@@ -699,9 +1336,17 @@ export class VaultStatus {
 }
 
 // Private type creation functions
-const $$createType0 = ExecResult.createFrom;
-const $$createType1 = CastEvent.createFrom;
+const $$createType0 = $Create.Array($Create.Any);
+const $$createType1 = DNSAnswer.createFrom;
 const $$createType2 = $Create.Array($$createType1);
-const $$createType3 = store$0.Recording.createFrom;
-const $$createType4 = recorder$0.Match.createFrom;
+const $$createType3 = ExecResult.createFrom;
+const $$createType4 = PortStatus.createFrom;
 const $$createType5 = $Create.Array($$createType4);
+const $$createType6 = CastEvent.createFrom;
+const $$createType7 = $Create.Array($$createType6);
+const $$createType8 = CertInfo.createFrom;
+const $$createType9 = store$0.Recording.createFrom;
+const $$createType10 = recorder$0.Match.createFrom;
+const $$createType11 = $Create.Array($$createType10);
+const $$createType12 = SnippetVariable.createFrom;
+const $$createType13 = $Create.Array($$createType12);

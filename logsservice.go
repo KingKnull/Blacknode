@@ -33,20 +33,30 @@ type logStream struct {
 }
 
 type LogsService struct {
-	pool  *sshconn.Pool
-	hosts *store.Hosts
+	pool    *sshconn.Pool
+	hosts   *store.Hosts
+	queries *store.LogQueries
 
 	mu      sync.Mutex
 	streams map[string]*logStream
 }
 
-func NewLogsService(pool *sshconn.Pool, h *store.Hosts) *LogsService {
+func NewLogsService(pool *sshconn.Pool, h *store.Hosts, q *store.LogQueries) *LogsService {
 	return &LogsService{
 		pool:    pool,
 		hosts:   h,
+		queries: q,
 		streams: make(map[string]*logStream),
 	}
 }
+
+// Saved-query CRUD lives on the same service the panel already binds to —
+// avoids spinning up a third service for two thin methods.
+func (s *LogsService) SaveQuery(q store.LogQuery) (store.LogQuery, error) {
+	return s.queries.Create(q)
+}
+func (s *LogsService) ListQueries() ([]store.LogQuery, error) { return s.queries.List() }
+func (s *LogsService) DeleteQuery(id string) error            { return s.queries.Delete(id) }
 
 // Start opens a session per host and runs `command` (e.g. `tail -F /var/log/syslog`),
 // streaming lines back as `logs:line` events. Idempotent — calling Start with

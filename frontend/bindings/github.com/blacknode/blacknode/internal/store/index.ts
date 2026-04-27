@@ -4,6 +4,9 @@
 export {
     Forward,
     ForwardKind,
+    HistoryEntry,
     Host,
-    Recording
+    LogQuery,
+    Recording,
+    Snippet
 } from "./models.js";

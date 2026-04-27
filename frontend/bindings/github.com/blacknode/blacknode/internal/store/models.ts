@@ -78,6 +78,54 @@ export enum ForwardKind {
     ForwardDynamic = "dynamic",
 };
 
+/**
+ * HistoryEntry records that a command was sent at a host. Sources:
+ *   - "exec"          ExecService.Run (multi-host)
+ *   - "ai-translate"  AI assistant translate-and-insert
+ *   - "snippet"       SnippetService.Apply
+ * 
+ * Status (when known): "ok" (exit 0), "fail" (non-zero), "" (unknown).
+ */
+export class HistoryEntry {
+    "id": string;
+    "command": string;
+    "hostID"?: string;
+    "hostName"?: string;
+    "source": string;
+    "status"?: string;
+    "exitCode": number;
+    "executedAt": number;
+
+    /** Creates a new HistoryEntry instance. */
+    constructor($$source: Partial<HistoryEntry> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("command" in $$source)) {
+            this["command"] = "";
+        }
+        if (!("source" in $$source)) {
+            this["source"] = "";
+        }
+        if (!("exitCode" in $$source)) {
+            this["exitCode"] = 0;
+        }
+        if (!("executedAt" in $$source)) {
+            this["executedAt"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new HistoryEntry instance from a string or object.
+     */
+    static createFrom($$source: any = {}): HistoryEntry {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new HistoryEntry($$parsedSource as Partial<HistoryEntry>);
+    }
+}
+
 export class Host {
     "id": string;
     "name": string;
@@ -151,6 +199,56 @@ export class Host {
     }
 }
 
+/**
+ * LogQuery is a saved combination of (command, host set, filter) for the
+ * LogsPanel — bookmarked tail invocations the user can recall in one click.
+ */
+export class LogQuery {
+    "id": string;
+    "name": string;
+    "command": string;
+    "hostIDs": string[];
+    "filter"?: string;
+    "useRegex": boolean;
+    "createdAt": number;
+
+    /** Creates a new LogQuery instance. */
+    constructor($$source: Partial<LogQuery> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("command" in $$source)) {
+            this["command"] = "";
+        }
+        if (!("hostIDs" in $$source)) {
+            this["hostIDs"] = [];
+        }
+        if (!("useRegex" in $$source)) {
+            this["useRegex"] = false;
+        }
+        if (!("createdAt" in $$source)) {
+            this["createdAt"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new LogQuery instance from a string or object.
+     */
+    static createFrom($$source: any = {}): LogQuery {
+        const $$createField3_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("hostIDs" in $$parsedSource) {
+            $$parsedSource["hostIDs"] = $$createField3_0($$parsedSource["hostIDs"]);
+        }
+        return new LogQuery($$parsedSource as Partial<LogQuery>);
+    }
+}
+
 export class Recording {
     "id": string;
     "title": string;
@@ -199,6 +297,56 @@ export class Recording {
     static createFrom($$source: any = {}): Recording {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new Recording($$parsedSource as Partial<Recording>);
+    }
+}
+
+/**
+ * Snippet is a saved command template. The body may contain {{var}} or
+ * {{var|default}} placeholders that get substituted at apply time.
+ */
+export class Snippet {
+    "id": string;
+    "name": string;
+    "body": string;
+    "description"?: string;
+    "tags": string[];
+    "createdAt": number;
+    "updatedAt": number;
+
+    /** Creates a new Snippet instance. */
+    constructor($$source: Partial<Snippet> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("body" in $$source)) {
+            this["body"] = "";
+        }
+        if (!("tags" in $$source)) {
+            this["tags"] = [];
+        }
+        if (!("createdAt" in $$source)) {
+            this["createdAt"] = 0;
+        }
+        if (!("updatedAt" in $$source)) {
+            this["updatedAt"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Snippet instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Snippet {
+        const $$createField4_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("tags" in $$parsedSource) {
+            $$parsedSource["tags"] = $$createField4_0($$parsedSource["tags"]);
+        }
+        return new Snippet($$parsedSource as Partial<Snippet>);
     }
 }
 

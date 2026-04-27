@@ -3,7 +3,9 @@
   import {
     SettingsService,
     AIService,
+    NotificationService,
   } from "../../bindings/github.com/blacknode/blacknode";
+  import type { NotifyConfig } from "../../bindings/github.com/blacknode/blacknode/models";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
   import {
@@ -15,6 +17,8 @@
     EyeOff,
     CheckCircle2,
     Loader2,
+    Bell,
+    Send,
   } from "@lucide/svelte";
 
   let apiKeyInput = $state("");
@@ -30,11 +34,46 @@
   let defaultShellPath = $state("");
   let metricsIntervalSeconds = $state(5);
 
-  onMount(() => {
+  let notify = $state<NotifyConfig>({
+    desktopEnabled: true,
+    webhookURL: "",
+    longExecSeconds: 10,
+  });
+  let notifyBusy = $state(false);
+  let notifyTested = $state<"" | "ok" | "fail">("");
+
+  onMount(async () => {
     autoLockMinutes = app.settings.autoLockMinutes;
     defaultShellPath = app.settings.defaultShellPath;
     metricsIntervalSeconds = app.settings.metricsIntervalSeconds;
+    try {
+      notify = (await NotificationService.Config()) as NotifyConfig;
+    } catch {
+      // ignore
+    }
   });
+
+  async function saveNotify() {
+    notifyBusy = true;
+    notifyTested = "";
+    try {
+      await NotificationService.SetDesktopEnabled(notify.desktopEnabled);
+      await NotificationService.SetWebhookURL(notify.webhookURL);
+      await NotificationService.SetLongExecSeconds(notify.longExecSeconds);
+    } finally {
+      notifyBusy = false;
+    }
+  }
+
+  async function testNotify() {
+    notifyTested = "";
+    try {
+      await NotificationService.Test();
+      notifyTested = "ok";
+    } catch {
+      notifyTested = "fail";
+    }
+  }
 
   async function saveAPIKey() {
     savingKey = true;
@@ -244,6 +283,85 @@
             </button>
           </div>
         </label>
+      </section>
+
+      <!-- Notifications -->
+      <section class="rounded-lg border hairline surface-2 p-5">
+        <div class="mb-4 flex items-center gap-2">
+          <Bell size="14" class="text-[var(--color-accent)]" />
+          <h3 class="text-sm font-semibold">Notifications</h3>
+        </div>
+        <p class="text-xs text-[var(--color-text-3)]">
+          Fires on long-running multi-host completions and CPU/MEM/DISK over
+          90% (debounced 5 minutes per host). Desktop notifications use your
+          OS notification center; webhooks POST a JSON payload.
+        </p>
+
+        <div class="mt-4 space-y-3">
+          <label class="flex items-center justify-between">
+            <span class="text-xs font-medium text-[var(--color-text-1)]"
+              >Desktop notifications</span
+            >
+            <input
+              type="checkbox"
+              class="accent-[var(--color-accent)]"
+              bind:checked={notify.desktopEnabled}
+            />
+          </label>
+
+          <label class="block">
+            <span class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+              >Long-exec threshold (seconds)</span
+            >
+            <p class="mt-0.5 text-[11px] text-[var(--color-text-3)]">
+              Multi-host runs that take longer than this fire a "finished"
+              notification. Short runs stay silent.
+            </p>
+            <input
+              type="number"
+              min="1"
+              class="mt-1 w-32 rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 text-sm outline-none"
+              bind:value={notify.longExecSeconds}
+            />
+          </label>
+
+          <label class="block">
+            <span class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+              >Webhook URL</span
+            >
+            <p class="mt-0.5 text-[11px] text-[var(--color-text-3)]">
+              POSTs a JSON body
+              <span class="font-mono">{"{kind, title, body, source, hostName, timestamp}"}</span>
+              to this URL on every notification. Empty = disabled.
+            </p>
+            <input
+              class="mt-1 w-full rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-xs outline-none"
+              placeholder="https://hooks.slack.com/services/…"
+              bind:value={notify.webhookURL}
+            />
+          </label>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <button
+              class="flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-[11px] font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
+              disabled={notifyBusy}
+              onclick={saveNotify}
+            >
+              {#if notifyBusy}<Loader2 size="11" class="animate-spin" />{:else}Save{/if}
+            </button>
+            <button
+              class="flex items-center gap-1.5 rounded-md border hairline-strong px-3 py-1.5 text-[11px] hover:bg-[var(--color-surface-3)]"
+              onclick={testNotify}
+            >
+              <Send size="11" /> Send test
+            </button>
+            {#if notifyTested === "ok"}
+              <span class="text-[10px] text-[var(--color-accent)]">test fired</span>
+            {:else if notifyTested === "fail"}
+              <span class="text-[10px] text-[var(--color-danger)]">test failed</span>
+            {/if}
+          </div>
+        </div>
       </section>
 
       <!-- Terminal / Shell -->

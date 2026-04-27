@@ -13,6 +13,10 @@ export type SplitNode = {
   kind: "split";
   id: string;
   direction: Direction;
+  // Fraction of the parent allocated to child `a`. Defaults to 0.5 (even
+  // split). The drag handle in Pane.svelte mutates this on pointermove.
+  // Clamped to [0.05, 0.95] so a pane can't be dragged to invisibility.
+  ratio: number;
   a: PaneNode;
   b: PaneNode;
 };
@@ -39,6 +43,7 @@ export function splitLeaf(
       kind: "split",
       id: uuid(),
       direction,
+      ratio: 0.5,
       a: root,
       b: newLeaf(),
     };
@@ -48,6 +53,26 @@ export function splitLeaf(
     a: splitLeaf(root.a, leafID, direction),
     b: splitLeaf(root.b, leafID, direction),
   };
+}
+
+// setRatio walks the tree and mutates the ratio of the split node with the
+// matching id. Returns a new tree (immutable update).
+export function setRatio(root: PaneNode, splitID: string, ratio: number): PaneNode {
+  if (root.kind === "leaf") return root;
+  if (root.id === splitID) {
+    return { ...root, ratio: clampRatio(ratio) };
+  }
+  return {
+    ...root,
+    a: setRatio(root.a, splitID, ratio),
+    b: setRatio(root.b, splitID, ratio),
+  };
+}
+
+function clampRatio(r: number): number {
+  if (r < 0.05) return 0.05;
+  if (r > 0.95) return 0.95;
+  return r;
 }
 
 // closeLeaf returns the new root after removing the leaf with this id. If the

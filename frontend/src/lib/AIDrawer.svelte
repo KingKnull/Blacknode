@@ -1,7 +1,10 @@
 <script lang="ts">
   import { onDestroy, onMount, tick } from "svelte";
   import { Events } from "@wailsio/runtime";
-  import { AIService } from "../../bindings/github.com/blacknode/blacknode";
+  import {
+    AIService,
+    HistoryService,
+  } from "../../bindings/github.com/blacknode/blacknode";
   import { app } from "./state.svelte";
   import {
     Sparkles,
@@ -115,7 +118,12 @@
   function insertLast() {
     const last = messages[messages.length - 1];
     if (!last || last.role !== "assistant" || last.kind !== "translate") return;
-    if (last.text && onInsertCommand) onInsertCommand(last.text);
+    if (!last.text) return;
+    void HistoryService.Add({
+      command: last.text,
+      source: "ai-translate",
+    } as any);
+    if (onInsertCommand) onInsertCommand(last.text);
   }
 
   function clear() {

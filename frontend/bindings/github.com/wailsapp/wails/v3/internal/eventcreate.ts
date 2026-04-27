@@ -16,9 +16,10 @@ function configure() {
         "exec:progress": $$createType1,
         "logs:line": $$createType2,
         "metrics:update": $$createType3,
-        "terminal:data": $$createType4,
-        "terminal:exit": $$createType5,
-        "vault:locked": $$createType6,
+        "notification:toast": $$createType4,
+        "terminal:data": $$createType5,
+        "terminal:exit": $$createType6,
+        "vault:locked": $$createType7,
     }));
 }
 
@@ -27,8 +28,9 @@ const $$createType0 = main$0.AIChunk.createFrom;
 const $$createType1 = main$0.ExecProgress.createFrom;
 const $$createType2 = main$0.LogLine.createFrom;
 const $$createType3 = main$0.HostMetrics.createFrom;
-const $$createType4 = main$0.TerminalData.createFrom;
-const $$createType5 = main$0.TerminalExit.createFrom;
-const $$createType6 = main$0.VaultLockEvent.createFrom;
+const $$createType4 = main$0.Notification.createFrom;
+const $$createType5 = main$0.TerminalData.createFrom;
+const $$createType6 = main$0.TerminalExit.createFrom;
+const $$createType7 = main$0.VaultLockEvent.createFrom;
 
 configure();

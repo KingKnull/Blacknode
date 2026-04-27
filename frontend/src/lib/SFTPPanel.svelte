@@ -3,6 +3,7 @@
   import type { SFTPEntry } from "../../bindings/github.com/blacknode/blacknode/models";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
+  import RemoteEditor from "./RemoteEditor.svelte";
   import {
     Folder,
     File as FileIcon,
@@ -12,12 +13,14 @@
     Download,
     Trash2,
     FolderOpen,
+    FileCode,
   } from "@lucide/svelte";
 
   let path = $state("");
   let entries = $state<SFTPEntry[]>([]);
   let busy = $state(false);
   let err = $state("");
+  let editingPath: string | null = $state(null);
 
   let host = $derived(
     app.selectedHostID
@@ -217,6 +220,13 @@
             <div class="flex justify-end gap-0.5">
               {#if !e.isDir}
                 <button
+                  class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-accent)]"
+                  onclick={() => (editingPath = joinPath(path, e.name))}
+                  title="Edit"
+                >
+                  <FileCode size="11" />
+                </button>
+                <button
                   class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
                   onclick={() => download(e)}
                   title="Download"
@@ -243,3 +253,14 @@
     </div>
   {/if}
 </div>
+
+{#if editingPath && host}
+  <RemoteEditor
+    hostID={host.id}
+    remotePath={editingPath}
+    onClose={() => {
+      editingPath = null;
+      void reload();
+    }}
+  />
+{/if}

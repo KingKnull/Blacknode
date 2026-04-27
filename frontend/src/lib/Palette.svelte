@@ -1,7 +1,11 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import { app, type View } from "./state.svelte";
-  import { VaultService } from "../../bindings/github.com/blacknode/blacknode";
+  import {
+    VaultService,
+    SnippetService,
+  } from "../../bindings/github.com/blacknode/blacknode";
+  import type { Snippet } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import {
     TerminalSquare,
     Server,
@@ -16,6 +20,11 @@
     Search,
     Network,
     Film,
+    Boxes,
+    Radar,
+    Cpu,
+    Bookmark,
+    History as HistoryIcon,
   } from "@lucide/svelte";
 
   type Action = {
@@ -36,6 +45,7 @@
   let input = $state("");
   let highlighted = $state(0);
   let inputEl: HTMLInputElement | undefined = $state();
+  let snippets = $state<Snippet[]>([]);
 
   const VIEW_ACTIONS: { id: View; label: string; icon: any }[] = [
     { id: "terminals", label: "Go to Terminals", icon: TerminalSquare },
@@ -45,6 +55,11 @@
     { id: "logs", label: "Go to Logs", icon: ScrollText },
     { id: "forwards", label: "Go to Forwards", icon: Network },
     { id: "recordings", label: "Go to Recordings", icon: Film },
+    { id: "containers", label: "Go to Containers", icon: Boxes },
+    { id: "network", label: "Go to Network diagnostics", icon: Radar },
+    { id: "processes", label: "Go to Processes", icon: Cpu },
+    { id: "snippets", label: "Go to Snippets", icon: Bookmark },
+    { id: "history", label: "Go to History", icon: HistoryIcon },
     { id: "keys", label: "Go to Keys", icon: KeyRound },
     { id: "settings", label: "Go to Settings", icon: SettingsIcon },
   ];
@@ -105,6 +120,31 @@
         await app.refreshAll();
       },
     },
+    ...snippets.map(
+      (s): Action => ({
+        id: `snippet:${s.id}`,
+        label: `Snippet: ${s.name}`,
+        hint: s.description || s.body.slice(0, 60),
+        icon: Bookmark,
+        category: "Snippets",
+        keywords: `${s.body} ${(s.tags ?? []).join(" ")}`,
+        run: async () => {
+          const rendered = (await SnippetService.Apply(
+            s.id,
+            {},
+            "",
+            "",
+            true,
+          )) as string;
+          window.dispatchEvent(
+            new CustomEvent("blacknode:insert-into-active-terminal", {
+              detail: rendered,
+            }),
+          );
+          app.view = "terminals";
+        },
+      }),
+    ),
   ]);
 
   function score(a: Action, q: string): number {
@@ -134,6 +174,10 @@
       input = "";
       highlighted = 0;
       void focusInput();
+      // Refresh snippets on each open so newly-saved ones show up.
+      void SnippetService.List().then((s) => {
+        snippets = (s ?? []) as Snippet[];
+      });
     }
   });
 

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -35,12 +36,14 @@ type ExecProgress struct {
 const maxConcurrent = 16
 
 type ExecService struct {
-	pool  *sshconn.Pool
-	hosts *store.Hosts
+	pool    *sshconn.Pool
+	hosts   *store.Hosts
+	history *store.History
+	notify  *NotificationService
 }
 
-func NewExecService(pool *sshconn.Pool, h *store.Hosts) *ExecService {
-	return &ExecService{pool: pool, hosts: h}
+func NewExecService(pool *sshconn.Pool, h *store.Hosts, hist *store.History, n *NotificationService) *ExecService {
+	return &ExecService{pool: pool, hosts: h, history: hist, notify: n}
 }
 
 func (s *ExecService) Run(runID, command string, hostIDs []string, passwords map[string]string, timeoutSeconds int) ([]ExecResult, error) {
@@ -57,6 +60,7 @@ func (s *ExecService) Run(runID, command string, hostIDs []string, passwords map
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSeconds)*time.Second)
 	defer cancel()
 
+	startedAt := time.Now()
 	results := make([]ExecResult, len(hostIDs))
 	sem := make(chan struct{}, maxConcurrent)
 	var wg sync.WaitGroup
@@ -75,13 +79,77 @@ func (s *ExecService) Run(runID, command string, hostIDs []string, passwords map
 
 			r := s.runOne(ctx, hostID, command, passwords[hostID])
 			results[idx] = r
+			if s.history != nil {
+				status := "ok"
+				if r.ExitCode != 0 || r.Error != "" {
+					status = "fail"
+				}
+				_, _ = s.history.Add(store.HistoryEntry{
+					Command:  command,
+					HostID:   r.HostID,
+					HostName: r.HostName,
+					Source:   "exec",
+					Status:   status,
+					ExitCode: r.ExitCode,
+				})
+			}
 			if app := application.Get(); app != nil {
 				app.Event.Emit("exec:progress", ExecProgress{RunID: runID, Result: r})
 			}
 		}(i, id)
 	}
 	wg.Wait()
+	s.maybeNotifyCompletion(command, results, startedAt)
 	return results, nil
+}
+
+// maybeNotifyCompletion fires a desktop+webhook+toast when a run took longer
+// than the user's threshold (default 10s). The notification summary tells you
+// at a glance whether everything worked: "✓ 5/5" or "⚠ 4/5 — db-1 failed".
+func (s *ExecService) maybeNotifyCompletion(command string, results []ExecResult, startedAt time.Time) {
+	if s.notify == nil {
+		return
+	}
+	dur := time.Since(startedAt)
+	threshold := s.notify.longExecThreshold()
+	if dur < threshold {
+		return
+	}
+	ok, fail := 0, 0
+	var firstFail string
+	for _, r := range results {
+		if r.ExitCode == 0 && r.Error == "" {
+			ok++
+		} else {
+			fail++
+			if firstFail == "" {
+				firstFail = r.HostName
+			}
+		}
+	}
+	kind := NotifyOK
+	title := "Multi-host run finished"
+	body := truncate(command, 80)
+	if fail > 0 {
+		kind = NotifyError
+		title = "Multi-host run had failures"
+		body = body + " — " + strconv.Itoa(fail) + " of " + strconv.Itoa(len(results)) + " failed"
+		if firstFail != "" {
+			body += " (first: " + firstFail + ")"
+		}
+	} else {
+		body = body + " — " + strconv.Itoa(ok) + "/" + strconv.Itoa(len(results)) + " ok in " + dur.Truncate(time.Millisecond).String()
+	}
+	s.notify.Notify(Notification{
+		Kind: kind, Title: title, Body: body, Source: "exec",
+	})
+}
+
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "…"
 }
 
 func (s *ExecService) runOne(ctx context.Context, hostID, command, password string) ExecResult {

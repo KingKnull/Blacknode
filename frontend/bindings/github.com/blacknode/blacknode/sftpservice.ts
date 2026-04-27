@@ -42,6 +42,15 @@ export function Upload(hostID: string, password: string, remoteDir: string, file
     return $Call.ByID(3196629929, hostID, password, remoteDir, filename, payloadB64);
 }
 
+/**
+ * WriteFile overwrites a remote file at an absolute path. Used by the
+ * in-app editor — Upload (which appends a filename onto a directory) is the
+ * wrong shape there. Capped at 50MB to mirror the Download cap.
+ */
+export function WriteFile(hostID: string, password: string, remotePath: string, payloadB64: string): $CancellablePromise<void> {
+    return $Call.ByID(3545722329, hostID, password, remotePath, payloadB64);
+}
+
 // Private type creation functions
 const $$createType0 = $models.SFTPEntry.createFrom;
 const $$createType1 = $Create.Array($$createType0);

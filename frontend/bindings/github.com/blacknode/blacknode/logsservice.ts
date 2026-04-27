@@ -5,6 +5,30 @@
 // @ts-ignore: Unused imports
 import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as store$0 from "./internal/store/models.js";
+
+export function DeleteQuery(id: string): $CancellablePromise<void> {
+    return $Call.ByID(2861025779, id);
+}
+
+export function ListQueries(): $CancellablePromise<store$0.LogQuery[]> {
+    return $Call.ByID(4105027962).then(($result: any) => {
+        return $$createType1($result);
+    });
+}
+
+/**
+ * Saved-query CRUD lives on the same service the panel already binds to —
+ * avoids spinning up a third service for two thin methods.
+ */
+export function SaveQuery(q: store$0.LogQuery): $CancellablePromise<store$0.LogQuery> {
+    return $Call.ByID(3917505437, q).then(($result: any) => {
+        return $$createType0($result);
+    });
+}
+
 /**
  * Start opens a session per host and runs `command` (e.g. `tail -F /var/log/syslog`),
  * streaming lines back as `logs:line` events. Idempotent — calling Start with
@@ -21,3 +45,7 @@ export function Stop(streamID: string): $CancellablePromise<void> {
 export function StopAll(): $CancellablePromise<void> {
     return $Call.ByID(4263053065);
 }
+
+// Private type creation functions
+const $$createType0 = store$0.LogQuery.createFrom;
+const $$createType1 = $Create.Array($$createType0);

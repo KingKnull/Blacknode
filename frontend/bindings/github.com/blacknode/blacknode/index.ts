@@ -3,32 +3,44 @@
 
 import * as AIService from "./aiservice.js";
 import * as AutoLockService from "./autolockservice.js";
+import * as ContainerService from "./containerservice.js";
 import * as ExecService from "./execservice.js";
+import * as HistoryService from "./historyservice.js";
 import * as HostService from "./hostservice.js";
 import * as KeyService from "./keyservice.js";
 import * as LocalShellService from "./localshellservice.js";
 import * as LogsService from "./logsservice.js";
 import * as MetricsService from "./metricsservice.js";
+import * as NetworkService from "./networkservice.js";
+import * as NotificationService from "./notificationservice.js";
 import * as PortForwardService from "./portforwardservice.js";
+import * as ProcessService from "./processservice.js";
 import * as RecordingService from "./recordingservice.js";
 import * as SFTPService from "./sftpservice.js";
 import * as SSHService from "./sshservice.js";
 import * as SettingsService from "./settingsservice.js";
+import * as SnippetService from "./snippetservice.js";
 import * as VaultService from "./vaultservice.js";
 export {
     AIService,
     AutoLockService,
+    ContainerService,
     ExecService,
+    HistoryService,
     HostService,
     KeyService,
     LocalShellService,
     LogsService,
     MetricsService,
+    NetworkService,
+    NotificationService,
     PortForwardService,
+    ProcessService,
     RecordingService,
     SFTPService,
     SSHService,
     SettingsService,
+    SnippetService,
     VaultService
 };
 
@@ -37,15 +49,31 @@ export {
     ActiveForward,
     AppSettings,
     CastEvent,
+    CertInfo,
+    Container,
+    DNSAnswer,
+    DNSResult,
     ExecProgress,
     ExecResult,
     HostMetrics,
     LogLine,
+    Notification,
+    NotifyConfig,
+    NotifyKind,
+    PingResult,
+    Pod,
+    PortScanResult,
+    PortStatus,
+    ProcessInfo,
     PublicKeyView,
     RecordingDetail,
     SFTPEntry,
     SSHConnectOptions,
+    SSLResult,
     SearchHit,
+    SnippetValidation,
+    SnippetVariable,
+    SystemdUnit,
     TerminalData,
     TerminalExit,
     VaultLockEvent,

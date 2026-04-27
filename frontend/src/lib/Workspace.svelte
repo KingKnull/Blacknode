@@ -12,14 +12,21 @@
   import LogsPanel from "./LogsPanel.svelte";
   import ForwardsPanel from "./ForwardsPanel.svelte";
   import RecordingsPanel from "./RecordingsPanel.svelte";
+  import ContainersPanel from "./ContainersPanel.svelte";
+  import NetworkPanel from "./NetworkPanel.svelte";
+  import ProcessesPanel from "./ProcessesPanel.svelte";
+  import SnippetsPanel from "./SnippetsPanel.svelte";
+  import HistoryPanel from "./HistoryPanel.svelte";
   import SettingsPanel from "./SettingsPanel.svelte";
   import Palette from "./Palette.svelte";
   import AIDrawer from "./AIDrawer.svelte";
+  import Toaster from "./Toaster.svelte";
   import Logo from "./logo/Logo.svelte";
   import {
     closeLeaf,
     leaves,
     newLeaf,
+    setRatio,
     splitLeaf,
     type Direction,
     type PaneNode,
@@ -33,6 +40,12 @@
     Network,
     ScrollText,
     Film,
+    Boxes,
+    Radar,
+    Cpu,
+    Bookmark,
+    History as HistoryIcon,
+    Radio,
     Settings as SettingsIcon,
     Lock,
     Unlock,
@@ -83,10 +96,26 @@
       app.aiOpen = false;
     });
 
+    // Snippets and History panels emit a DOM CustomEvent rather than calling
+    // into the workspace directly (they don't know which leaf is active).
+    // Bridge it to the existing pending-insert channel.
+    const onInsertReq = (e: Event) => {
+      const ce = e as CustomEvent<string>;
+      aiInsert(ce.detail);
+    };
+    window.addEventListener(
+      "blacknode:insert-into-active-terminal",
+      onInsertReq as EventListener,
+    );
+
     return () => {
       window.removeEventListener("keydown", onActivity, true);
       window.removeEventListener("mousedown", onActivity, true);
       window.removeEventListener("keydown", onShortcut);
+      window.removeEventListener(
+        "blacknode:insert-into-active-terminal",
+        onInsertReq as EventListener,
+      );
     };
   });
 
@@ -134,6 +163,12 @@
     }
   }
 
+  function onResize(tabID: string, splitID: string, ratio: number) {
+    const t = tabs.find((t) => t.id === tabID);
+    if (!t) return;
+    t.root = setRatio(t.root, splitID, ratio);
+  }
+
   async function lockVault() {
     await VaultService.Lock();
     await app.refreshAll();
@@ -163,6 +198,11 @@
     { id: "logs", label: "Logs", Icon: ScrollText },
     { id: "forwards", label: "Forwards", Icon: Network },
     { id: "recordings", label: "Recordings", Icon: Film },
+    { id: "containers", label: "Containers", Icon: Boxes },
+    { id: "network", label: "Network", Icon: Radar },
+    { id: "processes", label: "Processes", Icon: Cpu },
+    { id: "snippets", label: "Snippets", Icon: Bookmark },
+    { id: "history", label: "History", Icon: HistoryIcon },
     { id: "keys", label: "Keys", Icon: KeyRound },
     { id: "settings", label: "Settings", Icon: SettingsIcon },
   ];
@@ -184,6 +224,34 @@
     <Logo size={22} />
 
     <div class="ml-auto flex items-center gap-2 text-[11px]">
+      <button
+        class="flex items-center gap-1.5 rounded-md border px-2 py-1 transition-colors {app.broadcastEnabled
+          ? 'border-[var(--color-warn)]/50 bg-[var(--color-warn)]/15 text-[var(--color-warn)]'
+          : 'hairline surface-2 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]'}"
+        onclick={() => {
+          if (!app.broadcastEnabled && app.broadcastSet.size === 0) {
+            alert(
+              'Broadcast is on but no panes are in the group yet.\n\nClick the "cast" button on each pane you want to broadcast to.\n\nKeystrokes typed in any group member will be sent to every other member — be very careful with destructive commands.',
+            );
+          }
+          app.broadcastEnabled = !app.broadcastEnabled;
+        }}
+        title={app.broadcastEnabled
+          ? `Broadcasting to ${app.broadcastSet.size} pane${app.broadcastSet.size === 1 ? "" : "s"}`
+          : "Enable multi-pane keystroke broadcast"}
+      >
+        <Radio
+          size="11"
+          class={app.broadcastEnabled ? "pulse-soft" : ""}
+        />
+        <span>broadcast</span>
+        {#if app.broadcastEnabled}
+          <span
+            class="ml-1 rounded bg-[var(--color-warn)]/30 px-1 font-mono text-[9px]"
+            >{app.broadcastSet.size}</span
+          >
+        {/if}
+      </button>
       <button
         class="flex items-center gap-1.5 rounded-md border hairline px-2 py-1 surface-2 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
         onclick={() => (app.aiOpen = !app.aiOpen)}
@@ -312,6 +380,8 @@
                     onactivate={(id) => onActivate(t.id, id)}
                     onsplit={(id, d) => onSplit(t.id, id, d)}
                     onclose={(id) => onCloseLeaf(t.id, id)}
+                    onresize={(splitID, ratio) =>
+                      onResize(t.id, splitID, ratio)}
                   />
                 </div>
               {/each}
@@ -329,6 +399,16 @@
           <ForwardsPanel />
         {:else if app.view === "recordings"}
           <RecordingsPanel />
+        {:else if app.view === "containers"}
+          <ContainersPanel />
+        {:else if app.view === "network"}
+          <NetworkPanel />
+        {:else if app.view === "processes"}
+          <ProcessesPanel />
+        {:else if app.view === "snippets"}
+          <SnippetsPanel />
+        {:else if app.view === "history"}
+          <HistoryPanel />
         {:else if app.view === "keys"}
           <KeysPanel />
         {:else if app.view === "settings"}
@@ -343,6 +423,7 @@
   </div>
 
   <Palette onNewTab={newTab} />
+  <Toaster />
 
   <!-- Status bar -->
   <footer
@@ -366,6 +447,12 @@
       />
       AI {app.settings.hasAnthropicKey ? "ready" : "not configured"}
     </span>
+    {#if app.broadcastEnabled}
+      <span class="flex items-center gap-1 text-[var(--color-warn)]">
+        <Radio size="10" class="pulse-soft" />
+        BROADCASTING to {app.broadcastSet.size} pane{app.broadcastSet.size === 1 ? "" : "s"}
+      </span>
+    {/if}
     <span class="ml-auto font-mono opacity-60">v0.1 · alpha</span>
   </footer>
 </div>

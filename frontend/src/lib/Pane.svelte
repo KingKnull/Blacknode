@@ -10,8 +10,48 @@
     onactivate: (leafID: string) => void;
     onsplit: (leafID: string, direction: "horizontal" | "vertical") => void;
     onclose: (leafID: string) => void;
+    onresize?: (splitID: string, ratio: number) => void;
   };
-  let { node, activeLeafID, onactivate, onsplit, onclose }: Props = $props();
+  let { node, activeLeafID, onactivate, onsplit, onclose, onresize }: Props = $props();
+
+  // Drag state lives in the split branch only — leaf branches don't render a
+  // divider. Tracked here so the pointermove handler can resolve the new
+  // ratio against the parent's bounding rect.
+  let containerEl: HTMLDivElement | undefined = $state();
+  let dragging = $state(false);
+
+  function startDrag(e: PointerEvent) {
+    if (node.kind !== "split" || !containerEl) return;
+    e.preventDefault();
+    dragging = true;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }
+
+  function onMove(e: PointerEvent) {
+    if (!dragging || node.kind !== "split" || !containerEl) return;
+    const rect = containerEl.getBoundingClientRect();
+    const ratio =
+      node.direction === "horizontal"
+        ? (e.clientX - rect.left) / rect.width
+        : (e.clientY - rect.top) / rect.height;
+    onresize?.(node.id, ratio);
+  }
+
+  function endDrag(e: PointerEvent) {
+    if (!dragging) return;
+    dragging = false;
+    try {
+      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      // capture may already be released
+    }
+  }
+
+  // Reset to even split on double-click — common splitter convention.
+  function resetRatio() {
+    if (node.kind !== "split") return;
+    onresize?.(node.id, 0.5);
+  }
 </script>
 
 {#if node.kind === "leaf"}
@@ -23,7 +63,7 @@
     <div
       class="pointer-events-none absolute inset-0 z-10 rounded-sm border transition-colors {activeLeafID ===
       node.id
-        ? 'border-[var(--color-accent)]/40 shadow-[inset_0_0_0_1px_rgba(16,217,160,0.15)]'
+        ? 'border-[var(--color-accent)]/40 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.15)]'
         : 'border-transparent'}"
     ></div>
     <div
@@ -65,31 +105,62 @@
   </div>
 {:else}
   <div
+    bind:this={containerEl}
     class="flex h-full w-full {node.direction === 'horizontal'
       ? 'flex-row'
       : 'flex-col'}"
   >
-    <div class="min-h-0 min-w-0 flex-1">
+    <div
+      class="min-h-0 min-w-0 overflow-hidden"
+      style:flex-basis="{(node.ratio ?? 0.5) * 100}%"
+      style:flex-grow="0"
+      style:flex-shrink="0"
+    >
       <Self
         node={node.a}
         {activeLeafID}
         {onactivate}
         {onsplit}
         {onclose}
+        {onresize}
       />
     </div>
+
+    <!-- Draggable splitter. Visible 1px line + 6px hit area. -->
     <div
-      class="bg-[var(--color-line)] {node.direction === 'horizontal'
-        ? 'w-px'
-        : 'h-px'}"
-    ></div>
-    <div class="min-h-0 min-w-0 flex-1">
+      class="group relative flex shrink-0 items-center justify-center {node.direction ===
+      'horizontal'
+        ? 'w-1.5 cursor-col-resize'
+        : 'h-1.5 cursor-row-resize'} {dragging ? 'bg-[var(--color-accent)]/30' : ''}"
+      role="separator"
+      onpointerdown={startDrag}
+      onpointermove={onMove}
+      onpointerup={endDrag}
+      onpointercancel={endDrag}
+      ondblclick={resetRatio}
+      aria-orientation={node.direction === "horizontal" ? "vertical" : "horizontal"}
+    >
+      <div
+        class="absolute bg-[var(--color-line)] transition-colors group-hover:bg-[var(--color-accent)]/40 {node.direction ===
+        'horizontal'
+          ? 'h-full w-px'
+          : 'h-px w-full'} {dragging ? '!bg-[var(--color-accent)]' : ''}"
+      ></div>
+    </div>
+
+    <div
+      class="min-h-0 min-w-0 overflow-hidden"
+      style:flex-basis="{(1 - (node.ratio ?? 0.5)) * 100}%"
+      style:flex-grow="0"
+      style:flex-shrink="0"
+    >
       <Self
         node={node.b}
         {activeLeafID}
         {onactivate}
         {onsplit}
         {onclose}
+        {onresize}
       />
     </div>
   </div>
