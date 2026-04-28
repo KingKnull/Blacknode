@@ -38,7 +38,14 @@
       "Bash(makensis --version)",
       "Read(//c/Program Files \\(x86\\)/NSIS//**)",
       "Bash(export PATH=\"$PATH:/c/Program Files \\(x86\\)/NSIS\")",
-      "Bash(makensis -VERSION)"
+      "Bash(makensis -VERSION)",
+      "Bash(gh auth *)",
+      "Bash(git tag -a v0.1.0 -m ' *)",
+      "Bash(git push *)",
+      "Bash(curl -s \"https://api.github.com/repos/KingKnull/Blacknode/actions/runs?per_page=3\")",
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); [print\\(f'{r[\\\\\"name\\\\\"]}  status={r[\\\\\"status\\\\\"]}  conclusion={r[\\\\\"conclusion\\\\\"]}  head_branch={r[\\\\\"head_branch\\\\\"]}  url={r[\\\\\"html_url\\\\\"]}'\\) for r in d.get\\('workflow_runs',[]\\)[:3]]\")",
+      "Bash(curl -sS -H \"Accept: application/vnd.github+json\" \"https://api.github.com/repos/KingKnull/Blacknode/actions/runs?per_page=3\")",
+      "Bash(curl -sS \"https://api.github.com/repos/KingKnull/Blacknode\")"
     ]
   }
 }
