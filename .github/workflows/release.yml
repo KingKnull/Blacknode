@@ -33,6 +33,13 @@ jobs:
   windows:
     name: Build Windows installer
     runs-on: windows-latest
+    # Lift signing secrets to job-level env so the step `if:` can check
+    # `env.X != ''`. GitHub Actions does NOT allow `secrets.X` in if
+    # conditions — referencing it there causes the workflow to fail at
+    # parse time with zero jobs (which is exactly what bit us first run).
+    env:
+      WINDOWS_SIGN_PFX_BASE64: ${{ secrets.WINDOWS_SIGN_PFX_BASE64 }}
+      WINDOWS_SIGN_PASSWORD: ${{ secrets.WINDOWS_SIGN_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -60,10 +67,7 @@ jobs:
         shell: pwsh
 
       - name: Sign installer (self-signed, optional)
-        if: secrets.WINDOWS_SIGN_PFX_BASE64 != ''
-        env:
-          WINDOWS_SIGN_PFX_BASE64: ${{ secrets.WINDOWS_SIGN_PFX_BASE64 }}
-          WINDOWS_SIGN_PASSWORD: ${{ secrets.WINDOWS_SIGN_PASSWORD }}
+        if: env.WINDOWS_SIGN_PFX_BASE64 != ''
         shell: pwsh
         run: |
           $pfxPath = Join-Path $env:RUNNER_TEMP "code-signing.pfx"
