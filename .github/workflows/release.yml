@@ -1,16 +1,20 @@
 name: Release
 
-# Triggered by pushing a tag like `v0.2.0`. Builds Windows + macOS + Linux
-# binaries in parallel and attaches them to the GitHub release for the tag.
+# Triggered by pushing a tag like `v0.2.0`. Each platform job runs the
+# Wails packaging chain to produce real installers (not just raw
+# binaries) and uploads them to the GitHub release for the tag:
 #
-# Windows binaries are optionally code-signed when the repo has the
-# WINDOWS_SIGN_PFX_BASE64 + WINDOWS_SIGN_PASSWORD secrets set. Today this
-# is wired for self-signed certs (see scripts/sign/README.md for setup);
-# self-signing replaces "Unknown publisher" with your declared name but
-# does NOT bypass Windows SmartScreen for end users — that needs an EV
-# Authenticode cert or Microsoft Trusted Signing. macOS binaries are
-# unsigned; adding Gatekeeper / notarytool support would need APPLE_ID /
-# APPLE_PASSWORD / TEAM_ID + a Developer ID P12 base64 secret.
+#   Windows  ->  Blacknode-amd64-installer.exe        (NSIS)
+#   macOS    ->  Blacknode-darwin-universal.dmg        (universal arm64+amd64)
+#   Linux    ->  blacknode_<ver>_amd64.deb              (Debian/Ubuntu)
+#                blacknode-<ver>-1.x86_64.rpm           (RHEL/Fedora/etc)
+#                blacknode-<ver>-1-x86_64.pkg.tar.zst   (Arch)
+#
+# Code signing is optional, gated on secrets. Windows uses the
+# self-signed PFX wired in scripts/sign/sign.ps1 (replaces "Unknown
+# publisher" but does NOT bypass SmartScreen — see scripts/sign/README.md).
+# macOS Gatekeeper and notarytool wiring would need APPLE_ID / TEAM_ID /
+# DEVELOPER_ID_P12 secrets and is intentionally out of scope here.
 
 on:
   push:
@@ -26,30 +30,15 @@ permissions:
   contents: write
 
 jobs:
-  build:
-    name: Build (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            artifact: blacknode-linux-amd64
-            ext: ""
-          - os: windows-latest
-            artifact: blacknode-windows-amd64.exe
-            ext: ".exe"
-          - os: macos-latest
-            artifact: blacknode-darwin-arm64
-            ext: ""
+  windows:
+    name: Build Windows installer
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26"
           cache: true
-
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -59,30 +48,19 @@ jobs:
       - name: Install Wails CLI
         run: go install github.com/wailsapp/wails/v3/cmd/wails3@latest
 
-      - name: Install Linux build deps
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+      - name: Install NSIS
+        run: choco install nsis -y --no-progress
+        shell: pwsh
 
-      - name: Build frontend
-        working-directory: frontend
-        run: |
-          npm ci
-          npm run build
+      - name: Build + package (NSIS)
+        # `wails3 task windows:package` chains: frontend build → icon
+        # generation → syso generation → go build → makensis. Output lands
+        # in bin/Blacknode-amd64-installer.exe.
+        run: wails3 task windows:package
+        shell: pwsh
 
-      - name: Generate Wails syso (Windows)
-        if: matrix.os == 'windows-latest'
-        run: wails3 generate syso -arch amd64 -icon build/appicon.png
-
-      - name: Build binary
-        run: go build -trimpath -ldflags="-s -w" -o ${{ matrix.artifact }} .
-
-      - name: Sign Windows binary (self-signed)
-        # Skipped silently when the secrets aren't set — fork PRs and
-        # first-time setups will produce unsigned binaries instead of
-        # failing the build.
-        if: matrix.os == 'windows-latest' && secrets.WINDOWS_SIGN_PFX_BASE64 != ''
+      - name: Sign installer (self-signed, optional)
+        if: secrets.WINDOWS_SIGN_PFX_BASE64 != ''
         env:
           WINDOWS_SIGN_PFX_BASE64: ${{ secrets.WINDOWS_SIGN_PFX_BASE64 }}
           WINDOWS_SIGN_PASSWORD: ${{ secrets.WINDOWS_SIGN_PASSWORD }}
@@ -95,20 +73,101 @@ jobs:
           )
           $pw = ConvertTo-SecureString $env:WINDOWS_SIGN_PASSWORD -AsPlainText -Force
           pwsh -File scripts/sign/sign.ps1 `
-            -Binary "${{ matrix.artifact }}" `
+            -Binary "bin/Blacknode-amd64-installer.exe" `
             -PfxPath $pfxPath `
             -Password $pw
           Remove-Item $pfxPath -Force
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact }}
-          path: ${{ matrix.artifact }}
+          name: windows-installer
+          path: bin/Blacknode-amd64-installer.exe
+          if-no-files-found: error
+
+  macos:
+    name: Build macOS .dmg (universal)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@latest
+
+      - name: Build universal .app
+        # package:universal builds amd64 + arm64, lipos them into a single
+        # binary, then wraps in a .app bundle. Output: bin/Blacknode.app
+        run: wails3 task darwin:package:universal
+
+      - name: Wrap .app into .dmg
+        # hdiutil ships on every macOS runner — no third-party tooling.
+        # UDZO = compressed read-only, the standard distribution format.
+        run: |
+          hdiutil create \
+            -volname "Blacknode" \
+            -srcfolder "bin/Blacknode.app" \
+            -ov -format UDZO \
+            "bin/Blacknode-darwin-universal.dmg"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-installer
+          path: bin/Blacknode-darwin-universal.dmg
+          if-no-files-found: error
+
+  linux:
+    name: Build Linux packages (.deb + .rpm + .pkg.tar.zst)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@latest
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+
+      - name: Build + package (deb + rpm + arch)
+        # linux:package chains: frontend build → icons → desktop file →
+        # go build → wails3 tool package three times (deb, rpm, archlinux).
+        # AppImage is part of the chain too but skipped here — needs FUSE
+        # which the GH runner doesn't expose; revisit when we want it.
+        run: |
+          wails3 task linux:create:deb
+          wails3 task linux:create:rpm
+          wails3 task linux:create:aur
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: |
+            bin/*.deb
+            bin/*.rpm
+            bin/*.pkg.tar.zst
           if-no-files-found: error
 
   release:
     name: Publish release
-    needs: build
+    needs: [windows, macos, linux]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
