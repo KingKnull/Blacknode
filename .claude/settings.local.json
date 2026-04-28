@@ -33,7 +33,12 @@
       "Bash(grep -n \"Pane$\\\\|<Pane\" 'C:\\\\Users\\\\Maverick\\\\Desktop\\\\Blacknode\\\\frontend\\\\src\\\\lib\\\\Workspace.svelte')",
       "Bash(grep -n \"{:else if !err && !busy}\\\\|Type a query and hit\\\\|{/if}\\\\s*$\\\\|^</div>\" 'C:\\\\Users\\\\Maverick\\\\Desktop\\\\Blacknode\\\\frontend\\\\src\\\\lib\\\\DBPanel.svelte')",
       "Bash(go vet *)",
-      "Bash(go get *)"
+      "Bash(go get *)",
+      "Bash(wails3 task *)",
+      "Bash(makensis --version)",
+      "Read(//c/Program Files \\(x86\\)/NSIS//**)",
+      "Bash(export PATH=\"$PATH:/c/Program Files \\(x86\\)/NSIS\")",
+      "Bash(makensis -VERSION)"
     ]
   }
 }
