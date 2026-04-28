@@ -7,6 +7,10 @@
  * can therefore reach internal services that the local machine can't —
  * staging APIs behind a VPC bastion, a Postgres health endpoint on a
  * private subnet, etc.
+ * 
+ * Saved-request methods (Save/List/Get/UpdateRequest/DeleteRequest) front
+ * a small store so users can stash collections of requests grouped into
+ * folders — Postman-flavored without the cloud sync.
  * @module
  */
 
@@ -16,7 +20,38 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as store$0 from "./internal/store/models.js";
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as $models from "./models.js";
+
+/**
+ * @param {string} id
+ * @returns {$CancellablePromise<void>}
+ */
+export function DeleteSavedRequest(id) {
+    return $Call.ByID(134313526, id);
+}
+
+/**
+ * @param {string} id
+ * @returns {$CancellablePromise<store$0.HTTPRequest>}
+ */
+export function GetSavedRequest(id) {
+    return $Call.ByID(1208644743, id).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType0($result);
+    }));
+}
+
+/**
+ * @returns {$CancellablePromise<store$0.HTTPRequest[]>}
+ */
+export function ListSavedRequests() {
+    return $Call.ByID(2638922926).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType1($result);
+    }));
+}
 
 /**
  * Request fires a single HTTP request and returns the response. Body capped
@@ -29,9 +64,21 @@ import * as $models from "./models.js";
  */
 export function Request(hostID, password, opts) {
     return $Call.ByID(3181893466, hostID, password, opts).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType2($result);
+    }));
+}
+
+/**
+ * @param {store$0.HTTPRequest} r
+ * @returns {$CancellablePromise<store$0.HTTPRequest>}
+ */
+export function SaveRequest(r) {
+    return $Call.ByID(1945448353, r).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }
 
 // Private type creation functions
-const $$createType0 = $models.HTTPResponse.createFrom;
+const $$createType0 = store$0.HTTPRequest.createFrom;
+const $$createType1 = $Create.Array($$createType0);
+const $$createType2 = $models.HTTPResponse.createFrom;

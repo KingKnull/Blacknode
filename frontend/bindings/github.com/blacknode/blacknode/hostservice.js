@@ -49,8 +49,12 @@ export function Get(id) {
  * Auth is heuristically defaulted: if the entry has an IdentityFile, mark
  * the host as "key" auth (the user must still link a vault key after
  * import); otherwise fall back to "agent" so existing ssh-agent setups work
- * out of the box. ProxyJump is *not* imported automatically — bastion
- * chaining is on the roadmap but not wired through Connect yet.
+ * out of the box.
+ * 
+ * ProxyJump auto-link: a second pass resolves each entry's ProxyJump alias
+ * against the set of just-imported names plus any pre-existing saved host.
+ * Resolved links are written to the host record; unresolved references are
+ * left in the notes field so the user can fix them by hand.
  * @param {$models.SSHConfigCandidate[]} entries
  * @returns {$CancellablePromise<number>}
  */

@@ -37,13 +37,14 @@ const maxConcurrent = 16
 
 type ExecService struct {
 	pool    *sshconn.Pool
-	hosts   *store.Hosts
-	history *store.History
-	notify  *NotificationService
+	hosts    *store.Hosts
+	history  *store.History
+	notify   *NotificationService
+	activity *activityRecorder
 }
 
-func NewExecService(pool *sshconn.Pool, h *store.Hosts, hist *store.History, n *NotificationService) *ExecService {
-	return &ExecService{pool: pool, hosts: h, history: hist, notify: n}
+func NewExecService(pool *sshconn.Pool, h *store.Hosts, hist *store.History, n *NotificationService, a *activityRecorder) *ExecService {
+	return &ExecService{pool: pool, hosts: h, history: hist, notify: n, activity: a}
 }
 
 func (s *ExecService) Run(runID, command string, hostIDs []string, passwords map[string]string, timeoutSeconds int) ([]ExecResult, error) {
@@ -142,6 +143,19 @@ func (s *ExecService) maybeNotifyCompletion(command string, results []ExecResult
 	}
 	s.notify.Notify(Notification{
 		Kind: kind, Title: title, Body: body, Source: "exec",
+	})
+	level := "info"
+	activityKind := "exec.complete"
+	if fail > 0 {
+		level = "warn"
+		activityKind = "exec.partial_fail"
+	}
+	s.activity.Record(store.Activity{
+		Source: "exec",
+		Kind:   activityKind,
+		Level:  level,
+		Title:  title,
+		Body:   body,
 	})
 }
 

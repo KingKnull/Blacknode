@@ -50,6 +50,9 @@ func main() {
 	history := store.NewHistory(conn.DB)
 	logQueries := store.NewLogQueries(conn.DB)
 	dbConnections := store.NewDBConnections(conn.DB)
+	httpRequests := store.NewHTTPRequests(conn.DB)
+	teamActivity := store.NewTeamActivities(conn.DB)
+	activities := store.NewActivities(conn.DB)
 	recMgr := recorder.NewManager()
 	v := vault.New(conn.DB)
 	dialer := sshconn.New(v, keys, knownHosts)
@@ -60,19 +63,20 @@ func main() {
 	autoLock.Start()
 	pfSvc := NewPortForwardService(pool, hosts, forwards)
 	notifySvc := NewNotificationService(settings)
+	activityRec := newActivityRecorder(activities)
 
 	app := application.New(application.Options{
 		Name:        "blacknode",
 		Description: "Remote infrastructure command platform",
 		Services: []application.Service{
-			application.NewService(NewVaultService(v)),
+			application.NewService(NewVaultService(v, activityRec)),
 			application.NewService(settingsSvc),
 			application.NewService(NewKeyService(keys, v)),
 			application.NewService(NewHostService(hosts)),
 			application.NewService(NewLocalShellService(recMgr, recordings, settings)),
 			application.NewService(NewSSHService(dialer, hosts, recMgr, recordings, settings)),
 			application.NewService(NewSFTPService(pool, hosts)),
-			application.NewService(NewExecService(pool, hosts, history, notifySvc)),
+			application.NewService(NewExecService(pool, hosts, history, notifySvc, activityRec)),
 			application.NewService(NewMetricsService(pool, hosts, notifySvc)),
 			application.NewService(NewLogsService(pool, hosts, logQueries)),
 			application.NewService(NewAIService(settingsSvc)),
@@ -84,9 +88,13 @@ func main() {
 			application.NewService(NewHistoryService(history)),
 			application.NewService(NewNetworkService(pool, hosts)),
 			application.NewService(NewProcessService(pool, hosts)),
-			application.NewService(NewHTTPService(pool, hosts)),
+			application.NewService(NewHTTPService(pool, hosts, httpRequests)),
 			application.NewService(NewDBService(pool, hosts, dbConnections, v)),
 			application.NewService(notifySvc),
+			application.NewService(NewUpdateService()),
+			application.NewService(NewPluginService(notifySvc, activityRec)),
+			application.NewService(NewSyncService(settings, hosts, snippets, httpRequests, teamActivity, v, activityRec)),
+			application.NewService(NewActivityService(activities)),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),

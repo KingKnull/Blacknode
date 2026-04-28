@@ -51,13 +51,42 @@ type HTTPResponse struct {
 // can therefore reach internal services that the local machine can't —
 // staging APIs behind a VPC bastion, a Postgres health endpoint on a
 // private subnet, etc.
+//
+// Saved-request methods (Save/List/Get/UpdateRequest/DeleteRequest) front
+// a small store so users can stash collections of requests grouped into
+// folders — Postman-flavored without the cloud sync.
 type HTTPService struct {
 	pool  *sshconn.Pool
 	hosts *store.Hosts
+	saved *store.HTTPRequests
 }
 
-func NewHTTPService(pool *sshconn.Pool, h *store.Hosts) *HTTPService {
-	return &HTTPService{pool: pool, hosts: h}
+func NewHTTPService(pool *sshconn.Pool, h *store.Hosts, saved *store.HTTPRequests) *HTTPService {
+	return &HTTPService{pool: pool, hosts: h, saved: saved}
+}
+
+func (s *HTTPService) SaveRequest(r store.HTTPRequest) (store.HTTPRequest, error) {
+	if r.ID != "" {
+		// Save-as-update path: existing rows are routed through Update so the
+		// frontend can use one method for both flows.
+		if err := s.saved.Update(r); err != nil {
+			return store.HTTPRequest{}, err
+		}
+		return s.saved.Get(r.ID)
+	}
+	return s.saved.Create(r)
+}
+
+func (s *HTTPService) ListSavedRequests() ([]store.HTTPRequest, error) {
+	return s.saved.List()
+}
+
+func (s *HTTPService) GetSavedRequest(id string) (store.HTTPRequest, error) {
+	return s.saved.Get(id)
+}
+
+func (s *HTTPService) DeleteSavedRequest(id string) error {
+	return s.saved.Delete(id)
 }
 
 // Request fires a single HTTP request and returns the response. Body capped

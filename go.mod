@@ -7,9 +7,11 @@ require (
 	github.com/anthropics/anthropic-sdk-go v1.38.0
 	github.com/aymanbagabas/go-pty v0.2.2
 	github.com/gen2brain/beeep v0.11.2
+	github.com/gliderlabs/ssh v0.3.8
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.9.2
+	github.com/kevinburke/ssh_config v1.4.0
 	github.com/pkg/sftp v1.13.10
 	github.com/srwiley/oksvg v0.0.0-20221011165216-be6e8873101c
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef
@@ -24,6 +26,7 @@ require (
 	git.sr.ht/~jackmordaunt/go-toast v1.1.2 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/ProtonMail/go-crypto v1.3.0 // indirect
+	github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/bep/debounce v1.2.1 // indirect
 	github.com/buger/jsonparser v1.1.2 // indirect
@@ -47,7 +50,6 @@ require (
 	github.com/jackmordaunt/icns/v3 v3.0.1 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/jchv/go-winloader v0.0.0-20250406163304-c1995be93bd1 // indirect
-	github.com/kevinburke/ssh_config v1.4.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/leaanthony/go-ansi-parser v1.6.1 // indirect

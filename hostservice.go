@@ -108,11 +108,18 @@ func (s *HostService) ScanSSHConfig() ([]SSHConfigCandidate, error) {
 // Auth is heuristically defaulted: if the entry has an IdentityFile, mark
 // the host as "key" auth (the user must still link a vault key after
 // import); otherwise fall back to "agent" so existing ssh-agent setups work
-// out of the box. ProxyJump is *not* imported automatically — bastion
-// chaining is on the roadmap but not wired through Connect yet.
+// out of the box.
+//
+// ProxyJump auto-link: a second pass resolves each entry's ProxyJump alias
+// against the set of just-imported names plus any pre-existing saved host.
+// Resolved links are written to the host record; unresolved references are
+// left in the notes field so the user can fix them by hand.
 func (s *HostService) ImportSSHConfigEntries(entries []SSHConfigCandidate) (int, error) {
 	n := 0
 	var firstErr error
+	created := make(map[string]string) // alias → saved host id
+	pending := make(map[string]string) // saved host id → desired ProxyJump alias
+
 	for _, e := range entries {
 		if e.Alias == "" || e.Hostname == "" {
 			continue
@@ -130,14 +137,8 @@ func (s *HostService) ImportSSHConfigEntries(entries []SSHConfigCandidate) (int,
 		if e.IdentityFile != "" {
 			notes = "Identity file: " + e.IdentityFile + " (link a vault key in Edit)"
 		}
-		if e.ProxyJump != "" {
-			if notes != "" {
-				notes += "\n"
-			}
-			notes += "ProxyJump: " + e.ProxyJump + " (not yet wired)"
-		}
 
-		_, err := s.hosts.Create(store.Host{
+		saved, err := s.hosts.Create(store.Host{
 			Name:       e.Alias,
 			Host:       e.Hostname,
 			Port:       port,
@@ -152,12 +153,71 @@ func (s *HostService) ImportSSHConfigEntries(entries []SSHConfigCandidate) (int,
 			}
 			continue
 		}
+		created[e.Alias] = saved.ID
+		if alias := proxyJumpAlias(e.ProxyJump); alias != "" {
+			pending[saved.ID] = alias
+		}
 		n++
 	}
+
+	// Second pass: resolve ProxyJump aliases. Prefer freshly-imported hosts,
+	// then fall back to any pre-existing saved host with a matching name.
+	for id, alias := range pending {
+		if _, ok := created[alias]; ok {
+			h, err := s.hosts.Get(id)
+			if err != nil {
+				continue
+			}
+			h.ProxyJump = alias
+			_ = s.hosts.Update(h)
+			continue
+		}
+		if existing, err := s.hosts.GetByName(alias); err == nil && existing.ID != "" {
+			h, err := s.hosts.Get(id)
+			if err != nil {
+				continue
+			}
+			h.ProxyJump = existing.Name
+			_ = s.hosts.Update(h)
+			continue
+		}
+		// Unresolved — preserve the original config hint in notes.
+		if h, err := s.hosts.Get(id); err == nil {
+			if h.Notes != "" {
+				h.Notes += "\n"
+			}
+			h.Notes += "ProxyJump: " + alias + " (alias not in saved hosts; set manually)"
+			_ = s.hosts.Update(h)
+		}
+	}
+
 	if n == 0 && firstErr != nil {
 		return 0, firstErr
 	}
 	return n, nil
+}
+
+// proxyJumpAlias extracts a single saved-host name from an ssh_config
+// ProxyJump value. Real ProxyJump syntax is `[user@]host[:port][,...]`
+// with optional chains; we collapse to the first hop's host portion since
+// that's the only piece that maps to our saved-host model. Multi-hop
+// chains aren't auto-linked — the user can express them by chaining
+// ProxyJump on the bastion records themselves.
+func proxyJumpAlias(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" || s == "none" {
+		return ""
+	}
+	if i := strings.Index(s, ","); i >= 0 {
+		s = s[:i]
+	}
+	if i := strings.LastIndex(s, "@"); i >= 0 {
+		s = s[i+1:]
+	}
+	if i := strings.Index(s, ":"); i >= 0 {
+		s = s[:i]
+	}
+	return strings.TrimSpace(s)
 }
 
 func expandTilde(p, home string) string {

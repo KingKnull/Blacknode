@@ -53,6 +53,7 @@
           keyID: authMethod === "key" ? keyID : "",
           group,
           environment,
+          proxyJump,
           notes,
         } as Host);
       } else {
@@ -65,6 +66,7 @@
           keyID: authMethod === "key" ? keyID : "",
           group,
           environment,
+          proxyJump,
           notes,
           tags: [],
         } as unknown as Host);
@@ -204,6 +206,27 @@
           </select>
         </label>
       </div>
+      <label class="block">
+        <span class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+          >ProxyJump (bastion host)</span
+        >
+        <select
+          class="mt-1 w-full rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 outline-none"
+          bind:value={proxyJump}
+        >
+          <option value="">— direct connect —</option>
+          {#each app.hosts.filter((h) => h.id !== host?.id) as h (h.id)}
+            <option value={h.name}
+              >{h.name} ({h.username}@{h.host}:{h.port})</option
+            >
+          {/each}
+        </select>
+        <p class="mt-1 text-[10px] text-[var(--color-text-4)]">
+          Connections to this host tunnel through the selected bastion.
+          Cycles are detected at connect time.
+        </p>
+      </label>
+
       <label class="block">
         <span class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
           >Notes</span

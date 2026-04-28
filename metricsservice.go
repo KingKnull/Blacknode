@@ -34,34 +34,66 @@ type HostMetrics struct {
 }
 
 // metricsCommand is a single shot script executed via SSH that prints four
-// numbers we can parse trivially. Avoids depending on a remote agent — if the
-// host has /proc, this works.
-const metricsCommand = `awk '
-BEGIN { while ((getline line < "/proc/loadavg") > 0) split(line, la, " ") }
-{ }
-END {
-  cpu = "n/a"; mem_used = 0; mem_total = 0; disk = "n/a"
-  while ((getline l < "/proc/stat") > 0) {
-    if (l ~ /^cpu /) {
-      n = split(l, a, " ")
-      idle = a[5] + a[6]
-      total = 0
-      for (i = 2; i <= n; i++) total += a[i]
-      print "CPU_TOTAL=" total
-      print "CPU_IDLE=" idle
-      break
+// numbers we can parse trivially. Linux reads from /proc; Darwin uses
+// vm_stat / sysctl / top. Both emit the same KEY=value lines so the parser
+// stays oblivious. CPU on Darwin is reported as a pre-computed percentage
+// (CPU_PCT) since we get it from a 1-second `top` interval; Linux uses
+// CPU_TOTAL/CPU_IDLE counters and we compute the delta in Go.
+const metricsCommand = `case "$(uname -s)" in
+Linux)
+  awk '
+  BEGIN { while ((getline line < "/proc/loadavg") > 0) split(line, la, " ") }
+  { }
+  END {
+    while ((getline l < "/proc/stat") > 0) {
+      if (l ~ /^cpu /) {
+        n = split(l, a, " ")
+        idle = a[5] + a[6]
+        total = 0
+        for (i = 2; i <= n; i++) total += a[i]
+        print "CPU_TOTAL=" total
+        print "CPU_IDLE=" idle
+        break
+      }
     }
+    while ((getline l < "/proc/meminfo") > 0) {
+      if (l ~ /^MemTotal:/)     { split(l, a, " "); print "MEM_TOTAL=" a[2] }
+      if (l ~ /^MemAvailable:/) { split(l, a, " "); print "MEM_AVAIL=" a[2] }
+    }
+    print "LOAD1=" la[1]
   }
-  while ((getline l < "/proc/meminfo") > 0) {
-    if (l ~ /^MemTotal:/)     { split(l, a, " "); print "MEM_TOTAL=" a[2] }
-    if (l ~ /^MemAvailable:/) { split(l, a, " "); print "MEM_AVAIL=" a[2] }
-  }
-  print "LOAD1=" la[1]
-}
-' /dev/null
-df -P / | awk 'NR==2 { sub("%","",$5); print "DISK_PCT=" $5 }'
-awk '/:/ && $1 !~ /^lo:/ { gsub(":", "", $1); rx += $2; tx += $10 }
-     END { print "NET_RX=" rx; print "NET_TX=" tx }' /proc/net/dev`
+  ' /dev/null
+  df -P / | awk 'NR==2 { sub("%","",$5); print "DISK_PCT=" $5 }'
+  awk '/:/ && $1 !~ /^lo:/ { gsub(":", "", $1); rx += $2; tx += $10 }
+       END { print "NET_RX=" rx; print "NET_TX=" tx }' /proc/net/dev
+  ;;
+Darwin)
+  top -l 2 -s 1 -n 0 2>/dev/null | awk '/CPU usage/ { line = $0 } END {
+    if (match(line, /[0-9.]+% idle/)) {
+      s = substr(line, RSTART, RLENGTH - 7)
+      print "CPU_PCT=" (100 - s)
+    }
+  }'
+  ps_size=$(vm_stat | awk 'NR==1 { for (i=1; i<=NF; i++) if ($i ~ /^[0-9]+$/) { print $i; exit } }')
+  if [ -n "$ps_size" ]; then
+    total_kb=$(( $(sysctl -n hw.memsize) / 1024 ))
+    echo "MEM_TOTAL=$total_kb"
+    vm_stat | awk -v ps="$ps_size" '
+      /Pages free/        { gsub("\\.","",$3); f = $3 }
+      /Pages speculative/ { gsub("\\.","",$3); s = $3 }
+      END { if (ps) print "MEM_AVAIL=" int(((f + s) * ps) / 1024) }
+    '
+  fi
+  df -P / | awk 'NR==2 { sub("%","",$5); print "DISK_PCT=" $5 }'
+  sysctl -n vm.loadavg 2>/dev/null | awk '{ gsub("[{}]",""); print "LOAD1=" $1 }'
+  netstat -ibn 2>/dev/null | awk '
+    NR > 1 && $1 !~ /^(lo|Name|\*)/ && !seen[$1]++ {
+      if ($7 ~ /^[0-9]+$/ && $10 ~ /^[0-9]+$/) { rx += $7; tx += $10 }
+    }
+    END { print "NET_RX=" rx+0; print "NET_TX=" tx+0 }
+  '
+  ;;
+esac`
 
 type MetricsService struct {
 	pool   *sshconn.Pool
@@ -201,7 +233,11 @@ func (s *MetricsService) collect(hostID, password string) HostMetrics {
 	m.Online = true
 	parsed := parseMetrics(out)
 
-	if t, ok := parsed["CPU_TOTAL"]; ok {
+	if pct, ok := parsed["CPU_PCT"]; ok {
+		// Darwin path: top has already done a 1-second sample on the host
+		// side, so the percentage is direct and we don't need delta math.
+		m.CPUPercent = pct
+	} else if t, ok := parsed["CPU_TOTAL"]; ok {
 		i := parsed["CPU_IDLE"]
 		s.mu.Lock()
 		prev, has := s.prevCPU[hostID]

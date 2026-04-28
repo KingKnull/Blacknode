@@ -36,3 +36,11 @@ data
 .env
 .env.local
 .env.*.local
+
+# Code signing — never commit private cert material. Only the public
+# code-signing.cer (which scripts/sign/generate-cert.ps1 also writes
+# to build/sign/) is safe to publish.
+build/sign/*.pfx
+build/sign/*.pfx.base64.txt
+build/sign/*.p12
+build/sign/*.pem

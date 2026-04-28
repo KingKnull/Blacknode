@@ -5,8 +5,10 @@ import {
   SettingsService,
   AIService,
   RecordingService,
+  PluginService,
 } from "../../bindings/github.com/blacknode/blacknode";
 import type { Host } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
+import type { PanelView } from "../../bindings/github.com/blacknode/blacknode/internal/plugin/models";
 import type {
   PublicKeyView,
   VaultStatus,
@@ -28,8 +30,13 @@ type View =
   | "database"
   | "snippets"
   | "history"
+  | "topology"
+  | "plugins"
+  | "activity"
   | "keys"
-  | "settings";
+  | "settings"
+  // Plugin-contributed panel ids are namespaced as `plugin:<pluginId>:<panelId>`.
+  | `plugin:${string}:${string}`;
 
 class AppState {
   view = $state<View>("terminals");
@@ -49,6 +56,16 @@ class AppState {
   paletteOpen = $state(false);
   aiOpen = $state(false);
   recordingsEnabled = $state(false);
+
+  // Plugin-contributed panels surfaced in the sidebar nav.
+  pluginPanels = $state<PanelView[]>([]);
+  async refreshPluginPanels() {
+    try {
+      this.pluginPanels = ((await PluginService.Panels()) ?? []) as PanelView[];
+    } catch {
+      this.pluginPanels = [];
+    }
+  }
 
   // Cross-component channel: any panel can prefill the AI drawer with a mode
   // and a body, then open it. AIDrawer watches this and applies it.

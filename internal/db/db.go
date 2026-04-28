@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS hosts (
 );
 
 CREATE INDEX IF NOT EXISTS idx_hosts_group ON hosts(group_name);
+CREATE INDEX IF NOT EXISTS idx_hosts_name ON hosts(name);
 
 CREATE TABLE IF NOT EXISTS keys (
     id TEXT PRIMARY KEY,
@@ -126,6 +127,49 @@ CREATE TABLE IF NOT EXISTS db_connections (
     dsn_nonce BLOB NOT NULL,
     created_at INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS http_requests (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    folder TEXT NOT NULL DEFAULT '',
+    method TEXT NOT NULL DEFAULT 'GET',
+    url TEXT NOT NULL,
+    headers TEXT NOT NULL DEFAULT '{}',
+    body TEXT NOT NULL DEFAULT '',
+    host_id TEXT NOT NULL DEFAULT '',
+    insecure INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_http_requests_folder ON http_requests(folder);
+
+CREATE TABLE IF NOT EXISTS team_activity (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    actor TEXT NOT NULL DEFAULT '',
+    summary TEXT NOT NULL DEFAULT '',
+    counts TEXT NOT NULL DEFAULT '{}',
+    at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_team_activity_at ON team_activity(at DESC);
+
+CREATE TABLE IF NOT EXISTS activity (
+    id TEXT PRIMARY KEY,
+    source TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    level TEXT NOT NULL DEFAULT 'info',
+    title TEXT NOT NULL,
+    body TEXT NOT NULL DEFAULT '',
+    host_id TEXT NOT NULL DEFAULT '',
+    host_name TEXT NOT NULL DEFAULT '',
+    at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_activity_at ON activity(at DESC);
+CREATE INDEX IF NOT EXISTS idx_activity_source ON activity(source);
+CREATE INDEX IF NOT EXISTS idx_activity_host ON activity(host_id);
 `
 
 type DB struct {

@@ -9,28 +9,33 @@ import { Create as $Create } from "@wailsio/runtime";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as main$0 from "../../../../blacknode/blacknode/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as store$0 from "../../../../blacknode/blacknode/internal/store/models.js";
 
 function configure() {
     Object.freeze(Object.assign($Create.Events, {
-        "ai:chunk": $$createType0,
-        "exec:progress": $$createType1,
-        "logs:line": $$createType2,
-        "metrics:update": $$createType3,
-        "notification:toast": $$createType4,
-        "terminal:data": $$createType5,
-        "terminal:exit": $$createType6,
-        "vault:locked": $$createType7,
+        "activity:append": $$createType0,
+        "ai:chunk": $$createType1,
+        "exec:progress": $$createType2,
+        "logs:line": $$createType3,
+        "metrics:update": $$createType4,
+        "notification:toast": $$createType5,
+        "terminal:data": $$createType6,
+        "terminal:exit": $$createType7,
+        "vault:locked": $$createType8,
     }));
 }
 
 // Private type creation functions
-const $$createType0 = main$0.AIChunk.createFrom;
-const $$createType1 = main$0.ExecProgress.createFrom;
-const $$createType2 = main$0.LogLine.createFrom;
-const $$createType3 = main$0.HostMetrics.createFrom;
-const $$createType4 = main$0.Notification.createFrom;
-const $$createType5 = main$0.TerminalData.createFrom;
-const $$createType6 = main$0.TerminalExit.createFrom;
-const $$createType7 = main$0.VaultLockEvent.createFrom;
+const $$createType0 = store$0.Activity.createFrom;
+const $$createType1 = main$0.AIChunk.createFrom;
+const $$createType2 = main$0.ExecProgress.createFrom;
+const $$createType3 = main$0.LogLine.createFrom;
+const $$createType4 = main$0.HostMetrics.createFrom;
+const $$createType5 = main$0.Notification.createFrom;
+const $$createType6 = main$0.TerminalData.createFrom;
+const $$createType7 = main$0.TerminalExit.createFrom;
+const $$createType8 = main$0.VaultLockEvent.createFrom;
 
 configure();

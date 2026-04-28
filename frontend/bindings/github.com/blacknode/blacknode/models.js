@@ -2456,6 +2456,105 @@ export class SnippetVariable {
 }
 
 /**
+ * SyncSettings is the persisted config (endpoint URL, bearer token). The
+ * token is stored under the existing settings KV store; we reuse the
+ * vault for encryption-at-rest.
+ */
+export class SyncSettings {
+    /**
+     * Creates a new SyncSettings instance.
+     * @param {Partial<SyncSettings>} [$$source = {}] - The source object to create the SyncSettings.
+     */
+    constructor($$source = {}) {
+        if (!("endpoint" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["endpoint"] = "";
+        }
+        if (!("token" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["token"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SyncSettings instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {SyncSettings}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SyncSettings(/** @type {Partial<SyncSettings>} */($$parsedSource));
+    }
+}
+
+/**
+ * SyncStatus is what the UI renders.
+ */
+export class SyncStatus {
+    /**
+     * Creates a new SyncStatus instance.
+     * @param {Partial<SyncStatus>} [$$source = {}] - The source object to create the SyncStatus.
+     */
+    constructor($$source = {}) {
+        if (!("configured" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["configured"] = false;
+        }
+        if (!("endpoint" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["endpoint"] = "";
+        }
+        if (!("lastPushAt" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["lastPushAt"] = 0;
+        }
+        if (!("lastPullAt" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["lastPullAt"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["lastError"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SyncStatus instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {SyncStatus}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SyncStatus(/** @type {Partial<SyncStatus>} */($$parsedSource));
+    }
+}
+
+/**
  * SystemdUnit is a single systemctl-listed service. ActiveState is what most
  * people mean by "is it running": active / inactive / failed.
  */
@@ -2582,6 +2681,81 @@ export class TerminalExit {
     static createFrom($$source = {}) {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new TerminalExit(/** @type {Partial<TerminalExit>} */($$parsedSource));
+    }
+}
+
+/**
+ * UpdateInfo is the wire shape returned to the frontend. Empty `Latest`
+ * + non-empty `Error` indicates the probe failed — the UI should surface
+ * that state rather than silently treating it as "you're up to date".
+ */
+export class UpdateInfo {
+    /**
+     * Creates a new UpdateInfo instance.
+     * @param {Partial<UpdateInfo>} [$$source = {}] - The source object to create the UpdateInfo.
+     */
+    constructor($$source = {}) {
+        if (!("current" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["current"] = "";
+        }
+        if (!("latest" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["latest"] = "";
+        }
+        if (!("updateAvailable" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["updateAvailable"] = false;
+        }
+        if (!("releaseUrl" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["releaseUrl"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["notes"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["publishedAt"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["error"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new UpdateInfo instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {UpdateInfo}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new UpdateInfo(/** @type {Partial<UpdateInfo>} */($$parsedSource));
     }
 }
 

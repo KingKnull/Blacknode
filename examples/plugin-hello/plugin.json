@@ -1,0 +1,16 @@
+{
+  "id": "hello",
+  "name": "Hello plugin",
+  "version": "0.1.0",
+  "description": "Sample plugin: completes the init handshake and renders a custom panel.",
+  "entrypoint": ["./plugin-hello"],
+  "permissions": ["host.notify"],
+  "panels": [
+    {
+      "id": "main",
+      "title": "Hello",
+      "icon": "puzzle",
+      "html": "panel.html"
+    }
+  ]
+}

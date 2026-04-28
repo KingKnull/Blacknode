@@ -1,7 +1,10 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
   import { Events } from "@wailsio/runtime";
-  import { VaultService } from "../../bindings/github.com/blacknode/blacknode";
+  import {
+    VaultService,
+    PluginService,
+  } from "../../bindings/github.com/blacknode/blacknode";
   import { app, type View } from "./state.svelte";
   import HostList from "./HostList.svelte";
   import Pane from "./Pane.svelte";
@@ -16,12 +19,21 @@
   import NetworkPanel from "./NetworkPanel.svelte";
   import ProcessesPanel from "./ProcessesPanel.svelte";
   import HTTPPanel from "./HTTPPanel.svelte";
-  import DBPanel from "./DBPanel.svelte";
   import SnippetsPanel from "./SnippetsPanel.svelte";
   import HistoryPanel from "./HistoryPanel.svelte";
+  import TopologyPanel from "./TopologyPanel.svelte";
+  import PluginsPanel from "./PluginsPanel.svelte";
+  import ActivityPanel from "./ActivityPanel.svelte";
   import SettingsPanel from "./SettingsPanel.svelte";
+  import OnboardingCard from "./OnboardingCard.svelte";
   import Palette from "./Palette.svelte";
-  import AIDrawer from "./AIDrawer.svelte";
+
+  // Heavy panels (CodeMirror, AI SDK glue) are lazy-loaded so the code
+  // they pull in doesn't sit in the main bundle.
+  const loadDBPanel = () =>
+    import("./DBPanel.svelte").then((m) => m.default);
+  const loadAIDrawer = () =>
+    import("./AIDrawer.svelte").then((m) => m.default);
   import Toaster from "./Toaster.svelte";
   import Logo from "./logo/Logo.svelte";
   import {
@@ -48,6 +60,9 @@
     Globe2,
     Database,
     Bookmark,
+    Share2,
+    Puzzle,
+    Activity as ActivityIcon,
     History as HistoryIcon,
     Radio,
     Settings as SettingsIcon,
@@ -112,6 +127,32 @@
       onInsertReq as EventListener,
     );
 
+    // Bridge for plugin iframe → host backchannel. Iframes post messages
+    // to the parent window; we whitelist a handful of methods and route
+    // them through the matching service. Anything else is dropped.
+    const onPluginMessage = (e: MessageEvent) => {
+      const data = e.data;
+      if (!data || typeof data !== "object" || typeof data.type !== "string") {
+        return;
+      }
+      if (!data.type.startsWith("host.")) return;
+      const pluginID =
+        typeof data.pluginId === "string" ? data.pluginId : "";
+      switch (data.type) {
+        case "host.notify":
+          PluginService.HostNotify(
+            pluginID,
+            String(data.title ?? ""),
+            String(data.body ?? ""),
+          );
+          break;
+        // Add more allowlisted methods here as the SDK grows.
+      }
+    };
+    window.addEventListener("message", onPluginMessage);
+
+    void app.refreshPluginPanels();
+
     return () => {
       window.removeEventListener("keydown", onActivity, true);
       window.removeEventListener("mousedown", onActivity, true);
@@ -120,6 +161,7 @@
         "blacknode:insert-into-active-terminal",
         onInsertReq as EventListener,
       );
+      window.removeEventListener("message", onPluginMessage);
     };
   });
 
@@ -139,6 +181,55 @@
       activeTabID = tabs[Math.max(0, i - 1)]?.id ?? "";
     }
     if (tabs.length === 0) newTab();
+  }
+
+  // Close every tab except the one whose id is `keepID`. Useful from the
+  // tab right-click menu — prefer this over a flurry of single closes so the
+  // active terminal isn't briefly stranded mid-loop.
+  function closeOthers(keepID: string) {
+    const keep = tabs.find((t) => t.id === keepID);
+    if (!keep) return;
+    tabs = [keep];
+    activeTabID = keep.id;
+  }
+
+  // Drag-reorder state. We move tabs in the array as the dragged element
+  // crosses each sibling's midpoint — feels like Chrome / VS Code rather
+  // than the default "drop at the end" behavior of the HTML5 DnD API.
+  let dragSourceID = $state<string | null>(null);
+  let dragOverID = $state<string | null>(null);
+
+  function tabDragStart(e: DragEvent, id: string) {
+    dragSourceID = id;
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", id);
+    }
+  }
+  function tabDragOver(e: DragEvent, id: string) {
+    if (!dragSourceID || dragSourceID === id) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+    dragOverID = id;
+    const from = tabs.findIndex((t) => t.id === dragSourceID);
+    const to = tabs.findIndex((t) => t.id === id);
+    if (from === -1 || to === -1 || from === to) return;
+    const [moved] = tabs.splice(from, 1);
+    tabs.splice(to, 0, moved);
+  }
+  function tabDragEnd() {
+    dragSourceID = null;
+    dragOverID = null;
+  }
+
+  // Right-click context menu on tabs.
+  let tabMenu = $state<{ x: number; y: number; tabID: string } | null>(null);
+  function openTabMenu(e: MouseEvent, id: string) {
+    e.preventDefault();
+    tabMenu = { x: e.clientX, y: e.clientY, tabID: id };
+  }
+  function closeTabMenu() {
+    tabMenu = null;
   }
 
   function onActivate(tabID: string, leafID: string) {
@@ -209,6 +300,9 @@
     { id: "database", label: "Database", Icon: Database },
     { id: "snippets", label: "Snippets", Icon: Bookmark },
     { id: "history", label: "History", Icon: HistoryIcon },
+    { id: "activity", label: "Activity", Icon: ActivityIcon },
+    { id: "topology", label: "Topology", Icon: Share2 },
+    { id: "plugins", label: "Plugins", Icon: Puzzle },
     { id: "keys", label: "Keys", Icon: KeyRound },
     { id: "settings", label: "Settings", Icon: SettingsIcon },
   ];
@@ -322,6 +416,27 @@
           <v.Icon size="16" />
         </button>
       {/each}
+      {#if app.pluginPanels.length > 0}
+        <div class="my-1 h-px w-6 bg-[var(--color-text-4)]/20"></div>
+        {#each app.pluginPanels as panel (panel.pluginId + ":" + panel.id)}
+          {@const viewID = `plugin:${panel.pluginId}:${panel.id}` as View}
+          <button
+            title={panel.title + " (" + panel.pluginId + ")"}
+            class="group relative flex h-9 w-9 items-center justify-center rounded-md transition-colors {app.view ===
+            viewID
+              ? 'text-[var(--color-accent)]'
+              : 'text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]'}"
+            onclick={() => (app.view = viewID)}
+          >
+            {#if app.view === viewID}
+              <span
+                class="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r bg-[var(--color-accent)]"
+              ></span>
+            {/if}
+            <Puzzle size="16" />
+          </button>
+        {/each}
+      {/if}
     </nav>
 
     <!-- Sidebar -->
@@ -336,17 +451,36 @@
     >
       <main class="flex flex-col overflow-hidden">
         {#if app.view === "terminals"}
-          <div class="flex h-full flex-col">
+          <div class="relative flex h-full flex-col">
+            <OnboardingCard />
             <div
               class="flex items-center gap-1 border-b hairline surface-1 px-2 py-1.5"
             >
               {#each tabs as t (t.id)}
-                <button
-                  class="group flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] transition-colors {activeTabID ===
+                <div
+                  role="tab"
+                  tabindex="0"
+                  draggable="true"
+                  aria-selected={activeTabID === t.id}
+                  class="group flex cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] transition-colors select-none {activeTabID ===
                   t.id
                     ? 'bg-[var(--color-surface-3)] text-[var(--color-text-1)]'
                     : 'text-[var(--color-text-3)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-1)]'}"
+                  class:opacity-50={dragSourceID === t.id}
+                  class:ring-1={dragOverID === t.id && dragSourceID !== t.id}
+                  class:ring-[var(--color-accent)]={dragOverID === t.id && dragSourceID !== t.id}
                   onclick={() => (activeTabID = t.id)}
+                  onkeydown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      activeTabID = t.id;
+                    }
+                  }}
+                  oncontextmenu={(e) => openTabMenu(e, t.id)}
+                  ondragstart={(e) => tabDragStart(e, t.id)}
+                  ondragover={(e) => tabDragOver(e, t.id)}
+                  ondragend={tabDragEnd}
+                  ondrop={(e) => e.preventDefault()}
                 >
                   <TerminalSquare size="11" />
                   <span class="font-mono">{t.id.slice(0, 6)}</span>
@@ -367,7 +501,7 @@
                   >
                     <X size="10" />
                   </span>
-                </button>
+                </div>
               {/each}
               <button
                 class="ml-1 flex h-6 w-6 items-center justify-center rounded-md text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
@@ -414,11 +548,40 @@
         {:else if app.view === "http"}
           <HTTPPanel />
         {:else if app.view === "database"}
-          <DBPanel />
+          {#await loadDBPanel() then DBPanel}
+            <DBPanel />
+          {/await}
         {:else if app.view === "snippets"}
           <SnippetsPanel />
         {:else if app.view === "history"}
           <HistoryPanel />
+        {:else if app.view === "topology"}
+          <TopologyPanel />
+        {:else if app.view === "activity"}
+          <ActivityPanel />
+        {:else if app.view === "plugins"}
+          <PluginsPanel />
+        {:else if typeof app.view === "string" && app.view.startsWith("plugin:")}
+          {@const parts = (app.view as string).split(":")}
+          {@const pluginID = parts[1]}
+          {@const panelID = parts[2]}
+          {@const found = app.pluginPanels.find(
+            (p) => p.pluginId === pluginID && p.id === panelID,
+          )}
+          {#if found}
+            <iframe
+              title={found.title}
+              class="h-full w-full border-0 bg-transparent"
+              sandbox="allow-scripts"
+              srcdoc={found.html}
+            ></iframe>
+          {:else}
+            <div
+              class="flex h-full items-center justify-center text-xs text-[var(--color-text-3)]"
+            >
+              Plugin panel not loaded.
+            </div>
+          {/if}
         {:else if app.view === "keys"}
           <KeysPanel />
         {:else if app.view === "settings"}
@@ -427,13 +590,53 @@
       </main>
 
       {#if app.aiOpen}
-        <AIDrawer onInsertCommand={aiInsert} />
+        {#await loadAIDrawer() then AIDrawer}
+          <AIDrawer onInsertCommand={aiInsert} />
+        {/await}
       {/if}
     </div>
   </div>
 
   <Palette onNewTab={newTab} />
   <Toaster />
+
+  {#if tabMenu}
+    <!-- Tab context menu. Click anywhere else dismisses; positioning is
+         viewport-anchored so we don't need a portal. -->
+    <div
+      class="fixed inset-0 z-40"
+      role="presentation"
+      onclick={closeTabMenu}
+      oncontextmenu={(e) => {
+        e.preventDefault();
+        closeTabMenu();
+      }}
+    ></div>
+    <div
+      class="fixed z-50 min-w-[160px] rounded-md border hairline surface-2 py-1 text-[11px] shadow-lg"
+      style="left: {tabMenu.x}px; top: {tabMenu.y}px"
+    >
+      <button
+        class="block w-full px-3 py-1 text-left text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
+        onclick={() => {
+          if (tabMenu) closeTab(tabMenu.tabID);
+          closeTabMenu();
+        }}
+      >
+        Close tab
+      </button>
+      <button
+        class="block w-full px-3 py-1 text-left text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)] disabled:opacity-40"
+        disabled={tabs.length <= 1}
+        onclick={() => {
+          if (tabMenu) closeOthers(tabMenu.tabID);
+          closeTabMenu();
+        }}
+      >
+        Close others
+      </button>
+    </div>
+  {/if}
 
   <!-- Status bar -->
   <footer

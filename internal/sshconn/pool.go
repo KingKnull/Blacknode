@@ -65,6 +65,13 @@ func keyFor(t Target) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
+// probeIdleAfter is the threshold past which a cached client gets a
+// liveness probe before reuse. Connections used more recently than this
+// are returned without a probe — they were just alive, doing it again
+// is overhead on the hot path. Background reaper still removes long-idle
+// entries entirely after Pool.idleTTL.
+const probeIdleAfter = 30 * time.Second
+
 // Get returns a live ssh.Client and a release func. Always defer release().
 // If the client has dropped (closed in a goroutine, network blip), the next
 // caller dials a fresh one transparently.
@@ -77,10 +84,16 @@ func (p *Pool) Get(t Target) (*ssh.Client, func(), error) {
 	p.mu.Lock()
 	entry, ok := p.entries[key]
 	if ok && entry.client != nil {
+		idleFor := time.Since(entry.lastUsed)
 		entry.refs++
 		entry.lastUsed = time.Now()
 		p.mu.Unlock()
-		// Probe — if the underlying connection is dead, drop and re-dial.
+		if idleFor < probeIdleAfter {
+			// Recently active — skip the probe.
+			return entry.client, p.release(key), nil
+		}
+		// Idle for a while; probe before handing back. If dead, drop and
+		// fall through to dial a fresh one.
 		if _, _, err := entry.client.SendRequest("keepalive@blacknode", true, nil); err != nil {
 			p.mu.Lock()
 			entry.refs--

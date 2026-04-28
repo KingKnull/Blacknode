@@ -8,10 +8,14 @@ import type { Events } from "@wailsio/runtime";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import type * as main$0 from "../../../../blacknode/blacknode/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import type * as store$0 from "../../../../blacknode/blacknode/internal/store/models.js";
 
 declare module "@wailsio/runtime" {
     namespace Events {
         interface CustomEvents {
+            "activity:append": store$0.Activity;
             "ai:chunk": main$0.AIChunk;
             "exec:progress": main$0.ExecProgress;
             "logs:line": main$0.LogLine;

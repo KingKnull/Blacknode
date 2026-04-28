@@ -6,6 +6,166 @@
 // @ts-ignore: Unused imports
 import { Create as $Create } from "@wailsio/runtime";
 
+/**
+ * Activity is one row in the unified activity feed. Source is the
+ * originating service ("vault", "exec", "sync", "plugin", …). Kind is a
+ * stable, programmatic identifier ("vault.unlock", "exec.complete",
+ * "plugin.failed") so filters and AI prompts can match exactly. Level is
+ * "info" / "warn" / "error" — the UI renders accordingly.
+ */
+export class Activity {
+    /**
+     * Creates a new Activity instance.
+     * @param {Partial<Activity>} [$$source = {}] - The source object to create the Activity.
+     */
+    constructor($$source = {}) {
+        if (!("id" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["id"] = "";
+        }
+        if (!("source" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["source"] = "";
+        }
+        if (!("kind" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["kind"] = "";
+        }
+        if (!("level" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["level"] = "";
+        }
+        if (!("title" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["title"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["body"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["hostId"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["hostName"] = undefined;
+        }
+        if (!("at" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["at"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Activity instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {Activity}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Activity(/** @type {Partial<Activity>} */($$parsedSource));
+    }
+}
+
+/**
+ * ActivityFilter narrows the feed. Empty fields don't constrain. Limit
+ * caps at 1000 to keep the IPC payload reasonable; for a deeper history
+ * the UI can page via SinceAt.
+ */
+export class ActivityFilter {
+    /**
+     * Creates a new ActivityFilter instance.
+     * @param {Partial<ActivityFilter>} [$$source = {}] - The source object to create the ActivityFilter.
+     */
+    constructor($$source = {}) {
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string[] | undefined}
+             */
+            this["sources"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string[] | undefined}
+             */
+            this["levels"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["hostId"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["sinceAt"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["limit"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ActivityFilter instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {ActivityFilter}
+     */
+    static createFrom($$source = {}) {
+        const $$createField0_0 = $$createType0;
+        const $$createField1_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("sources" in $$parsedSource) {
+            $$parsedSource["sources"] = $$createField0_0($$parsedSource["sources"]);
+        }
+        if ("levels" in $$parsedSource) {
+            $$parsedSource["levels"] = $$createField1_0($$parsedSource["levels"]);
+        }
+        return new ActivityFilter(/** @type {Partial<ActivityFilter>} */($$parsedSource));
+    }
+}
+
 export class Forward {
     /**
      * Creates a new Forward instance.
@@ -122,6 +282,113 @@ export const ForwardKind = {
      */
     ForwardDynamic: "dynamic",
 };
+
+/**
+ * HTTPRequest is a saved HTTP request template. Folder groups related requests
+ * (e.g. one per service/API). HostID optionally pins the request to a saved
+ * host so it always runs through the same SSH tunnel.
+ */
+export class HTTPRequest {
+    /**
+     * Creates a new HTTPRequest instance.
+     * @param {Partial<HTTPRequest>} [$$source = {}] - The source object to create the HTTPRequest.
+     */
+    constructor($$source = {}) {
+        if (!("id" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["name"] = "";
+        }
+        if (!("folder" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["folder"] = "";
+        }
+        if (!("method" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["method"] = "";
+        }
+        if (!("url" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["url"] = "";
+        }
+        if (!("headers" in $$source)) {
+            /**
+             * @member
+             * @type {{ [_ in string]?: string }}
+             */
+            this["headers"] = {};
+        }
+        if (!("body" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["body"] = "";
+        }
+        if (!("hostId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["hostId"] = "";
+        }
+        if (!("insecure" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["insecure"] = false;
+        }
+        if (!("createdAt" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["createdAt"] = 0;
+        }
+        if (!("updatedAt" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["updatedAt"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new HTTPRequest instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {HTTPRequest}
+     */
+    static createFrom($$source = {}) {
+        const $$createField5_0 = $$createType1;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("headers" in $$parsedSource) {
+            $$parsedSource["headers"] = $$createField5_0($$parsedSource["headers"]);
+        }
+        return new HTTPRequest(/** @type {Partial<HTTPRequest>} */($$parsedSource));
+    }
+}
 
 /**
  * HistoryEntry records that a command was sent at a host. Sources:
@@ -589,5 +856,79 @@ export class Snippet {
     }
 }
 
+/**
+ * TeamActivity is a row in the local audit log of team-snapshot
+ * publishes and pulls. Kind is "publish" or "pull"; counts is a small
+ * JSON map of resource→count (e.g. {"hosts":12,"snippets":4}).
+ */
+export class TeamActivity {
+    /**
+     * Creates a new TeamActivity instance.
+     * @param {Partial<TeamActivity>} [$$source = {}] - The source object to create the TeamActivity.
+     */
+    constructor($$source = {}) {
+        if (!("id" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["id"] = "";
+        }
+        if (!("kind" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["kind"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["actor"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["summary"] = undefined;
+        }
+        if (!("counts" in $$source)) {
+            /**
+             * @member
+             * @type {{ [_ in string]?: number }}
+             */
+            this["counts"] = {};
+        }
+        if (!("at" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["at"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TeamActivity instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {TeamActivity}
+     */
+    static createFrom($$source = {}) {
+        const $$createField4_0 = $$createType2;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("counts" in $$parsedSource) {
+            $$parsedSource["counts"] = $$createField4_0($$parsedSource["counts"]);
+        }
+        return new TeamActivity(/** @type {Partial<TeamActivity>} */($$parsedSource));
+    }
+}
+
 // Private type creation functions
 const $$createType0 = $Create.Array($Create.Any);
+const $$createType1 = $Create.Map($Create.Any, $Create.Any);
+const $$createType2 = $Create.Map($Create.Any, $Create.Any);

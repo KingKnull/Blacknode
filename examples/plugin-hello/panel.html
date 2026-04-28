@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { margin: 0; font-family: system-ui, sans-serif; color: #cdd6e2; background: transparent; padding: 32px; }
+  h1   { font-size: 16px; margin: 0 0 6px; color: #f0f6ff; }
+  p    { font-size: 12px; line-height: 1.5; color: #97a3b6; max-width: 480px; }
+  button { margin-top: 16px; padding: 8px 14px; font-size: 12px; background: #0ea5e9; color: #06080d; border: 0; border-radius: 6px; cursor: pointer; }
+  button:hover { opacity: 0.9; }
+  code { font-family: ui-monospace, SF Mono, monospace; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 3px; }
+</style>
+</head>
+<body>
+  <h1>Hello plugin</h1>
+  <p>This panel is rendered from <code>panel.html</code> in the plugin
+     directory and runs in a sandboxed iframe. Plugins talk back to the
+     host by posting messages — try the button below.</p>
+  <button id="btn">Send a host notification</button>
+  <script>
+    document.getElementById("btn").onclick = function() {
+      window.parent.postMessage({
+        type: "host.notify",
+        pluginId: "hello",
+        title: "Hello from a plugin",
+        body: "Sent via window.parent.postMessage from panel.html.",
+      }, "*");
+    };
+  </script>
+</body>
+</html>
