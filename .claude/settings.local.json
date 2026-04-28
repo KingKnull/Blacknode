@@ -66,7 +66,8 @@
       "Bash(curl -sS \"https://api.github.com/repos/KingKnull/Blacknode/actions/runs/25070219406\")",
       "Bash(curl -sS \"https://api.github.com/repos/KingKnull/Blacknode/actions/runs/25070219406/jobs\")",
       "Bash(git commit -m ' *)",
-      "Bash(git tag *)"
+      "Bash(git tag *)",
+      "Bash(curl -sS \"https://api.github.com/repos/KingKnull/Blacknode/actions/runs/25070345448/jobs\")"
     ]
   }
 }
