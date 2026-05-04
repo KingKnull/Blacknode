@@ -30,6 +30,25 @@ export function Get(id: string): $CancellablePromise<store$0.Host> {
 }
 
 /**
+ * GetAllPasswords returns a map of hostID → plaintext password for every host
+ * that has a saved password. Used at startup to pre-populate the frontend
+ * password cache so connecting never prompts.
+ */
+export function GetAllPasswords(): $CancellablePromise<{ [_ in string]?: string }> {
+    return $Call.ByID(2197505610).then(($result: any) => {
+        return $$createType1($result);
+    });
+}
+
+/**
+ * GetPassword decrypts and returns the saved SSH password for a host, or
+ * an empty string if no password has been stored.
+ */
+export function GetPassword(hostID: string): $CancellablePromise<string> {
+    return $Call.ByID(4202929056, hostID);
+}
+
+/**
  * ImportSSHConfigEntries bulk-creates Host records from a user-curated
  * subset of ScanSSHConfig results. Returns the count actually inserted.
  * 
@@ -49,7 +68,7 @@ export function ImportSSHConfigEntries(entries: $models.SSHConfigCandidate[]): $
 
 export function List(): $CancellablePromise<store$0.Host[]> {
     return $Call.ByID(3424268411).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType2($result);
     });
 }
 
@@ -61,8 +80,16 @@ export function List(): $CancellablePromise<store$0.Host[]> {
  */
 export function ScanSSHConfig(): $CancellablePromise<$models.SSHConfigCandidate[]> {
     return $Call.ByID(932094358).then(($result: any) => {
-        return $$createType3($result);
+        return $$createType4($result);
     });
+}
+
+/**
+ * SetPassword encrypts and persists the SSH password for a host in the vault.
+ * The plaintext password is never stored; only AES-256-GCM ciphertext.
+ */
+export function SetPassword(hostID: string, password: string): $CancellablePromise<void> {
+    return $Call.ByID(3209167308, hostID, password);
 }
 
 export function Update(h: store$0.Host): $CancellablePromise<void> {
@@ -71,6 +98,7 @@ export function Update(h: store$0.Host): $CancellablePromise<void> {
 
 // Private type creation functions
 const $$createType0 = store$0.Host.createFrom;
-const $$createType1 = $Create.Array($$createType0);
-const $$createType2 = $models.SSHConfigCandidate.createFrom;
-const $$createType3 = $Create.Array($$createType2);
+const $$createType1 = $Create.Map($Create.Any, $Create.Any);
+const $$createType2 = $Create.Array($$createType0);
+const $$createType3 = $models.SSHConfigCandidate.createFrom;
+const $$createType4 = $Create.Array($$createType3);

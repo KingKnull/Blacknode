@@ -2,7 +2,7 @@
   import { HostService } from "../../bindings/github.com/blacknode/blacknode";
   import type { Host } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { app } from "./state.svelte";
-  import { Server, X, Loader2 } from "@lucide/svelte";
+  import { Server, X, Loader2, Eye, EyeOff } from "@lucide/svelte";
 
   type Props = {
     host?: Host | null;
@@ -31,6 +31,10 @@
   let proxyJump = $state(host?.proxyJump ?? "");
   // svelte-ignore state_referenced_locally
   let notes = $state(host?.notes ?? "");
+  // Password: pre-fill from the in-memory cache if editing an existing host.
+  // svelte-ignore state_referenced_locally
+  let password = $state(host?.id ? (app.hostPasswords[host.id] ?? "") : "");
+  let showPassword = $state(false);
   let busy = $state(false);
   let err = $state("");
 
@@ -42,6 +46,7 @@
     }
     busy = true;
     try {
+      let savedHost: Host;
       if (host?.id) {
         await HostService.Update({
           ...host,
@@ -56,8 +61,9 @@
           proxyJump,
           notes,
         } as Host);
+        savedHost = { ...host, name, host: hostName, port, username, authMethod, keyID, group, environment, proxyJump, notes } as Host;
       } else {
-        await HostService.Create({
+        savedHost = (await HostService.Create({
           name,
           host: hostName,
           port,
@@ -69,7 +75,19 @@
           proxyJump,
           notes,
           tags: [],
-        } as unknown as Host);
+        } as unknown as Host)) as Host;
+      }
+      // Persist the password in the vault if auth method is password.
+      if (authMethod === "password" && savedHost?.id) {
+        try {
+          await HostService.SetPassword(savedHost.id, password);
+          if (password) {
+            app.setPassword(savedHost.id, password);
+          }
+        } catch (pe: any) {
+          // Non-fatal: password save failed (e.g. vault locked)
+          console.warn("password save failed:", pe);
+        }
       }
       await app.refreshHosts();
       onsaved();
@@ -177,6 +195,33 @@
               <option value={k.id}>{k.name} ({k.keyType})</option>
             {/each}
           </select>
+        </label>
+      {/if}
+      {#if authMethod === "password"}
+        <label class="block">
+          <span class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+            >Password <span class="normal-case text-[var(--color-text-4)]">(saved in vault)</span></span
+          >
+          <div class="relative mt-1">
+            <input
+              type={showPassword ? "text" : "password"}
+              class="w-full rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 pr-9 outline-none font-mono"
+              bind:value={password}
+              placeholder="leave blank to keep current"
+              autocomplete="new-password"
+            />
+            <button
+              type="button"
+              class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--color-text-3)] hover:text-[var(--color-text-1)]"
+              onclick={() => (showPassword = !showPassword)}
+              title={showPassword ? "Hide password" : "Show password"}
+            >
+              {#if showPassword}<EyeOff size="13" />{:else}<Eye size="13" />{/if}
+            </button>
+          </div>
+          <p class="mt-1 text-[10px] text-[var(--color-text-4)]">
+            Encrypted with AES-256 and stored in your vault. You won't be prompted at connect time.
+          </p>
         </label>
       {/if}
       <div class="grid grid-cols-2 gap-2">

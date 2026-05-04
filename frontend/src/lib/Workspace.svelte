@@ -309,12 +309,312 @@
 
   let activeTab = $derived(tabs.find((t) => t.id === activeTabID));
   let activeLeafCount = $derived(activeTab ? leaves(activeTab.root).length : 0);
+
+  // Derive a human-readable label for each tab: prefer the connected host
+  // name if the terminal state has one, fall back to a short session ID.
+  // Terminal.svelte exposes connected host via the shared `app.selectedHostID`
+  // when connecting — but that's global. For per-tab labels we track a map
+  // from tab ID → host name that Terminal.svelte updates via a custom event.
+  let tabLabels = $state<Record<string, string>>({});
+
+  $effect(() => {
+    const onLabel = (e: Event) => {
+      const ce = e as CustomEvent<{ tabID: string; label: string }>;
+      if (ce.detail?.tabID) tabLabels[ce.detail.tabID] = ce.detail.label;
+    };
+    window.addEventListener('blacknode:tab-label', onLabel as EventListener);
+    return () => window.removeEventListener('blacknode:tab-label', onLabel as EventListener);
+  });
+
+  function tabLabel(t: Tab): string {
+    return tabLabels[t.id] || 'local';
+  }
 </script>
 
 <div
   class="flex h-screen w-screen flex-col bg-[var(--color-surface-0)] text-[var(--color-text-1)]"
 >
   <!-- Top bar -->
+  <header class="relative flex h-10 shrink-0 items-center gap-2 border-b hairline surface-1 px-3">
+    <div class="absolute inset-x-0 -bottom-px h-px bg-gradient-to-r from-transparent via-[var(--color-accent)]/25 to-transparent"></div>
+    <Logo size={18} />
+
+    <div class="ml-auto flex items-center gap-0.5 text-[11px]">
+      <!-- Broadcast -->
+      <button
+        class="flex items-center gap-1.5 rounded-md px-2.5 py-1 transition-colors {app.broadcastEnabled
+          ? 'bg-[var(--color-warn)]/10 text-[var(--color-warn)]'
+          : 'text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]'}"
+        onclick={() => {
+          if (!app.broadcastEnabled && app.broadcastSet.size === 0) {
+            alert('Broadcast is on but no panes are in the group yet.\n\nClick the \'cast\' button on each pane you want to include.');
+          }
+          app.broadcastEnabled = !app.broadcastEnabled;
+        }}
+        title={app.broadcastEnabled ? `Broadcasting to ${app.broadcastSet.size} panes` : 'Enable multi-pane keystroke broadcast'}
+      >
+        <Radio size="11" class={app.broadcastEnabled ? 'pulse-soft' : ''} />
+        <span>cast</span>
+        {#if app.broadcastEnabled}
+          <span class="rounded bg-[var(--color-warn)]/20 px-1 font-mono text-[9px]">{app.broadcastSet.size}</span>
+        {/if}
+      </button>
+
+      <div class="mx-1.5 h-3.5 w-px bg-[var(--color-line-strong)]"></div>
+
+      <!-- AI -->
+      <button
+        class="flex items-center gap-1.5 rounded-md px-2.5 py-1 transition-colors {app.aiOpen
+          ? 'bg-[var(--color-accent)]/10 text-[var(--color-accent)]'
+          : 'text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]'}"
+        onclick={() => (app.aiOpen = !app.aiOpen)}
+        title="AI assistant (⌘I)"
+      >
+        <Sparkles size="11" />
+        <span>AI</span>
+      </button>
+
+      <!-- Command palette -->
+      <button
+        class="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[var(--color-text-3)] transition-colors hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
+        onclick={() => (app.paletteOpen = true)}
+        title="Command palette (⌘K)"
+      >
+        <Command size="11" />
+        <span>Palette</span>
+        <kbd class="rounded border hairline px-1 font-mono text-[9px] opacity-40">⌘K</kbd>
+      </button>
+
+      <div class="mx-1.5 h-3.5 w-px bg-[var(--color-line-strong)]"></div>
+
+      <!-- Vault -->
+      <button
+        class="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
+        onclick={lockVault}
+        title="Vault unlocked — click to lock"
+      >
+        <Unlock size="11" class="text-[var(--color-accent)]" />
+        <span>Unlocked</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Body -->
+  <div class="grid flex-1 grid-cols-[48px_260px_1fr] overflow-hidden">
+    <!-- Icon nav -->
+    <nav class="flex flex-col items-center gap-0.5 border-r hairline surface-1 py-2 px-1">
+      {#each VIEWS as v (v.id)}
+        <button
+          title={v.label}
+          class="group relative flex h-8 w-8 items-center justify-center rounded-md transition-all {app.view === v.id
+            ? 'bg-[var(--color-accent)]/10 text-[var(--color-accent)]'
+            : 'text-[var(--color-text-4)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-2)]'}"
+          onclick={() => (app.view = v.id)}
+        >
+          {#if app.view === v.id}
+            <span class="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r bg-[var(--color-accent)]"></span>
+          {/if}
+          <v.Icon size="15" />
+        </button>
+      {/each}
+      {#if app.pluginPanels.length > 0}
+        <div class="my-1.5 h-px w-5 bg-[var(--color-line)]"></div>
+        {#each app.pluginPanels as panel (panel.pluginId + ':' + panel.id)}
+          {@const viewID = `plugin:${panel.pluginId}:${panel.id}` as View}
+          <button
+            title={panel.title}
+            class="group relative flex h-8 w-8 items-center justify-center rounded-md transition-all {app.view === viewID
+              ? 'bg-[var(--color-accent)]/10 text-[var(--color-accent)]'
+              : 'text-[var(--color-text-4)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-2)]'}"
+            onclick={() => (app.view = viewID)}
+          >
+            {#if app.view === viewID}
+              <span class="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r bg-[var(--color-accent)]"></span>
+            {/if}
+            <Puzzle size="15" />
+          </button>
+        {/each}
+      {/if}
+    </nav>
+
+    <!-- Sidebar -->
+    <aside class="overflow-hidden border-r hairline">
+      <HostList />
+    </aside>
+
+    <!-- Main + AI drawer -->
+    <div
+      class="grid overflow-hidden transition-[grid-template-columns] duration-200"
+      style:grid-template-columns={app.aiOpen ? '1fr 360px' : '1fr'}
+    >
+      <main class="flex flex-col overflow-hidden">
+        {#if app.view === 'terminals'}
+          <div class="relative flex h-full flex-col">
+            <OnboardingCard />
+            <!-- Tab bar -->
+            <div class="flex h-9 shrink-0 items-center gap-0.5 border-b hairline surface-1 px-2">
+              {#each tabs as t (t.id)}
+                {@const label = tabLabel(t)}
+                {@const isActive = activeTabID === t.id}
+                <div
+                  role="tab"
+                  tabindex="0"
+                  draggable="true"
+                  aria-selected={isActive}
+                  class="group flex max-w-[160px] cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] select-none transition-colors {isActive
+                    ? 'bg-[var(--color-surface-3)] text-[var(--color-text-1)]'
+                    : 'text-[var(--color-text-3)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-2)]'}"
+                  class:opacity-40={dragSourceID === t.id}
+                  class:outline={dragOverID === t.id && dragSourceID !== t.id}
+                  class:outline-[var(--color-accent)]={dragOverID === t.id && dragSourceID !== t.id}
+                  onclick={() => (activeTabID = t.id)}
+                  onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activeTabID = t.id; } }}
+                  oncontextmenu={(e) => openTabMenu(e, t.id)}
+                  ondragstart={(e) => tabDragStart(e, t.id)}
+                  ondragover={(e) => tabDragOver(e, t.id)}
+                  ondragend={tabDragEnd}
+                  ondrop={(e) => e.preventDefault()}
+                >
+                  <TerminalSquare size="10" class={isActive ? 'text-[var(--color-accent)]' : ''} />
+                  <span class="truncate font-mono">{label}</span>
+                  <span
+                    role="button"
+                    tabindex="0"
+                    class="ml-auto shrink-0 rounded p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:bg-[var(--color-surface-4)]"
+                    onclick={(e) => { e.stopPropagation(); closeTab(t.id); }}
+                    onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); closeTab(t.id); } }}
+                  ><X size="9" /></span>
+                </div>
+              {/each}
+              <button
+                class="ml-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--color-text-4)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-2)] transition-colors"
+                onclick={newTab}
+                title="New terminal (⌘T)"
+              >
+                <Plus size="11" />
+              </button>
+            </div>
+            <div class="flex-1 overflow-hidden">
+              {#each tabs as t (t.id)}
+                <div class="h-full w-full" class:hidden={activeTabID !== t.id}>
+                  <Pane
+                    node={t.root}
+                    activeLeafID={t.activeLeafID}
+                    onactivate={(id) => onActivate(t.id, id)}
+                    onsplit={(id, d) => onSplit(t.id, id, d)}
+                    onclose={(id) => onCloseLeaf(t.id, id)}
+                    onresize={(splitID, ratio) => onResize(t.id, splitID, ratio)}
+                  />
+                </div>
+              {/each}
+            </div>
+          </div>
+        {:else if app.view === 'exec'}
+          <ExecPanel />
+        {:else if app.view === 'files'}
+          <SFTPPanel />
+        {:else if app.view === 'metrics'}
+          <MetricsPanel />
+        {:else if app.view === 'logs'}
+          <LogsPanel />
+        {:else if app.view === 'forwards'}
+          <ForwardsPanel />
+        {:else if app.view === 'recordings'}
+          <RecordingsPanel />
+        {:else if app.view === 'containers'}
+          <ContainersPanel />
+        {:else if app.view === 'network'}
+          <NetworkPanel />
+        {:else if app.view === 'processes'}
+          <ProcessesPanel />
+        {:else if app.view === 'http'}
+          <HTTPPanel />
+        {:else if app.view === 'database'}
+          {#await loadDBPanel() then DBPanel}
+            <DBPanel />
+          {/await}
+        {:else if app.view === 'snippets'}
+          <SnippetsPanel />
+        {:else if app.view === 'history'}
+          <HistoryPanel />
+        {:else if app.view === 'topology'}
+          <TopologyPanel />
+        {:else if app.view === 'activity'}
+          <ActivityPanel />
+        {:else if app.view === 'plugins'}
+          <PluginsPanel />
+        {:else if typeof app.view === 'string' && app.view.startsWith('plugin:')}
+          {@const parts = (app.view as string).split(':')}
+          {@const pluginID = parts[1]}
+          {@const panelID = parts[2]}
+          {@const found = app.pluginPanels.find((p) => p.pluginId === pluginID && p.id === panelID)}
+          {#if found}
+            <iframe title={found.title} class="h-full w-full border-0 bg-transparent" sandbox="allow-scripts" srcdoc={found.html}></iframe>
+          {:else}
+            <div class="flex h-full items-center justify-center text-xs text-[var(--color-text-3)]">Plugin panel not loaded.</div>
+          {/if}
+        {:else if app.view === 'keys'}
+          <KeysPanel />
+        {:else if app.view === 'settings'}
+          <SettingsPanel />
+        {/if}
+      </main>
+
+      {#if app.aiOpen}
+        {#await loadAIDrawer() then AIDrawer}
+          <AIDrawer onInsertCommand={aiInsert} />
+        {/await}
+      {/if}
+    </div>
+  </div>
+
+  <Palette onNewTab={newTab} />
+  <Toaster />
+
+  {#if tabMenu}
+    <div
+      class="fixed inset-0 z-40"
+      role="presentation"
+      onclick={closeTabMenu}
+      oncontextmenu={(e) => { e.preventDefault(); closeTabMenu(); }}
+    ></div>
+    <div
+      class="fade-up fixed z-50 min-w-[160px] overflow-hidden rounded-lg border hairline-strong surface-2 py-1 text-[11px] shadow-xl shadow-black/40"
+      style="left: {tabMenu.x}px; top: {tabMenu.y}px"
+    >
+      <button
+        class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
+        onclick={() => { if (tabMenu) closeTab(tabMenu.tabID); closeTabMenu(); }}
+      ><X size="10" class="text-[var(--color-text-4)]" /> Close tab</button>
+      <button
+        class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)] disabled:opacity-30"
+        disabled={tabs.length <= 1}
+        onclick={() => { if (tabMenu) closeOthers(tabMenu.tabID); closeTabMenu(); }}
+      ><X size="10" class="text-[var(--color-text-4)]" /> Close others</button>
+    </div>
+  {/if}
+
+  <!-- Status bar -->
+  <footer class="flex h-6 shrink-0 items-center gap-4 border-t hairline px-3 font-mono text-[10px] text-[var(--color-text-4)]">
+    <span class="flex items-center gap-1">
+      <Server size="9" /> {app.hosts.length} host{app.hosts.length === 1 ? '' : 's'}
+    </span>
+    <span class="flex items-center gap-1">
+      <TerminalSquare size="9" /> {tabs.length} tab{tabs.length === 1 ? '' : 's'}{activeLeafCount > 1 ? ` · ${activeLeafCount} panes` : ''}
+    </span>
+    {#if app.settings.hasAnthropicKey}
+      <span class="flex items-center gap-1 text-[var(--color-accent)] opacity-60">
+        <Sparkles size="9" /> AI
+      </span>
+    {/if}
+    {#if app.broadcastEnabled}
+      <span class="flex items-center gap-1 text-[var(--color-warn)]">
+        <Radio size="9" class="pulse-soft" /> broadcasting
+      </span>
+    {/if}
+    <span class="ml-auto opacity-40">v0.1-alpha</span>
+  </footer>
+</div>
   <header
     class="relative flex items-center gap-3 border-b hairline surface-1 px-3 py-2"
   >

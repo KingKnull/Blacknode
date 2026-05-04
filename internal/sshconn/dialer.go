@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/blacknode/blacknode/internal/store"
@@ -66,11 +67,22 @@ func (d *Dialer) Dial(t Target) (*ssh.Client, error) {
 		User:            t.User,
 		Auth:            auth,
 		HostKeyCallback: d.KnownHosts.Callback(),
-		Timeout:         15 * time.Second,
+		Timeout:         10 * time.Second,
 	}
 	addr := net.JoinHostPort(t.Host, strconv.Itoa(t.Port))
 	client, err := ssh.Dial("tcp", addr, cfg)
 	if err != nil {
+		// Give the user a more actionable error message for the two most common
+		// failure modes: network unreachable (timeout/refused) vs bad credentials.
+		errStr := err.Error()
+		switch {
+		case isTimeout(err) || contains(errStr, "i/o timeout") || contains(errStr, "connection timed out"):
+			return nil, fmt.Errorf("cannot reach %s — check that the host is online, port 22 is open, and you are on the same network", addr)
+		case contains(errStr, "connection refused"):
+			return nil, fmt.Errorf("connection refused at %s — SSH may not be running on that host", addr)
+		case contains(errStr, "unable to authenticate") || contains(errStr, "no supported methods") || contains(errStr, "permission denied"):
+			return nil, fmt.Errorf("authentication failed for %s@%s — check your password or key", t.User, addr)
+		}
 		return nil, fmt.Errorf("dial %s: %w", addr, err)
 	}
 	return client, nil
@@ -156,4 +168,18 @@ func (d *Dialer) HandshakeOver(raw net.Conn, t Target) (*ssh.Client, error) {
 		return nil, fmt.Errorf("ssh handshake over tunnel: %w", err)
 	}
 	return ssh.NewClient(sshConn, chans, reqs), nil
+}
+
+// isTimeout checks whether an error has a Timeout() bool method that returns true.
+func isTimeout(err error) bool {
+	type timeouter interface{ Timeout() bool }
+	var t timeouter
+	if errors.As(err, &t) {
+		return t.Timeout()
+	}
+	return false
+}
+
+func contains(s, sub string) bool {
+	return strings.Contains(s, sub)
 }

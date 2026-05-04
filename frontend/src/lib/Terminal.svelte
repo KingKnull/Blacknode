@@ -359,30 +359,45 @@
         </button>
         {#if showHostPicker}
           <div
-            class="absolute right-0 top-full z-30 mt-1 w-64 overflow-hidden rounded-md border hairline-strong surface-2 shadow-2xl shadow-black/40"
+            class="absolute right-0 top-full z-30 mt-1 w-72 overflow-hidden rounded-lg border hairline-strong surface-2 shadow-2xl shadow-black/50"
           >
-            <div class="px-3 py-2 text-[10px] uppercase tracking-wider text-[var(--color-text-4)]">
-              Saved hosts
+            <div class="border-b hairline px-3 py-2">
+              <p class="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-3)]">Saved hosts</p>
             </div>
-            {#each app.hosts as h (h.id)}
-              <button
-                class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-[var(--color-surface-3)]"
-                onclick={() => switchToRemote(h.id)}
-              >
-                <Server size="12" class="text-[var(--color-text-3)]" />
-                <div class="min-w-0 flex-1">
-                  <div class="truncate text-[var(--color-text-1)]">{h.name}</div>
-                  <div class="truncate text-[10px] text-[var(--color-text-3)]">
-                    {h.username}@{h.host}
+            <div class="max-h-64 overflow-y-auto">
+              {#each app.hosts as h (h.id)}
+                {@const hasSavedPw = !!(app.hostPasswords[h.id])}
+                <button
+                  class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs hover:bg-[var(--color-surface-3)] transition-colors"
+                  onclick={() => switchToRemote(h.id)}
+                >
+                  <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
+                    <Server size="13" />
                   </div>
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-1.5 truncate">
+                      <span class="truncate font-medium text-[var(--color-text-1)]">{h.name}</span>
+                      {#if h.environment === 'production'}
+                        <span class="shrink-0 rounded px-1 py-px text-[8px] font-semibold uppercase" style="color:#ef4444;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25)">prod</span>
+                      {:else if h.environment === 'staging'}
+                        <span class="shrink-0 rounded px-1 py-px text-[8px] font-semibold uppercase" style="color:#f59e0b;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.25)">stage</span>
+                      {/if}
+                    </div>
+                    <div class="flex items-center gap-1 truncate text-[10px] text-[var(--color-text-3)] font-mono">
+                      {h.username}@{h.host}:{h.port}
+                      {#if hasSavedPw}
+                        <span class="text-[var(--color-accent)] opacity-70" title="Password saved">&#x2022;</span>
+                      {/if}
+                    </div>
+                  </div>
+                </button>
+              {/each}
+              {#if app.hosts.length === 0}
+                <div class="px-3 py-5 text-center text-[11px] text-[var(--color-text-3)]">
+                  No saved hosts yet.
                 </div>
-              </button>
-            {/each}
-            {#if app.hosts.length === 0}
-              <div class="px-3 py-3 text-center text-[11px] text-[var(--color-text-3)]">
-                No saved hosts yet.
-              </div>
-            {/if}
+              {/if}
+            </div>
           </div>
         {/if}
       </div>
@@ -466,29 +481,43 @@
   {#if promptingPassword && app.selectedHostID}
     {@const host = app.hosts.find((h) => h.id === app.selectedHostID)}
     {#if host}
-      <div class="border-t hairline surface-1 px-3 py-2">
-        <div class="flex items-center gap-2 text-xs">
-          <Lock size="12" class="text-[var(--color-text-3)]" />
-          <span class="text-[var(--color-text-3)]"
-            >Password for {host.username}@{host.host}</span
-          >
-          <input
-            type="password"
-            class="flex-1 rounded bg-[var(--color-surface-3)] px-2 py-1 outline-none"
-            bind:value={runtimePassword}
-            onkeydown={(e) => e.key === "Enter" && submitPassword()}
-          />
-          <button
-            class="rounded bg-[var(--color-accent)] px-2 py-1 text-[var(--color-surface-0)] font-medium"
-            onclick={submitPassword}>OK</button
-          >
-          <button
-            class="rounded px-2 py-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)]"
-            onclick={() => {
-              promptingPassword = false;
-              void openLocal();
-            }}>cancel</button
-          >
+      <div class="absolute inset-0 z-20 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div class="w-80 overflow-hidden rounded-xl border hairline-strong surface-2 shadow-2xl shadow-black/60">
+          <div class="flex items-center gap-2 border-b hairline px-4 py-3">
+            <Lock size="13" class="text-[var(--color-accent)]" />
+            <span class="text-sm font-semibold">Authentication required</span>
+          </div>
+          <div class="p-4">
+            <div class="mb-3 text-[11px] text-[var(--color-text-3)]">
+              Enter the password for
+              <span class="font-mono text-[var(--color-text-1)]">{host.username}@{host.host}</span>
+            </div>
+            <input
+              type="password"
+              class="w-full rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-sm outline-none focus:border-[var(--color-accent)]/50"
+              bind:value={runtimePassword}
+              placeholder="password"
+              autofocus
+              onkeydown={(e) => e.key === "Enter" && submitPassword()}
+            />
+            <p class="mt-2 text-[10px] text-[var(--color-text-4)]">
+              Save this password permanently in <strong class="text-[var(--color-text-3)]">Edit host → Password</strong> to skip this prompt.
+            </p>
+          </div>
+          <div class="flex items-center justify-end gap-2 border-t hairline px-4 py-3">
+            <button
+              class="rounded-md px-3 py-1.5 text-xs text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
+              onclick={() => {
+                promptingPassword = false;
+                void openLocal();
+              }}>Cancel</button
+            >
+            <button
+              class="rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
+              disabled={!runtimePassword}
+              onclick={submitPassword}>Connect</button
+            >
+          </div>
         </div>
       </div>
     {/if}

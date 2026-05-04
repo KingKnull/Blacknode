@@ -10,11 +10,6 @@
     Info,
   } from "@lucide/svelte";
 
-  // The toaster is a fire-and-forget overlay — every backend Notify() emits
-  // "notification:toast" and we surface the payload as a small card in the
-  // top-right that auto-dismisses after 6s. The desktop notification +
-  // webhook are handled backend-side; this is the in-app channel.
-
   type Toast = Notification & { dismissAt: number };
 
   let toasts = $state<Toast[]>([]);
@@ -26,8 +21,7 @@
       const n: Notification = e?.data;
       if (!n) return;
       const t: Toast = { ...n, dismissAt: Date.now() + 6000 };
-      // Cap to 6 toasts on screen.
-      toasts = [...toasts, t].slice(-6);
+      toasts = [...toasts, t].slice(-5);
     });
     timer = setInterval(() => {
       const now = Date.now();
@@ -45,76 +39,81 @@
     toasts = toasts.filter((t) => t.id !== id);
   }
 
-  function iconFor(kind: string) {
-    switch (kind) {
-      case "ok":
-        return CheckCircle2;
-      case "warn":
-        return AlertTriangle;
-      case "error":
-        return XCircle;
-      default:
-        return Info;
-    }
-  }
+  type ToastKind = { icon: any; accent: string; bar: string; bg: string; border: string };
 
-  function colorFor(kind: string) {
+  function kindStyle(kind: string): ToastKind {
     switch (kind) {
       case "ok":
-        return "border-[var(--color-accent)]/40 bg-[var(--color-accent)]/10 text-[var(--color-accent)]";
+        return {
+          icon: CheckCircle2,
+          accent: "text-[var(--color-success)]",
+          bar: "bg-[var(--color-success)]",
+          bg: "bg-[var(--color-success)]/8",
+          border: "border-[var(--color-success)]/25",
+        };
       case "warn":
-        return "border-[var(--color-warn)]/40 bg-[var(--color-warn)]/10 text-[var(--color-warn)]";
+        return {
+          icon: AlertTriangle,
+          accent: "text-[var(--color-warn)]",
+          bar: "bg-[var(--color-warn)]",
+          bg: "bg-[var(--color-warn)]/8",
+          border: "border-[var(--color-warn)]/25",
+        };
       case "error":
-        return "border-[var(--color-danger)]/40 bg-[var(--color-danger)]/10 text-[var(--color-danger)]";
+        return {
+          icon: XCircle,
+          accent: "text-[var(--color-danger)]",
+          bar: "bg-[var(--color-danger)]",
+          bg: "bg-[var(--color-danger)]/8",
+          border: "border-[var(--color-danger)]/25",
+        };
       default:
-        return "border-[var(--color-info)]/40 bg-[var(--color-info)]/10 text-[var(--color-info)]";
+        return {
+          icon: Info,
+          accent: "text-[var(--color-info)]",
+          bar: "bg-[var(--color-info)]",
+          bg: "bg-[var(--color-info)]/8",
+          border: "border-[var(--color-info)]/25",
+        };
     }
   }
 </script>
 
-<div class="pointer-events-none fixed right-3 top-14 z-[60] flex w-[360px] flex-col gap-2">
+<div class="pointer-events-none fixed right-4 top-12 z-[60] flex w-[340px] flex-col gap-2">
   {#each toasts as t (t.id)}
-    {@const Icon = iconFor(t.kind)}
+    {@const k = kindStyle(t.kind)}
+    {@const Icon = k.icon}
     <div
-      class="pointer-events-auto rounded-lg border surface-2 shadow-2xl shadow-black/40 backdrop-blur transition-all"
+      class="toast-enter pointer-events-auto overflow-hidden rounded-xl border {k.border} {k.bg} shadow-2xl shadow-black/50 backdrop-blur-md"
     >
-      <div class="flex items-start gap-2 p-3">
-        <div
-          class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md {colorFor(
-            t.kind,
-          )}"
-        >
-          <Icon size="14" />
-        </div>
+      <div class="flex items-start gap-3 px-3.5 py-3">
+        <Icon size="15" class="mt-0.5 shrink-0 {k.accent}" />
         <div class="min-w-0 flex-1">
-          <div class="flex items-center gap-2">
-            <span class="truncate text-xs font-semibold text-[var(--color-text-1)]">
+          <div class="flex items-start gap-2">
+            <span class="flex-1 text-[12px] font-semibold leading-snug text-[var(--color-text-1)]">
               {t.title}
             </span>
             {#if t.source}
-              <span
-                class="ml-auto rounded-sm border hairline px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider text-[var(--color-text-3)]"
-                >{t.source}</span
-              >
+              <span class="mt-0.5 shrink-0 rounded border hairline px-1.5 py-px font-mono text-[9px] uppercase tracking-wider text-[var(--color-text-3)]">{t.source}</span>
             {/if}
+            <button
+              class="-mr-1 -mt-0.5 rounded p-1 text-[var(--color-text-3)] hover:bg-white/5 hover:text-[var(--color-text-1)]"
+              onclick={() => dismiss(t.id)}
+            >
+              <X size="11" />
+            </button>
           </div>
           {#if t.body}
-            <p class="mt-0.5 text-[11px] leading-snug text-[var(--color-text-2)]">
-              {t.body}
-            </p>
+            <p class="mt-0.5 text-[11px] leading-snug text-[var(--color-text-2)]">{t.body}</p>
           {/if}
           {#if t.hostName}
-            <p class="mt-1 font-mono text-[10px] text-[var(--color-text-3)]">
-              {t.hostName}
-            </p>
+            <p class="mt-1 font-mono text-[10px] text-[var(--color-text-3)]">{t.hostName}</p>
           {/if}
         </div>
-        <button
-          class="rounded p-0.5 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
-          onclick={() => dismiss(t.id)}
-        >
-          <X size="11" />
-        </button>
+      </div>
+      <!-- Auto-dismiss progress bar -->
+      <div class="h-px w-full {k.bar} opacity-30">
+        <div class="toast-progress h-full w-full {k.bar} opacity-100"></div>
       </div>
     </div>
   {/each}

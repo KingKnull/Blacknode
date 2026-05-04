@@ -136,6 +136,24 @@ class AppState {
     this.hosts = ((await HostService.List()) ?? []) as Host[];
   }
 
+  async refreshPasswords() {
+    if (!this.vault.unlocked) {
+      this.hostPasswords = {};
+      return;
+    }
+    try {
+      const map = (await HostService.GetAllPasswords()) as Record<string, string> | null;
+      if (map) {
+        // Merge: keep any in-session passwords already set, and fill in saved ones
+        for (const [id, pw] of Object.entries(map)) {
+          if (pw) this.hostPasswords[id] = pw;
+        }
+      }
+    } catch {
+      // vault may not support this yet — ignore
+    }
+  }
+
   async refreshKeys() {
     if (!this.vault.unlocked) {
       this.keys = [];
@@ -157,6 +175,7 @@ class AppState {
       await this.refreshHosts();
       await this.refreshKeys();
       await this.refreshSettings();
+      await this.refreshPasswords();
     } finally {
       this.loading = false;
     }

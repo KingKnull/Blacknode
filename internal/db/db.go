@@ -210,6 +210,9 @@ func Open() (*DB, error) {
 	if _, err := conn.Exec(schemaForwards); err != nil {
 		return nil, fmt.Errorf("apply forwards schema: %w", err)
 	}
+	if _, err := conn.Exec(schemaHostSecrets); err != nil {
+		return nil, fmt.Errorf("apply host secrets schema: %w", err)
+	}
 	return &DB{conn}, nil
 }
 
@@ -218,6 +221,15 @@ func Open() (*DB, error) {
 // existing-DB upgrades fail at startup.
 const postMigrationIndexes = `
 CREATE INDEX IF NOT EXISTS idx_hosts_env ON hosts(environment);
+`
+
+const schemaHostSecrets = `
+CREATE TABLE IF NOT EXISTS host_secrets (
+    host_id TEXT PRIMARY KEY,
+    ciphertext BLOB NOT NULL,
+    nonce BLOB NOT NULL,
+    updated_at INTEGER NOT NULL
+);
 `
 
 const schemaForwards = `

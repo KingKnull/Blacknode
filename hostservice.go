@@ -1,23 +1,28 @@
 package main
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/blacknode/blacknode/internal/store"
+	"github.com/blacknode/blacknode/internal/vault"
 	sshconfig "github.com/kevinburke/ssh_config"
 )
 
 type HostService struct {
 	hosts *store.Hosts
+	vault *vault.Vault
+	db    *sql.DB
 }
 
-func NewHostService(h *store.Hosts) *HostService {
-	return &HostService{hosts: h}
+func NewHostService(h *store.Hosts, v *vault.Vault, db *sql.DB) *HostService {
+	return &HostService{hosts: h, vault: v, db: db}
 }
 
 func (s *HostService) List() ([]store.Host, error)             { return s.hosts.List() }
@@ -25,6 +30,81 @@ func (s *HostService) Get(id string) (store.Host, error)       { return s.hosts.
 func (s *HostService) Create(h store.Host) (store.Host, error) { return s.hosts.Create(h) }
 func (s *HostService) Update(h store.Host) error               { return s.hosts.Update(h) }
 func (s *HostService) Delete(id string) error                  { return s.hosts.Delete(id) }
+
+// SetPassword encrypts and persists the SSH password for a host in the vault.
+// The plaintext password is never stored; only AES-256-GCM ciphertext.
+func (s *HostService) SetPassword(hostID, password string) error {
+	if s.vault == nil || s.db == nil {
+		return errors.New("vault not available")
+	}
+	if password == "" {
+		// Deleting the saved password is a valid no-op.
+		_, err := s.db.Exec(`DELETE FROM host_secrets WHERE host_id = ?`, hostID)
+		return err
+	}
+	ciphertext, nonce, err := s.vault.Encrypt([]byte(password))
+	if err != nil {
+		return fmt.Errorf("encrypt: %w", err)
+	}
+	_, err = s.db.Exec(
+		`INSERT INTO host_secrets (host_id, ciphertext, nonce, updated_at)
+		 VALUES (?, ?, ?, ?)
+		 ON CONFLICT(host_id) DO UPDATE SET ciphertext=excluded.ciphertext, nonce=excluded.nonce, updated_at=excluded.updated_at`,
+		hostID, ciphertext, nonce, time.Now().Unix(),
+	)
+	return err
+}
+
+// GetPassword decrypts and returns the saved SSH password for a host, or
+// an empty string if no password has been stored.
+func (s *HostService) GetPassword(hostID string) (string, error) {
+	if s.vault == nil || s.db == nil {
+		return "", nil
+	}
+	var ciphertext, nonce []byte
+	err := s.db.QueryRow(
+		`SELECT ciphertext, nonce FROM host_secrets WHERE host_id = ?`, hostID,
+	).Scan(&ciphertext, &nonce)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	plain, err := s.vault.Decrypt(ciphertext, nonce)
+	if err != nil {
+		return "", fmt.Errorf("decrypt: %w", err)
+	}
+	return string(plain), nil
+}
+
+// GetAllPasswords returns a map of hostID → plaintext password for every host
+// that has a saved password. Used at startup to pre-populate the frontend
+// password cache so connecting never prompts.
+func (s *HostService) GetAllPasswords() (map[string]string, error) {
+	out := map[string]string{}
+	if s.vault == nil || s.db == nil {
+		return out, nil
+	}
+	rows, err := s.db.Query(`SELECT host_id, ciphertext, nonce FROM host_secrets`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var hostID string
+		var ciphertext, nonce []byte
+		if err := rows.Scan(&hostID, &ciphertext, &nonce); err != nil {
+			continue
+		}
+		plain, err := s.vault.Decrypt(ciphertext, nonce)
+		if err != nil {
+			continue // skip entries we can't decrypt (e.g. vault re-initialized)
+		}
+		out[hostID] = string(plain)
+	}
+	return out, rows.Err()
+}
 
 // SSHConfigCandidate is one Host block from the user's ~/.ssh/config that
 // could be imported as a saved host. Identity file is reported for context

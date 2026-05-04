@@ -10,32 +10,33 @@
 
   /* Default = dark. Light overrides live in [data-theme="light"] below.
      Surface stack: lower index = further back. */
-  --color-surface-0: #08080b; /* app bg */
-  --color-surface-1: #0d0d12; /* panels */
-  --color-surface-2: #14141a; /* cards */
-  --color-surface-3: #1c1c24; /* inputs / hover */
-  --color-surface-4: #262630; /* borders raised */
+  --color-surface-0: #07070a; /* app bg */
+  --color-surface-1: #0c0c11; /* panels */
+  --color-surface-2: #131318; /* cards */
+  --color-surface-3: #1a1a22; /* inputs / hover */
+  --color-surface-4: #242430; /* borders raised */
 
-  --color-line: #1f1f28;
-  --color-line-strong: #2a2a36;
+  --color-line: #1c1c26;
+  --color-line-strong: #272733;
 
-  --color-text-1: #ededf3;
-  --color-text-2: #a4a4b3;
-  --color-text-3: #6b6b7c;
-  --color-text-4: #4a4a58;
+  --color-text-1: #eeeef4;
+  --color-text-2: #a2a2b2;
+  --color-text-3: #68687a;
+  --color-text-4: #474758;
 
   /* Brand accent — electric cyan, paired with the deep navy surface stack. */
   --color-accent: #22d3ee;
-  --color-accent-soft: rgba(34, 211, 238, 0.12);
-  --color-accent-strong: rgba(34, 211, 238, 0.38);
+  --color-accent-soft: rgba(34, 211, 238, 0.10);
+  --color-accent-strong: rgba(34, 211, 238, 0.35);
   --color-danger: #ef4444;
   --color-warn: #f59e0b;
   --color-info: #3b82f6;
+  --color-success: #10b981;
 
   /* Solid color used in the few places we still need a literal "raised
      surface on top of dark" — terminal background, code block backdrops.
      The dark theme uses near-black, the light theme uses a soft slate. */
-  --color-code-bg: #08080b;
+  --color-code-bg: #07070a;
 }
 
 /* ----- Light theme ------------------------------------------------------- */
@@ -152,8 +153,36 @@ select:focus-visible {
 /* Soft pulse for live indicators. */
 @keyframes pulse-soft {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  50% { opacity: 0.45; }
 }
 .pulse-soft {
   animation: pulse-soft 2s ease-in-out infinite;
+}
+
+/* Slide-in from right for toasts */
+@keyframes slide-in-right {
+  from { transform: translateX(calc(100% + 12px)); opacity: 0; }
+  to   { transform: translateX(0);                opacity: 1; }
+}
+.toast-enter {
+  animation: slide-in-right 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Fade up for modals / overlays */
+@keyframes fade-up {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+.fade-up {
+  animation: fade-up 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Progress bar shrink — used by toasts */
+@keyframes shrink-x {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+.toast-progress {
+  transform-origin: left;
+  animation: shrink-x 6s linear forwards;
 }
