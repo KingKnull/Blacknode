@@ -23,11 +23,14 @@
   let width = $state(800);
   let height = $state(600);
   let svgEl: SVGSVGElement | null = $state(null);
+  let svgRect: DOMRect | null = null;
   let nodes = $state<Node[]>([]);
   let edges = $state<Edge[]>([]);
   let dragging = $state<string | null>(null);
   let hovered = $state<string | null>(null);
-  let frame = $state(0);
+  // Plain variable — NOT $state. Incrementing this every RAF frame was
+  // triggering Svelte re-renders at 60fps and locking up the entire UI.
+  let frame = 0;
 
   function rebuild() {
     const hostsByName = new Map<string, string>();
@@ -90,9 +93,23 @@
   // convergence was the previous behavior. wakeSimulation() restarts it
   // when something perturbs the layout (drag, host list change, resize).
   let raf = 0;
+  // Throttle reactive updates so Svelte doesn't re-render the SVG on
+  // every single RAF frame. We mutate the node positions in-place every
+  // tick (cheap), but only poke Svelte's reactivity every N frames.
+  let ticksSinceFlush = 0;
+  const FLUSH_INTERVAL = 3; // flush every 3rd frame (~20fps visual update)
+
   function step() {
     tick();
     frame++;
+    ticksSinceFlush++;
+
+    // Flush the reactive assignment periodically so the DOM updates.
+    if (ticksSinceFlush >= FLUSH_INTERVAL) {
+      ticksSinceFlush = 0;
+      nodes = nodes;
+    }
+
     if (!dragging) {
       let maxV = 0;
       for (const n of nodes) {
@@ -101,6 +118,8 @@
       }
       if (maxV < 0.05) {
         raf = 0;
+        // Final flush so the last positions are rendered.
+        nodes = nodes;
         return;
       }
     }
@@ -184,11 +203,12 @@
       if (dragging === node.id) continue;
       node.x += node.vx;
       node.y += node.vy;
-      if (node.x < 30) {
-        node.x = 30;
+      const pad = 30;
+      if (node.x < pad) {
+        node.x = pad;
         node.vx = 0;
       }
-      if (node.x > width - 30) {
+      if (node.x > width - pad) {
         node.x = width - 30;
         node.vx = 0;
       }
@@ -201,20 +221,22 @@
         node.vy = 0;
       }
     }
-    nodes = nodes;
+    // Reactivity is now flushed by the step() throttle — no need to
+    // assign here on every tick.
   }
 
   function startDrag(e: PointerEvent, id: string) {
-    e.preventDefault();
     dragging = id;
-    (e.target as Element).setPointerCapture?.(e.pointerId);
+    if (svgEl) {
+      svgEl.setPointerCapture(e.pointerId);
+      svgRect = svgEl.getBoundingClientRect();
+    }
   }
 
   function moveDrag(e: PointerEvent) {
-    if (!dragging || !svgEl) return;
-    const rect = svgEl.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    if (!dragging || !svgRect) return;
+    const x = e.clientX - svgRect.left;
+    const y = e.clientY - svgRect.top;
     const node = nodes.find((m) => m.id === dragging);
     if (node) {
       node.x = x;
@@ -224,8 +246,16 @@
     }
   }
 
-  function endDrag() {
+  function endDrag(e: PointerEvent) {
+    if (dragging && svgEl) {
+      try {
+        svgEl.releasePointerCapture(e.pointerId);
+      } catch {
+        // ignore
+      }
+    }
     dragging = null;
+    svgRect = null;
   }
 
   function envColor(env: string): string {
@@ -271,6 +301,7 @@
         <svg
           bind:this={svgEl}
           class="h-full w-full"
+          style="touch-action: none"
           onpointermove={moveDrag}
           onpointerup={endDrag}
           onpointerleave={endDrag}
@@ -325,6 +356,7 @@
               onmouseenter={() => (hovered = node.id)}
               onmouseleave={() => (hovered = null)}
               onclick={() => (app.selectedHostID = node.id)}
+              onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); app.selectedHostID = node.id; } }}
             >
               <circle
                 r="18"

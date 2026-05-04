@@ -82,8 +82,9 @@
     return { id: leaf.id + "-tab", root: leaf, activeLeafID: leaf.id };
   }
 
-  let tabs = $state<Tab[]>([makeTab()]);
-  let activeTabID = $state(tabs[0].id);
+  const firstTab = makeTab();
+  let tabs = $state<Tab[]>([firstTab]);
+  let activeTabID = $state(firstTab.id);
 
   let vaultLockOff: (() => void) | undefined;
 
