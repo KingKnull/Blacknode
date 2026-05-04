@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount, onDestroy } from "svelte";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
   import { Network, Server, Shield } from "@lucide/svelte";
@@ -7,6 +8,11 @@
   // edges (target → bastion). The layout runs locally — no graph library —
   // and converges in a few hundred frames for the host counts we expect
   // (single users typically have < 100 saved hosts).
+  //
+  // IMPORTANT: The physics state (positions, velocities) is stored in plain
+  // arrays — NOT Svelte $state. We render by copying snapshots into a
+  // reactive `renderNodes` array on a throttled schedule. This keeps the
+  // 60fps physics loop off the Svelte reactivity graph entirely.
 
   type Node = {
     id: string;
@@ -20,17 +26,20 @@
   };
   type Edge = { from: string; to: string };
 
+  // --- Reactive state (Svelte touches these) ---
   let width = $state(800);
   let height = $state(600);
   let svgEl: SVGSVGElement | null = $state(null);
-  let svgRect: DOMRect | null = null;
-  let nodes = $state<Node[]>([]);
-  let edges = $state<Edge[]>([]);
-  let dragging = $state<string | null>(null);
+  let renderNodes = $state<Node[]>([]);
+  let renderEdges = $state<Edge[]>([]);
   let hovered = $state<string | null>(null);
-  // Plain variable — NOT $state. Incrementing this every RAF frame was
-  // triggering Svelte re-renders at 60fps and locking up the entire UI.
-  let frame = 0;
+
+  // --- Plain state (physics loop only, NO reactivity) ---
+  let physNodes: Node[] = [];
+  let physEdges: Edge[] = [];
+  let dragging: string | null = null;
+  let raf = 0;
+  let mounted = false;
 
   function rebuild() {
     const hostsByName = new Map<string, string>();
@@ -49,7 +58,7 @@
 
     const seedX = width / 2;
     const seedY = height / 2;
-    const oldByID = new Map(nodes.map((n) => [n.id, n]));
+    const oldByID = new Map(physNodes.map((n) => [n.id, n]));
     const newNodes: Node[] = app.hosts.map((h, i) => {
       const prev = oldByID.get(h.id);
       if (prev) {
@@ -60,8 +69,6 @@
           isBastion: bastions.has(h.id),
         };
       }
-      // Fresh nodes go on a ring around the centroid; the simulation
-      // unsticks them in a few iterations.
       const angle = (i / Math.max(app.hosts.length, 1)) * Math.PI * 2;
       const r = 180;
       return {
@@ -76,78 +83,61 @@
       };
     });
 
-    nodes = newNodes;
-    edges = newEdges;
+    physNodes = newNodes;
+    physEdges = newEdges;
+    flush();
+    wakeSimulation();
   }
 
-  // Re-derive when hosts change. Touching frame inside avoids the rebuild
-  // racing with the animation loop.
+  // Copy physics state into Svelte-reactive arrays for rendering.
+  function flush() {
+    renderNodes = physNodes.map((n) => ({ ...n }));
+    renderEdges = [...physEdges];
+  }
+
+  // Re-derive when hosts change.
   $effect(() => {
     void app.hosts;
-    rebuild();
+    if (mounted) rebuild();
   });
 
-  // Run the physics loop only while the layout hasn't converged. Once
-  // every node's velocity drops below a small threshold we stop the RAF
-  // chain entirely — sitting idle on a CPU-busy 60Hz loop after
-  // convergence was the previous behavior. wakeSimulation() restarts it
-  // when something perturbs the layout (drag, host list change, resize).
-  let raf = 0;
-  // Throttle reactive updates so Svelte doesn't re-render the SVG on
-  // every single RAF frame. We mutate the node positions in-place every
-  // tick (cheap), but only poke Svelte's reactivity every N frames.
-  let ticksSinceFlush = 0;
-  const FLUSH_INTERVAL = 3; // flush every 3rd frame (~20fps visual update)
+  // --- Physics loop ---
+  // Runs entirely outside Svelte reactivity. Only `flush()` bridges back.
+  let tickCount = 0;
+  const FLUSH_EVERY = 4; // flush to DOM every 4th frame (~15fps visual)
 
   function step() {
-    tick();
-    frame++;
-    ticksSinceFlush++;
+    physicsTick();
+    tickCount++;
 
-    // Flush the reactive assignment periodically so the DOM updates.
-    if (ticksSinceFlush >= FLUSH_INTERVAL) {
-      ticksSinceFlush = 0;
-      nodes = nodes;
+    if (tickCount % FLUSH_EVERY === 0) {
+      flush();
     }
 
     if (!dragging) {
       let maxV = 0;
-      for (const n of nodes) {
+      for (const n of physNodes) {
         const v = Math.abs(n.vx) + Math.abs(n.vy);
         if (v > maxV) maxV = v;
       }
       if (maxV < 0.05) {
         raf = 0;
-        // Final flush so the last positions are rendered.
-        nodes = nodes;
+        flush(); // final render
         return;
       }
     }
     raf = requestAnimationFrame(step);
   }
+
   function wakeSimulation() {
     if (raf) return;
     raf = requestAnimationFrame(step);
   }
-  $effect(() => {
-    wakeSimulation();
-    return () => {
-      if (raf) cancelAnimationFrame(raf);
-      raf = 0;
-    };
-  });
-  // Re-wake when the host count changes (rebuild() reseeds nodes) or
-  // when a drag starts.
-  $effect(() => {
-    void nodes.length;
-    void dragging;
-    wakeSimulation();
-  });
 
   // One physics step. Repulsion between every pair, spring along each edge,
   // weak gravity toward the centroid, light damping. Tuned for ~100 nodes.
-  function tick() {
-    const n = nodes.length;
+  function physicsTick() {
+    const n = physNodes.length;
     if (n === 0) return;
     const repulse = 1400;
     const spring = 0.012;
@@ -157,7 +147,7 @@
     const cx = width / 2;
     const cy = height / 2;
 
-    for (const node of nodes) {
+    for (const node of physNodes) {
       if (dragging === node.id) {
         node.vx = 0;
         node.vy = 0;
@@ -165,7 +155,7 @@
       }
       let fx = 0;
       let fy = 0;
-      for (const other of nodes) {
+      for (const other of physNodes) {
         if (other === node) continue;
         const dx = node.x - other.x;
         const dy = node.y - other.y;
@@ -180,9 +170,9 @@
       node.vx = (node.vx + fx) * damping;
       node.vy = (node.vy + fy) * damping;
     }
-    for (const e of edges) {
-      const a = nodes.find((m) => m.id === e.from);
-      const b = nodes.find((m) => m.id === e.to);
+    for (const e of physEdges) {
+      const a = physNodes.find((m) => m.id === e.from);
+      const b = physNodes.find((m) => m.id === e.to);
       if (!a || !b) continue;
       const dx = b.x - a.x;
       const dy = b.y - a.y;
@@ -199,63 +189,46 @@
         b.vy -= fy;
       }
     }
-    for (const node of nodes) {
+    for (const node of physNodes) {
       if (dragging === node.id) continue;
       node.x += node.vx;
       node.y += node.vy;
       const pad = 30;
-      if (node.x < pad) {
-        node.x = pad;
-        node.vx = 0;
-      }
-      if (node.x > width - pad) {
-        node.x = width - 30;
-        node.vx = 0;
-      }
-      if (node.y < 30) {
-        node.y = 30;
-        node.vy = 0;
-      }
-      if (node.y > height - 30) {
-        node.y = height - 30;
-        node.vy = 0;
-      }
+      if (node.x < pad) { node.x = pad; node.vx = 0; }
+      if (node.x > width - pad) { node.x = width - pad; node.vx = 0; }
+      if (node.y < pad) { node.y = pad; node.vy = 0; }
+      if (node.y > height - pad) { node.y = height - pad; node.vy = 0; }
     }
-    // Reactivity is now flushed by the step() throttle — no need to
-    // assign here on every tick.
   }
 
-  function startDrag(e: PointerEvent, id: string) {
+  // --- Drag handlers ---
+  // Uses window-level listeners instead of pointer capture to avoid
+  // WebKitGTK pointer capture bugs in the Wails webview.
+  function startDrag(e: MouseEvent, id: string) {
+    e.preventDefault();
     dragging = id;
-    if (svgEl) {
-      svgEl.setPointerCapture(e.pointerId);
-      svgRect = svgEl.getBoundingClientRect();
-    }
+    window.addEventListener("mousemove", moveDrag);
+    window.addEventListener("mouseup", endDrag);
+    wakeSimulation();
   }
 
-  function moveDrag(e: PointerEvent) {
-    if (!dragging || !svgRect) return;
-    const x = e.clientX - svgRect.left;
-    const y = e.clientY - svgRect.top;
-    const node = nodes.find((m) => m.id === dragging);
+  function moveDrag(e: MouseEvent) {
+    if (!dragging || !svgEl) return;
+    const rect = svgEl.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const node = physNodes.find((m) => m.id === dragging);
     if (node) {
       node.x = x;
       node.y = y;
-      nodes = nodes;
-      wakeSimulation();
+      flush();
     }
   }
 
-  function endDrag(e: PointerEvent) {
-    if (dragging && svgEl) {
-      try {
-        svgEl.releasePointerCapture(e.pointerId);
-      } catch {
-        // ignore
-      }
-    }
+  function endDrag() {
     dragging = null;
-    svgRect = null;
+    window.removeEventListener("mousemove", moveDrag);
+    window.removeEventListener("mouseup", endDrag);
   }
 
   function envColor(env: string): string {
@@ -272,10 +245,20 @@
     height = rect.height;
   }
 
-  $effect(() => {
+  onMount(() => {
+    mounted = true;
     onResize();
     window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    rebuild();
+  });
+
+  onDestroy(() => {
+    mounted = false;
+    if (raf) cancelAnimationFrame(raf);
+    raf = 0;
+    window.removeEventListener("resize", onResize);
+    window.removeEventListener("mousemove", moveDrag);
+    window.removeEventListener("mouseup", endDrag);
   });
 </script>
 
@@ -301,10 +284,6 @@
         <svg
           bind:this={svgEl}
           class="h-full w-full"
-          style="touch-action: none"
-          onpointermove={moveDrag}
-          onpointerup={endDrag}
-          onpointerleave={endDrag}
           role="presentation"
         >
           <defs>
@@ -320,9 +299,9 @@
               <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-text-3)" />
             </marker>
           </defs>
-          {#each edges as e (e.from + "->" + e.to)}
-            {@const a = nodes.find((m) => m.id === e.from)}
-            {@const b = nodes.find((m) => m.id === e.to)}
+          {#each renderEdges as e (e.from + "->" + e.to)}
+            {@const a = renderNodes.find((m) => m.id === e.from)}
+            {@const b = renderNodes.find((m) => m.id === e.to)}
             {#if a && b}
               {@const dx = b.x - a.x}
               {@const dy = b.y - a.y}
@@ -346,13 +325,13 @@
               />
             {/if}
           {/each}
-          {#each nodes as node (node.id)}
+          {#each renderNodes as node (node.id)}
             <g
               transform="translate({node.x},{node.y})"
               role="button"
               tabindex="0"
               style="cursor: grab"
-              onpointerdown={(e) => startDrag(e, node.id)}
+              onmousedown={(e) => startDrag(e, node.id)}
               onmouseenter={() => (hovered = node.id)}
               onmouseleave={() => (hovered = null)}
               onclick={() => (app.selectedHostID = node.id)}
@@ -441,8 +420,8 @@
       </h4>
       <ul class="space-y-1 text-[var(--color-text-2)]">
         <li>{app.hosts.length} hosts</li>
-        <li>{edges.length} ProxyJump edges</li>
-        <li>{nodes.filter((n) => n.isBastion).length} bastions</li>
+        <li>{renderEdges.length} ProxyJump edges</li>
+        <li>{renderNodes.filter((n) => n.isBastion).length} bastions</li>
       </ul>
 
       <p class="mt-4 text-[10px] text-[var(--color-text-4)]">
