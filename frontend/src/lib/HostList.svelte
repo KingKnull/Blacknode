@@ -227,7 +227,7 @@
 {#if hostToDelete}
   <ConfirmDanger
     title="DELETE HOST"
-    body="Are you sure you want to delete host \"{hostToDelete.name}\"? All snippets, custom commands, and credentials associated with this host will be removed from the local vault."
+    body="Are you sure you want to delete host '{hostToDelete.name}'? All snippets, custom commands, and credentials associated with this host will be removed from the local vault."
     severity="warn"
     productionHosts={hostToDelete.environment === 'production' ? [hostToDelete.name] : []}
     onCancel={() => (hostToDelete = null)}

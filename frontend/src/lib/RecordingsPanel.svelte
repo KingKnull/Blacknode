@@ -268,7 +268,7 @@
   {#if recordingToDelete}
     <ConfirmDanger
       title="DELETE RECORDING"
-      body="Are you sure you want to delete recording \"{recordingToDelete.title || recordingToDelete.id}\"? This action will permanently remove the asciinema cast file from your local storage."
+      body="Are you sure you want to delete recording '{recordingToDelete.title || recordingToDelete.id}'? This action will permanently remove the asciinema cast file from your local storage."
       severity="warn"
       productionHosts={[]}
       onCancel={() => (recordingToDelete = null)}

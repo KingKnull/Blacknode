@@ -277,7 +277,7 @@
 {#if entryToDelete}
   <ConfirmDanger
     title="DELETE FILE"
-    body="Are you sure you want to delete \"{entryToDelete.name}\"? This action cannot be undone and will permanently remove the item from the remote server."
+    body="Are you sure you want to delete '{entryToDelete.name}'? This action cannot be undone and will permanently remove the item from the remote server."
     severity="warn"
     productionHosts={host?.environment === 'production' ? [host.name] : []}
     onCancel={() => (entryToDelete = null)}

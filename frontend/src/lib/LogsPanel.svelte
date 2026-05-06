@@ -424,7 +424,7 @@
 {#if queryToDelete}
   <ConfirmDanger
     title="DELETE SAVED QUERY"
-    body="Are you sure you want to delete the saved query \"{queryToDelete.name}\"? This action cannot be undone."
+    body="Are you sure you want to delete the saved query '{queryToDelete.name}'? This action cannot be undone."
     severity="warn"
     productionHosts={[]}
     onCancel={() => (queryToDelete = null)}
