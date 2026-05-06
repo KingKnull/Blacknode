@@ -14,6 +14,7 @@ import type {
   PublicKeyView,
   VaultStatus,
   AppSettings,
+  NotifyKind,
 } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
 
 type View =
@@ -218,16 +219,20 @@ class AppState {
   }
 
   // Frontend-only notification helper.
-  toast(kind: "ok" | "warn" | "error" | "info", title: string, body?: string) {
+  toast(kind: "ok" | "warn" | "error" | "info", title: string, body: string = "") {
+    const kindMap = {
+      ok: NotifyKind.NotifyOK,
+      warn: NotifyKind.NotifyWarn,
+      error: NotifyKind.NotifyError,
+      info: NotifyKind.NotifyInfo,
+    };
     Events.Emit("notification:toast", {
-      data: {
-        id: crypto.randomUUID(),
-        kind,
-        title,
-        body,
-        source: "APP",
-        timestamp: Math.floor(Date.now() / 1000),
-      },
+      id: crypto.randomUUID(),
+      kind: kindMap[kind],
+      title,
+      body,
+      source: "APP",
+      timestamp: Math.floor(Date.now() / 1000),
     });
   }
 }
