@@ -1,4 +1,5 @@
 <script lang="ts">
+  // Vault gate handles setup and unlocking of the app's secure storage.
   import type { Snippet } from "svelte";
   import { VaultService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import { app } from "./state.svelte";
