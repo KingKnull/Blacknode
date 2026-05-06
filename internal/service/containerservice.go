@@ -215,6 +215,8 @@ func (s *ContainerService) runCmd(hostID, password, cmd string, timeout time.Dur
 	}
 	defer release()
 
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 	out, err := sshconn.Run(ctx, client, cmd)
 	if err != nil {
 		if strings.TrimSpace(out) != "" {

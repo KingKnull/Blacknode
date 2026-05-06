@@ -103,13 +103,13 @@ func (s *NotificationService) NotifyDebounced(ctx context.Context, key string, n
 	}
 	s.debounce[key] = now
 	s.mu.Unlock()
-	s.Notify(n)
+	s.Notify(context.Background(), n)
 }
 
 // Test fires a single notification — exposed to the frontend so the user can
 // verify their settings without waiting for a real event.
 func (s *NotificationService) Test(ctx context.Context) error {
-	s.Notify(Notification{
+	s.Notify(context.Background(), Notification{
 		Kind:   NotifyInfo,
 		Title:  "blacknode test notification",
 		Body:   "If you see this, your notification settings are working.",

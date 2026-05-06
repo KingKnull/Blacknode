@@ -196,5 +196,5 @@ func (s *ProcessService) run(hostID, password, cmd string, timeout time.Duration
 		return "", err
 	}
 	defer release()
-	return sshconn.Run(ctx, client, cmd)
+	return sshconn.Run(context.Background(), client, cmd)
 }

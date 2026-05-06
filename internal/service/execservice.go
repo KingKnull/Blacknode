@@ -141,7 +141,7 @@ func (s *ExecService) maybeNotifyCompletion(command string, results []ExecResult
 	} else {
 		body = body + " — " + strconv.Itoa(ok) + "/" + strconv.Itoa(len(results)) + " ok in " + dur.Truncate(time.Millisecond).String()
 	}
-	s.notify.Notify(Notification{
+	s.notify.Notify(context.Background(), Notification{
 		Kind: kind, Title: title, Body: body, Source: "exec",
 	})
 	level := "info"

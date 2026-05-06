@@ -61,7 +61,7 @@ func (a *AutoLockService) tick() {
 	if !a.vault.IsUnlocked() {
 		return
 	}
-	cfg, err := a.settings.Get()
+	cfg, err := a.settings.Get(context.Background())
 	if err != nil {
 		return
 	}

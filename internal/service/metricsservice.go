@@ -192,7 +192,7 @@ func (s *MetricsService) maybeAlert(m HostMetrics) {
 		if pct < 90 {
 			return
 		}
-		s.notify.NotifyDebounced(
+		s.notify.NotifyDebounced(context.Background(), 
 			fmt.Sprintf("metrics:%s:%s", metric, m.HostID),
 			Notification{
 				Kind:     NotifyWarn,
@@ -224,7 +224,7 @@ func (s *MetricsService) collect(hostID, password string) HostMetrics {
 	}
 	defer release()
 
-	out, err := sshconn.RunSimple(ctx, client, metricsCommand)
+	out, err := sshconn.RunSimple(context.Background(), client, metricsCommand)
 	if err != nil {
 		m.Error = err.Error()
 		return m

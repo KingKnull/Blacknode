@@ -95,7 +95,7 @@ func (s *PluginService) HostNotify(ctx context.Context, pluginID, title, body st
 	if s.notify == nil {
 		return
 	}
-	s.notify.Notify(Notification{
+	s.notify.Notify(context.Background(), Notification{
 		Kind:   NotifyInfo,
 		Title:  title,
 		Body:   body,

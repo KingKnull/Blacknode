@@ -182,7 +182,10 @@ func Open() (*DB, error) {
 		return nil, fmt.Errorf("create data dir: %w", err)
 	}
 	dbPath := filepath.Join(dataDir, "blacknode.db")
+	return OpenPath(dbPath)
+}
 
+func OpenPath(dbPath string) (*DB, error) {
 	conn, err := sql.Open("sqlite", dbPath+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)")
 	if err != nil {
 		return nil, fmt.Errorf("open db: %w", err)

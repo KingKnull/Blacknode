@@ -53,7 +53,7 @@ func NewAIService(settings *SettingsService) *AIService {
 }
 
 func (s *AIService) client() (anthropic.Client, error) {
-	key, err := s.settings.AnthropicAPIKey()
+	key, err := s.settings.AnthropicAPIKey(context.Background())
 	if err != nil {
 		return anthropic.Client{}, err
 	}
@@ -65,7 +65,7 @@ func (s *AIService) client() (anthropic.Client, error) {
 
 // IsConfigured is a fast pre-check the UI can use before showing AI affordances.
 func (s *AIService) IsConfigured(ctx context.Context) (bool, error) {
-	key, err := s.settings.AnthropicAPIKey()
+	key, err := s.settings.AnthropicAPIKey(context.Background())
 	if err != nil {
 		return false, nil
 	}

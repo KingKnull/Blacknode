@@ -159,10 +159,10 @@ func (s *SyncService) Push(ctx context.Context) (SyncStatus, error) {
 	}
 	if err := s.putNamed(cfg, syncBlobName, body); err != nil {
 		s.recordError(err)
-		return s.Status()
+		return s.Status(context.Background())
 	}
 	s.recordPush()
-	return s.Status()
+	return s.Status(context.Background())
 }
 
 // Pull downloads, decrypts, and merges. Conflict policy: last-write-wins
@@ -184,23 +184,23 @@ func (s *SyncService) Pull(ctx context.Context) (SyncStatus, error) {
 	body, err := s.getNamed(cfg, syncBlobName)
 	if err != nil {
 		s.recordError(err)
-		return s.Status()
+		return s.Status(context.Background())
 	}
 	if len(body) == 0 {
 		// First-time pull against an empty bucket.
 		s.recordPull()
-		return s.Status()
+		return s.Status(context.Background())
 	}
 	snap, err := s.decodeSnapshot(body)
 	if err != nil {
 		s.recordError(err)
-		return s.Status()
+		return s.Status(context.Background())
 	}
 	s.mergeHosts(snap.Hosts)
 	s.mergeSnippets(snap.Snippets)
 	s.mergeHTTPRequests(snap.HTTPRequests)
 	s.recordPull()
-	return s.Status()
+	return s.Status(context.Background())
 }
 
 // encodeSnapshot: marshal → gzip → vault-encrypt → base64-prefix nonce.
@@ -405,7 +405,7 @@ func (s *SyncService) getNamed(cfg SyncSettings, name string) ([]byte, error) {
 }
 
 func (s *SyncService) recordPush() {
-	st, _ := s.Status()
+	st, _ := s.Status(context.Background())
 	st.LastPushAt = time.Now().Unix()
 	st.LastError = ""
 	b, _ := json.Marshal(st)
@@ -418,7 +418,7 @@ func (s *SyncService) recordPush() {
 }
 
 func (s *SyncService) recordPull() {
-	st, _ := s.Status()
+	st, _ := s.Status(context.Background())
 	st.LastPullAt = time.Now().Unix()
 	st.LastError = ""
 	b, _ := json.Marshal(st)
@@ -431,7 +431,7 @@ func (s *SyncService) recordPull() {
 }
 
 func (s *SyncService) recordError(err error) {
-	st, _ := s.Status()
+	st, _ := s.Status(context.Background())
 	st.LastError = err.Error()
 	b, _ := json.Marshal(st)
 	_ = s.settings.SetPlain(syncStatusKey, string(b))
@@ -493,7 +493,7 @@ func (s *SyncService) PublishTeam(ctx context.Context, actor string) (SyncStatus
 	}
 	if err := s.putNamed(cfg, teamBlobName, body); err != nil {
 		s.recordError(err)
-		return s.Status()
+		return s.Status(context.Background())
 	}
 	if actor == "" {
 		actor = "anonymous"
@@ -509,7 +509,7 @@ func (s *SyncService) PublishTeam(ctx context.Context, actor string) (SyncStatus
 		},
 	})
 	s.recordPush()
-	return s.Status()
+	return s.Status(context.Background())
 }
 
 // SubscribeTeam pulls and merges the team blob. Same merge policy as
@@ -530,16 +530,16 @@ func (s *SyncService) SubscribeTeam(ctx context.Context, actor string) (SyncStat
 	body, err := s.getNamed(cfg, teamBlobName)
 	if err != nil {
 		s.recordError(err)
-		return s.Status()
+		return s.Status(context.Background())
 	}
 	if len(body) == 0 {
 		s.recordPull()
-		return s.Status()
+		return s.Status(context.Background())
 	}
 	snap, err := s.decodeSnapshot(body)
 	if err != nil {
 		s.recordError(err)
-		return s.Status()
+		return s.Status(context.Background())
 	}
 	s.mergeHosts(snap.Hosts)
 	s.mergeSnippets(snap.Snippets)
@@ -558,7 +558,7 @@ func (s *SyncService) SubscribeTeam(ctx context.Context, actor string) (SyncStat
 		},
 	})
 	s.recordPull()
-	return s.Status()
+	return s.Status(context.Background())
 }
 
 func (s *SyncService) TeamActivity(ctx context.Context, limit int) ([]store.TeamActivity, error) {

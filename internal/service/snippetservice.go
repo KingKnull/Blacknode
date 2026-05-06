@@ -106,7 +106,7 @@ func (s *SnippetService) Validate(ctx context.Context, body string) (SnippetVali
 	if strings.TrimSpace(body) == "" {
 		return SnippetValidation{}, errors.New("body is empty")
 	}
-	vars := s.ExtractVariables(body)
+	vars := s.ExtractVariables(context.Background(), body)
 	v := SnippetValidation{Variables: vars}
 	for _, vv := range vars {
 		if vv.Default == "" {

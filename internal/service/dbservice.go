@@ -171,7 +171,6 @@ func (s *DBService) connectMySQL(hostID, password, dsn string) (DBConnectionInfo
 		return sshClient.Dial("tcp", addr)
 	})
 	cfg.Net = netName
-	cfg.Addr = cfg.Addr // already host:port from ParseDSN
 
 	dsnRewritten := cfg.FormatDSN()
 	db, err := sql.Open("mysql", dsnRewritten)
@@ -655,7 +654,7 @@ func (s *DBService) ConnectSaved(ctx context.Context, savedID, password string) 
 	if err != nil {
 		return DBConnectionInfo{}, fmt.Errorf("decrypt dsn: %w", err)
 	}
-	return s.Connect(rec.HostID, password, rec.Kind, string(plain))
+	return s.Connect(context.Background(), rec.HostID, password, rec.Kind, string(plain))
 }
 
 func formatValue(v any) string {

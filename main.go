@@ -123,7 +123,7 @@ func main() {
 	}
 
 	// Graceful shutdown: drain resources that would otherwise leak.
-	pfSvc.StopAll()
+	pfSvc.StopAll(context.Background())
 	pool.Close()
 	close(autoLock.StopChan)
 	log.Printf("=== blacknode stop ===")
