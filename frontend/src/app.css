@@ -4,69 +4,62 @@
 @import "@xterm/xterm/css/xterm.css";
 
 @theme {
-  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "JetBrains Mono Variable", ui-monospace, "Cascadia Mono", Consolas, monospace;
   --font-mono: "JetBrains Mono Variable", ui-monospace, "Cascadia Mono",
     Consolas, monospace;
 
-  /* Default = dark. Light overrides live in [data-theme="light"] below.
-     Surface stack: lower index = further back. */
-  --color-surface-0: #07070a; /* app bg */
-  --color-surface-1: #0c0c11; /* panels */
-  --color-surface-2: #131318; /* cards */
-  --color-surface-3: #1a1a22; /* inputs / hover */
-  --color-surface-4: #242430; /* borders raised */
+  /* ── BLACKNODE DARK — Phosphor Noir ────────────────────────────────────
+     Surface stack: deeper = more background. Chromatic black with green tint. */
+  --color-surface-0: #020304;   /* void — true app bg */
+  --color-surface-1: #060809;   /* panel bg */
+  --color-surface-2: #0b0f10;   /* cards / drawers */
+  --color-surface-3: #111618;   /* inputs / hover cells */
+  --color-surface-4: #182020;   /* raised borders */
 
-  --color-line: #1c1c26;
-  --color-line-strong: #272733;
+  --color-line: #0f1a1a;
+  --color-line-strong: #1a2828;
 
-  --color-text-1: #eeeef4;
-  --color-text-2: #a2a2b2;
-  --color-text-3: #68687a;
-  --color-text-4: #474758;
+  --color-text-1: #c8ffe8;      /* phosphor white-green */
+  --color-text-2: #6bbf99;      /* mid phosphor */
+  --color-text-3: #3d7a60;      /* dim phosphor */
+  --color-text-4: #1f4035;      /* ghost phosphor */
 
-  /* Brand accent — electric cyan, paired with the deep navy surface stack. */
-  --color-accent: #22d3ee;
-  --color-accent-soft: rgba(34, 211, 238, 0.10);
-  --color-accent-strong: rgba(34, 211, 238, 0.35);
-  --color-danger: #ef4444;
-  --color-warn: #f59e0b;
-  --color-info: #3b82f6;
-  --color-success: #10b981;
+  /* Phosphor green accent — the ONE color that pops */
+  --color-accent: #00ff88;
+  --color-accent-soft: rgba(0, 255, 136, 0.07);
+  --color-accent-strong: rgba(0, 255, 136, 0.22);
+  --color-danger: #ff3c3c;
+  --color-warn: #ffaa00;
+  --color-info: #00aaff;
+  --color-success: #00ff88;
 
-  /* Solid color used in the few places we still need a literal "raised
-     surface on top of dark" — terminal background, code block backdrops.
-     The dark theme uses near-black, the light theme uses a soft slate. */
-  --color-code-bg: #07070a;
+  --color-code-bg: #020304;
 }
 
-/* ----- Light theme ------------------------------------------------------- */
-/* Applied when document.documentElement.dataset.theme === "light".
-   Same tokens, light palette. We deliberately do NOT just invert — light
-   UIs need warmer mid-greys to avoid harsh banding, and the accent shifts
-   one step darker for contrast against pale surfaces. */
+/* ── LIGHT THEME ── warm paper terminal ─────────────────────────────── */
 [data-theme="light"] {
-  --color-surface-0: #f7f8fa;
-  --color-surface-1: #ffffff;
-  --color-surface-2: #f3f4f7;
-  --color-surface-3: #eaecf1;
-  --color-surface-4: #dde0e7;
+  --color-surface-0: #f5f2eb;
+  --color-surface-1: #ede9df;
+  --color-surface-2: #e4e0d5;
+  --color-surface-3: #d8d3c6;
+  --color-surface-4: #c8c2b0;
 
-  --color-line: #e6e8ed;
-  --color-line-strong: #d2d6df;
+  --color-line: #cdc8ba;
+  --color-line-strong: #b8b2a2;
 
-  --color-text-1: #0a0e18;
-  --color-text-2: #4d5260;
-  --color-text-3: #7a8092;
-  --color-text-4: #aab0bd;
+  --color-text-1: #1a1208;
+  --color-text-2: #3d3422;
+  --color-text-3: #6b5e42;
+  --color-text-4: #9a8e78;
 
-  --color-accent: #0891b2;
-  --color-accent-soft: rgba(8, 145, 178, 0.10);
-  --color-accent-strong: rgba(8, 145, 178, 0.28);
-  --color-danger: #c53030;
-  --color-warn: #b25800;
-  --color-info: #1d4ed8;
+  --color-accent: #0a6640;
+  --color-accent-soft: rgba(10, 102, 64, 0.10);
+  --color-accent-strong: rgba(10, 102, 64, 0.28);
+  --color-danger: #9b1c1c;
+  --color-warn: #92400e;
+  --color-info: #1e3a8a;
 
-  --color-code-bg: #f0f1f4;
+  --color-code-bg: #eceadf;
 }
 
 html,
@@ -79,38 +72,45 @@ body,
 }
 
 body {
-  font-family: var(--font-sans);
-  font-feature-settings:
-    "cv02", "cv03", "cv04", "cv11";
+  font-family: var(--font-mono);
+  font-feature-settings: "calt", "liga";
   -webkit-font-smoothing: antialiased;
+  /* Subtle phosphor scanline texture on dark */
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 255, 136, 0.012) 2px,
+    rgba(0, 255, 136, 0.012) 4px
+  );
 }
 
-/* Global scrollbar — slim, blends with surfaces. */
+[data-theme="light"] body {
+  background-image: none;
+}
+
+/* ── Scrollbars — phosphor-tinted, ultra-slim ───────────────────── */
 *::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 4px;
+  height: 4px;
 }
 *::-webkit-scrollbar-track {
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
   background: var(--color-line-strong);
-  border-radius: 999px;
-  border: 2px solid transparent;
-  background-clip: content-box;
+  border-radius: 0;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: #3a3a48;
-  background-clip: content-box;
-  border: 2px solid transparent;
+  background: var(--color-accent-strong);
 }
 
 /* xterm.js polish */
 .xterm-viewport::-webkit-scrollbar {
-  width: 8px;
+  width: 4px;
 }
 
-/* Inputs default styling — quieter focus ring than Tailwind's blue. */
+/* Inputs — mono font, crisp phosphor focus ring */
 input,
 textarea,
 select,
@@ -122,9 +122,10 @@ textarea:focus-visible,
 select:focus-visible {
   outline: 1px solid var(--color-accent);
   outline-offset: -1px;
+  box-shadow: 0 0 0 3px rgba(0, 255, 136, 0.08);
 }
 
-/* Reusable utility shells (kept tiny — most styling stays in components). */
+/* ── Utility classes ────────────────────────────────────────────── */
 @utility surface-1 {
   background-color: var(--color-surface-1);
 }
@@ -141,22 +142,34 @@ select:focus-visible {
   border-color: var(--color-line-strong);
 }
 
-/* Subtle gradient strip we use under the top bar to add depth. */
+/* Phosphor glow strip below the top bar */
 @utility gloss {
   background-image: linear-gradient(
     180deg,
-    rgba(16, 217, 160, 0.06) 0%,
-    rgba(16, 217, 160, 0) 60%
+    rgba(0, 255, 136, 0.05) 0%,
+    transparent 100%
   );
 }
 
-/* Soft pulse for live indicators. */
+/* ── Animations ──────────────────────────────────────────────── */
+
 @keyframes pulse-soft {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.45; }
+  50%       { opacity: 0.3; }
 }
 .pulse-soft {
-  animation: pulse-soft 2s ease-in-out infinite;
+  animation: pulse-soft 1.4s ease-in-out infinite;
+}
+
+/* Phosphor flicker — used on the live indicator dot */
+@keyframes phosphor-flicker {
+  0%, 96%, 100% { opacity: 1; }
+  97%           { opacity: 0.4; }
+  98%           { opacity: 1; }
+  99%           { opacity: 0.6; }
+}
+.phosphor-flicker {
+  animation: phosphor-flicker 4s ease-in-out infinite;
 }
 
 /* Slide-in from right for toasts */
@@ -165,16 +178,16 @@ select:focus-visible {
   to   { transform: translateX(0);                opacity: 1; }
 }
 .toast-enter {
-  animation: slide-in-right 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: slide-in-right 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 /* Fade up for modals / overlays */
 @keyframes fade-up {
-  from { transform: translateY(8px); opacity: 0; }
+  from { transform: translateY(6px); opacity: 0; }
   to   { transform: translateY(0);   opacity: 1; }
 }
 .fade-up {
-  animation: fade-up 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: fade-up 0.16s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 /* Progress bar shrink — used by toasts */
@@ -185,4 +198,13 @@ select:focus-visible {
 .toast-progress {
   transform-origin: left;
   animation: shrink-x 6s linear forwards;
+}
+
+/* Boot-in for the whole app — fast, sharp */
+@keyframes boot-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+#app {
+  animation: boot-in 0.25s ease-out both;
 }

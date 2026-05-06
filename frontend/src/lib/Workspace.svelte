@@ -335,17 +335,29 @@
 <div
   class="flex h-screen w-screen flex-col bg-[var(--color-surface-0)] text-[var(--color-text-1)]"
 >
-  <!-- Top bar -->
-  <header class="relative flex h-10 shrink-0 items-center gap-2 border-b hairline surface-1 px-3">
-    <div class="absolute inset-x-0 -bottom-px h-px bg-gradient-to-r from-transparent via-[var(--color-accent)]/25 to-transparent"></div>
-    <Logo size={18} />
+  <!-- ── TOP BAR ─────────────────────────────────────────────────────── -->
+  <header class="relative flex h-9 shrink-0 items-center gap-3 border-b hairline surface-1 px-3">
+    <!-- Phosphor glow line -->
+    <div class="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[var(--color-accent)]/40 to-transparent"></div>
+    <!-- Bracket logo mark -->
+    <div class="flex items-center gap-1.5 select-none">
+      <Logo size={16} />
+    </div>
 
-    <div class="ml-auto flex items-center gap-0.5 text-[11px]">
+    <!-- Divider -->
+    <div class="h-4 w-px bg-[var(--color-line-strong)]"></div>
+
+    <!-- Path breadcrumb showing current view -->
+    <span class="font-mono text-[10px] tracking-widest text-[var(--color-text-3)] uppercase">
+      /{app.view}
+    </span>
+
+    <div class="ml-auto flex items-center gap-1 font-mono text-[10px]">
       <!-- Broadcast -->
       <button
-        class="flex items-center gap-1.5 rounded-md px-2.5 py-1 transition-colors {app.broadcastEnabled
-          ? 'bg-[var(--color-warn)]/10 text-[var(--color-warn)]'
-          : 'text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]'}"
+        class="flex items-center gap-1.5 border px-2 py-0.5 transition-all {app.broadcastEnabled
+          ? 'border-[var(--color-warn)]/40 bg-[var(--color-warn)]/8 text-[var(--color-warn)]'
+          : 'border-[var(--color-line)] text-[var(--color-text-4)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-2)]'}"
         onclick={() => {
           if (!app.broadcastEnabled && app.broadcastSet.size === 0) {
             alert('Broadcast is on but no panes are in the group yet.\n\nClick the \'cast\' button on each pane you want to include.');
@@ -354,68 +366,68 @@
         }}
         title={app.broadcastEnabled ? `Broadcasting to ${app.broadcastSet.size} panes` : 'Enable multi-pane keystroke broadcast'}
       >
-        <Radio size="11" class={app.broadcastEnabled ? 'pulse-soft' : ''} />
-        <span>cast</span>
+        <Radio size="10" class={app.broadcastEnabled ? 'pulse-soft' : ''} />
+        <span>CAST</span>
         {#if app.broadcastEnabled}
-          <span class="rounded bg-[var(--color-warn)]/20 px-1 font-mono text-[9px]">{app.broadcastSet.size}</span>
+          <span class="border border-[var(--color-warn)]/30 bg-[var(--color-warn)]/15 px-1 text-[9px]">{app.broadcastSet.size}</span>
         {/if}
       </button>
 
-      <div class="mx-1.5 h-3.5 w-px bg-[var(--color-line-strong)]"></div>
-
       <!-- AI -->
       <button
-        class="flex items-center gap-1.5 rounded-md px-2.5 py-1 transition-colors {app.aiOpen
-          ? 'bg-[var(--color-accent)]/10 text-[var(--color-accent)]'
-          : 'text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]'}"
+        class="flex items-center gap-1.5 border px-2 py-0.5 transition-all {app.aiOpen
+          ? 'border-[var(--color-accent)]/50 bg-[var(--color-accent)]/8 text-[var(--color-accent)]'
+          : 'border-[var(--color-line)] text-[var(--color-text-4)] hover:border-[var(--color-accent)]/30 hover:text-[var(--color-accent)]'}"
         onclick={() => (app.aiOpen = !app.aiOpen)}
         title="AI assistant (⌘I)"
       >
-        <Sparkles size="11" />
+        <Sparkles size="10" />
         <span>AI</span>
       </button>
 
       <!-- Command palette -->
       <button
-        class="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[var(--color-text-3)] transition-colors hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
+        class="flex items-center gap-1.5 border border-[var(--color-line)] px-2 py-0.5 text-[var(--color-text-4)] transition-all hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-2)]"
         onclick={() => (app.paletteOpen = true)}
         title="Command palette (⌘K)"
       >
-        <Command size="11" />
-        <span>Palette</span>
-        <kbd class="rounded border hairline px-1 font-mono text-[9px] opacity-40">⌘K</kbd>
+        <Command size="10" />
+        <span>CMD</span>
+        <kbd class="border border-[var(--color-line-strong)] px-1 text-[8px] opacity-50">⌘K</kbd>
       </button>
 
-      <div class="mx-1.5 h-3.5 w-px bg-[var(--color-line-strong)]"></div>
+      <div class="mx-1 h-3 w-px bg-[var(--color-line-strong)]"></div>
 
       <!-- Vault -->
       <button
-        class="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
+        class="flex items-center gap-1.5 border border-[var(--color-line)] px-2 py-0.5 text-[var(--color-text-4)] hover:border-[var(--color-accent)]/30 hover:text-[var(--color-accent)]"
         onclick={lockVault}
         title="Vault unlocked — click to lock"
       >
-        <Unlock size="11" class="text-[var(--color-accent)]" />
-        <span>Unlocked</span>
+        <Unlock size="10" class="text-[var(--color-accent)]" />
+        <span class="text-[var(--color-accent)]">UNLOCKED</span>
       </button>
     </div>
   </header>
 
-  <!-- Body -->
-  <div class="grid flex-1 grid-cols-[48px_260px_1fr] overflow-hidden">
-    <!-- Icon nav -->
-    <nav class="flex flex-col items-center gap-0.5 border-r hairline surface-1 py-2 px-1">
+  <!-- ── BODY ─────────────────────────────────────────────────────────── -->
+  <div class="grid flex-1 grid-cols-[44px_252px_1fr] overflow-hidden">
+    <!-- ── ICON NAV RAIL ─────────────────────────────── -->
+    <nav class="flex flex-col items-center gap-px border-r hairline surface-1 py-2">
       {#each VIEWS as v (v.id)}
         <button
           title={v.label}
-          class="group relative flex h-8 w-8 items-center justify-center rounded-md transition-all {app.view === v.id
-            ? 'bg-[var(--color-accent)]/10 text-[var(--color-accent)]'
-            : 'text-[var(--color-text-4)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-2)]'}"
+          class="group relative flex h-8 w-8 items-center justify-center transition-all {app.view === v.id
+            ? 'text-[var(--color-accent)]'
+            : 'text-[var(--color-text-4)] hover:text-[var(--color-text-2)]'}"
           onclick={() => (app.view = v.id)}
         >
           {#if app.view === v.id}
-            <span class="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r bg-[var(--color-accent)]"></span>
+            <!-- Active: left accent bar + phosphor glow bg -->
+            <span class="absolute inset-0 bg-[var(--color-accent)]/5"></span>
+            <span class="absolute left-0 inset-y-0 w-[2px] bg-[var(--color-accent)] shadow-[0_0_6px_var(--color-accent)]"></span>
           {/if}
-          <v.Icon size="15" />
+          <v.Icon size="14" strokeWidth={app.view === v.id ? 1.5 : 1.5} />
         </button>
       {/each}
       {#if app.pluginPanels.length > 0}
@@ -424,21 +436,22 @@
           {@const viewID = `plugin:${panel.pluginId}:${panel.id}` as View}
           <button
             title={panel.title}
-            class="group relative flex h-8 w-8 items-center justify-center rounded-md transition-all {app.view === viewID
-              ? 'bg-[var(--color-accent)]/10 text-[var(--color-accent)]'
-              : 'text-[var(--color-text-4)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-2)]'}"
+            class="group relative flex h-8 w-8 items-center justify-center transition-all {app.view === viewID
+              ? 'text-[var(--color-accent)]'
+              : 'text-[var(--color-text-4)] hover:text-[var(--color-text-2)]'}"
             onclick={() => (app.view = viewID)}
           >
             {#if app.view === viewID}
-              <span class="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r bg-[var(--color-accent)]"></span>
+              <span class="absolute inset-0 bg-[var(--color-accent)]/5"></span>
+              <span class="absolute left-0 inset-y-0 w-[2px] bg-[var(--color-accent)] shadow-[0_0_6px_var(--color-accent)]"></span>
             {/if}
-            <Puzzle size="15" />
+            <Puzzle size="14" />
           </button>
         {/each}
       {/if}
     </nav>
 
-    <!-- Sidebar -->
+    <!-- ── SIDEBAR ─────────────────────────────────────── -->
     <aside class="overflow-hidden border-r hairline">
       <HostList />
     </aside>
@@ -453,7 +466,7 @@
           <div class="relative flex h-full flex-col">
             <OnboardingCard />
             <!-- Tab bar -->
-            <div class="flex h-9 shrink-0 items-center gap-0.5 border-b hairline surface-1 px-2">
+            <div class="flex h-8 shrink-0 items-center gap-px border-b hairline surface-1 px-2">
               {#each tabs as t (t.id)}
                 {@const label = tabLabel(t)}
                 {@const isActive = activeTabID === t.id}
@@ -462,9 +475,9 @@
                   tabindex="0"
                   draggable="true"
                   aria-selected={isActive}
-                  class="group flex max-w-[160px] cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] select-none transition-colors {isActive
-                    ? 'bg-[var(--color-surface-3)] text-[var(--color-text-1)]'
-                    : 'text-[var(--color-text-3)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-2)]'}"
+                  class="group flex max-w-[160px] cursor-pointer items-center gap-1.5 border-r border-[var(--color-line)] px-2.5 py-1 font-mono text-[10px] select-none transition-colors {isActive
+                    ? 'bg-[var(--color-surface-2)] text-[var(--color-text-1)] border-t border-t-[var(--color-accent)]/60'
+                    : 'text-[var(--color-text-4)] hover:bg-[var(--color-surface-2)]/50 hover:text-[var(--color-text-3)]'}"
                   class:opacity-40={dragSourceID === t.id}
                   class:outline={dragOverID === t.id && dragSourceID !== t.id}
                   class:outline-[var(--color-accent)]={dragOverID === t.id && dragSourceID !== t.id}
@@ -476,23 +489,27 @@
                   ondragend={tabDragEnd}
                   ondrop={(e) => e.preventDefault()}
                 >
-                  <TerminalSquare size="10" class={isActive ? 'text-[var(--color-accent)]' : ''} />
-                  <span class="truncate font-mono">{label}</span>
+                  {#if isActive}
+                    <span class="h-1.5 w-1.5 shrink-0 bg-[var(--color-accent)] phosphor-flicker shadow-[0_0_4px_var(--color-accent)]"></span>
+                  {:else}
+                    <span class="h-1 w-1 shrink-0 bg-[var(--color-text-4)]"></span>
+                  {/if}
+                  <span class="truncate">{label}</span>
                   <span
                     role="button"
                     tabindex="0"
-                    class="ml-auto shrink-0 rounded p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:bg-[var(--color-surface-4)]"
+                    class="ml-auto shrink-0 p-0.5 opacity-0 group-hover:opacity-40 hover:!opacity-100 hover:text-[var(--color-danger)]"
                     onclick={(e) => { e.stopPropagation(); closeTab(t.id); }}
                     onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); closeTab(t.id); } }}
                   ><X size="9" /></span>
                 </div>
               {/each}
               <button
-                class="ml-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--color-text-4)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-2)] transition-colors"
+                class="ml-1 flex h-6 w-6 shrink-0 items-center justify-center border border-[var(--color-line)] text-[var(--color-text-4)] hover:border-[var(--color-accent)]/40 hover:text-[var(--color-accent)] transition-colors"
                 onclick={newTab}
                 title="New terminal (⌘T)"
               >
-                <Plus size="11" />
+                <Plus size="10" />
               </button>
             </div>
             <div class="flex-1 overflow-hidden">
