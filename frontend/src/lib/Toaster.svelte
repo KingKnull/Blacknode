@@ -79,41 +79,43 @@
   }
 </script>
 
-<div class="pointer-events-none fixed right-4 top-12 z-[60] flex w-[340px] flex-col gap-2">
+<div class="pointer-events-none fixed right-3 top-11 z-[60] flex w-[320px] flex-col gap-1.5">
   {#each toasts as t (t.id)}
     {@const k = kindStyle(t.kind)}
     {@const Icon = k.icon}
     <div
-      class="toast-enter pointer-events-auto overflow-hidden rounded-xl border {k.border} {k.bg} shadow-2xl shadow-black/50 backdrop-blur-md"
+      class="toast-enter pointer-events-auto overflow-hidden border {k.border} {k.bg} shadow-2xl shadow-black/60"
     >
-      <div class="flex items-start gap-3 px-3.5 py-3">
-        <Icon size="15" class="mt-0.5 shrink-0 {k.accent}" />
+      <!-- Top accent line -->
+      <div class="h-px w-full {k.bar} opacity-60"></div>
+      <div class="flex items-start gap-3 px-3 py-2.5">
+        <Icon size="12" class="mt-px shrink-0 {k.accent}" />
         <div class="min-w-0 flex-1">
           <div class="flex items-start gap-2">
-            <span class="flex-1 text-[12px] font-semibold leading-snug text-[var(--color-text-1)]">
+            <span class="flex-1 font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-1)] leading-snug">
               {t.title}
             </span>
             {#if t.source}
-              <span class="mt-0.5 shrink-0 rounded border hairline px-1.5 py-px font-mono text-[9px] uppercase tracking-wider text-[var(--color-text-3)]">{t.source}</span>
+              <span class="mt-px shrink-0 border border-[var(--color-line-strong)] px-1 font-mono text-[8px] uppercase tracking-widest text-[var(--color-text-4)]">{t.source}</span>
             {/if}
             <button
-              class="-mr-1 -mt-0.5 rounded p-1 text-[var(--color-text-3)] hover:bg-white/5 hover:text-[var(--color-text-1)]"
+              class="-mr-0.5 -mt-0.5 p-0.5 text-[var(--color-text-4)] hover:text-[var(--color-danger)] transition-colors"
               onclick={() => dismiss(t.id)}
             >
-              <X size="11" />
+              <X size="10" />
             </button>
           </div>
           {#if t.body}
-            <p class="mt-0.5 text-[11px] leading-snug text-[var(--color-text-2)]">{t.body}</p>
+            <p class="mt-0.5 font-mono text-[9px] leading-snug text-[var(--color-text-3)]">{t.body}</p>
           {/if}
           {#if t.hostName}
-            <p class="mt-1 font-mono text-[10px] text-[var(--color-text-3)]">{t.hostName}</p>
+            <p class="mt-1 font-mono text-[9px] text-[var(--color-text-4)]">{t.hostName}</p>
           {/if}
         </div>
       </div>
       <!-- Auto-dismiss progress bar -->
-      <div class="h-px w-full {k.bar} opacity-30">
-        <div class="toast-progress h-full w-full {k.bar} opacity-100"></div>
+      <div class="relative h-px w-full bg-[var(--color-surface-3)]">
+        <div class="toast-progress absolute inset-0 {k.bar} opacity-50"></div>
       </div>
     </div>
   {/each}

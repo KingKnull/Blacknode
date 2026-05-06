@@ -589,6 +589,7 @@
   <Palette onNewTab={newTab} />
   <Toaster />
 
+  <!-- ── TAB CONTEXT MENU ─────────────────────────────────── -->
   {#if tabMenu}
     <div
       class="fixed inset-0 z-40"
@@ -597,39 +598,40 @@
       oncontextmenu={(e) => { e.preventDefault(); closeTabMenu(); }}
     ></div>
     <div
-      class="fade-up fixed z-50 min-w-[160px] overflow-hidden rounded-lg border hairline-strong surface-2 py-1 text-[11px] shadow-xl shadow-black/40"
+      class="fade-up fixed z-50 min-w-[160px] overflow-hidden border hairline-strong surface-2 py-0.5 font-mono text-[10px] shadow-xl shadow-black/60"
       style="left: {tabMenu.x}px; top: {tabMenu.y}px"
     >
       <button
-        class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
+        class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-danger)] transition-colors"
         onclick={() => { if (tabMenu) closeTab(tabMenu.tabID); closeTabMenu(); }}
-      ><X size="10" class="text-[var(--color-text-4)]" /> Close tab</button>
+      ><X size="10" /> CLOSE TAB</button>
       <button
-        class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)] disabled:opacity-30"
+        class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-danger)] disabled:opacity-30 transition-colors"
         disabled={tabs.length <= 1}
         onclick={() => { if (tabMenu) closeOthers(tabMenu.tabID); closeTabMenu(); }}
-      ><X size="10" class="text-[var(--color-text-4)]" /> Close others</button>
+      ><X size="10" /> CLOSE OTHERS</button>
     </div>
   {/if}
 
-  <!-- Status bar -->
-  <footer class="flex h-6 shrink-0 items-center gap-4 border-t hairline px-3 font-mono text-[10px] text-[var(--color-text-4)]">
-    <span class="flex items-center gap-1">
-      <Server size="9" /> {app.hosts.length} host{app.hosts.length === 1 ? '' : 's'}
+  <!-- ── STATUS BAR ──────────────────────────────────────────────── -->
+  <footer class="flex h-5 shrink-0 items-center gap-4 border-t hairline px-3 font-mono text-[9px] text-[var(--color-text-4)] select-none">
+    <span class="flex items-center gap-1.5">
+      <span class="text-[var(--color-accent)]/60">//</span>
+      <Server size="8" /> {app.hosts.length} HOST{app.hosts.length === 1 ? '' : 'S'}
     </span>
-    <span class="flex items-center gap-1">
-      <TerminalSquare size="9" /> {tabs.length} tab{tabs.length === 1 ? '' : 's'}{activeLeafCount > 1 ? ` · ${activeLeafCount} panes` : ''}
+    <span class="flex items-center gap-1.5">
+      <TerminalSquare size="8" /> {tabs.length} TAB{tabs.length === 1 ? '' : 'S'}{activeLeafCount > 1 ? ` · ${activeLeafCount} PANES` : ''}
     </span>
     {#if app.settings.hasAnthropicKey}
-      <span class="flex items-center gap-1 text-[var(--color-accent)] opacity-60">
-        <Sparkles size="9" /> AI
+      <span class="flex items-center gap-1.5 text-[var(--color-accent)]/50">
+        <Sparkles size="8" /> AI_READY
       </span>
     {/if}
     {#if app.broadcastEnabled}
-      <span class="flex items-center gap-1 text-[var(--color-warn)]">
-        <Radio size="9" class="pulse-soft" /> broadcasting
+      <span class="flex items-center gap-1.5 text-[var(--color-warn)]">
+        <Radio size="8" class="pulse-soft" /> BROADCASTING
       </span>
     {/if}
-    <span class="ml-auto opacity-40">v0.1-alpha</span>
+    <span class="ml-auto text-[var(--color-text-4)]/50">v0.1-alpha</span>
   </footer>
 </div>

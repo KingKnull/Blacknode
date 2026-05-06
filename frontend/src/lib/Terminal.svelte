@@ -68,51 +68,51 @@
   function termTheme() {
     if (app.settings.theme === "light") {
       return {
-        background: "#ffffff",
-        foreground: "#0a0e18",
-        cursor: "#0891b2",
-        cursorAccent: "#ffffff",
-        selectionBackground: "rgba(8, 145, 178, 0.20)",
-        black: "#1f2533",
-        brightBlack: "#525866",
-        red: "#c53030",
-        brightRed: "#9b1c1c",
-        green: "#16a34a",
-        brightGreen: "#15803d",
-        yellow: "#b25800",
-        brightYellow: "#92400e",
-        blue: "#1d4ed8",
-        brightBlue: "#1e3a8a",
-        magenta: "#7e22ce",
+        background: "#f5f2eb",
+        foreground: "#1a1208",
+        cursor: "#0a6640",
+        cursorAccent: "#f5f2eb",
+        selectionBackground: "rgba(10, 102, 64, 0.18)",
+        black: "#2a2010",
+        brightBlack: "#6b5e42",
+        red: "#9b1c1c",
+        brightRed: "#7f1d1d",
+        green: "#15803d",
+        brightGreen: "#166534",
+        yellow: "#92400e",
+        brightYellow: "#78350f",
+        blue: "#1e3a8a",
+        brightBlue: "#1e40af",
+        magenta: "#6b21a8",
         brightMagenta: "#581c87",
-        cyan: "#0891b2",
-        brightCyan: "#0e7490",
-        white: "#7a8092",
-        brightWhite: "#0a0e18",
+        cyan: "#0e7490",
+        brightCyan: "#0891b2",
+        white: "#6b5e42",
+        brightWhite: "#1a1208",
       };
     }
     return {
-      background: "#08080b",
-      foreground: "#ededf3",
-      cursor: "#22d3ee",
-      cursorAccent: "#08080b",
-      selectionBackground: "rgba(34, 211, 238, 0.25)",
-      black: "#08080b",
-      brightBlack: "#4a4a58",
-      red: "#ef4444",
-      brightRed: "#fca5a5",
-      green: "#10b981",
-      brightGreen: "#6ee7b7",
-      yellow: "#f59e0b",
-      brightYellow: "#fcd34d",
-      blue: "#3b82f6",
-      brightBlue: "#93c5fd",
-      magenta: "#a855f7",
-      brightMagenta: "#d8b4fe",
-      cyan: "#22d3ee",
-      brightCyan: "#67e8f9",
-      white: "#a4a4b3",
-      brightWhite: "#ededf3",
+      background: "#020304",
+      foreground: "#c8ffe8",
+      cursor: "#00ff88",
+      cursorAccent: "#020304",
+      selectionBackground: "rgba(0, 255, 136, 0.18)",
+      black: "#020304",
+      brightBlack: "#1f4035",
+      red: "#ff3c3c",
+      brightRed: "#ff6b6b",
+      green: "#00ff88",
+      brightGreen: "#4dffa8",
+      yellow: "#ffaa00",
+      brightYellow: "#ffcc44",
+      blue: "#00aaff",
+      brightBlue: "#44ccff",
+      magenta: "#cc44ff",
+      brightMagenta: "#dd88ff",
+      cyan: "#00ffcc",
+      brightCyan: "#44ffee",
+      white: "#6bbf99",
+      brightWhite: "#c8ffe8",
     };
   }
 
@@ -433,89 +433,80 @@
         <span class="text-[var(--color-text-3)]">connecting…</span>
       {/if}
       <button
-        class="ml-auto flex items-center gap-1.5 rounded px-2 py-1 text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-danger)]"
+        class="ml-auto flex items-center gap-1.5 border border-[var(--color-line)] px-2 py-0.5 text-[var(--color-text-3)] hover:border-[var(--color-danger)]/40 hover:text-[var(--color-danger)] transition-all"
         onclick={disconnectRemote}
       >
-        <Unplug size="12" />
-        <span>disconnect</span>
+        <Unplug size="10" />
+        <span>DISCONNECT</span>
       </button>
     {/if}
 
     {#if errorMsg}
-      <span class="ml-2 truncate font-mono text-[10px] text-[var(--color-danger)]"
-        title={errorMsg}>{errorMsg}</span
-      >
+      <span class="ml-2 truncate font-mono text-[9px] text-[var(--color-danger)]" title={errorMsg}>
+        ERR: {errorMsg}
+      </span>
     {/if}
 
     {#if app.recordingsEnabled && (status === "running" || status === "connected")}
       <span
-        class="ml-1 flex items-center gap-1 rounded-md border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-[var(--color-danger)]"
+        class="flex items-center gap-1 border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/8 px-1.5 py-px font-mono text-[9px] font-bold uppercase tracking-widest text-[var(--color-danger)]"
         title="This session is being recorded"
       >
-        <Circle
-          size="6"
-          class="fill-[var(--color-danger)] text-[var(--color-danger)] pulse-soft"
-        />
+        <Circle size="6" class="fill-[var(--color-danger)] text-[var(--color-danger)] pulse-soft" />
         REC
       </span>
     {/if}
 
     <button
-      class="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] {inBroadcast
+      class="flex items-center gap-1 border px-1.5 py-px font-mono text-[9px] uppercase tracking-wider transition-all {inBroadcast
         ? broadcastActive
-          ? 'bg-[var(--color-warn)]/15 text-[var(--color-warn)] border border-[var(--color-warn)]/40'
-          : 'bg-[var(--color-surface-3)] text-[var(--color-text-1)] border hairline-strong'
-        : 'text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)] border border-transparent'}"
+          ? 'border-[var(--color-warn)]/40 bg-[var(--color-warn)]/8 text-[var(--color-warn)]'
+          : 'border-[var(--color-line-strong)] text-[var(--color-text-2)]'
+        : 'border-[var(--color-line)] text-[var(--color-text-4)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-2)]'}"
       onclick={toggleBroadcastMember}
-      title={inBroadcast
-        ? "Remove this pane from the broadcast group"
-        : "Add this pane to the broadcast group"}
+      title={inBroadcast ? "Remove this pane from the broadcast group" : "Add this pane to the broadcast group"}
     >
-      <Radio size="10" class={broadcastActive ? "pulse-soft" : ""} />
-      <span>cast</span>
+      <Radio size="9" class={broadcastActive ? 'pulse-soft' : ''} />
+      CAST
     </button>
   </div>
 
-  <div bind:this={containerEl} class="flex-1 overflow-hidden p-2"></div>
+  <div bind:this={containerEl} class="flex-1 overflow-hidden p-1.5"></div>
 
   {#if promptingPassword && app.selectedHostID}
     {@const host = app.hosts.find((h) => h.id === app.selectedHostID)}
     {#if host}
-      <div class="absolute inset-0 z-20 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-        <div class="w-80 overflow-hidden rounded-xl border hairline-strong surface-2 shadow-2xl shadow-black/60">
-          <div class="flex items-center gap-2 border-b hairline px-4 py-3">
-            <Lock size="13" class="text-[var(--color-accent)]" />
-            <span class="text-sm font-semibold">Authentication required</span>
+      <div class="absolute inset-0 z-20 flex items-center justify-center bg-black/70">
+        <div class="w-80 overflow-hidden border hairline-strong surface-2 shadow-2xl shadow-black/80">
+          <div class="flex items-center gap-2 border-b hairline px-4 py-2.5">
+            <Lock size="11" class="text-[var(--color-accent)]" />
+            <span class="font-mono text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-1)]">AUTH REQUIRED</span>
           </div>
           <div class="p-4">
-            <div class="mb-3 text-[11px] text-[var(--color-text-3)]">
-              Enter the password for
-              <span class="font-mono text-[var(--color-text-1)]">{host.username}@{host.host}</span>
+            <div class="mb-3 font-mono text-[10px] text-[var(--color-text-3)]">
+              Password for <span class="text-[var(--color-accent)]">{host.username}@{host.host}</span>
             </div>
             <input
               type="password"
-              class="w-full rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-sm outline-none focus:border-[var(--color-accent)]/50"
+              class="w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-[11px] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50"
               bind:value={runtimePassword}
-              placeholder="password"
+              placeholder="•••••••••"
               autofocus
               onkeydown={(e) => e.key === "Enter" && submitPassword()}
             />
-            <p class="mt-2 text-[10px] text-[var(--color-text-4)]">
-              Save this password permanently in <strong class="text-[var(--color-text-3)]">Edit host → Password</strong> to skip this prompt.
+            <p class="mt-2 font-mono text-[9px] text-[var(--color-text-4)] uppercase tracking-widest">
+              TIP: Set permanently in Edit Host → Password
             </p>
           </div>
-          <div class="flex items-center justify-end gap-2 border-t hairline px-4 py-3">
+          <div class="flex items-center justify-end gap-2 border-t hairline px-4 py-2.5">
             <button
-              class="rounded-md px-3 py-1.5 text-xs text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
-              onclick={() => {
-                promptingPassword = false;
-                void openLocal();
-              }}>Cancel</button
+              class="border border-[var(--color-line)] px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest text-[var(--color-text-3)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)] transition-all"
+              onclick={() => { promptingPassword = false; void openLocal(); }}>CANCEL</button
             >
             <button
-              class="rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
+              class="border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest text-[var(--color-accent)] hover:bg-[var(--color-accent)]/15 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
               disabled={!runtimePassword}
-              onclick={submitPassword}>Connect</button
+              onclick={submitPassword}>CONNECT</button
             >
           </div>
         </div>

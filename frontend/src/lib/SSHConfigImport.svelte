@@ -83,64 +83,63 @@
 </script>
 
 <div
-  class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+  class="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
   role="presentation"
-  onclick={(e) => {
-    if (e.target === e.currentTarget) onclose();
-  }}
+  onclick={(e) => { if (e.target === e.currentTarget) onclose(); }}
 >
   <div
-    class="flex max-h-[80vh] w-[640px] flex-col overflow-hidden rounded-xl border hairline-strong surface-2 shadow-2xl shadow-black/50"
+    class="flex max-h-[80vh] w-[640px] flex-col overflow-hidden border hairline-strong surface-2 shadow-2xl"
+    style="box-shadow: 0 0 0 1px var(--color-line-strong), 0 0 60px rgba(0,255,136,0.04), 0 40px 80px rgba(0,0,0,0.6);"
   >
-    <div class="flex items-center gap-2 border-b hairline px-5 py-3">
-      <FileText size="14" class="text-[var(--color-accent)]" />
-      <h3 class="text-sm font-semibold">Import from ~/.ssh/config</h3>
+    <div class="flex items-center gap-2.5 border-b hairline px-5 py-3">
+      <FileText size="12" class="text-[var(--color-accent)]" />
+      <span class="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-text-1)]">IMPORT FROM ~/.ssh/config</span>
       <button
-        class="ml-auto rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
+        class="ml-auto border border-[var(--color-line)] p-1 text-[var(--color-text-4)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-danger)] transition-all"
         onclick={onclose}
       >
-        <X size="14" />
+        <X size="12" />
       </button>
     </div>
 
     {#if loading}
-      <div class="flex h-32 items-center justify-center text-xs text-[var(--color-text-3)]">
-        <Loader2 size="14" class="animate-spin" /> &nbsp;reading SSH config…
+      <div class="flex h-32 items-center justify-center gap-2 font-mono text-[10px] uppercase tracking-widest text-[var(--color-text-4)]">
+        <Loader2 size="12" class="animate-spin text-[var(--color-accent)]" /> READING SSH CONFIG...
       </div>
     {:else if err}
-      <div class="m-4 rounded-md border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-3 text-xs text-[var(--color-danger)]">
-        {err}
+      <div class="m-4 border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/8 p-3 font-mono text-[10px] text-[var(--color-danger)]">
+        ERR: {err}
       </div>
     {:else if candidates.length === 0}
       <div class="flex flex-1 items-center justify-center p-6 text-center">
         <div>
-          <FileText size="22" class="mx-auto text-[var(--color-text-4)]" />
-          <p class="mt-2 text-xs text-[var(--color-text-3)]">
-            No host entries found in ~/.ssh/config (or the file doesn't
-            exist). Wildcard patterns are skipped — only concrete aliases
-            qualify for import.
+          <FileText size="20" class="mx-auto text-[var(--color-text-4)]" />
+          <p class="mt-2 font-mono text-[10px] uppercase tracking-widest text-[var(--color-text-4)]">
+            NO HOST ENTRIES FOUND
+          </p>
+          <p class="mt-1 font-mono text-[9px] text-[var(--color-text-4)]">
+            ~/.ssh/config not found or only wildcard patterns present
           </p>
         </div>
       </div>
     {:else}
       <div
-        class="flex items-center gap-2 border-b hairline surface-1 px-4 py-2 text-[11px] text-[var(--color-text-3)]"
+        class="flex items-center gap-2 border-b hairline surface-1 px-4 py-2 font-mono text-[10px] text-[var(--color-text-4)]"
       >
-        <span class="font-mono">
-          {selected.size} <span class="text-[var(--color-text-4)]">/</span>
-          {candidates.length}
-        </span>
-        <span>selected</span>
+        <span class="text-[var(--color-accent)]">{selected.size}</span>
+        <span class="text-[var(--color-text-4)]">/</span>
+        <span>{candidates.length}</span>
+        <span class="uppercase tracking-widest">SELECTED</span>
         <button
-          class="ml-2 rounded px-1.5 py-0.5 hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
-          onclick={selectAll}>all</button
+          class="ml-2 border border-[var(--color-line)] px-1.5 py-0.5 text-[9px] uppercase tracking-widest hover:border-[var(--color-accent)]/40 hover:text-[var(--color-accent)] transition-all"
+          onclick={selectAll}>ALL</button
         >
         <button
-          class="rounded px-1.5 py-0.5 hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
-          onclick={selectNone}>none</button
+          class="border border-[var(--color-line)] px-1.5 py-0.5 text-[9px] uppercase tracking-widest hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-2)] transition-all"
+          onclick={selectNone}>NONE</button
         >
-        <span class="ml-auto text-[10px] text-[var(--color-text-4)]">
-          existing aliases are auto-skipped
+        <span class="ml-auto text-[9px] uppercase tracking-widest text-[var(--color-text-4)]/60">
+          EXISTING ALIASES AUTO-SKIPPED
         </span>
       </div>
 
@@ -148,54 +147,43 @@
         {#each candidates as c (c.alias)}
           {@const isExisting = existingNames.has(c.alias)}
           <label
-            class="flex cursor-pointer items-start gap-2 border-b hairline px-4 py-2 text-xs transition-colors hover:bg-[var(--color-surface-2)]"
-            class:opacity-50={isExisting}
+            class="flex cursor-pointer items-start gap-2 border-b hairline px-4 py-2 font-mono text-[10px] transition-colors hover:bg-[var(--color-surface-2)]"
+            class:opacity-40={isExisting}
           >
             <input
               type="checkbox"
-              class="mt-1 accent-[var(--color-accent)]"
+              class="mt-px accent-[var(--color-accent)]"
               checked={selected.has(c.alias)}
               disabled={isExisting}
               onchange={() => toggle(c.alias)}
             />
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2">
-                <Server size="11" class="text-[var(--color-text-3)]" />
-                <span class="font-medium text-[var(--color-text-1)]"
-                  >{c.alias}</span
-                >
+                <span class="text-[var(--color-text-1)]">{c.alias}</span>
                 {#if isExisting}
                   <span
-                    class="rounded border border-[var(--color-warn)]/40 bg-[var(--color-warn)]/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-[var(--color-warn)]"
-                    >already imported</span
+                    class="border border-[var(--color-warn)]/40 bg-[var(--color-warn)]/8 px-1.5 py-px text-[8px] uppercase tracking-widest text-[var(--color-warn)]"
+                    >EXISTING</span
                   >
                 {/if}
                 {#if c.identityFile}
-                  <span
-                    class="ml-auto inline-flex items-center gap-1 text-[10px] text-[var(--color-text-3)]"
-                  >
-                    <KeyRound size="10" /> key
+                  <span class="ml-auto flex items-center gap-1 text-[9px] text-[var(--color-accent)]/60">
+                    <KeyRound size="9" /> KEY
                   </span>
                 {:else}
-                  <span
-                    class="ml-auto inline-flex items-center gap-1 text-[10px] text-[var(--color-text-3)]"
-                  >
-                    <Lock size="10" /> agent
+                  <span class="ml-auto flex items-center gap-1 text-[9px] text-[var(--color-text-4)]">
+                    <Lock size="9" /> AGENT
                   </span>
                 {/if}
               </div>
-              <div class="mt-0.5 truncate font-mono text-[10px] text-[var(--color-text-3)]">
-                {c.user || "?"}@{c.hostname}:{c.port || 22}
+              <div class="mt-0.5 truncate text-[9px] text-[var(--color-text-4)]">
+                {c.user || '?'}@{c.hostname}:{c.port || 22}
               </div>
               {#if c.identityFile}
-                <div class="truncate font-mono text-[10px] text-[var(--color-text-4)]">
-                  identity: {c.identityFile}
-                </div>
+                <div class="truncate text-[9px] text-[var(--color-text-4)]/60">key: {c.identityFile}</div>
               {/if}
               {#if c.proxyJump}
-                <div class="truncate font-mono text-[10px] text-[var(--color-warn)]">
-                  ProxyJump: {c.proxyJump} (not yet supported by Connect)
-                </div>
+                <div class="truncate text-[9px] text-[var(--color-warn)]/70">proxyjump: {c.proxyJump} (not yet supported)</div>
               {/if}
             </div>
           </label>
@@ -205,28 +193,26 @@
       <div
         class="flex items-center justify-between gap-2 border-t hairline surface-1 px-5 py-3"
       >
-        <span class="text-[10px] text-[var(--color-text-4)]">
-          <AlertTriangle size="10" class="mr-1 inline" />
-          Imported hosts default to <span class="font-mono">agent</span> auth
-          (or <span class="font-mono">key</span> if IdentityFile is set; you
-          must link a vault key after import).
+        <span class="font-mono text-[9px] uppercase tracking-widest text-[var(--color-text-4)]">
+          <AlertTriangle size="9" class="mr-1 inline" />
+          DEFAULTS: AGENT AUTH (OR KEY IF IDENTITY FILE SET)
         </span>
         <div class="flex items-center gap-2">
           <button
-            class="rounded-md px-3 py-1.5 text-xs text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
-            onclick={onclose}>Cancel</button
+            class="border border-[var(--color-line)] px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest text-[var(--color-text-3)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)] transition-all"
+            onclick={onclose}>CANCEL</button
           >
           <button
-            class="flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
+            class="flex items-center gap-1.5 border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest text-[var(--color-accent)] hover:bg-[var(--color-accent)]/18 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
             disabled={importing || selected.size === 0}
             onclick={doImport}
           >
             {#if importing}
-              <Loader2 size="11" class="animate-spin" />
+              <Loader2 size="10" class="animate-spin" />
             {:else}
-              <Check size="11" />
+              <Check size="10" />
             {/if}
-            Import {selected.size}
+            IMPORT {selected.size}
           </button>
         </div>
       </div>

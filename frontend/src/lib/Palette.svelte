@@ -243,75 +243,76 @@
 
 {#if app.paletteOpen}
   <div
-    class="fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm pt-[15vh]"
+    class="fixed inset-0 z-50 flex items-start justify-center bg-black/80 pt-[14vh]"
     role="presentation"
     onclick={(e) => {
       if (e.target === e.currentTarget) app.paletteOpen = false;
     }}
   >
     <div
-      class="w-[560px] overflow-hidden rounded-xl border hairline-strong surface-2 shadow-2xl shadow-black/50"
+      class="w-[580px] overflow-hidden border hairline-strong surface-2 shadow-2xl"
+      style="box-shadow: 0 0 0 1px var(--color-line-strong), 0 0 60px rgba(0,255,136,0.05), 0 40px 80px rgba(0,0,0,0.6);"
     >
-      <div class="flex items-center gap-2 border-b hairline px-4 py-3">
-        <Search size="14" class="text-[var(--color-text-3)]" />
+      <!-- Search input -->
+      <div class="flex items-center gap-3 border-b hairline px-4 py-2.5">
+        <span class="font-mono text-[10px] text-[var(--color-accent)]/60">&gt;_</span>
         <input
           bind:this={inputEl}
           bind:value={input}
-          class="flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--color-text-4)]"
-          placeholder="Type a command, host name, or view…"
+          class="flex-1 bg-transparent font-mono text-[11px] text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] uppercase"
+          placeholder="TYPE COMMAND, HOST, OR VIEW..."
         />
         <kbd
-          class="rounded border hairline px-1.5 py-0.5 text-[10px] font-mono text-[var(--color-text-4)]"
-          >esc</kbd
+          class="border border-[var(--color-line-strong)] px-1.5 py-0.5 font-mono text-[9px] text-[var(--color-text-4)]"
+          >ESC</kbd
         >
       </div>
 
-      <div class="max-h-[420px] overflow-y-auto py-1">
+      <!-- Results -->
+      <div class="max-h-[400px] overflow-y-auto">
         {#each grouped() as group (group.name)}
-          <div class="px-4 pt-2 pb-1 text-[9px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-4)]">
-            {group.name}
+          <div class="px-4 pt-2.5 pb-1 font-mono text-[8px] font-bold uppercase tracking-[0.25em] text-[var(--color-accent)]/50">
+            // {group.name}
           </div>
           {#each group.items as a (a.id)}
             {@const idx = indexOf(a)}
             <button
-              class="flex w-full items-center gap-2.5 px-4 py-2 text-left text-xs {idx ===
-              highlighted
-                ? 'bg-[var(--color-surface-3)] text-[var(--color-text-1)]'
-                : 'text-[var(--color-text-2)] hover:bg-[var(--color-surface-2)]'}"
+              class="flex w-full items-center gap-2.5 border-l-2 px-4 py-2 text-left font-mono text-[10px] transition-colors {idx === highlighted
+                ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/6 text-[var(--color-text-1)]'
+                : 'border-transparent text-[var(--color-text-3)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-2)]'}"
               onmouseenter={() => (highlighted = idx)}
               onclick={() => {
                 void a.run();
                 app.paletteOpen = false;
               }}
             >
-              <a.icon size="13" class="text-[var(--color-text-3)]" />
-              <span class="flex-1 truncate">{a.label}</span>
+              <a.icon size="11" class={idx === highlighted ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-4)]'} />
+              <span class="flex-1 truncate uppercase tracking-wide">{a.label}</span>
               {#if a.hint}
-                <span class="font-mono text-[10px] text-[var(--color-text-4)]"
-                  >{a.hint}</span
-                >
+                <span class="shrink-0 font-mono text-[9px] text-[var(--color-text-4)]">{a.hint}</span>
               {/if}
             </button>
           {/each}
         {/each}
         {#if filtered.length === 0}
-          <div class="px-4 py-8 text-center text-xs text-[var(--color-text-3)]">
-            No matches.
+          <div class="px-4 py-10 text-center font-mono text-[10px] uppercase tracking-widest text-[var(--color-text-4)]">
+            NO MATCHES
           </div>
         {/if}
       </div>
 
+      <!-- Footer -->
       <div
-        class="flex items-center gap-3 border-t hairline px-4 py-1.5 text-[10px] text-[var(--color-text-4)]"
+        class="flex items-center gap-4 border-t hairline px-4 py-1.5 font-mono text-[9px] text-[var(--color-text-4)] uppercase tracking-wider"
       >
-        <span class="flex items-center gap-1">
-          <kbd class="rounded border hairline px-1 font-mono">↑↓</kbd> navigate
+        <span class="flex items-center gap-1.5">
+          <kbd class="border border-[var(--color-line-strong)] px-1">↑↓</kbd> NAV
         </span>
-        <span class="flex items-center gap-1">
-          <kbd class="rounded border hairline px-1 font-mono">↵</kbd> select
+        <span class="flex items-center gap-1.5">
+          <kbd class="border border-[var(--color-line-strong)] px-1">↵</kbd> SELECT
         </span>
-        <span class="ml-auto flex items-center gap-1">
-          <kbd class="rounded border hairline px-1 font-mono">⌘K</kbd> toggle
+        <span class="ml-auto flex items-center gap-1.5">
+          <kbd class="border border-[var(--color-line-strong)] px-1">⌘K</kbd> TOGGLE
         </span>
       </div>
     </div>

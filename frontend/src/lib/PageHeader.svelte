@@ -10,16 +10,16 @@
   let { icon: Icon, title, subtitle, actions }: Props = $props();
 </script>
 
-<div class="flex items-center gap-3 border-b hairline surface-1 px-4 py-2.5">
+<div class="flex items-center gap-3 border-b hairline surface-1 px-4 py-2">
   <div
-    class="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--color-accent)]/10 text-[var(--color-accent)]"
+    class="flex h-6 w-6 items-center justify-center border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/6 text-[var(--color-accent)]"
   >
-    <Icon size="14" />
+    <Icon size="12" />
   </div>
   <div>
-    <div class="text-sm font-semibold leading-tight">{title}</div>
+    <div class="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--color-text-1)]">{title}</div>
     {#if subtitle}
-      <div class="text-[11px] text-[var(--color-text-3)]">{subtitle}</div>
+      <div class="font-mono text-[9px] uppercase tracking-widest text-[var(--color-text-4)]">{subtitle}</div>
     {/if}
   </div>
   {#if actions}
