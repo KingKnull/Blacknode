@@ -108,6 +108,9 @@ func main() {
 		Mac: application.MacOptions{
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
 		},
+		Linux: application.LinuxOptions{
+			ProgramName: "blacknode",
+		},
 	})
 
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
