@@ -26,7 +26,7 @@ import * as $models from "./models.js";
  * @returns {$CancellablePromise<$models.DBColumn[]>}
  */
 export function Columns(connID, schema, table) {
-    return $Call.ByID(2274606706, connID, schema, table).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(3300049881, connID, schema, table).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType1($result);
     }));
 }
@@ -42,7 +42,7 @@ export function Columns(connID, schema, table) {
  * @returns {$CancellablePromise<$models.DBConnectionInfo>}
  */
 export function Connect(hostID, password, kind, dsn) {
-    return $Call.ByID(1121424107, hostID, password, kind, dsn).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(3912168352, hostID, password, kind, dsn).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType2($result);
     }));
 }
@@ -53,7 +53,7 @@ export function Connect(hostID, password, kind, dsn) {
  * @returns {$CancellablePromise<$models.DBConnectionInfo>}
  */
 export function ConnectSaved(savedID, password) {
-    return $Call.ByID(2207880742, savedID, password).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(4226580571, savedID, password).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType2($result);
     }));
 }
@@ -63,7 +63,7 @@ export function ConnectSaved(savedID, password) {
  * @returns {$CancellablePromise<void>}
  */
 export function DeleteSavedConnection(id) {
-    return $Call.ByID(377070247, id);
+    return $Call.ByID(1099441404, id);
 }
 
 /**
@@ -71,14 +71,14 @@ export function DeleteSavedConnection(id) {
  * @returns {$CancellablePromise<void>}
  */
 export function Disconnect(connID) {
-    return $Call.ByID(1927077453, connID);
+    return $Call.ByID(52455364, connID);
 }
 
 /**
  * @returns {$CancellablePromise<$models.DBConnectionInfo[]>}
  */
 export function List() {
-    return $Call.ByID(2995167535).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(3939868830).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType3($result);
     }));
 }
@@ -87,7 +87,7 @@ export function List() {
  * @returns {$CancellablePromise<$models.SavedConnection[]>}
  */
 export function ListSavedConnections() {
-    return $Call.ByID(3453393015).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(1314856182).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType5($result);
     }));
 }
@@ -100,7 +100,7 @@ export function ListSavedConnections() {
  * @returns {$CancellablePromise<$models.QueryResult>}
  */
 export function Query(connID, sqlText) {
-    return $Call.ByID(3152353293, connID, sqlText).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(1619576078, connID, sqlText).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType6($result);
     }));
 }
@@ -113,7 +113,7 @@ export function Query(connID, sqlText) {
  * @returns {$CancellablePromise<$models.SavedConnection>}
  */
 export function SaveConnection(name, kind, hostID, dsn) {
-    return $Call.ByID(1085621238, name, kind, hostID, dsn).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(274424807, name, kind, hostID, dsn).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType4($result);
     }));
 }
@@ -127,7 +127,7 @@ export function SaveConnection(name, kind, hostID, dsn) {
  * @returns {$CancellablePromise<$models.DBTable[]>}
  */
 export function Tables(connID) {
-    return $Call.ByID(2850014878, connID).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(4175000991, connID).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType8($result);
     }));
 }

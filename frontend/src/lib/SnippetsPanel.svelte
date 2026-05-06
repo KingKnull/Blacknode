@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { SnippetService } from "../../bindings/github.com/blacknode/blacknode";
+  import { SnippetService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { Snippet } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";

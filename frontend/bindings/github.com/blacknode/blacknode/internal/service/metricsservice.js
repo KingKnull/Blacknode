@@ -15,7 +15,7 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
  * @returns {$CancellablePromise<void>}
  */
 export function Start(hostID, password, intervalSeconds) {
-    return $Call.ByID(2415057864, hostID, password, intervalSeconds);
+    return $Call.ByID(2268135661, hostID, password, intervalSeconds);
 }
 
 /**
@@ -23,12 +23,12 @@ export function Start(hostID, password, intervalSeconds) {
  * @returns {$CancellablePromise<void>}
  */
 export function Stop(hostID) {
-    return $Call.ByID(4267979820, hostID);
+    return $Call.ByID(1985082911, hostID);
 }
 
 /**
  * @returns {$CancellablePromise<void>}
  */
 export function StopAll() {
-    return $Call.ByID(485075255);
+    return $Call.ByID(1757633482);
 }

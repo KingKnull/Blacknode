@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onDestroy, onMount, tick } from "svelte";
   import { Events } from "@wailsio/runtime";
-  import { LogsService } from "../../bindings/github.com/blacknode/blacknode";
-  import type { LogLine } from "../../bindings/github.com/blacknode/blacknode/models";
+  import { LogsService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
+  import type { LogLine } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import type { LogQuery } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";

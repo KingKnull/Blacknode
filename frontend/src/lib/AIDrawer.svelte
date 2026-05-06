@@ -4,7 +4,7 @@
   import {
     AIService,
     HistoryService,
-  } from "../../bindings/github.com/blacknode/blacknode";
+  } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import { app } from "./state.svelte";
   import {
     Sparkles,

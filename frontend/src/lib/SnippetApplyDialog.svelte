@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
-  import { SnippetService } from "../../bindings/github.com/blacknode/blacknode";
-  import type { SnippetVariable } from "../../bindings/github.com/blacknode/blacknode/models";
+  import { SnippetService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
+  import type { SnippetVariable } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import type { Snippet } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { Wand, X, Loader2 } from "@lucide/svelte";
 

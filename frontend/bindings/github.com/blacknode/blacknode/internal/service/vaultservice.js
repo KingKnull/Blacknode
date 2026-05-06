@@ -14,7 +14,7 @@ import * as $models from "./models.js";
  * @returns {$CancellablePromise<void>}
  */
 export function Lock() {
-    return $Call.ByID(337357262);
+    return $Call.ByID(2499084893);
 }
 
 /**
@@ -22,14 +22,14 @@ export function Lock() {
  * @returns {$CancellablePromise<void>}
  */
 export function Setup(passphrase) {
-    return $Call.ByID(3202769426, passphrase);
+    return $Call.ByID(1804077983, passphrase);
 }
 
 /**
  * @returns {$CancellablePromise<$models.VaultStatus>}
  */
 export function Status() {
-    return $Call.ByID(3998809027).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(1852646300).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }
@@ -39,7 +39,7 @@ export function Status() {
  * @returns {$CancellablePromise<void>}
  */
 export function Unlock(passphrase) {
-    return $Call.ByID(463265505, passphrase);
+    return $Call.ByID(367107486, passphrase);
 }
 
 // Private type creation functions

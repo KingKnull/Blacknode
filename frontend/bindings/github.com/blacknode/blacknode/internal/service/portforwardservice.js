@@ -15,7 +15,7 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as store$0 from "./internal/store/models.js";
+import * as store$0 from "../store/models.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -26,7 +26,7 @@ import * as $models from "./models.js";
  * @returns {$CancellablePromise<store$0.Forward>}
  */
 export function Create(f) {
-    return $Call.ByID(1473726765, f).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(4225057754, f).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }
@@ -36,7 +36,7 @@ export function Create(f) {
  * @returns {$CancellablePromise<void>}
  */
 export function Delete(id) {
-    return $Call.ByID(2038724218, id);
+    return $Call.ByID(1031854185, id);
 }
 
 /**
@@ -44,7 +44,7 @@ export function Delete(id) {
  * @returns {$CancellablePromise<$models.ActiveForward[]>}
  */
 export function List() {
-    return $Call.ByID(2379969617).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(3394135626).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType2($result);
     }));
 }
@@ -58,7 +58,7 @@ export function List() {
  * @returns {$CancellablePromise<void>}
  */
 export function Start(forwardID, password) {
-    return $Call.ByID(961841807, forwardID, password);
+    return $Call.ByID(3045505486, forwardID, password);
 }
 
 /**
@@ -66,14 +66,14 @@ export function Start(forwardID, password) {
  * @returns {$CancellablePromise<void>}
  */
 export function Stop(forwardID) {
-    return $Call.ByID(792424277, forwardID);
+    return $Call.ByID(2205197462, forwardID);
 }
 
 /**
  * @returns {$CancellablePromise<void>}
  */
 export function StopAll() {
-    return $Call.ByID(738273236);
+    return $Call.ByID(2743626133);
 }
 
 // Private type creation functions

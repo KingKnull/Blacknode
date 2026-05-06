@@ -8,7 +8,7 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as store$0 from "./internal/store/models.js";
+import * as store$0 from "../store/models.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -24,7 +24,7 @@ import * as $models from "./models.js";
  * @returns {$CancellablePromise<void>}
  */
 export function ApproveHostKey(host, port, keyType, pubKeyBase64, fingerprint) {
-    return $Call.ByID(3436839297, host, port, keyType, pubKeyBase64, fingerprint);
+    return $Call.ByID(3453783468, host, port, keyType, pubKeyBase64, fingerprint);
 }
 
 /**
@@ -32,7 +32,7 @@ export function ApproveHostKey(host, port, keyType, pubKeyBase64, fingerprint) {
  * @returns {$CancellablePromise<store$0.Host>}
  */
 export function Create(h) {
-    return $Call.ByID(3307292291, h).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(2715760614, h).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }
@@ -42,7 +42,7 @@ export function Create(h) {
  * @returns {$CancellablePromise<void>}
  */
 export function Delete(id) {
-    return $Call.ByID(2448941168, id);
+    return $Call.ByID(3372977293, id);
 }
 
 /**
@@ -50,7 +50,7 @@ export function Delete(id) {
  * @returns {$CancellablePromise<store$0.Host>}
  */
 export function Get(id) {
-    return $Call.ByID(3677749373, id).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(4085256030, id).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }
@@ -62,7 +62,7 @@ export function Get(id) {
  * @returns {$CancellablePromise<{ [_ in string]?: string }>}
  */
 export function GetAllPasswords() {
-    return $Call.ByID(2197505610).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(1458828377).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType1($result);
     }));
 }
@@ -74,7 +74,7 @@ export function GetAllPasswords() {
  * @returns {$CancellablePromise<string>}
  */
 export function GetPassword(hostID) {
-    return $Call.ByID(4202929056, hostID);
+    return $Call.ByID(3372347491, hostID);
 }
 
 /**
@@ -94,14 +94,14 @@ export function GetPassword(hostID) {
  * @returns {$CancellablePromise<number>}
  */
 export function ImportSSHConfigEntries(entries) {
-    return $Call.ByID(1128560174, entries);
+    return $Call.ByID(1685433603, entries);
 }
 
 /**
  * @returns {$CancellablePromise<store$0.Host[]>}
  */
 export function List() {
-    return $Call.ByID(3424268411).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(4079717742).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType2($result);
     }));
 }
@@ -114,7 +114,7 @@ export function List() {
  * @returns {$CancellablePromise<$models.SSHConfigCandidate[]>}
  */
 export function ScanSSHConfig() {
-    return $Call.ByID(932094358).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(2959866637).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType4($result);
     }));
 }
@@ -127,7 +127,7 @@ export function ScanSSHConfig() {
  * @returns {$CancellablePromise<void>}
  */
 export function SetPassword(hostID, password) {
-    return $Call.ByID(3209167308, hostID, password);
+    return $Call.ByID(2730291407, hostID, password);
 }
 
 /**
@@ -135,7 +135,7 @@ export function SetPassword(hostID, password) {
  * @returns {$CancellablePromise<void>}
  */
 export function Update(h) {
-    return $Call.ByID(790994162, h);
+    return $Call.ByID(1315152939, h);
 }
 
 // Private type creation functions

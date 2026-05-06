@@ -17,7 +17,7 @@ import * as $models from "./models.js";
  * @returns {$CancellablePromise<void>}
  */
 export function Connect(sessionID, opts) {
-    return $Call.ByID(1296524995, sessionID, opts);
+    return $Call.ByID(1211989234, sessionID, opts);
 }
 
 /**
@@ -32,7 +32,7 @@ export function Connect(sessionID, opts) {
  * @returns {$CancellablePromise<void>}
  */
 export function ConnectByHost(sessionID, hostID, password, cols, rows) {
-    return $Call.ByID(1953943528, sessionID, hostID, password, cols, rows);
+    return $Call.ByID(1318833813, sessionID, hostID, password, cols, rows);
 }
 
 /**
@@ -40,7 +40,7 @@ export function ConnectByHost(sessionID, hostID, password, cols, rows) {
  * @returns {$CancellablePromise<void>}
  */
 export function Disconnect(sessionID) {
-    return $Call.ByID(2710249989, sessionID);
+    return $Call.ByID(3621521526, sessionID);
 }
 
 /**
@@ -52,7 +52,7 @@ export function Disconnect(sessionID) {
  * @returns {$CancellablePromise<number>}
  */
 export function Latency(sessionID) {
-    return $Call.ByID(1637216623, sessionID);
+    return $Call.ByID(26871494, sessionID);
 }
 
 /**
@@ -62,7 +62,7 @@ export function Latency(sessionID) {
  * @returns {$CancellablePromise<void>}
  */
 export function Resize(sessionID, cols, rows) {
-    return $Call.ByID(884796119, sessionID, cols, rows);
+    return $Call.ByID(2116953300, sessionID, cols, rows);
 }
 
 /**
@@ -71,5 +71,5 @@ export function Resize(sessionID, cols, rows) {
  * @returns {$CancellablePromise<void>}
  */
 export function Write(sessionID, data) {
-    return $Call.ByID(1772814050, sessionID, data);
+    return $Call.ByID(2904572619, sessionID, data);
 }

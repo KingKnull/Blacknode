@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
-  import { VaultService } from "../../bindings/github.com/blacknode/blacknode";
+  import { VaultService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import { app } from "./state.svelte";
   import { Key, Loader2 } from "@lucide/svelte";
   import LogoIcon from "./logo/LogoIcon.svelte";

@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { ContainerService } from "../../bindings/github.com/blacknode/blacknode";
+  import { ContainerService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type {
     Container,
     Pod,
-  } from "../../bindings/github.com/blacknode/blacknode/models";
+  } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
   import {

@@ -16,7 +16,7 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as plugin$0 from "./internal/plugin/models.js";
+import * as plugin$0 from "../plugin/models.js";
 
 /**
  * HostNotify is the host-RPC backchannel surfaced to plugin iframes:
@@ -31,14 +31,14 @@ import * as plugin$0 from "./internal/plugin/models.js";
  * @returns {$CancellablePromise<void>}
  */
 export function HostNotify(pluginID, title, body) {
-    return $Call.ByID(3259703193, pluginID, title, body);
+    return $Call.ByID(1884334924, pluginID, title, body);
 }
 
 /**
  * @returns {$CancellablePromise<plugin$0.PluginInfo[]>}
  */
 export function List() {
-    return $Call.ByID(2357850258).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(3669991635).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType1($result);
     }));
 }
@@ -47,7 +47,7 @@ export function List() {
  * @returns {$CancellablePromise<plugin$0.PluginInfo[]>}
  */
 export function LoadAll() {
-    return $Call.ByID(3040512005).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(2144397710).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType1($result);
     }));
 }
@@ -58,7 +58,7 @@ export function LoadAll() {
  * @returns {$CancellablePromise<plugin$0.PanelView[]>}
  */
 export function Panels() {
-    return $Call.ByID(1793021253).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(2043508336).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType3($result);
     }));
 }
@@ -67,7 +67,7 @@ export function Panels() {
  * @returns {$CancellablePromise<plugin$0.PluginInfo[]>}
  */
 export function Reload() {
-    return $Call.ByID(3198680379).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(1043858418).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType1($result);
     }));
 }
@@ -76,14 +76,14 @@ export function Reload() {
  * @returns {$CancellablePromise<string>}
  */
 export function Root() {
-    return $Call.ByID(1810785042);
+    return $Call.ByID(2173695847);
 }
 
 /**
  * @returns {$CancellablePromise<void>}
  */
 export function StopAll() {
-    return $Call.ByID(2698224381);
+    return $Call.ByID(2651281366);
 }
 
 // Private type creation functions

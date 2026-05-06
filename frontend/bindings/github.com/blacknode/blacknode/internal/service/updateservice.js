@@ -25,7 +25,7 @@ import * as $models from "./models.js";
  * @returns {$CancellablePromise<$models.UpdateInfo>}
  */
 export function Check() {
-    return $Call.ByID(688929688).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(1075927555).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }
@@ -34,7 +34,7 @@ export function Check() {
  * @returns {$CancellablePromise<string>}
  */
 export function CurrentVersion() {
-    return $Call.ByID(212359031);
+    return $Call.ByID(2030706978);
 }
 
 // Private type creation functions

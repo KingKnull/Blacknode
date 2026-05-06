@@ -4,7 +4,7 @@
   import {
     VaultService,
     SnippetService,
-  } from "../../bindings/github.com/blacknode/blacknode";
+  } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { Snippet } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import {
     TerminalSquare,

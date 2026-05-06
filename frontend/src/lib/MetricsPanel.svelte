@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
   import { Events } from "@wailsio/runtime";
-  import { MetricsService } from "../../bindings/github.com/blacknode/blacknode";
-  import type { HostMetrics } from "../../bindings/github.com/blacknode/blacknode/models";
+  import { MetricsService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
+  import type { HostMetrics } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
   import {

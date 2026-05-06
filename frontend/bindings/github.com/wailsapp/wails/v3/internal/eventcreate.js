@@ -8,7 +8,7 @@ import { Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as main$0 from "../../../../blacknode/blacknode/models.js";
+import * as service$0 from "../../../../blacknode/blacknode/internal/service/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as store$0 from "../../../../blacknode/blacknode/internal/store/models.js";
@@ -29,13 +29,13 @@ function configure() {
 
 // Private type creation functions
 const $$createType0 = store$0.Activity.createFrom;
-const $$createType1 = main$0.AIChunk.createFrom;
-const $$createType2 = main$0.ExecProgress.createFrom;
-const $$createType3 = main$0.LogLine.createFrom;
-const $$createType4 = main$0.HostMetrics.createFrom;
-const $$createType5 = main$0.Notification.createFrom;
-const $$createType6 = main$0.TerminalData.createFrom;
-const $$createType7 = main$0.TerminalExit.createFrom;
-const $$createType8 = main$0.VaultLockEvent.createFrom;
+const $$createType1 = service$0.AIChunk.createFrom;
+const $$createType2 = service$0.ExecProgress.createFrom;
+const $$createType3 = service$0.LogLine.createFrom;
+const $$createType4 = service$0.HostMetrics.createFrom;
+const $$createType5 = service$0.Notification.createFrom;
+const $$createType6 = service$0.TerminalData.createFrom;
+const $$createType7 = service$0.TerminalExit.createFrom;
+const $$createType8 = service$0.VaultLockEvent.createFrom;
 
 configure();

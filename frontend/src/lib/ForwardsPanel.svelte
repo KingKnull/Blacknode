@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { PortForwardService } from "../../bindings/github.com/blacknode/blacknode";
-  import type { ActiveForward } from "../../bindings/github.com/blacknode/blacknode/models";
+  import { PortForwardService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
+  import type { ActiveForward } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
   import {

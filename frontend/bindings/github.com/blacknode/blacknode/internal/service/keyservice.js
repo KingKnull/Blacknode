@@ -15,7 +15,7 @@ import * as $models from "./models.js";
  * @returns {$CancellablePromise<void>}
  */
 export function Delete(id) {
-    return $Call.ByID(403000141, id);
+    return $Call.ByID(2648564158, id);
 }
 
 /**
@@ -26,7 +26,7 @@ export function Delete(id) {
  * @returns {$CancellablePromise<$models.PublicKeyView>}
  */
 export function Generate(name, keyType) {
-    return $Call.ByID(571347125, name, keyType).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(3932499814, name, keyType).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }
@@ -40,7 +40,7 @@ export function Generate(name, keyType) {
  * @returns {$CancellablePromise<$models.PublicKeyView>}
  */
 export function Import(name, privatePEM, passphrase) {
-    return $Call.ByID(7167695, name, privatePEM, passphrase).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(1276898784, name, privatePEM, passphrase).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }
@@ -49,7 +49,7 @@ export function Import(name, privatePEM, passphrase) {
  * @returns {$CancellablePromise<$models.PublicKeyView[]>}
  */
 export function List() {
-    return $Call.ByID(752399406).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(3063579717).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType1($result);
     }));
 }

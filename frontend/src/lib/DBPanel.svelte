@@ -5,14 +5,14 @@
   import { keymap } from "@codemirror/view";
   import { oneDark } from "@codemirror/theme-one-dark";
   import { sql } from "@codemirror/lang-sql";
-  import { DBService } from "../../bindings/github.com/blacknode/blacknode";
+  import { DBService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type {
     DBConnectionInfo,
     QueryResult,
     SavedConnection,
     DBTable,
     DBColumn,
-  } from "../../bindings/github.com/blacknode/blacknode/models";
+  } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
   import {

@@ -4,7 +4,7 @@
   import {
     VaultService,
     PluginService,
-  } from "../../bindings/github.com/blacknode/blacknode";
+  } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import { app, type View } from "./state.svelte";
   import HostList from "./HostList.svelte";
   import Pane from "./Pane.svelte";

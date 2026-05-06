@@ -18,7 +18,7 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as store$0 from "./internal/store/models.js";
+import * as store$0 from "../store/models.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -29,7 +29,7 @@ import * as $models from "./models.js";
  * @returns {$CancellablePromise<void>}
  */
 export function Configure(cfg) {
-    return $Call.ByID(1118613930, cfg);
+    return $Call.ByID(3423375457, cfg);
 }
 
 /**
@@ -46,7 +46,7 @@ export function Configure(cfg) {
  * @returns {$CancellablePromise<$models.SyncStatus>}
  */
 export function PublishTeam(actor) {
-    return $Call.ByID(4218452328, actor).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(4018984287, actor).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }
@@ -60,7 +60,7 @@ export function PublishTeam(actor) {
  * @returns {$CancellablePromise<$models.SyncStatus>}
  */
 export function Pull() {
-    return $Call.ByID(456795609).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(831176704).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }
@@ -71,7 +71,7 @@ export function Pull() {
  * @returns {$CancellablePromise<$models.SyncStatus>}
  */
 export function Push() {
-    return $Call.ByID(1025410274).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(801417323).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }
@@ -80,7 +80,7 @@ export function Push() {
  * @returns {$CancellablePromise<$models.SyncStatus>}
  */
 export function Status() {
-    return $Call.ByID(3788943212).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(1401200345).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }
@@ -94,7 +94,7 @@ export function Status() {
  * @returns {$CancellablePromise<$models.SyncStatus>}
  */
 export function SubscribeTeam(actor) {
-    return $Call.ByID(1154103447, actor).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(453221168, actor).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }
@@ -104,7 +104,7 @@ export function SubscribeTeam(actor) {
  * @returns {$CancellablePromise<store$0.TeamActivity[]>}
  */
 export function TeamActivity(limit) {
-    return $Call.ByID(1141075658, limit).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(785517331, limit).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType2($result);
     }));
 }

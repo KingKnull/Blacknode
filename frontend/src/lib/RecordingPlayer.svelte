@@ -2,8 +2,8 @@
   import { onDestroy, onMount, tick } from "svelte";
   import { Terminal } from "@xterm/xterm";
   import { FitAddon } from "@xterm/addon-fit";
-  import { RecordingService } from "../../bindings/github.com/blacknode/blacknode";
-  import type { RecordingDetail } from "../../bindings/github.com/blacknode/blacknode/models";
+  import { RecordingService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
+  import type { RecordingDetail } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import { Play, Pause, RotateCcw, Gauge, X, Loader2 } from "@lucide/svelte";
 
   type Props = {

@@ -16,7 +16,7 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
  * @returns {$CancellablePromise<void>}
  */
 export function Explain(streamID, content, kind) {
-    return $Call.ByID(2845003630, streamID, content, kind);
+    return $Call.ByID(3245019073, streamID, content, kind);
 }
 
 /**
@@ -24,7 +24,7 @@ export function Explain(streamID, content, kind) {
  * @returns {$CancellablePromise<boolean>}
  */
 export function IsConfigured() {
-    return $Call.ByID(632013635);
+    return $Call.ByID(2723373302);
 }
 
 /**
@@ -33,7 +33,7 @@ export function IsConfigured() {
  * @returns {$CancellablePromise<void>}
  */
 export function Stop(streamID) {
-    return $Call.ByID(926188863, streamID);
+    return $Call.ByID(266315050, streamID);
 }
 
 /**
@@ -45,5 +45,5 @@ export function Stop(streamID) {
  * @returns {$CancellablePromise<string>}
  */
 export function Translate(prompt, shellHint, hostHint) {
-    return $Call.ByID(2432548167, prompt, shellHint, hostHint);
+    return $Call.ByID(4196043952, prompt, shellHint, hostHint);
 }

@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { SFTPService } from "../../bindings/github.com/blacknode/blacknode";
-  import type { SFTPEntry } from "../../bindings/github.com/blacknode/blacknode/models";
+  import { SFTPService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
+  import type { SFTPEntry } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
   import RemoteEditor from "./RemoteEditor.svelte";

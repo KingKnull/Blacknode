@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { PluginService } from "../../bindings/github.com/blacknode/blacknode";
+  import { PluginService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type {
     PanelView,
     PluginInfo,

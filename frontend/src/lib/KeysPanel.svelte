@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { KeyService } from "../../bindings/github.com/blacknode/blacknode";
+  import { KeyService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
   import {

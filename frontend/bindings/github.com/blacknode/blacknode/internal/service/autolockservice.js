@@ -19,7 +19,7 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
  * @returns {$CancellablePromise<void>}
  */
 export function Start() {
-    return $Call.ByID(123661047);
+    return $Call.ByID(2189742996);
 }
 
 /**
@@ -27,5 +27,5 @@ export function Start() {
  * @returns {$CancellablePromise<void>}
  */
 export function Touch() {
-    return $Call.ByID(3902580208);
+    return $Call.ByID(2700873919);
 }

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { Events } from "@wailsio/runtime";
-  import { ActivityService } from "../../bindings/github.com/blacknode/blacknode";
+  import { ActivityService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { Activity } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import PageHeader from "./PageHeader.svelte";
   import {

@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { HTTPService } from "../../bindings/github.com/blacknode/blacknode";
-  import type { HTTPResponse } from "../../bindings/github.com/blacknode/blacknode/models";
+  import { HTTPService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
+  import type { HTTPResponse } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import type { HTTPRequest as SavedRequest } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";

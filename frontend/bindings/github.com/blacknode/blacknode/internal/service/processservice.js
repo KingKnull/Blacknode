@@ -23,7 +23,7 @@ import * as $models from "./models.js";
  * @returns {$CancellablePromise<void>}
  */
 export function Kill(hostID, password, pid, signal, useSudo) {
-    return $Call.ByID(1374212436, hostID, password, pid, signal, useSudo);
+    return $Call.ByID(4181098835, hostID, password, pid, signal, useSudo);
 }
 
 /**
@@ -37,7 +37,7 @@ export function Kill(hostID, password, pid, signal, useSudo) {
  * @returns {$CancellablePromise<string>}
  */
 export function ServiceAction(hostID, password, unit, action, useSudo) {
-    return $Call.ByID(3162536045, hostID, password, unit, action, useSudo);
+    return $Call.ByID(2482001500, hostID, password, unit, action, useSudo);
 }
 
 /**
@@ -48,7 +48,7 @@ export function ServiceAction(hostID, password, unit, action, useSudo) {
  * @returns {$CancellablePromise<$models.SystemdUnit[]>}
  */
 export function Services(hostID, password) {
-    return $Call.ByID(1682478316, hostID, password).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(3316823103, hostID, password).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType1($result);
     }));
 }
@@ -64,7 +64,7 @@ export function Services(hostID, password) {
  * @returns {$CancellablePromise<$models.ProcessInfo[]>}
  */
 export function Top(hostID, password, limit) {
-    return $Call.ByID(3485414823, hostID, password, limit).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(427635274, hostID, password, limit).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType3($result);
     }));
 }

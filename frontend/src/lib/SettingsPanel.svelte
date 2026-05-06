@@ -6,12 +6,12 @@
     NotificationService,
     UpdateService,
     SyncService,
-  } from "../../bindings/github.com/blacknode/blacknode";
+  } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type {
     NotifyConfig,
     UpdateInfo,
     SyncStatus,
-  } from "../../bindings/github.com/blacknode/blacknode/models";
+  } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import type { TeamActivity } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";

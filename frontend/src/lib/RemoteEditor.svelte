@@ -13,7 +13,7 @@
   import { css } from "@codemirror/lang-css";
   import { sql } from "@codemirror/lang-sql";
   import { xml } from "@codemirror/lang-xml";
-  import { SFTPService } from "../../bindings/github.com/blacknode/blacknode";
+  import { SFTPService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import { app } from "./state.svelte";
   import {
     FileCode,

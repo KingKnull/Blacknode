@@ -11,7 +11,7 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
  * @returns {$CancellablePromise<void>}
  */
 export function Close(sessionID) {
-    return $Call.ByID(2453009338, sessionID);
+    return $Call.ByID(2222346237, sessionID);
 }
 
 /**
@@ -23,7 +23,7 @@ export function Close(sessionID) {
  * @returns {$CancellablePromise<void>}
  */
 export function Open(sessionID, cols, rows) {
-    return $Call.ByID(2031994190, sessionID, cols, rows);
+    return $Call.ByID(1277688267, sessionID, cols, rows);
 }
 
 /**
@@ -33,7 +33,7 @@ export function Open(sessionID, cols, rows) {
  * @returns {$CancellablePromise<void>}
  */
 export function Resize(sessionID, cols, rows) {
-    return $Call.ByID(3153304770, sessionID, cols, rows);
+    return $Call.ByID(541092799, sessionID, cols, rows);
 }
 
 /**
@@ -42,5 +42,5 @@ export function Resize(sessionID, cols, rows) {
  * @returns {$CancellablePromise<void>}
  */
 export function Write(sessionID, data) {
-    return $Call.ByID(1758944393, sessionID, data);
+    return $Call.ByID(3314545546, sessionID, data);
 }

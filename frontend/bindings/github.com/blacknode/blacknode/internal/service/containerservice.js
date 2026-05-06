@@ -28,7 +28,7 @@ import * as $models from "./models.js";
  * @returns {$CancellablePromise<string>}
  */
 export function ContainerLogs(hostID, password, containerID, lines) {
-    return $Call.ByID(247911362, hostID, password, containerID, lines);
+    return $Call.ByID(2614646323, hostID, password, containerID, lines);
 }
 
 /**
@@ -41,7 +41,7 @@ export function ContainerLogs(hostID, password, containerID, lines) {
  * @returns {$CancellablePromise<$models.Container[]>}
  */
 export function Containers(hostID, password, includeStopped) {
-    return $Call.ByID(682727006, hostID, password, includeStopped).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(1663870777, hostID, password, includeStopped).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType1($result);
     }));
 }
@@ -53,7 +53,7 @@ export function Containers(hostID, password, includeStopped) {
  * @returns {$CancellablePromise<string[]>}
  */
 export function Namespaces(hostID, password) {
-    return $Call.ByID(3791138918, hostID, password).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(1658735729, hostID, password).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType2($result);
     }));
 }
@@ -70,7 +70,7 @@ export function Namespaces(hostID, password) {
  * @returns {$CancellablePromise<string>}
  */
 export function PodLogs(hostID, password, $namespace, pod, container, lines) {
-    return $Call.ByID(3625429750, hostID, password, $namespace, pod, container, lines);
+    return $Call.ByID(879136655, hostID, password, $namespace, pod, container, lines);
 }
 
 /**
@@ -82,7 +82,7 @@ export function PodLogs(hostID, password, $namespace, pod, container, lines) {
  * @returns {$CancellablePromise<$models.Pod[]>}
  */
 export function Pods(hostID, password, $namespace) {
-    return $Call.ByID(1989352242, hostID, password, $namespace).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(3677389221, hostID, password, $namespace).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType4($result);
     }));
 }

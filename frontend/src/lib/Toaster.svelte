@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
   import { Events } from "@wailsio/runtime";
-  import type { Notification } from "../../bindings/github.com/blacknode/blacknode/models";
+  import type { Notification } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import {
     CheckCircle2,
     AlertTriangle,

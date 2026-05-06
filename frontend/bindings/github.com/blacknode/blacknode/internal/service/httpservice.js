@@ -20,7 +20,7 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as store$0 from "./internal/store/models.js";
+import * as store$0 from "../store/models.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -31,7 +31,7 @@ import * as $models from "./models.js";
  * @returns {$CancellablePromise<void>}
  */
 export function DeleteSavedRequest(id) {
-    return $Call.ByID(134313526, id);
+    return $Call.ByID(4028578007, id);
 }
 
 /**
@@ -39,7 +39,7 @@ export function DeleteSavedRequest(id) {
  * @returns {$CancellablePromise<store$0.HTTPRequest>}
  */
 export function GetSavedRequest(id) {
-    return $Call.ByID(1208644743, id).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(2720730596, id).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }
@@ -48,7 +48,7 @@ export function GetSavedRequest(id) {
  * @returns {$CancellablePromise<store$0.HTTPRequest[]>}
  */
 export function ListSavedRequests() {
-    return $Call.ByID(2638922926).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(1851300481).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType1($result);
     }));
 }
@@ -63,7 +63,7 @@ export function ListSavedRequests() {
  * @returns {$CancellablePromise<$models.HTTPResponse>}
  */
 export function Request(hostID, password, opts) {
-    return $Call.ByID(3181893466, hostID, password, opts).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(2430279037, hostID, password, opts).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType2($result);
     }));
 }
@@ -73,7 +73,7 @@ export function Request(hostID, password, opts) {
  * @returns {$CancellablePromise<store$0.HTTPRequest>}
  */
 export function SaveRequest(r) {
-    return $Call.ByID(1945448353, r).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(3544374038, r).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }

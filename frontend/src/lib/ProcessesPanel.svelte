@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { ProcessService } from "../../bindings/github.com/blacknode/blacknode";
+  import { ProcessService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type {
     ProcessInfo,
     SystemdUnit,
-  } from "../../bindings/github.com/blacknode/blacknode/models";
+  } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";

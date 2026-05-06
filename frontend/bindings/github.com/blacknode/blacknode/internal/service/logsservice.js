@@ -8,21 +8,21 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as store$0 from "./internal/store/models.js";
+import * as store$0 from "../store/models.js";
 
 /**
  * @param {string} id
  * @returns {$CancellablePromise<void>}
  */
 export function DeleteQuery(id) {
-    return $Call.ByID(2861025779, id);
+    return $Call.ByID(934190732, id);
 }
 
 /**
  * @returns {$CancellablePromise<store$0.LogQuery[]>}
  */
 export function ListQueries() {
-    return $Call.ByID(4105027962).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(1393909133).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType1($result);
     }));
 }
@@ -34,7 +34,7 @@ export function ListQueries() {
  * @returns {$CancellablePromise<store$0.LogQuery>}
  */
 export function SaveQuery(q) {
-    return $Call.ByID(3917505437, q).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(981207162, q).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }
@@ -50,7 +50,7 @@ export function SaveQuery(q) {
  * @returns {$CancellablePromise<void>}
  */
 export function Start(streamID, hostIDs, passwords, command) {
-    return $Call.ByID(2655905362, streamID, hostIDs, passwords, command);
+    return $Call.ByID(3270114617, streamID, hostIDs, passwords, command);
 }
 
 /**
@@ -58,14 +58,14 @@ export function Start(streamID, hostIDs, passwords, command) {
  * @returns {$CancellablePromise<void>}
  */
 export function Stop(streamID) {
-    return $Call.ByID(3761781266, streamID);
+    return $Call.ByID(750409619, streamID);
 }
 
 /**
  * @returns {$CancellablePromise<void>}
  */
 export function StopAll() {
-    return $Call.ByID(4263053065);
+    return $Call.ByID(1436804550);
 }
 
 // Private type creation functions

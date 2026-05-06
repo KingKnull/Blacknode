@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { HistoryService } from "../../bindings/github.com/blacknode/blacknode";
+  import { HistoryService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { HistoryEntry } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";

@@ -24,11 +24,11 @@ type AutoLockService struct {
 
 	mu       sync.Mutex
 	lastSeen time.Time
-	stop     chan struct{}
+	StopChan chan struct{}
 }
 
 func NewAutoLockService(v *vault.Vault, s *SettingsService) *AutoLockService {
-	return &AutoLockService{vault: v, settings: s, lastSeen: time.Now(), stop: make(chan struct{})}
+	return &AutoLockService{vault: v, settings: s, lastSeen: time.Now(), StopChan: make(chan struct{})}
 }
 
 // Start the background ticker. Idempotent — calling twice is harmless.
@@ -48,7 +48,7 @@ func (a *AutoLockService) loop() {
 	defer t.Stop()
 	for {
 		select {
-		case <-a.stop:
+		case <-a.StopChan:
 			return
 		case <-t.C:
 			a.tick()

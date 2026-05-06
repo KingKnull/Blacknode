@@ -70,7 +70,7 @@ type activityRecorder struct {
 	store *store.Activities
 }
 
-func newActivityRecorder(s *store.Activities) *activityRecorder {
+func NewActivityRecorder(s *store.Activities) *activityRecorder {
 	return &activityRecorder{store: s}
 }
 

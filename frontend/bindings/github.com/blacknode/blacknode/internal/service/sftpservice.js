@@ -19,7 +19,7 @@ import * as $models from "./models.js";
  * @returns {$CancellablePromise<string>}
  */
 export function Download(hostID, password, remotePath) {
-    return $Call.ByID(794644904, hostID, password, remotePath);
+    return $Call.ByID(2487137113, hostID, password, remotePath);
 }
 
 /**
@@ -31,7 +31,7 @@ export function Download(hostID, password, remotePath) {
  * @returns {$CancellablePromise<$models.SFTPEntry[]>}
  */
 export function List(hostID, password, dir) {
-    return $Call.ByID(269609792, hostID, password, dir).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(353307361, hostID, password, dir).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType1($result);
     }));
 }
@@ -43,7 +43,7 @@ export function List(hostID, password, dir) {
  * @returns {$CancellablePromise<void>}
  */
 export function Mkdir(hostID, password, dir) {
-    return $Call.ByID(1975574083, hostID, password, dir);
+    return $Call.ByID(790964408, hostID, password, dir);
 }
 
 /**
@@ -53,7 +53,7 @@ export function Mkdir(hostID, password, dir) {
  * @returns {$CancellablePromise<void>}
  */
 export function Remove(hostID, password, target) {
-    return $Call.ByID(1547806816, hostID, password, target);
+    return $Call.ByID(223589213, hostID, password, target);
 }
 
 /**
@@ -66,7 +66,7 @@ export function Remove(hostID, password, target) {
  * @returns {$CancellablePromise<void>}
  */
 export function Upload(hostID, password, remoteDir, filename, payloadB64) {
-    return $Call.ByID(3196629929, hostID, password, remoteDir, filename, payloadB64);
+    return $Call.ByID(1381401788, hostID, password, remoteDir, filename, payloadB64);
 }
 
 /**
@@ -80,7 +80,7 @@ export function Upload(hostID, password, remoteDir, filename, payloadB64) {
  * @returns {$CancellablePromise<void>}
  */
 export function WriteFile(hostID, password, remotePath, payloadB64) {
-    return $Call.ByID(3545722329, hostID, password, remotePath, payloadB64);
+    return $Call.ByID(2043285130, hostID, password, remotePath, payloadB64);
 }
 
 // Private type creation functions

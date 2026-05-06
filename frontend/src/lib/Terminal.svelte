@@ -8,7 +8,7 @@
     LocalShellService,
     SSHService,
     HostService,
-  } from "../../bindings/github.com/blacknode/blacknode";
+  } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import { app } from "./state.svelte";
   import { envBadge } from "./envColor";
   import {

@@ -7,7 +7,7 @@ import type { Events } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import type * as main$0 from "../../../../blacknode/blacknode/models.js";
+import type * as service$0 from "../../../../blacknode/blacknode/internal/service/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import type * as store$0 from "../../../../blacknode/blacknode/internal/store/models.js";
@@ -16,14 +16,14 @@ declare module "@wailsio/runtime" {
     namespace Events {
         interface CustomEvents {
             "activity:append": store$0.Activity;
-            "ai:chunk": main$0.AIChunk;
-            "exec:progress": main$0.ExecProgress;
-            "logs:line": main$0.LogLine;
-            "metrics:update": main$0.HostMetrics;
-            "notification:toast": main$0.Notification;
-            "terminal:data": main$0.TerminalData;
-            "terminal:exit": main$0.TerminalExit;
-            "vault:locked": main$0.VaultLockEvent;
+            "ai:chunk": service$0.AIChunk;
+            "exec:progress": service$0.ExecProgress;
+            "logs:line": service$0.LogLine;
+            "metrics:update": service$0.HostMetrics;
+            "notification:toast": service$0.Notification;
+            "terminal:data": service$0.TerminalData;
+            "terminal:exit": service$0.TerminalExit;
+            "vault:locked": service$0.VaultLockEvent;
         }
     }
 }

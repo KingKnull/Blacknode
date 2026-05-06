@@ -6,14 +6,14 @@ import {
   AIService,
   RecordingService,
   PluginService,
-} from "../../bindings/github.com/blacknode/blacknode";
+} from "../../bindings/github.com/blacknode/blacknode/internal/service";
 import type { Host } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
 import type { PanelView } from "../../bindings/github.com/blacknode/blacknode/internal/plugin/models";
 import type {
   PublicKeyView,
   VaultStatus,
   AppSettings,
-} from "../../bindings/github.com/blacknode/blacknode/models";
+} from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
 
 type View =
   | "terminals"
@@ -198,7 +198,7 @@ class AppState {
   async #callTouch() {
     try {
       const { AutoLockService } = await import(
-        "../../bindings/github.com/blacknode/blacknode"
+        "../../bindings/github.com/blacknode/blacknode/internal/service"
       );
       await AutoLockService.Touch();
     } catch {

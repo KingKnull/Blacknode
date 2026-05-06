@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { RecordingService } from "../../bindings/github.com/blacknode/blacknode";
+  import { RecordingService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { Recording } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
-  import type { SearchHit } from "../../bindings/github.com/blacknode/blacknode/models";
+  import type { SearchHit } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import PageHeader from "./PageHeader.svelte";
   import RecordingPlayer from "./RecordingPlayer.svelte";
   import {

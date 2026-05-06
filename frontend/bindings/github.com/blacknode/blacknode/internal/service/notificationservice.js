@@ -14,7 +14,7 @@ import * as $models from "./models.js";
  * @returns {$CancellablePromise<$models.NotifyConfig>}
  */
 export function Config() {
-    return $Call.ByID(3557478052).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(1311560917).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }
@@ -27,7 +27,7 @@ export function Config() {
  * @returns {$CancellablePromise<void>}
  */
 export function Notify(n) {
-    return $Call.ByID(2726372343, n);
+    return $Call.ByID(3045143730, n);
 }
 
 /**
@@ -39,7 +39,7 @@ export function Notify(n) {
  * @returns {$CancellablePromise<void>}
  */
 export function NotifyDebounced(key, n) {
-    return $Call.ByID(360550024, key, n);
+    return $Call.ByID(3460357947, key, n);
 }
 
 /**
@@ -49,7 +49,7 @@ export function NotifyDebounced(key, n) {
  * @returns {$CancellablePromise<void>}
  */
 export function SetDesktopEnabled(on) {
-    return $Call.ByID(2007286951, on);
+    return $Call.ByID(1744335056, on);
 }
 
 /**
@@ -57,7 +57,7 @@ export function SetDesktopEnabled(on) {
  * @returns {$CancellablePromise<void>}
  */
 export function SetLongExecSeconds(seconds) {
-    return $Call.ByID(2095174402, seconds);
+    return $Call.ByID(1647324891, seconds);
 }
 
 /**
@@ -65,7 +65,7 @@ export function SetLongExecSeconds(seconds) {
  * @returns {$CancellablePromise<void>}
  */
 export function SetWebhookURL(url) {
-    return $Call.ByID(1881875804, url);
+    return $Call.ByID(947674031, url);
 }
 
 /**
@@ -74,7 +74,7 @@ export function SetWebhookURL(url) {
  * @returns {$CancellablePromise<void>}
  */
 export function Test() {
-    return $Call.ByID(1245362410);
+    return $Call.ByID(183075779);
 }
 
 // Private type creation functions

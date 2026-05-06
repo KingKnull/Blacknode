@@ -8,10 +8,10 @@ import { Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as recorder$0 from "./internal/recorder/models.js";
+import * as recorder$0 from "../recorder/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as store$0 from "./internal/store/models.js";
+import * as store$0 from "../store/models.js";
 
 /**
  * AIChunk is the streaming payload — the frontend appends `delta` text to the

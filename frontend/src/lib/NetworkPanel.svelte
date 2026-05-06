@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { NetworkService } from "../../bindings/github.com/blacknode/blacknode";
+  import { NetworkService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type {
     PingResult,
     DNSResult,
     PortScanResult,
     SSLResult,
-  } from "../../bindings/github.com/blacknode/blacknode/models";
+  } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
   import {

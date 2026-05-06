@@ -8,7 +8,7 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as store$0 from "./internal/store/models.js";
+import * as store$0 from "../store/models.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -19,7 +19,7 @@ import * as $models from "./models.js";
  * @returns {$CancellablePromise<void>}
  */
 export function Delete(id) {
-    return $Call.ByID(85860613, id);
+    return $Call.ByID(893854882, id);
 }
 
 /**
@@ -30,7 +30,7 @@ export function Delete(id) {
  * @returns {$CancellablePromise<string>}
  */
 export function ExportPath(id) {
-    return $Call.ByID(291778319, id);
+    return $Call.ByID(2852319308, id);
 }
 
 /**
@@ -38,7 +38,7 @@ export function ExportPath(id) {
  * @returns {$CancellablePromise<$models.RecordingDetail>}
  */
 export function Get(id) {
-    return $Call.ByID(4157816598, id).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(353853487, id).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }
@@ -47,14 +47,14 @@ export function Get(id) {
  * @returns {$CancellablePromise<boolean>}
  */
 export function IsEnabled() {
-    return $Call.ByID(3106967851);
+    return $Call.ByID(1975675222);
 }
 
 /**
  * @returns {$CancellablePromise<store$0.Recording[]>}
  */
 export function List() {
-    return $Call.ByID(1611893494).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(1822758793).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType2($result);
     }));
 }
@@ -66,7 +66,7 @@ export function List() {
  * @returns {$CancellablePromise<string>}
  */
 export function ReadCastFile(id) {
-    return $Call.ByID(919683799, id);
+    return $Call.ByID(3196137456, id);
 }
 
 /**
@@ -77,7 +77,7 @@ export function ReadCastFile(id) {
  * @returns {$CancellablePromise<$models.SearchHit[]>}
  */
 export function Search(query) {
-    return $Call.ByID(1621142962, query).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(1725092161, query).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType4($result);
     }));
 }
@@ -87,7 +87,7 @@ export function Search(query) {
  * @returns {$CancellablePromise<void>}
  */
 export function SetEnabled(on) {
-    return $Call.ByID(589372567, on);
+    return $Call.ByID(1284823040, on);
 }
 
 // Private type creation functions

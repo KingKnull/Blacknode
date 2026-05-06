@@ -27,7 +27,7 @@ import * as $models from "./models.js";
  * @returns {$CancellablePromise<$models.DNSResult>}
  */
 export function DNSLookup(hostID, password, target, recordType) {
-    return $Call.ByID(3368669060, hostID, password, target, recordType).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(1960944829, hostID, password, target, recordType).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }
@@ -40,7 +40,7 @@ export function DNSLookup(hostID, password, target, recordType) {
  * @returns {$CancellablePromise<$models.PingResult>}
  */
 export function Ping(hostID, password, target, count) {
-    return $Call.ByID(25732155, hostID, password, target, count).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(573217668, hostID, password, target, count).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType1($result);
     }));
 }
@@ -57,7 +57,7 @@ export function Ping(hostID, password, target, count) {
  * @returns {$CancellablePromise<$models.PortScanResult>}
  */
 export function PortScan(hostID, password, target, ports) {
-    return $Call.ByID(3058720009, hostID, password, target, ports).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(1777280254, hostID, password, target, ports).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType2($result);
     }));
 }
@@ -73,7 +73,7 @@ export function PortScan(hostID, password, target, ports) {
  * @returns {$CancellablePromise<$models.SSLResult>}
  */
 export function SSLCert(hostID, password, target) {
-    return $Call.ByID(3420121161, hostID, password, target).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(1570785132, hostID, password, target).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType3($result);
     }));
 }

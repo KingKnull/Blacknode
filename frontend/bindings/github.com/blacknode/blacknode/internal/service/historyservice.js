@@ -15,7 +15,7 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as store$0 from "./internal/store/models.js";
+import * as store$0 from "../store/models.js";
 
 /**
  * Add lets the frontend record a command (used when the AI drawer's "insert
@@ -24,7 +24,7 @@ import * as store$0 from "./internal/store/models.js";
  * @returns {$CancellablePromise<store$0.HistoryEntry>}
  */
 export function Add(e) {
-    return $Call.ByID(3425385348, e).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(180996401, e).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }
@@ -33,7 +33,7 @@ export function Add(e) {
  * @returns {$CancellablePromise<void>}
  */
 export function Clear() {
-    return $Call.ByID(2353432274);
+    return $Call.ByID(3655251091);
 }
 
 /**
@@ -41,7 +41,7 @@ export function Clear() {
  * @returns {$CancellablePromise<void>}
  */
 export function Delete(id) {
-    return $Call.ByID(3921506394, id);
+    return $Call.ByID(532200629, id);
 }
 
 /**
@@ -51,7 +51,7 @@ export function Delete(id) {
  * @returns {$CancellablePromise<store$0.HistoryEntry[]>}
  */
 export function List(hostID, source, limit) {
-    return $Call.ByID(671552305, hostID, source, limit).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(2251573510, hostID, source, limit).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType1($result);
     }));
 }
@@ -61,7 +61,7 @@ export function List(hostID, source, limit) {
  * @returns {$CancellablePromise<store$0.HistoryEntry[]>}
  */
 export function Search(query) {
-    return $Call.ByID(1691045273, query).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(777448834, query).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType1($result);
     }));
 }

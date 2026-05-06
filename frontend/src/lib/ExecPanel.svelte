@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { Events } from "@wailsio/runtime";
-  import { ExecService } from "../../bindings/github.com/blacknode/blacknode";
-  import type { ExecResult } from "../../bindings/github.com/blacknode/blacknode/models";
+  import { ExecService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
+  import type { ExecResult } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";

@@ -8,7 +8,7 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as store$0 from "./internal/store/models.js";
+import * as store$0 from "../store/models.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -27,7 +27,7 @@ import * as $models from "./models.js";
  * @returns {$CancellablePromise<string>}
  */
 export function Apply(snippetID, values, hostID, hostName, recordToHistory) {
-    return $Call.ByID(1253493956, snippetID, values, hostID, hostName, recordToHistory);
+    return $Call.ByID(3409945725, snippetID, values, hostID, hostName, recordToHistory);
 }
 
 /**
@@ -35,7 +35,7 @@ export function Apply(snippetID, values, hostID, hostName, recordToHistory) {
  * @returns {$CancellablePromise<store$0.Snippet>}
  */
 export function Create(sn) {
-    return $Call.ByID(2644205364, sn).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(2104235275, sn).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }
@@ -45,7 +45,7 @@ export function Create(sn) {
  * @returns {$CancellablePromise<void>}
  */
 export function Delete(id) {
-    return $Call.ByID(717201611, id);
+    return $Call.ByID(4244213064, id);
 }
 
 /**
@@ -55,7 +55,7 @@ export function Delete(id) {
  * @returns {$CancellablePromise<$models.SnippetVariable[]>}
  */
 export function ExtractVariables(body) {
-    return $Call.ByID(1732227150, body).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(3810928465, body).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType2($result);
     }));
 }
@@ -65,7 +65,7 @@ export function ExtractVariables(body) {
  * @returns {$CancellablePromise<store$0.Snippet>}
  */
 export function Get(id) {
-    return $Call.ByID(238769452, id).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(3114848693, id).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }
@@ -74,7 +74,7 @@ export function Get(id) {
  * @returns {$CancellablePromise<store$0.Snippet[]>}
  */
 export function List() {
-    return $Call.ByID(2864203480).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(1787257155).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType3($result);
     }));
 }
@@ -84,7 +84,7 @@ export function List() {
  * @returns {$CancellablePromise<void>}
  */
 export function Update(sn) {
-    return $Call.ByID(690563217, sn);
+    return $Call.ByID(166925786, sn);
 }
 
 /**
@@ -92,7 +92,7 @@ export function Update(sn) {
  * @returns {$CancellablePromise<$models.SnippetValidation>}
  */
 export function Validate(body) {
-    return $Call.ByID(2782348902, body).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(1337129493, body).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType4($result);
     }));
 }

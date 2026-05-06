@@ -11,6 +11,7 @@ import (
 	"github.com/adrg/xdg"
 	"github.com/blacknode/blacknode/internal/db"
 	"github.com/blacknode/blacknode/internal/recorder"
+	"github.com/blacknode/blacknode/internal/service"
 	"github.com/blacknode/blacknode/internal/sshconn"
 	"github.com/blacknode/blacknode/internal/store"
 	"github.com/blacknode/blacknode/internal/vault"
@@ -21,14 +22,14 @@ import (
 var assets embed.FS
 
 func init() {
-	application.RegisterEvent[TerminalData]("terminal:data")
-	application.RegisterEvent[TerminalExit]("terminal:exit")
-	application.RegisterEvent[ExecProgress]("exec:progress")
-	application.RegisterEvent[HostMetrics]("metrics:update")
-	application.RegisterEvent[LogLine]("logs:line")
-	application.RegisterEvent[AIChunk]("ai:chunk")
-	application.RegisterEvent[VaultLockEvent]("vault:locked")
-	application.RegisterEvent[Notification]("notification:toast")
+	application.RegisterEvent[service.TerminalData]("terminal:data")
+	application.RegisterEvent[service.TerminalExit]("terminal:exit")
+	application.RegisterEvent[service.ExecProgress]("exec:progress")
+	application.RegisterEvent[service.HostMetrics]("metrics:update")
+	application.RegisterEvent[service.LogLine]("logs:line")
+	application.RegisterEvent[service.AIChunk]("ai:chunk")
+	application.RegisterEvent[service.VaultLockEvent]("vault:locked")
+	application.RegisterEvent[service.Notification]("notification:toast")
 }
 
 func main() {
@@ -58,43 +59,43 @@ func main() {
 	dialer := sshconn.New(v, keys, knownHosts)
 	pool := sshconn.NewPool(dialer, hosts)
 
-	settingsSvc := NewSettingsService(settings, v)
-	autoLock := NewAutoLockService(v, settingsSvc)
+	settingsSvc := service.NewSettingsService(settings, v)
+	autoLock := service.NewAutoLockService(v, settingsSvc)
 	autoLock.Start()
-	pfSvc := NewPortForwardService(pool, hosts, forwards)
-	notifySvc := NewNotificationService(settings)
-	activityRec := newActivityRecorder(activities)
+	pfSvc := service.NewPortForwardService(pool, hosts, forwards)
+	notifySvc := service.NewNotificationService(settings)
+	activityRec := service.NewActivityRecorder(activities)
 
 	app := application.New(application.Options{
 		Name:        "blacknode",
 		Description: "Remote infrastructure command platform",
 		Services: []application.Service{
-			application.NewService(NewVaultService(v, activityRec)),
+			application.NewService(service.NewVaultService(v, activityRec)),
 			application.NewService(settingsSvc),
-			application.NewService(NewKeyService(keys, v)),
-			application.NewService(NewHostService(hosts, knownHosts, v, conn.DB)),
-			application.NewService(NewLocalShellService(recMgr, recordings, settings)),
-			application.NewService(NewSSHService(dialer, hosts, recMgr, recordings, settings)),
-			application.NewService(NewSFTPService(pool, hosts)),
-			application.NewService(NewExecService(pool, hosts, history, notifySvc, activityRec)),
-			application.NewService(NewMetricsService(pool, hosts, notifySvc)),
-			application.NewService(NewLogsService(pool, hosts, logQueries)),
-			application.NewService(NewAIService(settingsSvc)),
+			application.NewService(service.NewKeyService(keys, v)),
+			application.NewService(service.NewHostService(hosts, knownHosts, v, conn.DB)),
+			application.NewService(service.NewLocalShellService(recMgr, recordings, settings)),
+			application.NewService(service.NewSSHService(dialer, hosts, recMgr, recordings, settings)),
+			application.NewService(service.NewSFTPService(pool, hosts)),
+			application.NewService(service.NewExecService(pool, hosts, history, notifySvc, activityRec)),
+			application.NewService(service.NewMetricsService(pool, hosts, notifySvc)),
+			application.NewService(service.NewLogsService(pool, hosts, logQueries)),
+			application.NewService(service.NewAIService(settingsSvc)),
 			application.NewService(autoLock),
 			application.NewService(pfSvc),
-			application.NewService(NewRecordingService(recordings, settings)),
-			application.NewService(NewContainerService(pool, hosts)),
-			application.NewService(NewSnippetService(snippets, history)),
-			application.NewService(NewHistoryService(history)),
-			application.NewService(NewNetworkService(pool, hosts)),
-			application.NewService(NewProcessService(pool, hosts)),
-			application.NewService(NewHTTPService(pool, hosts, httpRequests)),
-			application.NewService(NewDBService(pool, hosts, dbConnections, v)),
+			application.NewService(service.NewRecordingService(recordings, settings)),
+			application.NewService(service.NewContainerService(pool, hosts)),
+			application.NewService(service.NewSnippetService(snippets, history)),
+			application.NewService(service.NewHistoryService(history)),
+			application.NewService(service.NewNetworkService(pool, hosts)),
+			application.NewService(service.NewProcessService(pool, hosts)),
+			application.NewService(service.NewHTTPService(pool, hosts, httpRequests)),
+			application.NewService(service.NewDBService(pool, hosts, dbConnections, v)),
 			application.NewService(notifySvc),
-			application.NewService(NewUpdateService()),
-			application.NewService(NewPluginService(notifySvc, activityRec)),
-			application.NewService(NewSyncService(settings, hosts, snippets, httpRequests, teamActivity, v, activityRec)),
-			application.NewService(NewActivityService(activities)),
+			application.NewService(service.NewUpdateService()),
+			application.NewService(service.NewPluginService(notifySvc, activityRec)),
+			application.NewService(service.NewSyncService(settings, hosts, snippets, httpRequests, teamActivity, v, activityRec)),
+			application.NewService(service.NewActivityService(activities)),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -124,7 +125,7 @@ func main() {
 	// Graceful shutdown: drain resources that would otherwise leak.
 	pfSvc.StopAll()
 	pool.Close()
-	close(autoLock.stop)
+	close(autoLock.StopChan)
 	log.Printf("=== blacknode stop ===")
 }
 

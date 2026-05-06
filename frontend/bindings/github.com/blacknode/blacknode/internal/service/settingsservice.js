@@ -16,14 +16,14 @@ import * as $models from "./models.js";
  * @returns {$CancellablePromise<string>}
  */
 export function AnthropicAPIKey() {
-    return $Call.ByID(3777378783);
+    return $Call.ByID(3765205384);
 }
 
 /**
  * @returns {$CancellablePromise<$models.AppSettings>}
  */
 export function Get() {
-    return $Call.ByID(710695688).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(3487885687).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }
@@ -35,7 +35,7 @@ export function Get() {
  * @returns {$CancellablePromise<void>}
  */
 export function SetAnthropicAPIKey(key) {
-    return $Call.ByID(778076535, key);
+    return $Call.ByID(2583872350, key);
 }
 
 /**
@@ -43,7 +43,7 @@ export function SetAnthropicAPIKey(key) {
  * @returns {$CancellablePromise<void>}
  */
 export function SetAutoLockMinutes(minutes) {
-    return $Call.ByID(5097981, minutes);
+    return $Call.ByID(3986251588, minutes);
 }
 
 /**
@@ -51,7 +51,7 @@ export function SetAutoLockMinutes(minutes) {
  * @returns {$CancellablePromise<void>}
  */
 export function SetDefaultShellPath(path) {
-    return $Call.ByID(2536650630, path);
+    return $Call.ByID(3996418317, path);
 }
 
 /**
@@ -59,7 +59,7 @@ export function SetDefaultShellPath(path) {
  * @returns {$CancellablePromise<void>}
  */
 export function SetMetricsInterval(seconds) {
-    return $Call.ByID(1551003316, seconds);
+    return $Call.ByID(4142291509, seconds);
 }
 
 /**
@@ -67,7 +67,7 @@ export function SetMetricsInterval(seconds) {
  * @returns {$CancellablePromise<void>}
  */
 export function SetTheme(theme) {
-    return $Call.ByID(466396097, theme);
+    return $Call.ByID(2182026940, theme);
 }
 
 // Private type creation functions

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { HostService } from "../../bindings/github.com/blacknode/blacknode";
-  import type { SSHConfigCandidate } from "../../bindings/github.com/blacknode/blacknode/models";
+  import { HostService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
+  import type { SSHConfigCandidate } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import { app } from "./state.svelte";
   import {
     FileText,

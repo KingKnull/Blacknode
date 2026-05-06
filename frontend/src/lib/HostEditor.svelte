@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { HostService } from "../../bindings/github.com/blacknode/blacknode";
+  import { HostService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { Host } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { app } from "./state.svelte";
   import { Server, X, Loader2, Eye, EyeOff } from "@lucide/svelte";
