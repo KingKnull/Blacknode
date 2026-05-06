@@ -95,7 +95,7 @@
           <input
             class="mt-1.5 w-full border border-[var(--color-danger)]/30 bg-[var(--color-surface-3)] px-3 py-2 font-mono text-[11px] text-[var(--color-text-1)] outline-none focus:border-[var(--color-danger)]/60 transition-colors"
             bind:value={typed}
-            autofocus
+            use:focus
           />
         </label>
       {/if}

@@ -22,6 +22,9 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
+//go:embed build/appicon.png
+var iconData []byte
+
 func init() {
 	application.RegisterEvent[service.TerminalData]("terminal:data")
 	application.RegisterEvent[service.TerminalExit]("terminal:exit")
@@ -70,6 +73,7 @@ func main() {
 	app := application.New(application.Options{
 		Name:        "blacknode",
 		Description: "Remote infrastructure command platform",
+		Icon:        iconData,
 		Services: []application.Service{
 			application.NewService(service.NewVaultService(v, activityRec)),
 			application.NewService(settingsSvc),
@@ -107,7 +111,7 @@ func main() {
 	})
 
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:            "Blacknode",
+		Title: "Blacknode",
 		Width:            1280,
 		Height:           820,
 		BackgroundColour: application.NewRGB(8, 8, 11),

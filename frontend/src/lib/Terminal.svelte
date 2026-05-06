@@ -7,7 +7,6 @@
   import {
     LocalShellService,
     SSHService,
-    TerminalService,
   } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import { focus } from "./actions";
   import { app } from "./state.svelte";
