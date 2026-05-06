@@ -15,6 +15,7 @@
     Loader2,
     Circle,
   } from "@lucide/svelte";
+  import ConfirmDanger from "./ConfirmDanger.svelte";
 
   let list = $state<Recording[]>([]);
   let hits = $state<SearchHit[]>([]);
@@ -50,11 +51,13 @@
     }
   }
 
-  async function del(r: Recording) {
-    if (!confirm(`Delete recording "${r.title || r.id}"?`)) return;
-    await RecordingService.Delete(r.id);
+  let recordingToDelete = $state<Recording | null>(null);
+  async function del() {
+    if (!recordingToDelete) return;
+    await RecordingService.Delete(recordingToDelete.id);
     await refresh();
-    hits = hits.filter((h) => h.recording.id !== r.id);
+    hits = hits.filter((h) => h.recording.id !== recordingToDelete?.id);
+    recordingToDelete = null;
   }
 
   async function runSearch() {
@@ -223,7 +226,7 @@
               </button>
               <button
                 class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)]"
-                onclick={() => del(r)}
+                onclick={() => (recordingToDelete = r)}
               >
                 <Trash2 size="11" />
               </button>
@@ -259,6 +262,17 @@
       recordingID={playing.id}
       seekToOffset={playing.offset}
       onClose={() => (playing = null)}
+    />
+  {/if}
+
+  {#if recordingToDelete}
+    <ConfirmDanger
+      title="DELETE RECORDING"
+      body="Are you sure you want to delete recording \"{recordingToDelete.title || recordingToDelete.id}\"? This action will permanently remove the asciinema cast file from your local storage."
+      severity="warn"
+      productionHosts={[]}
+      onCancel={() => (recordingToDelete = null)}
+      onConfirm={del}
     />
   {/if}
 </div>

@@ -328,9 +328,37 @@
   });
 
   function tabLabel(t: Tab): string {
-    return tabLabels[t.id] || 'local';
+    const label = tabLabels[t.id];
+    if (label) return label;
+    // Fallback to local-index if no host connected
+    const idx = tabs.indexOf(t) + 1;
+    return `local-${idx}`;
   }
+
+  let sidebarWidth = $state(Number(localStorage.getItem('blacknode.sidebar-width') || 252));
+  let isResizing = $state(false);
+
+  function startResize(e: MouseEvent) {
+    isResizing = true;
+    e.preventDefault();
+  }
+
+  function onMouseMove(e: MouseEvent) {
+    if (!isResizing) return;
+    sidebarWidth = Math.max(160, Math.min(600, e.clientX - 44));
+  }
+
+  function onMouseUp() {
+    if (isResizing) {
+      isResizing = false;
+      localStorage.setItem('blacknode.sidebar-width', sidebarWidth.toString());
+    }
+  }
+
+  let hoveredNav = $state<string | null>(null);
 </script>
+
+<svelte:window onmousemove={onMouseMove} onmouseup={onMouseUp} />
 
 <div
   class="flex h-screen w-screen flex-col bg-[var(--color-surface-0)] text-[var(--color-text-1)]"
@@ -348,7 +376,7 @@
     <div class="h-4 w-px bg-[var(--color-line-strong)]"></div>
 
     <!-- Path breadcrumb showing current view -->
-    <span class="font-mono text-[10px] tracking-widest text-[var(--color-text-3)] uppercase">
+    <span class="font-mono text-[11px] tracking-widest text-[var(--color-text-3)] uppercase">
       /{app.view}
     </span>
 
@@ -360,7 +388,7 @@
           : 'border-[var(--color-line)] text-[var(--color-text-4)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-2)]'}"
         onclick={() => {
           if (!app.broadcastEnabled && app.broadcastSet.size === 0) {
-            alert('Broadcast is on but no panes are in the group yet.\n\nClick the \'cast\' button on each pane you want to include.');
+            app.toast('warn', 'NO PANES IN BROADCAST', 'Click the \'cast\' button on each pane you want to include before enabling broadcast.');
           }
           app.broadcastEnabled = !app.broadcastEnabled;
         }}
@@ -402,25 +430,28 @@
       <button
         class="flex items-center gap-1.5 border border-[var(--color-line)] px-2 py-0.5 text-[var(--color-text-4)] hover:border-[var(--color-accent)]/30 hover:text-[var(--color-accent)]"
         onclick={lockVault}
-        title="Vault unlocked — click to lock"
+        title="Vault unlocked — click to lock everything"
       >
-        <Unlock size="10" class="text-[var(--color-accent)]" />
-        <span class="text-[var(--color-accent)]">UNLOCKED</span>
+        <Lock size="10" class="text-[var(--color-accent)]" />
+        <span class="text-[var(--color-accent)]">LOCK VAULT</span>
       </button>
     </div>
   </header>
 
   <!-- ── BODY ─────────────────────────────────────────────────────────── -->
-  <div class="grid flex-1 grid-cols-[44px_252px_1fr] overflow-hidden">
+  <div class="grid flex-1 grid-cols-[44px_1fr_1fr] overflow-hidden" style="grid-template-columns: 44px {sidebarWidth}px 1fr">
     <!-- ── ICON NAV RAIL ─────────────────────────────── -->
     <nav class="flex flex-col items-center gap-px border-r hairline surface-1 py-2">
       {#each VIEWS as v (v.id)}
         <button
-          title={v.label}
           class="group relative flex h-8 w-8 items-center justify-center transition-all {app.view === v.id
             ? 'text-[var(--color-accent)]'
             : 'text-[var(--color-text-4)] hover:text-[var(--color-text-2)]'}"
           onclick={() => (app.view = v.id)}
+          onmouseenter={() => (hoveredNav = v.label)}
+          onmouseleave={() => (hoveredNav = null)}
+          onfocus={() => (hoveredNav = v.label)}
+          onblur={() => (hoveredNav = null)}
         >
           {#if app.view === v.id}
             <!-- Active: left accent bar + phosphor glow bg -->
@@ -428,6 +459,12 @@
             <span class="absolute left-0 inset-y-0 w-[2px] bg-[var(--color-accent)] shadow-[0_0_6px_var(--color-accent)]"></span>
           {/if}
           <v.Icon size="14" strokeWidth={app.view === v.id ? 1.5 : 1.5} />
+
+          {#if hoveredNav === v.label}
+            <div class="absolute left-full z-50 ml-2 whitespace-nowrap border hairline-strong bg-[var(--color-surface-2)] px-2 py-1 font-mono text-[10px] tracking-wider text-[var(--color-text-1)] shadow-xl pointer-events-none">
+              {v.label.toUpperCase()}
+            </div>
+          {/if}
         </button>
       {/each}
       {#if app.pluginPanels.length > 0}
@@ -435,31 +472,47 @@
         {#each app.pluginPanels as panel (panel.pluginId + ':' + panel.id)}
           {@const viewID = `plugin:${panel.pluginId}:${panel.id}` as View}
           <button
-            title={panel.title}
             class="group relative flex h-8 w-8 items-center justify-center transition-all {app.view === viewID
               ? 'text-[var(--color-accent)]'
               : 'text-[var(--color-text-4)] hover:text-[var(--color-text-2)]'}"
             onclick={() => (app.view = viewID)}
+            onmouseenter={() => (hoveredNav = panel.title)}
+            onmouseleave={() => (hoveredNav = null)}
+            onfocus={() => (hoveredNav = panel.title)}
+            onblur={() => (hoveredNav = null)}
           >
             {#if app.view === viewID}
               <span class="absolute inset-0 bg-[var(--color-accent)]/5"></span>
               <span class="absolute left-0 inset-y-0 w-[2px] bg-[var(--color-accent)] shadow-[0_0_6px_var(--color-accent)]"></span>
             {/if}
             <Puzzle size="14" />
+            {#if hoveredNav === panel.title}
+              <div class="absolute left-full z-50 ml-2 whitespace-nowrap border hairline-strong bg-[var(--color-surface-2)] px-2 py-1 font-mono text-[10px] tracking-wider text-[var(--color-text-1)] shadow-xl pointer-events-none">
+                {panel.title.toUpperCase()}
+              </div>
+            {/if}
           </button>
         {/each}
       {/if}
     </nav>
 
     <!-- ── SIDEBAR ─────────────────────────────────────── -->
-    <aside class="overflow-hidden border-r hairline">
+    <aside class="relative overflow-hidden border-r hairline group/sidebar">
       <HostList />
+      <!-- Resize handle -->
+      <div 
+        role="separator"
+        aria-orientation="vertical"
+        tabindex="-1"
+        class="absolute inset-y-0 -right-1 z-10 w-2 cursor-col-resize hover:bg-[var(--color-accent)]/20 active:bg-[var(--color-accent)]/40 transition-colors"
+        onmousedown={startResize}
+      ></div>
     </aside>
 
     <!-- Main + AI drawer -->
     <div
       class="grid overflow-hidden transition-[grid-template-columns] duration-200"
-      style:grid-template-columns={app.aiOpen ? '1fr 360px' : '1fr'}
+      style:grid-template-columns={app.aiOpen ? 'minmax(400px, 1fr) 360px' : '1fr'}
     >
       <main class="flex flex-col overflow-hidden">
         {#if app.view === 'terminals'}
@@ -614,7 +667,7 @@
   {/if}
 
   <!-- ── STATUS BAR ──────────────────────────────────────────────── -->
-  <footer class="flex h-5 shrink-0 items-center gap-4 border-t hairline px-3 font-mono text-[9px] text-[var(--color-text-4)] select-none">
+  <footer class="flex h-5 shrink-0 items-center gap-4 border-t hairline px-3 font-mono text-[10px] text-[var(--color-text-4)] select-none">
     <span class="flex items-center gap-1.5">
       <span class="text-[var(--color-accent)]/60">//</span>
       <Server size="8" /> {app.hosts.length} HOST{app.hosts.length === 1 ? '' : 'S'}

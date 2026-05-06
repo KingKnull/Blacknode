@@ -14,7 +14,9 @@
     KeyRound,
     Lock,
     FileText,
+    MoreVertical,
   } from "@lucide/svelte";
+  import ConfirmDanger from "./ConfirmDanger.svelte";
 
   let editing: Host | null = $state(null);
   let creating = $state(false);
@@ -41,11 +43,14 @@
     }, {}),
   );
 
-  async function deleteHost(h: Host) {
-    if (!confirm(`Delete host "${h.name}"?`)) return;
-    await HostService.Delete(h.id);
-    if (app.selectedHostID === h.id) app.selectedHostID = null;
+  let hostToDelete = $state<Host | null>(null);
+
+  async function deleteHost() {
+    if (!hostToDelete) return;
+    await HostService.Delete(hostToDelete.id);
+    if (app.selectedHostID === hostToDelete.id) app.selectedHostID = null;
     await app.refreshHosts();
+    hostToDelete = null;
   }
 
   const authIcon = (m: string) => {
@@ -58,7 +63,7 @@
 <div class="flex h-full w-full flex-col">
   <!-- Header -->
   <div class="flex items-center gap-2 border-b hairline px-3 py-2">
-    <span class="font-mono text-[9px] font-bold tracking-[0.2em] text-[var(--color-accent)]/70 uppercase">// HOSTS</span>
+    <span class="font-mono text-[10px] font-bold tracking-[0.2em] text-[var(--color-accent)]/70 uppercase">// HOSTS</span>
     <button
       class="ml-auto flex h-5 w-5 items-center justify-center border border-[var(--color-line)] text-[var(--color-text-4)] hover:border-[var(--color-accent)]/40 hover:text-[var(--color-accent)] transition-all"
       onclick={() => (importing = true)}
@@ -148,22 +153,30 @@
             </div>
           </button>
 
-          <!-- Action buttons (hover) -->
-          <div class="hidden gap-px group-hover:flex">
+          <!-- Action buttons (hover + menu) -->
+          <div class="flex items-center">
             <button
-              class="border border-[var(--color-line)] p-1 text-[var(--color-text-3)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)] transition-all"
-              onclick={() => (editing = h)}
-              title="Edit"
+              class="flex h-6 w-6 items-center justify-center text-[var(--color-text-4)] hover:text-[var(--color-text-2)] group-hover:hidden"
+              title="Actions"
             >
-              <Pencil size="9" />
+              <MoreVertical size="12" />
             </button>
-            <button
-              class="border border-[var(--color-line)] p-1 text-[var(--color-text-3)] hover:border-[var(--color-danger)]/40 hover:text-[var(--color-danger)] transition-all"
-              onclick={() => deleteHost(h)}
-              title="Delete"
-            >
-              <Trash2 size="9" />
-            </button>
+            <div class="hidden gap-px group-hover:flex">
+              <button
+                class="border border-[var(--color-line)] p-1 text-[var(--color-text-3)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)] transition-all"
+                onclick={() => (editing = h)}
+                title="Edit"
+              >
+                <Pencil size="9" />
+              </button>
+              <button
+                class="border border-[var(--color-line)] p-1 text-[var(--color-text-3)] hover:border-[var(--color-danger)]/40 hover:text-[var(--color-danger)] transition-all"
+                onclick={() => (hostToDelete = h)}
+                title="Delete"
+              >
+                <Trash2 size="9" />
+              </button>
+            </div>
           </div>
         </div>
       {/each}
@@ -205,11 +218,19 @@
       importing = false;
       await app.refreshHosts();
       if (n > 0) {
-        // Tiny success cue — leveraging the existing toast event channel.
-        // Nothing fires on the backend for client-only events, so we use
-        // a quick browser confirm-less acknowledgement.
-        console.log(`Imported ${n} host${n === 1 ? "" : "s"}`);
+        app.toast('ok', 'IMPORT SUCCESSFUL', `Imported ${n} host${n === 1 ? "" : "s"} from ~/.ssh/config`);
       }
     }}
+  />
+{/if}
+
+{#if hostToDelete}
+  <ConfirmDanger
+    title="DELETE HOST"
+    body="Are you sure you want to delete host \"{hostToDelete.name}\"? All snippets, custom commands, and credentials associated with this host will be removed from the local vault."
+    severity="warn"
+    productionHosts={hostToDelete.environment === 'production' ? [hostToDelete.name] : []}
+    onCancel={() => (hostToDelete = null)}
+    onConfirm={deleteHost}
   />
 {/if}

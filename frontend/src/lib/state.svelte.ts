@@ -8,6 +8,7 @@ import {
   PluginService,
 } from "../../bindings/github.com/blacknode/blacknode/internal/service";
 import type { Host } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
+import { Events } from "@wailsio/runtime";
 import type { PanelView } from "../../bindings/github.com/blacknode/blacknode/internal/plugin/models";
 import type {
   PublicKeyView,
@@ -214,6 +215,20 @@ class AppState {
     } catch {
       // service unavailable — ignore
     }
+  }
+
+  // Frontend-only notification helper.
+  toast(kind: "ok" | "warn" | "error" | "info", title: string, body?: string) {
+    Events.Emit("notification:toast", {
+      data: {
+        id: crypto.randomUUID(),
+        kind,
+        title,
+        body,
+        source: "APP",
+        timestamp: Math.floor(Date.now() / 1000),
+      },
+    });
   }
 }
 

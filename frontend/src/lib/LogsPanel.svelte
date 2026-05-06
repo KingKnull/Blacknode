@@ -16,6 +16,7 @@
     Bookmark,
     BookmarkPlus,
   } from "@lucide/svelte";
+  import ConfirmDanger from "./ConfirmDanger.svelte";
 
   // Color buckets so each host gets a stable, distinct accent. We pick from
   // the design palette's secondary colors so they sit beside emerald without
@@ -97,10 +98,12 @@
     useRegex = q.useRegex ?? false;
   }
 
-  async function deleteQuery(q: LogQuery) {
-    if (!confirm(`Delete saved query "${q.name}"?`)) return;
-    await LogsService.DeleteQuery(q.id);
+  let queryToDelete = $state<LogQuery | null>(null);
+  async function deleteQuery() {
+    if (!queryToDelete) return;
+    await LogsService.DeleteQuery(queryToDelete.id);
     await refreshQueries();
+    queryToDelete = null;
   }
 
   onDestroy(() => {
@@ -244,7 +247,7 @@
           </button>
           <button
             class="px-1 py-0.5 text-[var(--color-text-4)] opacity-0 hover:text-[var(--color-danger)] group-hover:opacity-100"
-            onclick={() => deleteQuery(q)}
+            onclick={() => (queryToDelete = q)}
             title="Delete"
           >
             ×
@@ -416,4 +419,15 @@
       </div>
     </div>
   </div>
+{/if}
+
+{#if queryToDelete}
+  <ConfirmDanger
+    title="DELETE SAVED QUERY"
+    body="Are you sure you want to delete the saved query \"{queryToDelete.name}\"? This action cannot be undone."
+    severity="warn"
+    productionHosts={[]}
+    onCancel={() => (queryToDelete = null)}
+    onConfirm={deleteQuery}
+  />
 {/if}

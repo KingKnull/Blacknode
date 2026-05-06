@@ -12,7 +12,7 @@
 
 <div class="flex items-center gap-3 border-b hairline surface-1 px-4 py-2">
   <div
-    class="flex h-6 w-6 items-center justify-center border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/6 text-[var(--color-accent)]"
+    class="flex h-6 w-6 items-center justify-center border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 text-[var(--color-accent)]"
   >
     <Icon size="12" />
   </div>

@@ -15,6 +15,7 @@
     FolderOpen,
     FileCode,
   } from "@lucide/svelte";
+  import ConfirmDanger from "./ConfirmDanger.svelte";
 
   let path = $state("");
   let entries = $state<SFTPEntry[]>([]);
@@ -103,12 +104,13 @@
     URL.revokeObjectURL(url);
   }
 
-  async function remove(e: SFTPEntry) {
-    if (!host) return;
-    if (!confirm(`Delete ${e.name}?`)) return;
+  let entryToDelete = $state<SFTPEntry | null>(null);
+  async function remove() {
+    if (!entryToDelete || !host) return;
     const password = app.hostPasswords[host.id] ?? "";
-    await SFTPService.Remove(host.id, password, joinPath(path, e.name));
+    await SFTPService.Remove(host.id, password, joinPath(path, entryToDelete.name));
     await reload();
+    entryToDelete = null;
   }
 
   function onDrop(ev: DragEvent) {
@@ -243,7 +245,7 @@
               {/if}
               <button
                 class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)]"
-                onclick={() => remove(e)}
+                onclick={() => (entryToDelete = e)}
                 title="Delete"
               >
                 <Trash2 size="11" />
@@ -269,5 +271,16 @@
       editingPath = null;
       void reload();
     }}
+  />
+{/if}
+
+{#if entryToDelete}
+  <ConfirmDanger
+    title="DELETE FILE"
+    body="Are you sure you want to delete \"{entryToDelete.name}\"? This action cannot be undone and will permanently remove the item from the remote server."
+    severity="warn"
+    productionHosts={host?.environment === 'production' ? [host.name] : []}
+    onCancel={() => (entryToDelete = null)}
+    onConfirm={remove}
   />
 {/if}

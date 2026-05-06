@@ -303,6 +303,24 @@
       savingTheme = false;
     }
   }
+
+  let activeSection = $state("ai");
+  const SECTIONS = [
+    { id: "ai", label: "AI ASSISTANT", Icon: Sparkles },
+    { id: "security", label: "SECURITY", Icon: Lock },
+    { id: "appearance", label: "APPEARANCE", Icon: Palette },
+    { id: "notifications", label: "NOTIFICATIONS", Icon: Bell },
+    { id: "shell", label: "LOCAL SHELL", Icon: Activity },
+    { id: "sync", label: "CLOUD SYNC", Icon: Cloud },
+    { id: "team", label: "TEAM", Icon: Users },
+    { id: "about", label: "ABOUT", Icon: Info },
+  ];
+
+  function scrollTo(id: string) {
+    activeSection = id;
+    const el = document.getElementById(`section-${id}`);
+    if (el) el.scrollIntoView({ behavior: "smooth" });
+  }
 </script>
 
 <div class="flex h-full flex-col">
@@ -312,10 +330,26 @@
     subtitle="Preferences, security, and integrations"
   />
 
-  <div class="flex-1 overflow-y-auto p-6">
-    <div class="mx-auto max-w-2xl space-y-6">
-      <!-- AI / Anthropic -->
-      <section class="rounded-lg border hairline surface-2 p-5">
+  <div class="grid flex-1 grid-cols-[200px_1fr] overflow-hidden font-mono">
+    <!-- Sectioned sidebar -->
+    <aside class="flex flex-col gap-px border-r hairline surface-1 py-4">
+      {#each SECTIONS as s (s.id)}
+        <button
+          class="flex items-center gap-3 px-6 py-2.5 text-left text-[11px] font-bold tracking-widest transition-all {activeSection === s.id
+            ? 'bg-[var(--color-accent)]/8 text-[var(--color-accent)]'
+            : 'text-[var(--color-text-4)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-2)]'}"
+          onclick={() => scrollTo(s.id)}
+        >
+          <s.Icon size="12" />
+          {s.label}
+        </button>
+      {/each}
+    </aside>
+
+    <div class="flex-1 overflow-y-auto p-10">
+      <div class="mx-auto max-w-2xl space-y-12 pb-20">
+        <!-- AI / Anthropic -->
+        <section id="section-ai" class="rounded-lg border hairline surface-2 p-6 shadow-sm">
         <div class="mb-4 flex items-center gap-2">
           <Sparkles size="14" class="text-[var(--color-accent)]" />
           <h3 class="text-sm font-semibold">AI assistant</h3>
@@ -402,7 +436,7 @@
       </section>
 
       <!-- Vault -->
-      <section class="rounded-lg border hairline surface-2 p-5">
+      <section id="section-security" class="rounded-lg border hairline surface-2 p-6 shadow-sm">
         <div class="mb-4 flex items-center gap-2">
           <Lock size="14" class="text-[var(--color-accent)]" />
           <h3 class="text-sm font-semibold">Security</h3>
@@ -442,7 +476,7 @@
       </section>
 
       <!-- Appearance -->
-      <section class="rounded-lg border hairline surface-2 p-5">
+      <section id="section-appearance" class="rounded-lg border hairline surface-2 p-6 shadow-sm">
         <div class="mb-4 flex items-center gap-2">
           <Palette size="14" class="text-[var(--color-accent)]" />
           <h3 class="text-sm font-semibold">Appearance</h3>
@@ -479,7 +513,7 @@
       </section>
 
       <!-- Notifications -->
-      <section class="rounded-lg border hairline surface-2 p-5">
+      <section id="section-notifications" class="rounded-lg border hairline surface-2 p-6 shadow-sm">
         <div class="mb-4 flex items-center gap-2">
           <Bell size="14" class="text-[var(--color-accent)]" />
           <h3 class="text-sm font-semibold">Notifications</h3>
@@ -558,7 +592,7 @@
       </section>
 
       <!-- Terminal / Shell -->
-      <section class="rounded-lg border hairline surface-2 p-5">
+      <section id="section-shell" class="rounded-lg border hairline surface-2 p-6 shadow-sm">
         <div class="mb-4 flex items-center gap-2">
           <Activity size="14" class="text-[var(--color-accent)]" />
           <h3 class="text-sm font-semibold">Local shell & metrics</h3>
@@ -619,7 +653,7 @@
       </section>
 
       <!-- Cloud sync -->
-      <section class="rounded-lg border hairline surface-2 p-5">
+      <section id="section-sync" class="rounded-lg border hairline surface-2 p-6 shadow-sm">
         <div class="mb-4 flex items-center gap-2">
           <Cloud size="14" class="text-[var(--color-accent)]" />
           <h3 class="text-sm font-semibold">Cloud sync</h3>
@@ -705,7 +739,7 @@
       </section>
 
       <!-- Team -->
-      <section class="rounded-lg border hairline surface-2 p-5">
+      <section id="section-team" class="rounded-lg border hairline surface-2 p-6 shadow-sm">
         <div class="mb-4 flex items-center gap-2">
           <Users size="14" class="text-[var(--color-accent)]" />
           <h3 class="text-sm font-semibold">Team</h3>
@@ -784,7 +818,7 @@
       </section>
 
       <!-- About / Updates -->
-      <section class="rounded-lg border hairline surface-2 p-5">
+      <section id="section-about" class="rounded-lg border hairline surface-2 p-6 shadow-sm">
         <div class="mb-4 flex items-center gap-2">
           <Info size="14" class="text-[var(--color-accent)]" />
           <h3 class="text-sm font-semibold">About</h3>
@@ -842,4 +876,5 @@
       </section>
     </div>
   </div>
+</div>
 </div>
