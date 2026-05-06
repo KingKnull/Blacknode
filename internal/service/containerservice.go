@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -49,7 +50,7 @@ func NewContainerService(pool *sshconn.Pool, h *store.Hosts) *ContainerService {
 // Containers runs `docker ps --format json` and parses the per-line JSON
 // docker emits in newer versions. Falls back to a parsed table from
 // `docker ps --format ...` if `--format json` isn't supported.
-func (s *ContainerService) Containers(hostID, password string, includeStopped bool) ([]Container, error) {
+func (s *ContainerService) Containers(ctx context.Context, hostID, password string, includeStopped bool) ([]Container, error) {
 	cmd := `docker ps --format '{{json .}}'`
 	if includeStopped {
 		cmd = `docker ps -a --format '{{json .}}'`
@@ -92,7 +93,7 @@ func (s *ContainerService) Containers(hostID, password string, includeStopped bo
 
 // ContainerLogs returns the last `lines` of logs for one-shot display. For
 // streaming, use the existing LogsService with `docker logs -f <id>`.
-func (s *ContainerService) ContainerLogs(hostID, password, containerID string, lines int) (string, error) {
+func (s *ContainerService) ContainerLogs(ctx context.Context, hostID, password, containerID string, lines int) (string, error) {
 	if containerID == "" {
 		return "", errors.New("containerID required")
 	}
@@ -105,7 +106,7 @@ func (s *ContainerService) ContainerLogs(hostID, password, containerID string, l
 }
 
 // Namespaces returns the list of kubernetes namespaces visible on the host.
-func (s *ContainerService) Namespaces(hostID, password string) ([]string, error) {
+func (s *ContainerService) Namespaces(ctx context.Context, hostID, password string) ([]string, error) {
 	out, err := s.runCmd(hostID, password,
 		"kubectl get namespaces --no-headers -o custom-columns=NAME:.metadata.name",
 		15*time.Second)
@@ -124,7 +125,7 @@ func (s *ContainerService) Namespaces(hostID, password string) ([]string, error)
 
 // Pods runs `kubectl get pods -o json` for a namespace and parses the
 // minimal subset we render. Empty namespace = all namespaces.
-func (s *ContainerService) Pods(hostID, password, namespace string) ([]Pod, error) {
+func (s *ContainerService) Pods(ctx context.Context, hostID, password, namespace string) ([]Pod, error) {
 	cmd := `kubectl get pods -o json`
 	if namespace == "" {
 		cmd = `kubectl get pods -A -o json`
@@ -181,7 +182,7 @@ func (s *ContainerService) Pods(hostID, password, namespace string) ([]Pod, erro
 
 // PodLogs returns the last N lines of logs for a pod (optionally a specific
 // container within it). Streaming is via the existing LogsService.
-func (s *ContainerService) PodLogs(hostID, password, namespace, pod, container string, lines int) (string, error) {
+func (s *ContainerService) PodLogs(ctx context.Context, hostID, password, namespace, pod, container string, lines int) (string, error) {
 	if pod == "" {
 		return "", errors.New("pod required")
 	}
@@ -214,7 +215,7 @@ func (s *ContainerService) runCmd(hostID, password, cmd string, timeout time.Dur
 	}
 	defer release()
 
-	out, err := sshconn.Run(client, cmd, timeout)
+	out, err := sshconn.Run(ctx, client, cmd)
 	if err != nil {
 		if strings.TrimSpace(out) != "" {
 			return out, nil

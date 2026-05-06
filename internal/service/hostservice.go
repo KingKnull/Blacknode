@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -26,20 +27,22 @@ func NewHostService(h *store.Hosts, kh *store.KnownHosts, v *vault.Vault, db *sq
 	return &HostService{hosts: h, knownHosts: kh, vault: v, db: db}
 }
 
-func (s *HostService) List() ([]store.Host, error)             { return s.hosts.List() }
-func (s *HostService) Get(id string) (store.Host, error)       { return s.hosts.Get(id) }
-func (s *HostService) Create(h store.Host) (store.Host, error) { return s.hosts.Create(h) }
-func (s *HostService) Update(h store.Host) error               { return s.hosts.Update(h) }
-func (s *HostService) Delete(id string) error                  { return s.hosts.Delete(id) }
+func (s *HostService) List(ctx context.Context) ([]store.Host, error)         { return s.hosts.List() }
+func (s *HostService) Get(ctx context.Context, id string) (store.Host, error) { return s.hosts.Get(id) }
+func (s *HostService) Create(ctx context.Context, h store.Host) (store.Host, error) {
+	return s.hosts.Create(h)
+}
+func (s *HostService) Update(ctx context.Context, h store.Host) error { return s.hosts.Update(h) }
+func (s *HostService) Delete(ctx context.Context, id string) error    { return s.hosts.Delete(id) }
 
 // ApproveHostKey permanently trusts a host's SSH key fingerprint.
-func (s *HostService) ApproveHostKey(host string, port int, keyType, pubKeyBase64, fingerprint string) error {
+func (s *HostService) ApproveHostKey(ctx context.Context, host string, port int, keyType, pubKeyBase64, fingerprint string) error {
 	return s.knownHosts.Approve(host, port, keyType, pubKeyBase64, fingerprint)
 }
 
 // SetPassword encrypts and persists the SSH password for a host in the vault.
 // The plaintext password is never stored; only AES-256-GCM ciphertext.
-func (s *HostService) SetPassword(hostID, password string) error {
+func (s *HostService) SetPassword(ctx context.Context, hostID, password string) error {
 	if s.vault == nil || s.db == nil {
 		return errors.New("vault not available")
 	}
@@ -63,7 +66,7 @@ func (s *HostService) SetPassword(hostID, password string) error {
 
 // GetPassword decrypts and returns the saved SSH password for a host, or
 // an empty string if no password has been stored.
-func (s *HostService) GetPassword(hostID string) (string, error) {
+func (s *HostService) GetPassword(ctx context.Context, hostID string) (string, error) {
 	if s.vault == nil || s.db == nil {
 		return "", nil
 	}
@@ -87,7 +90,7 @@ func (s *HostService) GetPassword(hostID string) (string, error) {
 // GetAllPasswords returns a map of hostID → plaintext password for every host
 // that has a saved password. Used at startup to pre-populate the frontend
 // password cache so connecting never prompts.
-func (s *HostService) GetAllPasswords() (map[string]string, error) {
+func (s *HostService) GetAllPasswords(ctx context.Context) (map[string]string, error) {
 	out := map[string]string{}
 	if s.vault == nil || s.db == nil {
 		return out, nil
@@ -128,7 +131,7 @@ type SSHConfigCandidate struct {
 // and returns importable Host entries. Wildcard patterns (`*`, `?`, `!`) and
 // the catch-all `*` block are skipped — they're behavioral defaults, not
 // connectable hosts.
-func (s *HostService) ScanSSHConfig() ([]SSHConfigCandidate, error) {
+func (s *HostService) ScanSSHConfig(ctx context.Context) ([]SSHConfigCandidate, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, fmt.Errorf("home dir: %w", err)
@@ -200,7 +203,7 @@ func (s *HostService) ScanSSHConfig() ([]SSHConfigCandidate, error) {
 // against the set of just-imported names plus any pre-existing saved host.
 // Resolved links are written to the host record; unresolved references are
 // left in the notes field so the user can fix them by hand.
-func (s *HostService) ImportSSHConfigEntries(entries []SSHConfigCandidate) (int, error) {
+func (s *HostService) ImportSSHConfigEntries(ctx context.Context, entries []SSHConfigCandidate) (int, error) {
 	n := 0
 	var firstErr error
 	created := make(map[string]string) // alias → saved host id
@@ -315,5 +318,3 @@ func expandTilde(p, home string) string {
 	}
 	return p
 }
-
-

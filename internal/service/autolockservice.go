@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -37,7 +38,7 @@ func (a *AutoLockService) Start() {
 }
 
 // Touch resets the idle timer. The frontend calls this on key/click activity.
-func (a *AutoLockService) Touch() {
+func (a *AutoLockService) Touch(ctx context.Context) {
 	a.mu.Lock()
 	a.lastSeen = time.Now()
 	a.mu.Unlock()

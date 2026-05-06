@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
@@ -50,7 +51,7 @@ var (
 	pingRTT      = regexp.MustCompile(`(?:rtt|round-trip).*?=\s*([\d.]+)/([\d.]+)/([\d.]+)`)
 )
 
-func (s *NetworkService) Ping(hostID, password, target string, count int) (PingResult, error) {
+func (s *NetworkService) Ping(ctx context.Context, hostID, password, target string, count int) (PingResult, error) {
 	if target == "" {
 		return PingResult{}, fmt.Errorf("target required")
 	}
@@ -94,7 +95,7 @@ type DNSResult struct {
 	RawOutput string      `json:"rawOutput"`
 }
 
-func (s *NetworkService) DNSLookup(hostID, password, target, recordType string) (DNSResult, error) {
+func (s *NetworkService) DNSLookup(ctx context.Context, hostID, password, target, recordType string) (DNSResult, error) {
 	if target == "" {
 		return DNSResult{}, fmt.Errorf("target required")
 	}
@@ -171,7 +172,7 @@ type PortScanResult struct {
 // host's network. Concurrent dials capped at 32; per-port timeout 2s. We read
 // up to 256 bytes after a successful connect to grab a banner if the service
 // volunteers one (SSH, HTTP servers that send a Server header on connect, etc.).
-func (s *NetworkService) PortScan(hostID, password, target string, ports []int) (PortScanResult, error) {
+func (s *NetworkService) PortScan(ctx context.Context, hostID, password, target string, ports []int) (PortScanResult, error) {
 	if target == "" {
 		return PortScanResult{}, fmt.Errorf("target required")
 	}
@@ -290,7 +291,7 @@ type SSLResult struct {
 // performs a TLS handshake, and returns the leaf certificate plus chain.
 // We deliberately accept invalid certs (expired, name-mismatched, self-signed)
 // — the goal is to inspect what the server returns, not to verify it.
-func (s *NetworkService) SSLCert(hostID, password, target string) (SSLResult, error) {
+func (s *NetworkService) SSLCert(ctx context.Context, hostID, password, target string) (SSLResult, error) {
 	if target == "" {
 		return SSLResult{}, fmt.Errorf("target required")
 	}
@@ -401,5 +402,5 @@ func (s *NetworkService) run(hostID, password, cmd string, timeout time.Duration
 		return "", err
 	}
 	defer release()
-	return sshconn.Run(client, cmd, timeout)
+	return sshconn.Run(ctx, client, cmd)
 }

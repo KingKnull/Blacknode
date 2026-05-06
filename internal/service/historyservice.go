@@ -1,6 +1,9 @@
 package service
 
-import "github.com/blacknode/blacknode/internal/store"
+import (
+	"context"
+	"github.com/blacknode/blacknode/internal/store"
+)
 
 // HistoryService is the frontend-visible wrapper. Backend services
 // (ExecService, SnippetService) call store.History.Add directly; this is
@@ -13,24 +16,24 @@ func NewHistoryService(h *store.History) *HistoryService {
 	return &HistoryService{history: h}
 }
 
-func (s *HistoryService) List(hostID, source string, limit int) ([]store.HistoryEntry, error) {
+func (s *HistoryService) List(ctx context.Context, hostID, source string, limit int) ([]store.HistoryEntry, error) {
 	return s.history.List(hostID, source, limit)
 }
 
-func (s *HistoryService) Search(query string) ([]store.HistoryEntry, error) {
+func (s *HistoryService) Search(ctx context.Context, query string) ([]store.HistoryEntry, error) {
 	return s.history.Search(query)
 }
 
-func (s *HistoryService) Delete(id string) error {
+func (s *HistoryService) Delete(ctx context.Context, id string) error {
 	return s.history.Delete(id)
 }
 
-func (s *HistoryService) Clear() error {
+func (s *HistoryService) Clear(ctx context.Context) error {
 	return s.history.Clear()
 }
 
 // Add lets the frontend record a command (used when the AI drawer's "insert
 // into terminal" is clicked, for example).
-func (s *HistoryService) Add(e store.HistoryEntry) (store.HistoryEntry, error) {
+func (s *HistoryService) Add(ctx context.Context, e store.HistoryEntry) (store.HistoryEntry, error) {
 	return s.history.Add(e)
 }

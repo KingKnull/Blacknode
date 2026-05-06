@@ -150,7 +150,7 @@ func (s *MetricsService) Stop(hostID string) {
 	s.mu.Unlock()
 }
 
-func (s *MetricsService) StopAll() {
+func (s *MetricsService) StopAll(ctx context.Context) {
 	s.mu.Lock()
 	for id, cancel := range s.cancels {
 		cancel()
@@ -224,7 +224,7 @@ func (s *MetricsService) collect(hostID, password string) HostMetrics {
 	}
 	defer release()
 
-	out, err := sshconn.RunSimple(client, metricsCommand)
+	out, err := sshconn.RunSimple(ctx, client, metricsCommand)
 	if err != nil {
 		m.Error = err.Error()
 		return m
@@ -288,8 +288,6 @@ func (s *MetricsService) collect(hostID, password string) HostMetrics {
 	}
 	return m
 }
-
-
 
 func parseMetrics(out string) map[string]float64 {
 	m := map[string]float64{}

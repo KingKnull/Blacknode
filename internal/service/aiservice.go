@@ -64,7 +64,7 @@ func (s *AIService) client() (anthropic.Client, error) {
 }
 
 // IsConfigured is a fast pre-check the UI can use before showing AI affordances.
-func (s *AIService) IsConfigured() (bool, error) {
+func (s *AIService) IsConfigured(ctx context.Context) (bool, error) {
 	key, err := s.settings.AnthropicAPIKey()
 	if err != nil {
 		return false, nil
@@ -74,7 +74,7 @@ func (s *AIService) IsConfigured() (bool, error) {
 
 // Translate maps a natural-language description to a single shell command.
 // One-shot; small token budget; no streaming since the response is tiny.
-func (s *AIService) Translate(prompt, shellHint, hostHint string) (string, error) {
+func (s *AIService) Translate(ctx context.Context, prompt, shellHint, hostHint string) (string, error) {
 	if strings.TrimSpace(prompt) == "" {
 		return "", errors.New("prompt is empty")
 	}
@@ -114,7 +114,7 @@ func (s *AIService) Translate(prompt, shellHint, hostHint string) (string, error
 // Explain streams an analysis of pasted output/errors/logs back to the
 // frontend via "ai:chunk" events. Returns immediately; the caller listens
 // for chunks tagged with the given streamID.
-func (s *AIService) Explain(streamID, content, kind string) error {
+func (s *AIService) Explain(ctx context.Context, streamID, content, kind string) error {
 	if streamID == "" {
 		return errors.New("streamID required")
 	}
@@ -198,4 +198,3 @@ func emitChunk(streamID, delta string, done bool, errMsg string) {
 		})
 	}
 }
-

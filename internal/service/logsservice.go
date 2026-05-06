@@ -52,11 +52,13 @@ func NewLogsService(pool *sshconn.Pool, h *store.Hosts, q *store.LogQueries) *Lo
 
 // Saved-query CRUD lives on the same service the panel already binds to —
 // avoids spinning up a third service for two thin methods.
-func (s *LogsService) SaveQuery(q store.LogQuery) (store.LogQuery, error) {
+func (s *LogsService) SaveQuery(ctx context.Context, q store.LogQuery) (store.LogQuery, error) {
 	return s.queries.Create(q)
 }
-func (s *LogsService) ListQueries() ([]store.LogQuery, error) { return s.queries.List() }
-func (s *LogsService) DeleteQuery(id string) error            { return s.queries.Delete(id) }
+func (s *LogsService) ListQueries(ctx context.Context) ([]store.LogQuery, error) {
+	return s.queries.List()
+}
+func (s *LogsService) DeleteQuery(ctx context.Context, id string) error { return s.queries.Delete(id) }
 
 // Start opens a session per host and runs `command` (e.g. `tail -F /var/log/syslog`),
 // streaming lines back as `logs:line` events. Idempotent — calling Start with
@@ -174,7 +176,7 @@ func (s *LogsService) Stop(streamID string) error {
 	return nil
 }
 
-func (s *LogsService) StopAll() error {
+func (s *LogsService) StopAll(ctx context.Context) error {
 	s.mu.Lock()
 	streams := s.streams
 	s.streams = make(map[string]*logStream)

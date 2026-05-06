@@ -48,11 +48,11 @@ type UpdateService struct{}
 
 func NewUpdateService() *UpdateService { return &UpdateService{} }
 
-func (s *UpdateService) CurrentVersion() string { return AppVersion }
+func (s *UpdateService) CurrentVersion(ctx context.Context) string { return AppVersion }
 
 // Check fetches the latest release info from GitHub. 5-second timeout so
 // a flaky network doesn't stall the settings panel.
-func (s *UpdateService) Check() (UpdateInfo, error) {
+func (s *UpdateService) Check(ctx context.Context) (UpdateInfo, error) {
 	info := UpdateInfo{Current: AppVersion}
 
 	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest",

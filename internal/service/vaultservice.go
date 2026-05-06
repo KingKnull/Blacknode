@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"github.com/blacknode/blacknode/internal/store"
 	"github.com/blacknode/blacknode/internal/vault"
 )
@@ -19,7 +20,7 @@ type VaultStatus struct {
 	Unlocked    bool `json:"unlocked"`
 }
 
-func (s *VaultService) Status() (VaultStatus, error) {
+func (s *VaultService) Status(ctx context.Context) (VaultStatus, error) {
 	init, err := s.vault.IsInitialized()
 	if err != nil {
 		return VaultStatus{}, err
@@ -27,7 +28,7 @@ func (s *VaultService) Status() (VaultStatus, error) {
 	return VaultStatus{Initialized: init, Unlocked: s.vault.IsUnlocked()}, nil
 }
 
-func (s *VaultService) Setup(passphrase string) error {
+func (s *VaultService) Setup(ctx context.Context, passphrase string) error {
 	if err := s.vault.Setup(passphrase); err != nil {
 		return err
 	}
@@ -39,7 +40,7 @@ func (s *VaultService) Setup(passphrase string) error {
 	return nil
 }
 
-func (s *VaultService) Unlock(passphrase string) error {
+func (s *VaultService) Unlock(ctx context.Context, passphrase string) error {
 	if err := s.vault.Unlock(passphrase); err != nil {
 		s.activity.Record(store.Activity{
 			Source: "vault",
@@ -58,7 +59,7 @@ func (s *VaultService) Unlock(passphrase string) error {
 	return nil
 }
 
-func (s *VaultService) Lock() error {
+func (s *VaultService) Lock(ctx context.Context) error {
 	s.vault.Lock()
 	s.activity.Record(store.Activity{
 		Source: "vault",

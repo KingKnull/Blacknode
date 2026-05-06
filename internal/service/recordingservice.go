@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"os"
 
@@ -29,8 +30,8 @@ type RecordingDetail struct {
 
 // SearchHit ties a recording to one or more matched lines for the search UI.
 type SearchHit struct {
-	Recording store.Recording   `json:"recording"`
-	Matches   []recorder.Match  `json:"matches"`
+	Recording store.Recording  `json:"recording"`
+	Matches   []recorder.Match `json:"matches"`
 }
 
 type RecordingService struct {
@@ -42,7 +43,7 @@ func NewRecordingService(s *store.Recordings, st *store.Settings) *RecordingServ
 	return &RecordingService{store: s, settings: st}
 }
 
-func (s *RecordingService) IsEnabled() (bool, error) {
+func (s *RecordingService) IsEnabled(ctx context.Context) (bool, error) {
 	v, err := s.settings.GetPlain(SettingRecordSessions)
 	if err != nil {
 		return false, err
@@ -50,7 +51,7 @@ func (s *RecordingService) IsEnabled() (bool, error) {
 	return v == "1", nil
 }
 
-func (s *RecordingService) SetEnabled(on bool) error {
+func (s *RecordingService) SetEnabled(ctx context.Context, on bool) error {
 	v := "0"
 	if on {
 		v = "1"
@@ -58,11 +59,11 @@ func (s *RecordingService) SetEnabled(on bool) error {
 	return s.settings.SetPlain(SettingRecordSessions, v)
 }
 
-func (s *RecordingService) List() ([]store.Recording, error) {
+func (s *RecordingService) List(ctx context.Context) ([]store.Recording, error) {
 	return s.store.List(200)
 }
 
-func (s *RecordingService) Get(id string) (RecordingDetail, error) {
+func (s *RecordingService) Get(ctx context.Context, id string) (RecordingDetail, error) {
 	rec, err := s.store.Get(id)
 	if err != nil {
 		return RecordingDetail{}, err
@@ -83,7 +84,7 @@ func (s *RecordingService) Get(id string) (RecordingDetail, error) {
 	}, nil
 }
 
-func (s *RecordingService) Delete(id string) error {
+func (s *RecordingService) Delete(ctx context.Context, id string) error {
 	rec, err := s.store.Get(id)
 	if err != nil {
 		return err
@@ -98,7 +99,7 @@ func (s *RecordingService) Delete(id string) error {
 // Search greps every stored recording for the substring (case-insensitive)
 // and returns hits grouped per recording. Bounded at maxHitsPerRecording per
 // recording so a noisy match doesn't blow up the response.
-func (s *RecordingService) Search(query string) ([]SearchHit, error) {
+func (s *RecordingService) Search(ctx context.Context, query string) ([]SearchHit, error) {
 	if query == "" {
 		return nil, errors.New("query required")
 	}
@@ -124,7 +125,7 @@ func (s *RecordingService) Search(query string) ([]SearchHit, error) {
 // ExportPath returns the on-disk path so the frontend can hand it to the OS
 // "reveal in folder" / save-as flow. We expose the path rather than the
 // bytes so a multi-MB export doesn't traverse the JSON bridge.
-func (s *RecordingService) ExportPath(id string) (string, error) {
+func (s *RecordingService) ExportPath(ctx context.Context, id string) (string, error) {
 	rec, err := s.store.Get(id)
 	if err != nil {
 		return "", err
@@ -134,7 +135,7 @@ func (s *RecordingService) ExportPath(id string) (string, error) {
 
 // ReadCastFile streams the raw cast bytes for a smaller-export case (e.g.
 // SOC2 evidence bundles). 50MB cap to keep the bridge sane.
-func (s *RecordingService) ReadCastFile(id string) (string, error) {
+func (s *RecordingService) ReadCastFile(ctx context.Context, id string) (string, error) {
 	rec, err := s.store.Get(id)
 	if err != nil {
 		return "", err

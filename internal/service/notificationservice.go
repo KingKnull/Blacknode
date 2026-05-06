@@ -39,7 +39,7 @@ type Notification struct {
 	Kind      NotifyKind `json:"kind"`
 	Title     string     `json:"title"`
 	Body      string     `json:"body"`
-	Source    string     `json:"source"`            // "exec" | "metrics" | "test" | etc.
+	Source    string     `json:"source"` // "exec" | "metrics" | "test" | etc.
 	HostName  string     `json:"hostName,omitempty"`
 	Timestamp int64      `json:"timestamp"`
 }
@@ -67,7 +67,7 @@ func NewNotificationService(settings *store.Settings) *NotificationService {
 // Notify is the single emit path: desktop toast (best-effort), in-app toast
 // (always), webhook POST (if configured). All three branches are independent
 // so a webhook failure doesn't suppress the toast.
-func (s *NotificationService) Notify(n Notification) {
+func (s *NotificationService) Notify(ctx context.Context, n Notification) {
 	if n.ID == "" {
 		n.ID = newNotifID()
 	}
@@ -93,7 +93,7 @@ func (s *NotificationService) Notify(n Notification) {
 // NotifyDebounced is the rule-trigger entry point. `key` identifies an alert
 // dimension (e.g. "metrics:cpu:host_abc") so a sustained breach fires once
 // per debounce window instead of once per poll.
-func (s *NotificationService) NotifyDebounced(key string, n Notification) {
+func (s *NotificationService) NotifyDebounced(ctx context.Context, key string, n Notification) {
 	s.mu.Lock()
 	last, seen := s.debounce[key]
 	now := time.Now()
@@ -108,7 +108,7 @@ func (s *NotificationService) NotifyDebounced(key string, n Notification) {
 
 // Test fires a single notification — exposed to the frontend so the user can
 // verify their settings without waiting for a real event.
-func (s *NotificationService) Test() error {
+func (s *NotificationService) Test(ctx context.Context) error {
 	s.Notify(Notification{
 		Kind:   NotifyInfo,
 		Title:  "blacknode test notification",
@@ -178,7 +178,7 @@ func (s *NotificationService) fireWebhook(url string, n Notification) {
 
 // SetDesktopEnabled / SetWebhookURL are wrapper setters the frontend uses
 // from the Settings panel.
-func (s *NotificationService) SetDesktopEnabled(on bool) error {
+func (s *NotificationService) SetDesktopEnabled(ctx context.Context, on bool) error {
 	v := "0"
 	if on {
 		v = "1"
@@ -186,11 +186,11 @@ func (s *NotificationService) SetDesktopEnabled(on bool) error {
 	return s.settings.SetPlain(SettingNotifyDesktop, v)
 }
 
-func (s *NotificationService) SetWebhookURL(url string) error {
+func (s *NotificationService) SetWebhookURL(ctx context.Context, url string) error {
 	return s.settings.SetPlain(SettingNotifyWebhook, url)
 }
 
-func (s *NotificationService) SetLongExecSeconds(seconds int) error {
+func (s *NotificationService) SetLongExecSeconds(ctx context.Context, seconds int) error {
 	if seconds < 1 {
 		return errors.New("seconds must be >= 1")
 	}
@@ -204,7 +204,7 @@ type NotifyConfig struct {
 	LongExecSeconds int    `json:"longExecSeconds"`
 }
 
-func (s *NotificationService) Config() (NotifyConfig, error) {
+func (s *NotificationService) Config(ctx context.Context) (NotifyConfig, error) {
 	wh, _ := s.settings.GetPlain(SettingNotifyWebhook)
 	cfg := NotifyConfig{
 		DesktopEnabled:  s.desktopEnabled(),

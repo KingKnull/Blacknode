@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"regexp"
 	"strings"
@@ -30,17 +31,23 @@ func NewSnippetService(s *store.Snippets, h *store.History) *SnippetService {
 	return &SnippetService{snippets: s, history: h}
 }
 
-func (s *SnippetService) List() ([]store.Snippet, error)   { return s.snippets.List() }
-func (s *SnippetService) Get(id string) (store.Snippet, error) { return s.snippets.Get(id) }
-func (s *SnippetService) Create(sn store.Snippet) (store.Snippet, error) {
+func (s *SnippetService) List(ctx context.Context) ([]store.Snippet, error) {
+	return s.snippets.List()
+}
+func (s *SnippetService) Get(ctx context.Context, id string) (store.Snippet, error) {
+	return s.snippets.Get(id)
+}
+func (s *SnippetService) Create(ctx context.Context, sn store.Snippet) (store.Snippet, error) {
 	return s.snippets.Create(sn)
 }
-func (s *SnippetService) Update(sn store.Snippet) error { return s.snippets.Update(sn) }
-func (s *SnippetService) Delete(id string) error       { return s.snippets.Delete(id) }
+func (s *SnippetService) Update(ctx context.Context, sn store.Snippet) error {
+	return s.snippets.Update(sn)
+}
+func (s *SnippetService) Delete(ctx context.Context, id string) error { return s.snippets.Delete(id) }
 
 // ExtractVariables scans a snippet body and returns the unique placeholders
 // in first-occurrence order, with default values when present.
-func (s *SnippetService) ExtractVariables(body string) []SnippetVariable {
+func (s *SnippetService) ExtractVariables(ctx context.Context, body string) []SnippetVariable {
 	matches := varPattern.FindAllStringSubmatch(body, -1)
 	seen := make(map[string]int) // name → index in result
 	out := []SnippetVariable{}
@@ -64,7 +71,7 @@ func (s *SnippetService) ExtractVariables(body string) []SnippetVariable {
 // resulting command in history. Returns the rendered command. If a variable
 // has no value provided, its default is used; if no default, an empty string
 // is substituted (intentional — the user can preview before sending).
-func (s *SnippetService) Apply(snippetID string, values map[string]string, hostID, hostName string, recordToHistory bool) (string, error) {
+func (s *SnippetService) Apply(ctx context.Context, snippetID string, values map[string]string, hostID, hostName string, recordToHistory bool) (string, error) {
 	sn, err := s.snippets.Get(snippetID)
 	if err != nil {
 		return "", err
@@ -95,7 +102,7 @@ type SnippetValidation struct {
 	Warnings  []string          `json:"warnings"`
 }
 
-func (s *SnippetService) Validate(body string) (SnippetValidation, error) {
+func (s *SnippetService) Validate(ctx context.Context, body string) (SnippetValidation, error) {
 	if strings.TrimSpace(body) == "" {
 		return SnippetValidation{}, errors.New("body is empty")
 	}

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
@@ -41,7 +42,7 @@ func toView(k store.Key) PublicKeyView {
 	}
 }
 
-func (s *KeyService) List() ([]PublicKeyView, error) {
+func (s *KeyService) List(ctx context.Context) ([]PublicKeyView, error) {
 	rows, err := s.keys.List()
 	if err != nil {
 		return nil, err
@@ -53,11 +54,11 @@ func (s *KeyService) List() ([]PublicKeyView, error) {
 	return out, nil
 }
 
-func (s *KeyService) Delete(id string) error { return s.keys.Delete(id) }
+func (s *KeyService) Delete(ctx context.Context, id string) error { return s.keys.Delete(id) }
 
 // Generate creates a new keypair, encrypts the private half with the unlocked
 // vault master key, and stores both halves.
-func (s *KeyService) Generate(name, keyType string) (PublicKeyView, error) {
+func (s *KeyService) Generate(ctx context.Context, name, keyType string) (PublicKeyView, error) {
 	if !s.vault.IsUnlocked() {
 		return PublicKeyView{}, errors.New("vault is locked")
 	}
@@ -107,7 +108,7 @@ func (s *KeyService) Generate(name, keyType string) (PublicKeyView, error) {
 
 // Import takes user-supplied PEM private key bytes (optionally passphrase-
 // protected), validates them, derives the public half, and stores everything.
-func (s *KeyService) Import(name, privatePEM, passphrase string) (PublicKeyView, error) {
+func (s *KeyService) Import(ctx context.Context, name, privatePEM, passphrase string) (PublicKeyView, error) {
 	if !s.vault.IsUnlocked() {
 		return PublicKeyView{}, errors.New("vault is locked")
 	}

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 
@@ -31,19 +32,19 @@ func NewPluginService(notify *NotificationService, activity *activityRecorder) *
 	}
 }
 
-func (s *PluginService) Root() string              { return s.root }
-func (s *PluginService) List() []plugin.PluginInfo { return s.mgr.List() }
-func (s *PluginService) LoadAll() []plugin.PluginInfo {
+func (s *PluginService) Root(ctx context.Context) string              { return s.root }
+func (s *PluginService) List(ctx context.Context) []plugin.PluginInfo { return s.mgr.List() }
+func (s *PluginService) LoadAll(ctx context.Context) []plugin.PluginInfo {
 	out := s.mgr.LoadAll()
 	s.recordPluginStatuses(out, "load")
 	return out
 }
-func (s *PluginService) Reload() []plugin.PluginInfo {
+func (s *PluginService) Reload(ctx context.Context) []plugin.PluginInfo {
 	out := s.mgr.Reload()
 	s.recordPluginStatuses(out, "reload")
 	return out
 }
-func (s *PluginService) StopAll() { s.mgr.StopAll() }
+func (s *PluginService) StopAll(ctx context.Context) { s.mgr.StopAll() }
 
 // recordPluginStatuses fans the load/reload result into the activity
 // feed: one entry per plugin with the right level so the UI can show
@@ -73,7 +74,7 @@ func (s *PluginService) recordPluginStatuses(plugins []plugin.PluginInfo, action
 
 // Panels returns the flat list of every loaded plugin's declared panels.
 // The frontend uses this to inject extra entries into the sidebar nav.
-func (s *PluginService) Panels() []plugin.PanelView {
+func (s *PluginService) Panels(ctx context.Context) []plugin.PanelView {
 	out := []plugin.PanelView{}
 	for _, p := range s.mgr.List() {
 		if p.Status != "loaded" {
@@ -90,7 +91,7 @@ func (s *PluginService) Panels() []plugin.PanelView {
 // through the existing NotificationService. Routed methods are an
 // allowlist — anything else gets dropped, matching the Permissions
 // model from the manifest.
-func (s *PluginService) HostNotify(pluginID, title, body string) {
+func (s *PluginService) HostNotify(ctx context.Context, pluginID, title, body string) {
 	if s.notify == nil {
 		return
 	}

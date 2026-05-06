@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -44,7 +45,7 @@ func NewPortForwardService(pool *sshconn.Pool, h *store.Hosts, f *store.Forwards
 }
 
 // CRUD on the saved forwards.
-func (s *PortForwardService) List() ([]ActiveForward, error) {
+func (s *PortForwardService) List(ctx context.Context) ([]ActiveForward, error) {
 	rows, err := s.forwards.List()
 	if err != nil {
 		return nil, err
@@ -64,11 +65,11 @@ type ActiveForward struct {
 	Active bool `json:"active"`
 }
 
-func (s *PortForwardService) Create(f store.Forward) (store.Forward, error) {
+func (s *PortForwardService) Create(ctx context.Context, f store.Forward) (store.Forward, error) {
 	return s.forwards.Create(f)
 }
 
-func (s *PortForwardService) Delete(id string) error {
+func (s *PortForwardService) Delete(ctx context.Context, id string) error {
 	_ = s.Stop(id)
 	return s.forwards.Delete(id)
 }
@@ -138,7 +139,7 @@ func (s *PortForwardService) Stop(forwardID string) error {
 	return nil
 }
 
-func (s *PortForwardService) StopAll() {
+func (s *PortForwardService) StopAll(ctx context.Context) {
 	s.mu.Lock()
 	ids := make([]string, 0, len(s.active))
 	for id := range s.active {

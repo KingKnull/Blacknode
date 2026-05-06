@@ -35,11 +35,11 @@ type SyncSnapshot struct {
 
 // SyncStatus is what the UI renders.
 type SyncStatus struct {
-	Configured  bool   `json:"configured"`
-	Endpoint    string `json:"endpoint"`
-	LastPushAt  int64  `json:"lastPushAt"`
-	LastPullAt  int64  `json:"lastPullAt"`
-	LastError   string `json:"lastError,omitempty"`
+	Configured bool   `json:"configured"`
+	Endpoint   string `json:"endpoint"`
+	LastPushAt int64  `json:"lastPushAt"`
+	LastPullAt int64  `json:"lastPullAt"`
+	LastError  string `json:"lastError,omitempty"`
 }
 
 // SyncSettings is the persisted config (endpoint URL, bearer token). The
@@ -90,7 +90,7 @@ func NewSyncService(
 	return &SyncService{settings: s, hosts: h, snippets: sn, httpRequests: hr, team: ta, v: v, activity: activity}
 }
 
-func (s *SyncService) Configure(cfg SyncSettings) error {
+func (s *SyncService) Configure(ctx context.Context, cfg SyncSettings) error {
 	cfg.Endpoint = strings.TrimRight(strings.TrimSpace(cfg.Endpoint), "/")
 	if cfg.Endpoint != "" && !strings.HasPrefix(cfg.Endpoint, "http") {
 		return errors.New("endpoint must be an http(s) URL")
@@ -99,7 +99,7 @@ func (s *SyncService) Configure(cfg SyncSettings) error {
 	return s.settings.SetPlain(syncSettingsKey, string(b))
 }
 
-func (s *SyncService) Status() (SyncStatus, error) {
+func (s *SyncService) Status(ctx context.Context) (SyncStatus, error) {
 	cfg, err := s.loadSettings()
 	if err != nil {
 		return SyncStatus{}, err
@@ -122,7 +122,7 @@ func (s *SyncService) Status() (SyncStatus, error) {
 
 // Push collects the snapshot, encrypts it, and uploads. The vault must be
 // unlocked because we use its master key.
-func (s *SyncService) Push() (SyncStatus, error) {
+func (s *SyncService) Push(ctx context.Context) (SyncStatus, error) {
 	if !s.v.IsUnlocked() {
 		return SyncStatus{}, errors.New("vault is locked — unlock before sync")
 	}
@@ -170,7 +170,7 @@ func (s *SyncService) Push() (SyncStatus, error) {
 // don't get inserted; ours that the remote doesn't know about are
 // preserved (we don't delete based on absence — too easy to wipe a
 // device's local-only work).
-func (s *SyncService) Pull() (SyncStatus, error) {
+func (s *SyncService) Pull(ctx context.Context) (SyncStatus, error) {
 	if !s.v.IsUnlocked() {
 		return SyncStatus{}, errors.New("vault is locked — unlock before sync")
 	}
@@ -205,10 +205,11 @@ func (s *SyncService) Pull() (SyncStatus, error) {
 
 // encodeSnapshot: marshal → gzip → vault-encrypt → base64-prefix nonce.
 // Layout of the returned blob:
-//   [4 bytes  magic 'BLNS']
-//   [1 byte   version]
-//   [12 bytes nonce]
-//   [N bytes  ciphertext]
+//
+//	[4 bytes  magic 'BLNS']
+//	[1 byte   version]
+//	[12 bytes nonce]
+//	[N bytes  ciphertext]
 func (s *SyncService) encodeSnapshot(snap SyncSnapshot) ([]byte, error) {
 	plain, err := json.Marshal(snap)
 	if err != nil {
@@ -452,7 +453,7 @@ func (s *SyncService) recordError(err error) {
 // to "anonymous"). The audit row is local — it doesn't tell other team
 // members who published; the source of truth for that is whatever
 // auth lives in front of the storage endpoint.
-func (s *SyncService) PublishTeam(actor string) (SyncStatus, error) {
+func (s *SyncService) PublishTeam(ctx context.Context, actor string) (SyncStatus, error) {
 	if !s.v.IsUnlocked() {
 		return SyncStatus{}, errors.New("vault is locked — unlock before sync")
 	}
@@ -515,7 +516,7 @@ func (s *SyncService) PublishTeam(actor string) (SyncStatus, error) {
 // Pull (last-write-wins on UpdatedAt) — but team rows that arrive get
 // recorded in the activity log so users have a paper trail of what's
 // landed. We don't dedupe activity entries; one pull = one row.
-func (s *SyncService) SubscribeTeam(actor string) (SyncStatus, error) {
+func (s *SyncService) SubscribeTeam(ctx context.Context, actor string) (SyncStatus, error) {
 	if !s.v.IsUnlocked() {
 		return SyncStatus{}, errors.New("vault is locked — unlock before sync")
 	}
@@ -560,8 +561,6 @@ func (s *SyncService) SubscribeTeam(actor string) (SyncStatus, error) {
 	return s.Status()
 }
 
-func (s *SyncService) TeamActivity(limit int) ([]store.TeamActivity, error) {
+func (s *SyncService) TeamActivity(ctx context.Context, limit int) ([]store.TeamActivity, error) {
 	return s.team.Recent(limit)
 }
-
-

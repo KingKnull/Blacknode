@@ -78,7 +78,7 @@ func NewDBService(pool *sshconn.Pool, h *store.Hosts, saved *store.DBConnections
 // Connect dispatches on `kind` ("postgres" or "mysql"). Empty kind is auto-
 // detected from the DSN shape — `postgres://` URL → postgres, `@tcp(` →
 // mysql, anything else is an error.
-func (s *DBService) Connect(hostID, password, kind, dsn string) (DBConnectionInfo, error) {
+func (s *DBService) Connect(ctx context.Context, hostID, password, kind, dsn string) (DBConnectionInfo, error) {
 	if strings.TrimSpace(dsn) == "" {
 		return DBConnectionInfo{}, errors.New("dsn required")
 	}
@@ -204,7 +204,7 @@ func (s *DBService) connectMySQL(hostID, password, dsn string) (DBConnectionInfo
 
 // Query dispatches to the right backend based on which connection field is
 // set. Both paths produce the same wire-shape QueryResult.
-func (s *DBService) Query(connID, sqlText string) (QueryResult, error) {
+func (s *DBService) Query(ctx context.Context, connID, sqlText string) (QueryResult, error) {
 	if strings.TrimSpace(sqlText) == "" {
 		return QueryResult{}, errors.New("sql required")
 	}
@@ -339,7 +339,7 @@ func (s *DBService) queryMySQL(c *dbConn, sqlText string) (QueryResult, error) {
 	return res, nil
 }
 
-func (s *DBService) Disconnect(connID string) error {
+func (s *DBService) Disconnect(ctx context.Context, connID string) error {
 	s.mu.Lock()
 	c, ok := s.conns[connID]
 	if ok {
@@ -361,7 +361,7 @@ func (s *DBService) Disconnect(connID string) error {
 	return nil
 }
 
-func (s *DBService) List() ([]DBConnectionInfo, error) {
+func (s *DBService) List(ctx context.Context) ([]DBConnectionInfo, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	out := make([]DBConnectionInfo, 0, len(s.conns))
@@ -396,7 +396,7 @@ type DBColumn struct {
 // excludes the system catalogs (`pg_catalog`, `information_schema`); MySQL
 // scopes to the connected database since cross-database listings are usually
 // noise.
-func (s *DBService) Tables(connID string) ([]DBTable, error) {
+func (s *DBService) Tables(ctx context.Context, connID string) ([]DBTable, error) {
 	s.mu.Lock()
 	c, ok := s.conns[connID]
 	s.mu.Unlock()
@@ -474,7 +474,7 @@ func (s *DBService) tablesMySQL(c *dbConn) ([]DBTable, error) {
 // Columns lists columns for one (schema, table) — Postgres needs both, MySQL
 // uses schema = current database. Two round trips: one for column metadata,
 // one for primary-key set. We merge in Go.
-func (s *DBService) Columns(connID, schema, table string) ([]DBColumn, error) {
+func (s *DBService) Columns(ctx context.Context, connID, schema, table string) ([]DBColumn, error) {
 	if schema == "" || table == "" {
 		return nil, errors.New("schema and table required")
 	}
@@ -586,7 +586,7 @@ type SavedConnection struct {
 	CreatedAt int64  `json:"createdAt"`
 }
 
-func (s *DBService) SaveConnection(name, kind, hostID, dsn string) (SavedConnection, error) {
+func (s *DBService) SaveConnection(ctx context.Context, name, kind, hostID, dsn string) (SavedConnection, error) {
 	if !s.vault.IsUnlocked() {
 		return SavedConnection{}, errors.New("vault must be unlocked to save a connection")
 	}
@@ -620,7 +620,7 @@ func (s *DBService) SaveConnection(name, kind, hostID, dsn string) (SavedConnect
 	}, nil
 }
 
-func (s *DBService) ListSavedConnections() ([]SavedConnection, error) {
+func (s *DBService) ListSavedConnections(ctx context.Context) ([]SavedConnection, error) {
 	rows, err := s.saved.List()
 	if err != nil {
 		return nil, err
@@ -639,11 +639,11 @@ func (s *DBService) ListSavedConnections() ([]SavedConnection, error) {
 	return out, nil
 }
 
-func (s *DBService) DeleteSavedConnection(id string) error {
+func (s *DBService) DeleteSavedConnection(ctx context.Context, id string) error {
 	return s.saved.Delete(id)
 }
 
-func (s *DBService) ConnectSaved(savedID, password string) (DBConnectionInfo, error) {
+func (s *DBService) ConnectSaved(ctx context.Context, savedID, password string) (DBConnectionInfo, error) {
 	if !s.vault.IsUnlocked() {
 		return DBConnectionInfo{}, errors.New("vault must be unlocked")
 	}

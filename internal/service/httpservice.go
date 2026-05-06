@@ -65,7 +65,7 @@ func NewHTTPService(pool *sshconn.Pool, h *store.Hosts, saved *store.HTTPRequest
 	return &HTTPService{pool: pool, hosts: h, saved: saved}
 }
 
-func (s *HTTPService) SaveRequest(r store.HTTPRequest) (store.HTTPRequest, error) {
+func (s *HTTPService) SaveRequest(ctx context.Context, r store.HTTPRequest) (store.HTTPRequest, error) {
 	if r.ID != "" {
 		// Save-as-update path: existing rows are routed through Update so the
 		// frontend can use one method for both flows.
@@ -77,22 +77,22 @@ func (s *HTTPService) SaveRequest(r store.HTTPRequest) (store.HTTPRequest, error
 	return s.saved.Create(r)
 }
 
-func (s *HTTPService) ListSavedRequests() ([]store.HTTPRequest, error) {
+func (s *HTTPService) ListSavedRequests(ctx context.Context) ([]store.HTTPRequest, error) {
 	return s.saved.List()
 }
 
-func (s *HTTPService) GetSavedRequest(id string) (store.HTTPRequest, error) {
+func (s *HTTPService) GetSavedRequest(ctx context.Context, id string) (store.HTTPRequest, error) {
 	return s.saved.Get(id)
 }
 
-func (s *HTTPService) DeleteSavedRequest(id string) error {
+func (s *HTTPService) DeleteSavedRequest(ctx context.Context, id string) error {
 	return s.saved.Delete(id)
 }
 
 // Request fires a single HTTP request and returns the response. Body capped
 // at 1MB to keep the JSON bridge healthy; flagged via Truncated so the UI
 // can warn.
-func (s *HTTPService) Request(hostID, password string, opts HTTPRequestOptions) (HTTPResponse, error) {
+func (s *HTTPService) Request(ctx context.Context, hostID, password string, opts HTTPRequestOptions) (HTTPResponse, error) {
 	if opts.URL == "" {
 		return HTTPResponse{}, errors.New("url required")
 	}

@@ -36,7 +36,7 @@ type ExecProgress struct {
 const maxConcurrent = 16
 
 type ExecService struct {
-	pool    *sshconn.Pool
+	pool     *sshconn.Pool
 	hosts    *store.Hosts
 	history  *store.History
 	notify   *NotificationService
@@ -47,7 +47,7 @@ func NewExecService(pool *sshconn.Pool, h *store.Hosts, hist *store.History, n *
 	return &ExecService{pool: pool, hosts: h, history: hist, notify: n, activity: a}
 }
 
-func (s *ExecService) Run(runID, command string, hostIDs []string, passwords map[string]string, timeoutSeconds int) ([]ExecResult, error) {
+func (s *ExecService) Run(ctx context.Context, runID, command string, hostIDs []string, passwords map[string]string, timeoutSeconds int) ([]ExecResult, error) {
 	if command == "" {
 		return nil, errors.New("command required")
 	}
@@ -241,4 +241,3 @@ func (s *ExecService) runOne(ctx context.Context, hostID, command, password stri
 	res.DurationMs = time.Since(start).Milliseconds()
 	return res
 }
-

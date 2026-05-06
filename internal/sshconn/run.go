@@ -1,6 +1,7 @@
 package sshconn
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -18,11 +19,7 @@ const maxOutputBytes = 5 * 1024 * 1024
 //
 // Output is capped at 5MB; if the command produces more, the result is
 // truncated and a "[output truncated at 5MB]" trailer is appended.
-//
-// On timeout, Run returns whatever output has been captured so far along
-// with an error. The caller should surface the partial output — it often
-// contains useful diagnostics about what went wrong.
-func Run(client *ssh.Client, cmd string, timeout time.Duration) (string, error) {
+func Run(ctx context.Context, client *ssh.Client, cmd string) (string, error) {
 	sess, err := client.NewSession()
 	if err != nil {
 		return "", fmt.Errorf("session: %w", err)
@@ -37,8 +34,9 @@ func Run(client *ssh.Client, cmd string, timeout time.Duration) (string, error) 
 	go func() { done <- sess.Run(cmd) }()
 
 	select {
-	case <-time.After(timeout):
-		return out.String(), fmt.Errorf("timeout")
+	case <-ctx.Done():
+		// Wait for the session to be forcibly closed by the defer
+		return out.String(), ctx.Err()
 	case err := <-done:
 		body := out.String()
 		if len(body) > maxOutputBytes {
@@ -51,10 +49,9 @@ func Run(client *ssh.Client, cmd string, timeout time.Duration) (string, error) 
 	}
 }
 
-// RunSimple executes a single-shot command with no timeout and no output cap.
-// Used for short, bounded commands like metrics collection where the output
-// is inherently small.
-func RunSimple(client *ssh.Client, cmd string) (string, error) {
+// RunSimple executes a single-shot command with no output cap.
+// It respects the provided context for cancellation.
+func RunSimple(ctx context.Context, client *ssh.Client, cmd string) (string, error) {
 	sess, err := client.NewSession()
 	if err != nil {
 		return "", fmt.Errorf("session: %w", err)
@@ -63,8 +60,14 @@ func RunSimple(client *ssh.Client, cmd string) (string, error) {
 	var out strings.Builder
 	sess.Stdout = &out
 	sess.Stderr = &out
-	if err := sess.Run(cmd); err != nil {
+	
+	done := make(chan error, 1)
+	go func() { done <- sess.Run(cmd) }()
+
+	select {
+	case <-ctx.Done():
+		return out.String(), ctx.Err()
+	case err := <-done:
 		return out.String(), err
 	}
-	return out.String(), nil
 }

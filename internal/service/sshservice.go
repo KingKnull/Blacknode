@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -82,7 +83,7 @@ func (s *SSHService) emitExit(id, reason string) {
 }
 
 // Connect opens an interactive shell using ad-hoc connection params.
-func (s *SSHService) Connect(sessionID string, opts SSHConnectOptions) error {
+func (s *SSHService) Connect(ctx context.Context, sessionID string, opts SSHConnectOptions) error {
 	target := sshconn.Target{
 		Host:       opts.Host,
 		Port:       opts.Port,
@@ -97,7 +98,7 @@ func (s *SSHService) Connect(sessionID string, opts SSHConnectOptions) error {
 // ConnectByHost opens an interactive shell using a saved host record. If the
 // host is configured for password auth, the runtime password is supplied via
 // the password arg (we never persist passwords).
-func (s *SSHService) ConnectByHost(sessionID, hostID, password string, cols, rows int) error {
+func (s *SSHService) ConnectByHost(ctx context.Context, sessionID, hostID, password string, cols, rows int) error {
 	h, err := s.hosts.Get(hostID)
 	if err != nil {
 		return fmt.Errorf("load host: %w", err)
@@ -263,7 +264,7 @@ func (s *SSHService) finishRecording(sessionID string) {
 	})
 }
 
-func (s *SSHService) Write(sessionID string, data string) error {
+func (s *SSHService) Write(ctx context.Context, sessionID string, data string) error {
 	s.mu.Lock()
 	state, ok := s.sessions[sessionID]
 	s.mu.Unlock()
@@ -274,7 +275,7 @@ func (s *SSHService) Write(sessionID string, data string) error {
 	return err
 }
 
-func (s *SSHService) Resize(sessionID string, cols, rows int) error {
+func (s *SSHService) Resize(ctx context.Context, sessionID string, cols, rows int) error {
 	s.mu.Lock()
 	state, ok := s.sessions[sessionID]
 	s.mu.Unlock()
@@ -284,7 +285,7 @@ func (s *SSHService) Resize(sessionID string, cols, rows int) error {
 	return state.session.WindowChange(rows, cols)
 }
 
-func (s *SSHService) Disconnect(sessionID string) error {
+func (s *SSHService) Disconnect(ctx context.Context, sessionID string) error {
 	s.cleanup(sessionID, "disconnected by user")
 	return nil
 }
@@ -293,7 +294,7 @@ func (s *SSHService) Disconnect(sessionID string) error {
 // and returns it in milliseconds. The remote will reject the request type
 // (we don't ship a server-side handler), but the rejection is itself a
 // round trip — that's exactly what we want to time.
-func (s *SSHService) Latency(sessionID string) (int, error) {
+func (s *SSHService) Latency(ctx context.Context, sessionID string) (int, error) {
 	s.mu.Lock()
 	state, ok := s.sessions[sessionID]
 	s.mu.Unlock()

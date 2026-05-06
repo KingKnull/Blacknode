@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"time"
 
 	"github.com/blacknode/blacknode/internal/store"
@@ -33,7 +34,7 @@ func NewActivityService(s *store.Activities) *ActivityService {
 // surface for Wails-bound calls), but they call ActivityService.Record
 // when they want the realtime fan-out side-effect too. To keep both paths
 // consistent there's also a free Record helper below.
-func (s *ActivityService) Record(a store.Activity) store.Activity {
+func (s *ActivityService) Record(ctx context.Context, a store.Activity) store.Activity {
 	saved, err := s.store.Record(a)
 	if err != nil {
 		return a
@@ -44,18 +45,18 @@ func (s *ActivityService) Record(a store.Activity) store.Activity {
 	return saved
 }
 
-func (s *ActivityService) List(f store.ActivityFilter) ([]store.Activity, error) {
+func (s *ActivityService) List(ctx context.Context, f store.ActivityFilter) ([]store.Activity, error) {
 	return s.store.List(f)
 }
 
-func (s *ActivityService) Sources() ([]string, error) {
+func (s *ActivityService) Sources(ctx context.Context) ([]string, error) {
 	return s.store.Sources()
 }
 
 // PurgeOlderThanDays drops rows older than the given window. Called from
 // the UI as a manual cleanup; a 30-day window covers most observability
 // needs and keeps the DB tidy.
-func (s *ActivityService) PurgeOlderThanDays(days int) (int64, error) {
+func (s *ActivityService) PurgeOlderThanDays(ctx context.Context, days int) (int64, error) {
 	if days <= 0 {
 		days = 30
 	}

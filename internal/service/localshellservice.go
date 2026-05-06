@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -53,7 +54,7 @@ func (s *LocalShellService) emitExit(id, reason string) {
 
 // Open spawns a local shell PTY for sessionID. Cwd is optional; empty defaults
 // to the user's home directory.
-func (s *LocalShellService) Open(sessionID string, cols, rows int) error {
+func (s *LocalShellService) Open(ctx context.Context, sessionID string, cols, rows int) error {
 	if sessionID == "" {
 		return errors.New("sessionID required")
 	}
@@ -160,7 +161,7 @@ func (s *LocalShellService) finishRecording(sessionID, title string) {
 	})
 }
 
-func (s *LocalShellService) Write(sessionID, data string) error {
+func (s *LocalShellService) Write(ctx context.Context, sessionID, data string) error {
 	s.mu.Lock()
 	state, ok := s.sessions[sessionID]
 	s.mu.Unlock()
@@ -171,7 +172,7 @@ func (s *LocalShellService) Write(sessionID, data string) error {
 	return err
 }
 
-func (s *LocalShellService) Resize(sessionID string, cols, rows int) error {
+func (s *LocalShellService) Resize(ctx context.Context, sessionID string, cols, rows int) error {
 	s.mu.Lock()
 	state, ok := s.sessions[sessionID]
 	s.mu.Unlock()
@@ -181,7 +182,7 @@ func (s *LocalShellService) Resize(sessionID string, cols, rows int) error {
 	return state.pty.Resize(cols, rows)
 }
 
-func (s *LocalShellService) Close(sessionID string) error {
+func (s *LocalShellService) Close(ctx context.Context, sessionID string) error {
 	s.cleanup(sessionID, "closed by user")
 	return nil
 }

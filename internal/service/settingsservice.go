@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"strconv"
 
@@ -9,11 +10,11 @@ import (
 )
 
 const (
-	SettingAnthropicAPIKey   = "anthropic_api_key"
-	SettingTheme             = "theme"
-	SettingAutoLockMinutes   = "auto_lock_minutes"
-	SettingDefaultShellPath  = "default_shell_path"
-	SettingMetricsIntervalS  = "metrics_interval_seconds"
+	SettingAnthropicAPIKey  = "anthropic_api_key"
+	SettingTheme            = "theme"
+	SettingAutoLockMinutes  = "auto_lock_minutes"
+	SettingDefaultShellPath = "default_shell_path"
+	SettingMetricsIntervalS = "metrics_interval_seconds"
 )
 
 type SettingsService struct {
@@ -35,7 +36,7 @@ type AppSettings struct {
 	HasAnthropicKey    bool   `json:"hasAnthropicKey"`
 }
 
-func (s *SettingsService) Get() (AppSettings, error) {
+func (s *SettingsService) Get(ctx context.Context) (AppSettings, error) {
 	out := AppSettings{
 		Theme:              "dark",
 		AutoLockMinutes:    15,
@@ -66,22 +67,22 @@ func (s *SettingsService) Get() (AppSettings, error) {
 	return out, nil
 }
 
-func (s *SettingsService) SetTheme(theme string) error {
+func (s *SettingsService) SetTheme(ctx context.Context, theme string) error {
 	return s.settings.SetPlain(SettingTheme, theme)
 }
 
-func (s *SettingsService) SetAutoLockMinutes(minutes int) error {
+func (s *SettingsService) SetAutoLockMinutes(ctx context.Context, minutes int) error {
 	if minutes < 0 {
 		return errors.New("minutes must be >= 0")
 	}
 	return s.settings.SetPlain(SettingAutoLockMinutes, strconv.Itoa(minutes))
 }
 
-func (s *SettingsService) SetDefaultShellPath(path string) error {
+func (s *SettingsService) SetDefaultShellPath(ctx context.Context, path string) error {
 	return s.settings.SetPlain(SettingDefaultShellPath, path)
 }
 
-func (s *SettingsService) SetMetricsInterval(seconds int) error {
+func (s *SettingsService) SetMetricsInterval(ctx context.Context, seconds int) error {
 	if seconds < 2 {
 		return errors.New("interval must be >= 2 seconds")
 	}
@@ -90,7 +91,7 @@ func (s *SettingsService) SetMetricsInterval(seconds int) error {
 
 // SetAnthropicAPIKey seals the key with the vault and stores it. Empty key
 // clears the setting.
-func (s *SettingsService) SetAnthropicAPIKey(key string) error {
+func (s *SettingsService) SetAnthropicAPIKey(ctx context.Context, key string) error {
 	if key == "" {
 		return s.settings.Delete(SettingAnthropicAPIKey)
 	}
@@ -106,7 +107,7 @@ func (s *SettingsService) SetAnthropicAPIKey(key string) error {
 
 // AnthropicAPIKey returns the plaintext key for use by the AI service. Lives
 // in main package only; never leaves Go.
-func (s *SettingsService) AnthropicAPIKey() (string, error) {
+func (s *SettingsService) AnthropicAPIKey(ctx context.Context) (string, error) {
 	cipher, nonce, err := s.settings.GetSecret(SettingAnthropicAPIKey)
 	if err != nil {
 		return "", err
