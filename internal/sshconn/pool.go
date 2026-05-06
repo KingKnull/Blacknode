@@ -27,6 +27,7 @@ type Pool struct {
 	mu      sync.Mutex
 	entries map[string]*pooled
 	idleTTL time.Duration
+	maxSize int
 }
 
 type pooled struct {
@@ -42,6 +43,7 @@ func NewPool(d *Dialer, hosts *store.Hosts) *Pool {
 		hosts:   hosts,
 		entries: make(map[string]*pooled),
 		idleTTL: 5 * time.Minute,
+		maxSize: 20,
 	}
 	go p.reaper()
 	return p
@@ -120,6 +122,26 @@ func (p *Pool) Get(t Target) (*ssh.Client, func(), error) {
 		_ = client.Close()
 		return existing.client, p.release(key), nil
 	}
+
+	if len(p.entries) >= p.maxSize {
+		var oldestKey string
+		var oldestTime time.Time
+		for k, e := range p.entries {
+			if e.refs == 0 {
+				if oldestKey == "" || e.lastUsed.Before(oldestTime) {
+					oldestKey = k
+					oldestTime = e.lastUsed
+				}
+			}
+		}
+		if oldestKey == "" {
+			p.mu.Unlock()
+			_ = client.Close()
+			return nil, func() {}, errors.New("SSH connection pool exhausted: max connections reached and all are in use")
+		}
+		p.discardLocked(oldestKey, p.entries[oldestKey])
+	}
+
 	entry = &pooled{client: client, lastUsed: time.Now(), refs: 1}
 	p.entries[key] = entry
 	p.mu.Unlock()

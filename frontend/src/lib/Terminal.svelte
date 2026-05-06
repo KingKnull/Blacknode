@@ -7,6 +7,7 @@
   import {
     LocalShellService,
     SSHService,
+    HostService,
   } from "../../bindings/github.com/blacknode/blacknode";
   import { app } from "./state.svelte";
   import { envBadge } from "./envColor";
@@ -36,6 +37,9 @@
   let promptingPassword = $state(false);
   let runtimePassword = $state("");
   let showHostPicker = $state(false);
+  
+  let promptingTofu = $state(false);
+  let tofuPayload = $state<{host: string, port: number, keyType: string, presentedFp: string, presentedKey: string} | null>(null);
 
   let containerEl: HTMLDivElement | undefined = $state();
   let term: Terminal | undefined;
@@ -265,8 +269,36 @@
       term?.focus();
       startLatencyPolling();
     } catch (e: any) {
+      const msg = String(e?.message ?? e);
+      if (msg.includes("UNKNOWN_HOST_KEY:")) {
+        const jsonStr = msg.split("UNKNOWN_HOST_KEY:")[1];
+        try {
+          tofuPayload = JSON.parse(jsonStr);
+          promptingTofu = true;
+          status = "idle";
+          return;
+        } catch {}
+      }
       status = "error";
-      errorMsg = String(e?.message ?? e);
+      errorMsg = msg;
+    }
+  }
+
+  async function approveTofu() {
+    if (!tofuPayload || !app.selectedHostID) return;
+    try {
+      await HostService.ApproveHostKey(
+        tofuPayload.host,
+        tofuPayload.port,
+        tofuPayload.keyType,
+        tofuPayload.presentedKey,
+        tofuPayload.presentedFp
+      );
+      promptingTofu = false;
+      await actuallyConnect(app.selectedHostID);
+    } catch (e: any) {
+      status = "error";
+      errorMsg = "TOFU approval failed: " + String(e?.message ?? e);
     }
   }
 
@@ -512,5 +544,38 @@
         </div>
       </div>
     {/if}
+  {/if}
+
+  {#if promptingTofu && tofuPayload}
+    <div class="absolute inset-0 z-20 flex items-center justify-center bg-black/70">
+      <div class="w-96 overflow-hidden border border-[var(--color-warn)] surface-2 shadow-2xl shadow-black/80">
+        <div class="flex items-center gap-2 border-b hairline px-4 py-2.5 bg-[var(--color-warn)]/10">
+          <AlertTriangle size="11" class="text-[var(--color-warn)]" />
+          <span class="font-mono text-[10px] font-bold uppercase tracking-widest text-[var(--color-warn)]">UNKNOWN HOST KEY</span>
+        </div>
+        <div class="p-4 font-mono">
+          <p class="mb-3 text-[11px] text-[var(--color-text-2)] leading-relaxed">
+            The authenticity of host <span class="text-[var(--color-accent)]">{tofuPayload.host}</span> can't be established.
+          </p>
+          <div class="mb-4 bg-[var(--color-surface-3)] p-3 border hairline text-[10px] space-y-1.5">
+            <div class="text-[var(--color-text-4)]">Key Type</div>
+            <div class="text-[var(--color-text-1)]">{tofuPayload.keyType}</div>
+            <div class="text-[var(--color-text-4)] mt-2">Fingerprint</div>
+            <div class="text-[var(--color-text-1)] break-all">{tofuPayload.presentedFp}</div>
+          </div>
+          <p class="text-[10px] text-[var(--color-text-3)]">Are you sure you want to continue connecting?</p>
+        </div>
+        <div class="flex items-center justify-end gap-2 border-t hairline px-4 py-2.5">
+          <button
+            class="border border-[var(--color-line)] px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest text-[var(--color-text-3)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)] transition-all"
+            onclick={() => { promptingTofu = false; void openLocal(); }}>CANCEL</button
+          >
+          <button
+            class="border border-[var(--color-warn)]/50 bg-[var(--color-warn)]/10 px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest text-[var(--color-warn)] hover:bg-[var(--color-warn)]/15 transition-all"
+            onclick={approveTofu}>TRUST & CONNECT</button
+          >
+        </div>
+      </div>
+    </div>
   {/if}
 </div>
