@@ -524,7 +524,7 @@
               class="w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-[11px] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50"
               bind:value={runtimePassword}
               placeholder="•••••••••"
-              autofocus
+              use:focus
               onkeydown={(e) => e.key === "Enter" && submitPassword()}
             />
             <p class="mt-2 font-mono text-[9px] text-[var(--color-text-4)] uppercase tracking-widest">

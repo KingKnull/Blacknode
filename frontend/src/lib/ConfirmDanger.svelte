@@ -1,5 +1,6 @@
 <script lang="ts">
   import { AlertTriangle, ShieldAlert, X } from "@lucide/svelte";
+  import { focus } from "./actions";
 
   type Props = {
     title: string;
