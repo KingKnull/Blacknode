@@ -9,7 +9,7 @@ content: <div align="center">
   <p>
     <img src="https://img.shields.io/badge/status-alpha-orange" alt="alpha" />
     <img src="https://img.shields.io/badge/wails-v3.0.0--alpha-cyan" alt="wails v3 alpha" />
-    <img src="https://img.shields.io/badge/go-1.26-00ADD8" alt="go 1.26" />
+    <img src="https://img.shields.io/badge/go-1.25-00ADD8" alt="go 1.25" />
     <img src="https://img.shields.io/badge/svelte-5-FF3E00" alt="svelte 5" />
     <img src="https://img.shields.io/badge/tailwind-4-38BDF8" alt="tailwind 4" />
     <img src="https://img.shields.io/badge/license-MIT-green" alt="license mit" />
@@ -126,7 +126,7 @@ exist. The Wails v3 framework itself is alpha, so expect churn there too. See
 
 ### Run from source
 
-Prerequisites: Go 1.26+, Node 22+, [Wails v3 CLI](https://v3.wails.io/),
+Prerequisites: Go 1.25+, Node 22+, [Wails v3 CLI](https://v3.wails.io/),
 [Task](https://taskfile.dev/) (optional, recommended).
 
 ```bash

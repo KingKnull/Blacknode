@@ -124,7 +124,16 @@ func (d *Dialer) authFor(t Target) ([]ssh.AuthMethod, error) {
 			return nil, fmt.Errorf("agent dial: %w", err)
 		}
 		ag := agent.NewClient(conn)
-		return []ssh.AuthMethod{ssh.PublicKeysCallback(ag.Signers)}, nil
+		// Resolve signers eagerly and close the socket so we don't leak
+		// a file descriptor per connection. The signers slice is all the
+		// SSH handshake needs; keeping the agent connection open is
+		// unnecessary.
+		signers, err := ag.Signers()
+		_ = conn.Close()
+		if err != nil {
+			return nil, fmt.Errorf("agent signers: %w", err)
+		}
+		return []ssh.AuthMethod{ssh.PublicKeys(signers...)}, nil
 
 	default:
 		return nil, fmt.Errorf("unknown auth method: %s", t.AuthMethod)

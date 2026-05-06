@@ -121,7 +121,22 @@ func (s *SSHService) connectWith(sessionID string, t sshconn.Target, cols, rows 
 		s.mu.Unlock()
 		return fmt.Errorf("session %s already connected", sessionID)
 	}
+	// Place a sentinel so concurrent callers with the same sessionID
+	// see the entry and bail out instead of racing through the dial.
+	s.sessions[sessionID] = nil
 	s.mu.Unlock()
+
+	// If anything below fails, remove the sentinel.
+	removeSentinel := true
+	defer func() {
+		if removeSentinel {
+			s.mu.Lock()
+			if s.sessions[sessionID] == nil {
+				delete(s.sessions, sessionID)
+			}
+			s.mu.Unlock()
+		}
+	}()
 
 	client, err := s.dialer.Dial(t)
 	if err != nil {
@@ -172,6 +187,7 @@ func (s *SSHService) connectWith(sessionID string, t sshconn.Target, cols, rows 
 	title := fmt.Sprintf("%s@%s", t.User, t.Host)
 	s.hostMeta[sessionID] = title
 	s.mu.Unlock()
+	removeSentinel = false // session is live; don't clean up the map entry
 
 	if s.recordingEnabled() {
 		_ = s.rec.Start(sessionID, recorder.StartMeta{

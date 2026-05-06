@@ -12,6 +12,7 @@ import (
 
 	"github.com/blacknode/blacknode/internal/store"
 	"github.com/gen2brain/beeep"
+	"github.com/google/uuid"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
@@ -214,5 +215,5 @@ func (s *NotificationService) Config() (NotifyConfig, error) {
 }
 
 func newNotifID() string {
-	return time.Now().Format("20060102-150405.000000")
+	return uuid.NewString()
 }

@@ -173,7 +173,7 @@ func (s *ProcessService) ServiceAction(hostID, password, unit, action string, us
 	if !allowed[a] {
 		return "", fmt.Errorf("unsupported action: %s", action)
 	}
-	cmd := fmt.Sprintf("systemctl %s %s 2>&1", a, shellEscape(unit))
+	cmd := sshconn.Cmd("systemctl %s %s 2>&1", a, unit)
 	if useSudo && a != "status" {
 		cmd = "sudo -n " + cmd
 	}
@@ -183,8 +183,8 @@ func (s *ProcessService) ServiceAction(hostID, password, unit, action string, us
 	return out, nil
 }
 
-// run mirrors the helper in containerservice.go and networkservice.go.
-// Duplication is deliberate — keeps the three services independent.
+// run dials via the pool and executes a one-shot command using the
+// centralized sshconn.Run helper.
 func (s *ProcessService) run(hostID, password, cmd string, timeout time.Duration) (string, error) {
 	h, err := s.hosts.Get(hostID)
 	if err != nil {
@@ -195,31 +195,5 @@ func (s *ProcessService) run(hostID, password, cmd string, timeout time.Duration
 		return "", err
 	}
 	defer release()
-
-	sess, err := client.NewSession()
-	if err != nil {
-		return "", fmt.Errorf("session: %w", err)
-	}
-	defer sess.Close()
-
-	var out strings.Builder
-	sess.Stdout = &out
-	sess.Stderr = &out
-
-	done := make(chan error, 1)
-	go func() { done <- sess.Run(cmd) }()
-
-	select {
-	case <-time.After(timeout):
-		return out.String(), fmt.Errorf("timeout")
-	case err := <-done:
-		body := out.String()
-		if len(body) > 5*1024*1024 {
-			body = body[:5*1024*1024] + "\n[output truncated at 5MB]"
-		}
-		if err != nil {
-			return body, err
-		}
-		return body, nil
-	}
+	return sshconn.Run(client, cmd, timeout)
 }

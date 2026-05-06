@@ -11,7 +11,6 @@ import (
 	"github.com/blacknode/blacknode/internal/sshconn"
 	"github.com/blacknode/blacknode/internal/store"
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"golang.org/x/crypto/ssh"
 )
 
 type HostMetrics struct {
@@ -225,7 +224,7 @@ func (s *MetricsService) collect(hostID, password string) HostMetrics {
 	}
 	defer release()
 
-	out, err := runOneShot(client, metricsCommand)
+	out, err := sshconn.RunSimple(client, metricsCommand)
 	if err != nil {
 		m.Error = err.Error()
 		return m
@@ -290,20 +289,7 @@ func (s *MetricsService) collect(hostID, password string) HostMetrics {
 	return m
 }
 
-func runOneShot(client *ssh.Client, cmd string) (string, error) {
-	sess, err := client.NewSession()
-	if err != nil {
-		return "", fmt.Errorf("session: %w", err)
-	}
-	defer sess.Close()
-	var out strings.Builder
-	sess.Stdout = &out
-	sess.Stderr = &out
-	if err := sess.Run(cmd); err != nil {
-		return out.String(), err
-	}
-	return out.String(), nil
-}
+
 
 func parseMetrics(out string) map[string]float64 {
 	m := map[string]float64{}

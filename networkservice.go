@@ -57,7 +57,7 @@ func (s *NetworkService) Ping(hostID, password, target string, count int) (PingR
 	if count <= 0 || count > 50 {
 		count = 4
 	}
-	cmd := fmt.Sprintf("ping -c %d -W 2 %s 2>&1 || true", count, shellEscape(target))
+	cmd := sshconn.Cmd("ping -c %d -W 2 %s 2>&1 || true", count, target)
 	out, err := s.run(hostID, password, cmd, 30*time.Second)
 	res := PingResult{Target: target, RawOutput: out}
 	if err != nil {
@@ -109,13 +109,13 @@ func (s *NetworkService) DNSLookup(hostID, password, target, recordType string) 
 
 	// Prefer dig; fall back to host(1); last resort nslookup. The chained
 	// command avoids parsing pain when the first tool isn't installed.
-	cmd := fmt.Sprintf(
+	cmd := sshconn.Cmd(
 		`(command -v dig >/dev/null 2>&1 && dig +noall +answer %s %s) || `+
 			`(command -v host >/dev/null 2>&1 && host -t %s %s) || `+
 			`nslookup -type=%s %s`,
-		shellEscape(target), rt,
-		rt, shellEscape(target),
-		rt, shellEscape(target),
+		target, rt,
+		rt, target,
+		rt, target,
 	)
 	out, err := s.run(hostID, password, cmd, 15*time.Second)
 	res := DNSResult{Target: target, RawOutput: out}
@@ -389,10 +389,8 @@ func tlsVersionName(v uint16) string {
 
 // ---------- shared ----------------------------------------------------------
 
-// run is a slim wrapper around session-exec for one-shot remote commands.
-// 5MB output cap; identical to the helper in containerservice.go but
-// duplicating it here avoids a package-level helper hierarchy that would
-// drag the two services together unnecessarily.
+// run is a slim wrapper that dials via the pool and executes a one-shot
+// command using the centralized sshconn.Run helper.
 func (s *NetworkService) run(hostID, password, cmd string, timeout time.Duration) (string, error) {
 	h, err := s.hosts.Get(hostID)
 	if err != nil {
@@ -403,31 +401,5 @@ func (s *NetworkService) run(hostID, password, cmd string, timeout time.Duration
 		return "", err
 	}
 	defer release()
-
-	sess, err := client.NewSession()
-	if err != nil {
-		return "", fmt.Errorf("session: %w", err)
-	}
-	defer sess.Close()
-
-	var out strings.Builder
-	sess.Stdout = &out
-	sess.Stderr = &out
-
-	done := make(chan error, 1)
-	go func() { done <- sess.Run(cmd) }()
-
-	select {
-	case <-time.After(timeout):
-		return out.String(), fmt.Errorf("timeout")
-	case err := <-done:
-		body := out.String()
-		if len(body) > 5*1024*1024 {
-			body = body[:5*1024*1024] + "\n[output truncated at 5MB]"
-		}
-		if err != nil {
-			return body, err
-		}
-		return body, nil
-	}
+	return sshconn.Run(client, cmd, timeout)
 }

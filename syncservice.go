@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -135,9 +134,18 @@ func (s *SyncService) Push() (SyncStatus, error) {
 		return SyncStatus{}, errors.New("sync endpoint not configured")
 	}
 
-	hosts, _ := s.hosts.List()
-	snippets, _ := s.snippets.List()
-	httpReqs, _ := s.httpRequests.List()
+	hosts, err := s.hosts.List()
+	if err != nil {
+		return SyncStatus{}, fmt.Errorf("list hosts: %w", err)
+	}
+	snippets, err := s.snippets.List()
+	if err != nil {
+		return SyncStatus{}, fmt.Errorf("list snippets: %w", err)
+	}
+	httpReqs, err := s.httpRequests.List()
+	if err != nil {
+		return SyncStatus{}, fmt.Errorf("list http requests: %w", err)
+	}
 	snap := SyncSnapshot{
 		Version:      syncVersion,
 		CreatedAt:    time.Now().Unix(),
@@ -265,10 +273,23 @@ func (s *SyncService) mergeHosts(remote []store.Host) {
 		if !ok {
 			// Inserts don't exist on the Hosts store today; create.
 			_, _ = s.hosts.Create(r)
+			s.activity.Record(store.Activity{
+				Source: "sync",
+				Kind:   "sync.merge.insert",
+				Title:  fmt.Sprintf("Sync: new host %q from remote", r.Name),
+				HostID: r.ID, HostName: r.Name,
+			})
 			continue
 		}
 		if r.UpdatedAt > l.UpdatedAt {
 			_ = s.hosts.Update(r)
+			s.activity.Record(store.Activity{
+				Source: "sync",
+				Kind:   "sync.merge.overwrite",
+				Level:  "warn",
+				Title:  fmt.Sprintf("Sync: host %q overwritten by remote", r.Name),
+				HostID: r.ID, HostName: r.Name,
+			})
 		}
 	}
 }
@@ -287,6 +308,12 @@ func (s *SyncService) mergeSnippets(remote []store.Snippet) {
 		}
 		if r.UpdatedAt > l.UpdatedAt {
 			_ = s.snippets.Update(r)
+			s.activity.Record(store.Activity{
+				Source: "sync",
+				Kind:   "sync.merge.overwrite",
+				Level:  "warn",
+				Title:  fmt.Sprintf("Sync: snippet %q overwritten by remote", r.Name),
+			})
 		}
 	}
 }
@@ -537,6 +564,4 @@ func (s *SyncService) TeamActivity(limit int) ([]store.TeamActivity, error) {
 	return s.team.Recent(limit)
 }
 
-// keep base64 imported for potential future use of opaque opaque-token
-// secrets the vault can seal.
-var _ = base64.StdEncoding
+

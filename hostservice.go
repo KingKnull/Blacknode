@@ -310,6 +310,4 @@ func expandTilde(p, home string) string {
 	return p
 }
 
-// keep errors imported for future tightening — currently unused but worth
-// having ready when we expand validation.
-var _ = errors.New
+

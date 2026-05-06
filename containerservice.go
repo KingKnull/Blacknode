@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,7 +9,6 @@ import (
 
 	"github.com/blacknode/blacknode/internal/sshconn"
 	"github.com/blacknode/blacknode/internal/store"
-	"golang.org/x/crypto/ssh"
 )
 
 // Container is the wire shape returned to the frontend. We deliberately keep
@@ -56,7 +54,7 @@ func (s *ContainerService) Containers(hostID, password string, includeStopped bo
 	if includeStopped {
 		cmd = `docker ps -a --format '{{json .}}'`
 	}
-	out, err := s.runOneShot(hostID, password, cmd, 15*time.Second)
+	out, err := s.runCmd(hostID, password, cmd, 15*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -101,14 +99,14 @@ func (s *ContainerService) ContainerLogs(hostID, password, containerID string, l
 	if lines <= 0 || lines > 5000 {
 		lines = 200
 	}
-	return s.runOneShot(hostID, password,
-		fmt.Sprintf("docker logs --tail %d %s 2>&1", lines, shellEscape(containerID)),
+	return s.runCmd(hostID, password,
+		sshconn.Cmd("docker logs --tail %d %s 2>&1", lines, containerID),
 		30*time.Second)
 }
 
 // Namespaces returns the list of kubernetes namespaces visible on the host.
 func (s *ContainerService) Namespaces(hostID, password string) ([]string, error) {
-	out, err := s.runOneShot(hostID, password,
+	out, err := s.runCmd(hostID, password,
 		"kubectl get namespaces --no-headers -o custom-columns=NAME:.metadata.name",
 		15*time.Second)
 	if err != nil {
@@ -131,9 +129,9 @@ func (s *ContainerService) Pods(hostID, password, namespace string) ([]Pod, erro
 	if namespace == "" {
 		cmd = `kubectl get pods -A -o json`
 	} else {
-		cmd = fmt.Sprintf(`kubectl get pods -n %s -o json`, shellEscape(namespace))
+		cmd = sshconn.Cmd(`kubectl get pods -n %s -o json`, namespace)
 	}
-	out, err := s.runOneShot(hostID, password, cmd, 30*time.Second)
+	out, err := s.runCmd(hostID, password, cmd, 30*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -192,19 +190,20 @@ func (s *ContainerService) PodLogs(hostID, password, namespace, pod, container s
 	}
 	cmd := fmt.Sprintf("kubectl logs --tail=%d", lines)
 	if namespace != "" {
-		cmd += fmt.Sprintf(" -n %s", shellEscape(namespace))
+		cmd += " -n " + sshconn.ShellEscape(namespace)
 	}
-	cmd += " " + shellEscape(pod)
+	cmd += " " + sshconn.ShellEscape(pod)
 	if container != "" {
-		cmd += " -c " + shellEscape(container)
+		cmd += " -c " + sshconn.ShellEscape(container)
 	}
 	cmd += " 2>&1"
-	return s.runOneShot(hostID, password, cmd, 30*time.Second)
+	return s.runCmd(hostID, password, cmd, 30*time.Second)
 }
 
-// runOneShot dials, opens a session, runs cmd, reads stdout, and returns it.
-// 5MB output cap so a runaway log doesn't OOM us.
-func (s *ContainerService) runOneShot(hostID, password, cmd string, timeout time.Duration) (string, error) {
+// runCmd dials, opens a session, runs cmd via sshconn.Run, and returns the
+// output. kubectl/docker frequently exit non-zero with a useful error message
+// on stderr — we surface that as the body, not an opaque error.
+func (s *ContainerService) runCmd(hostID, password, cmd string, timeout time.Duration) (string, error) {
 	h, err := s.hosts.Get(hostID)
 	if err != nil {
 		return "", fmt.Errorf("load host: %w", err)
@@ -215,48 +214,14 @@ func (s *ContainerService) runOneShot(hostID, password, cmd string, timeout time
 	}
 	defer release()
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	sess, err := client.NewSession()
+	out, err := sshconn.Run(client, cmd, timeout)
 	if err != nil {
-		return "", fmt.Errorf("session: %w", err)
-	}
-	defer sess.Close()
-
-	var stdout strings.Builder
-	sess.Stdout = &stdout
-	sess.Stderr = &stdout
-
-	done := make(chan error, 1)
-	go func() { done <- sess.Run(cmd) }()
-
-	select {
-	case <-ctx.Done():
-		_ = sess.Signal(ssh.SIGKILL)
-		return stdout.String(), errors.New("timeout")
-	case err := <-done:
-		out := stdout.String()
-		if len(out) > 5*1024*1024 {
-			out = out[:5*1024*1024] + "\n[output truncated at 5MB]"
+		if strings.TrimSpace(out) != "" {
+			return out, nil
 		}
-		// kubectl/docker frequently exit non-zero with a useful error message
-		// on stderr — return that as the body, not an opaque error.
-		if err != nil {
-			if strings.TrimSpace(out) != "" {
-				return out, nil
-			}
-			return "", err
-		}
-		return out, nil
+		return "", err
 	}
-}
-
-// shellEscape wraps a value in single quotes for safe inclusion in a shell
-// command. Single quotes inside the value are split-escaped: `it's` becomes
-// `'it'\''s'`. This is the standard POSIX-safe pattern.
-func shellEscape(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+	return out, nil
 }
 
 func shortID(s string) string {

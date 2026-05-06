@@ -120,6 +120,12 @@ func main() {
 	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
+
+	// Graceful shutdown: drain resources that would otherwise leak.
+	pfSvc.StopAll()
+	pool.Close()
+	close(autoLock.stop)
+	log.Printf("=== blacknode stop ===")
 }
 
 // setupFileLogger tees stderr-style log output to <data-dir>/blacknode.log so
