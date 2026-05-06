@@ -69,10 +69,11 @@ func TestSyncService_PushPull_Success(t *testing.T) {
 	var storedBlob []byte
 	mux := server.Config.Handler.(*http.ServeMux)
 	mux.HandleFunc("/blacknode-sync.bin", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "PUT" {
+		switch r.Method {
+		case "PUT":
 			storedBlob, _ = io.ReadAll(r.Body)
 			w.WriteHeader(http.StatusOK)
-		} else if r.Method == "GET" {
+		case "GET":
 			if storedBlob == nil {
 				w.WriteHeader(http.StatusNotFound)
 			} else {

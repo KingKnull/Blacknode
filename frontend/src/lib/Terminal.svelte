@@ -7,8 +7,9 @@
   import {
     LocalShellService,
     SSHService,
-    HostService,
+    TerminalService,
   } from "../../bindings/github.com/blacknode/blacknode/internal/service";
+  import { focus } from "./actions";
   import { app } from "./state.svelte";
   import { envBadge } from "./envColor";
   import {

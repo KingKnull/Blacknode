@@ -16,6 +16,7 @@
     Loader2,
     Tag as TagIcon,
   } from "@lucide/svelte";
+  import { focus } from "./actions";
 
   let list = $state<Snippet[]>([]);
   let filter = $state("");
@@ -265,7 +266,7 @@
             class="mt-1 w-full rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 outline-none"
             bind:value={f_name}
             placeholder="restart nginx"
-            autofocus
+            use:focus
           />
         </label>
         <label class="block">
