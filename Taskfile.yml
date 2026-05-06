@@ -10,6 +10,7 @@ includes:
 
 vars:
   APP_NAME: "blacknode"
+  VERSION: "0.1.0"
   BIN_DIR: "bin"
   VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
 
@@ -23,6 +24,11 @@ tasks:
     summary: Packages a production build of the application
     cmds:
       - task: "{{OS}}:package"
+
+  deb:
+    summary: Packages the application as a Linux .deb
+    cmds:
+      - task: linux:create:deb
 
   run:
     summary: Runs the application
