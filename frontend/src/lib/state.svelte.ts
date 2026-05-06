@@ -130,6 +130,16 @@ class AppState {
 
   async refreshVault() {
     this.vault = (await VaultService.Status()) as VaultStatus;
+    if (this.vault.initialized && !this.vault.unlocked) {
+      try {
+        const ok = await VaultService.TryAutoUnlock();
+        if (ok) {
+          this.vault = (await VaultService.Status()) as VaultStatus;
+        }
+      } catch {
+        // ignore auto-unlock failures — user will just see the lock screen
+      }
+    }
   }
 
   async refreshHosts() {

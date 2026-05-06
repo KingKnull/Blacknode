@@ -9,6 +9,13 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
+/**
+ * ForgetPassphrase removes the stored remember-me token.
+ */
+export function ForgetPassphrase(): $CancellablePromise<void> {
+    return $Call.ByID(2604778051);
+}
+
 export function Lock(): $CancellablePromise<void> {
     return $Call.ByID(2499084893);
 }
@@ -23,8 +30,26 @@ export function Status(): $CancellablePromise<$models.VaultStatus> {
     });
 }
 
+/**
+ * TryAutoUnlock checks for a stored remember-me token. If one exists and hasn't
+ * expired, it decrypts the passphrase and unlocks the vault silently. Returns
+ * true when the vault was successfully auto-unlocked.
+ */
+export function TryAutoUnlock(): $CancellablePromise<boolean> {
+    return $Call.ByID(3222173244);
+}
+
 export function Unlock(passphrase: string): $CancellablePromise<void> {
     return $Call.ByID(367107486, passphrase);
+}
+
+/**
+ * UnlockAndRemember unlocks the vault and, if rememberDays > 0, persists the
+ * passphrase (encrypted with a random machine key) so future app launches can
+ * auto-unlock without prompting.
+ */
+export function UnlockAndRemember(passphrase: string, rememberDays: number): $CancellablePromise<void> {
+    return $Call.ByID(647994632, passphrase, rememberDays);
 }
 
 // Private type creation functions

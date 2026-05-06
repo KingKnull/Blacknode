@@ -12,6 +12,7 @@
   let confirmPass = $state("");
   let busy = $state(false);
   let err = $state("");
+  let rememberMe = $state(true); // Default to true as it is a common pattern for "Remember Me"
 
   async function setup() {
     err = "";
@@ -40,7 +41,11 @@
     err = "";
     busy = true;
     try {
-      await VaultService.Unlock(passphrase);
+      if (rememberMe) {
+        await VaultService.UnlockAndRemember(passphrase, 60);
+      } else {
+        await VaultService.Unlock(passphrase);
+      }
       await app.refreshAll();
       passphrase = "";
     } catch (e: any) {
@@ -147,6 +152,18 @@
               bind:value={passphrase}
               onkeydown={(e) => e.key === "Enter" && unlock()}
             />
+            
+            <div class="flex items-center gap-2 px-1">
+              <input
+                id="rememberMe"
+                type="checkbox"
+                bind:checked={rememberMe}
+                class="h-3 w-3 rounded border hairline bg-[var(--color-surface-3)] text-[var(--color-accent)] focus:ring-0"
+              />
+              <label for="rememberMe" class="select-none font-mono text-[9px] uppercase tracking-widest text-[var(--color-text-4)] hover:text-[var(--color-text-2)] cursor-pointer transition-colors">
+                Remember for 60 days
+              </label>
+            </div>
             {#if err}
               <p class="font-mono text-[9px] uppercase tracking-widest text-[var(--color-danger)]">ERR: {err}</p>
             {/if}

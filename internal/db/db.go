@@ -216,6 +216,9 @@ func OpenPath(dbPath string) (*DB, error) {
 	if _, err := conn.Exec(schemaHostSecrets); err != nil {
 		return nil, fmt.Errorf("apply host secrets schema: %w", err)
 	}
+	if _, err := conn.Exec(schemaVaultRemember); err != nil {
+		return nil, fmt.Errorf("apply vault remember schema: %w", err)
+	}
 	return &DB{conn}, nil
 }
 
@@ -250,4 +253,14 @@ CREATE TABLE IF NOT EXISTS port_forwards (
 );
 
 CREATE INDEX IF NOT EXISTS idx_forwards_host ON port_forwards(host_id);
+`
+
+const schemaVaultRemember = `
+CREATE TABLE IF NOT EXISTS vault_remember (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    encrypted_passphrase BLOB NOT NULL,
+    nonce BLOB NOT NULL,
+    machine_key BLOB NOT NULL,
+    expires_at INTEGER NOT NULL
+);
 `

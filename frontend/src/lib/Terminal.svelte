@@ -7,6 +7,7 @@
   import {
     LocalShellService,
     SSHService,
+    HostService,
   } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import { focus } from "./actions";
   import { app } from "./state.svelte";
@@ -269,7 +270,18 @@
       term?.focus();
       startLatencyPolling();
     } catch (e: any) {
-      const msg = String(e?.message ?? e);
+      let msg = String(e?.message ?? e);
+
+      // Wails v3 wraps Go errors as Error objects whose .message is a
+      // serialised JSON envelope: {"message":"…","cause":{},"kind":"…"}.
+      // Unwrap to get the real Go error string inside.
+      if (msg.trimStart().startsWith("{")) {
+        try {
+          const parsed = JSON.parse(msg);
+          if (parsed.message) msg = parsed.message;
+        } catch {}
+      }
+
       if (msg.includes("UNKNOWN_HOST_KEY:")) {
         const jsonStr = msg.split("UNKNOWN_HOST_KEY:")[1];
         try {

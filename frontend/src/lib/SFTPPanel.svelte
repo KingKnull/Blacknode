@@ -37,7 +37,14 @@
       entries = ((await SFTPService.List(host.id, password, path)) ??
         []) as SFTPEntry[];
     } catch (e: any) {
-      err = String(e?.message ?? e);
+      let msg = String(e?.message ?? e);
+      if (msg.trimStart().startsWith("{")) {
+        try {
+          const parsed = JSON.parse(msg);
+          if (parsed.message) msg = parsed.message;
+        } catch {}
+      }
+      err = msg;
     } finally {
       busy = false;
     }

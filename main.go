@@ -75,7 +75,7 @@ func main() {
 		Description: "Remote infrastructure command platform",
 		Icon:        iconData,
 		Services: []application.Service{
-			application.NewService(service.NewVaultService(v, activityRec)),
+			application.NewService(service.NewVaultService(v, conn.DB, activityRec)),
 			application.NewService(settingsSvc),
 			application.NewService(service.NewKeyService(keys, v)),
 			application.NewService(service.NewHostService(hosts, knownHosts, v, conn.DB)),
