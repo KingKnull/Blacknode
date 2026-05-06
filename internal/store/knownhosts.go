@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -30,8 +31,23 @@ func (e *HostKeyMismatchError) Error() string {
 		e.Host, e.Port, e.KeyType, e.StoredFP, e.PresentedFP)
 }
 
+// UnknownHostKeyError signals that we have never seen this host before.
+type UnknownHostKeyError struct {
+	Host         string `json:"host"`
+	Port         int    `json:"port"`
+	KeyType      string `json:"keyType"`
+	PresentedFP  string `json:"presentedFp"`
+	PresentedKey string `json:"presentedKey"`
+}
+
+func (e *UnknownHostKeyError) Error() string {
+	b, _ := json.Marshal(e)
+	return "UNKNOWN_HOST_KEY:" + string(b)
+}
+
 // Callback returns an ssh.HostKeyCallback that implements TOFU: first time
-// we see a host, we record its key; thereafter we require an exact match.
+// we see a host, we reject it with UnknownHostKeyError so the frontend can
+// prompt the user. Thereafter we require an exact match.
 func (s *KnownHosts) Callback() ssh.HostKeyCallback {
 	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 		host, port, err := net.SplitHostPort(hostname)
@@ -55,11 +71,13 @@ func (s *KnownHosts) Callback() ssh.HostKeyCallback {
 			host, p, keyType,
 		).Scan(&storedPub, &storedFP)
 		if errors.Is(err, sql.ErrNoRows) {
-			_, insErr := s.db.Exec(
-				`INSERT INTO known_hosts (host, port, key_type, public_key, fingerprint, added_at) VALUES (?, ?, ?, ?, ?, ?)`,
-				host, p, keyType, pub, fp, time.Now().Unix(),
-			)
-			return insErr
+			return &UnknownHostKeyError{
+				Host:         host,
+				Port:         p,
+				KeyType:      keyType,
+				PresentedFP:  fp,
+				PresentedKey: pub,
+			}
 		}
 		if err != nil {
 			return err
@@ -84,3 +102,12 @@ type rawKey []byte
 func (rawKey) Type() string         { return "" }
 func (k rawKey) Marshal() []byte    { return []byte(k) }
 func (rawKey) Verify([]byte, *ssh.Signature) error { return nil }
+
+// Approve explicitly trusts a new host key and saves it to the database.
+func (s *KnownHosts) Approve(host string, port int, keyType, pubKeyBase64, fingerprint string) error {
+	_, err := s.db.Exec(
+		`INSERT INTO known_hosts (host, port, key_type, public_key, fingerprint, added_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		host, port, keyType, pubKeyBase64, fingerprint, time.Now().Unix(),
+	)
+	return err
+}

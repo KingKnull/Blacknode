@@ -16,13 +16,14 @@ import (
 )
 
 type HostService struct {
-	hosts *store.Hosts
-	vault *vault.Vault
-	db    *sql.DB
+	hosts      *store.Hosts
+	knownHosts *store.KnownHosts
+	vault      *vault.Vault
+	db         *sql.DB
 }
 
-func NewHostService(h *store.Hosts, v *vault.Vault, db *sql.DB) *HostService {
-	return &HostService{hosts: h, vault: v, db: db}
+func NewHostService(h *store.Hosts, kh *store.KnownHosts, v *vault.Vault, db *sql.DB) *HostService {
+	return &HostService{hosts: h, knownHosts: kh, vault: v, db: db}
 }
 
 func (s *HostService) List() ([]store.Host, error)             { return s.hosts.List() }
@@ -30,6 +31,11 @@ func (s *HostService) Get(id string) (store.Host, error)       { return s.hosts.
 func (s *HostService) Create(h store.Host) (store.Host, error) { return s.hosts.Create(h) }
 func (s *HostService) Update(h store.Host) error               { return s.hosts.Update(h) }
 func (s *HostService) Delete(id string) error                  { return s.hosts.Delete(id) }
+
+// ApproveHostKey permanently trusts a host's SSH key fingerprint.
+func (s *HostService) ApproveHostKey(host string, port int, keyType, pubKeyBase64, fingerprint string) error {
+	return s.knownHosts.Approve(host, port, keyType, pubKeyBase64, fingerprint)
+}
 
 // SetPassword encrypts and persists the SSH password for a host in the vault.
 // The plaintext password is never stored; only AES-256-GCM ciphertext.

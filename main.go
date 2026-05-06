@@ -72,7 +72,7 @@ func main() {
 			application.NewService(NewVaultService(v, activityRec)),
 			application.NewService(settingsSvc),
 			application.NewService(NewKeyService(keys, v)),
-			application.NewService(NewHostService(hosts, v, conn.DB)),
+			application.NewService(NewHostService(hosts, knownHosts, v, conn.DB)),
 			application.NewService(NewLocalShellService(recMgr, recordings, settings)),
 			application.NewService(NewSSHService(dialer, hosts, recMgr, recordings, settings)),
 			application.NewService(NewSFTPService(pool, hosts)),
