@@ -4,32 +4,30 @@
 @import "@xterm/xterm/css/xterm.css";
 
 @theme {
-  --font-sans: "JetBrains Mono Variable", ui-monospace, "Cascadia Mono", Consolas, monospace;
-  --font-mono: "JetBrains Mono Variable", ui-monospace, "Cascadia Mono",
-    Consolas, monospace;
+  /* Inter for UI chrome; JetBrains Mono reserved for terminal/code/paths */
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, "Cascadia Mono", Consolas, monospace;
 
-  /* ── BLACKNODE DARK — Phosphor Noir ────────────────────────────────────
-     Surface stack: deeper = more background. Chromatic black with green tint.
-     Refined for better depth perception and contrast. */
-  --color-surface-0: #030405;   /* void — true app bg (warmer) */
-  --color-surface-1: #070a0c;   /* panel bg (richer) */
-  --color-surface-2: #0c1014;   /* cards / drawers (more visible separation) */
-  --color-surface-3: #131a1e;   /* inputs / hover cells (clearer contrast) */
-  --color-surface-4: #1a2226;   /* raised borders */
+  /* ── BLACKNODE DARK — Phosphor Noir ──────────────────────────────── */
+  --color-surface-0: #030405;
+  --color-surface-1: #070a0c;
+  --color-surface-2: #0c1014;
+  --color-surface-3: #131a1e;
+  --color-surface-4: #1a2226;
 
   --color-line: #0e1a1c;
   --color-line-strong: #1a2c2e;
 
-  --color-text-1: #dffff0;      /* brighter primary for better readability */
-  --color-text-2: #7ecfa8;      /* warmer mid phosphor */
-  --color-text-3: #548e6f;      /* improved dim contrast */
-  --color-text-4: #2e5443;      /* ghost phosphor */
+  /* Text — raised floor on text-3/4 for legibility */
+  --color-text-1: #dffff0;
+  --color-text-2: #7ecfa8;
+  --color-text-3: #5aaa80;
+  --color-text-4: #4a7a60;
 
-  /* Phosphor green accent — the ONE color that pops */
   --color-accent: #00ff88;
   --color-accent-soft: rgba(0, 255, 136, 0.07);
   --color-accent-strong: rgba(0, 255, 136, 0.22);
-  --color-accent-2: #00d4ff;    /* cyan secondary — info & status elements */
+  --color-accent-2: #00d4ff;
   --color-danger: #ff3c3c;
   --color-warn: #ffaa00;
   --color-info: #00aaff;
@@ -38,7 +36,7 @@
   --color-code-bg: #030405;
 }
 
-/* ── LIGHT THEME ── warm paper terminal ─────────────────────────────── */
+/* ── LIGHT THEME ─────────────────────────────────────────────────── */
 [data-theme="light"] {
   --color-surface-0: #f5f2eb;
   --color-surface-1: #ede9df;
@@ -51,8 +49,8 @@
 
   --color-text-1: #1a1208;
   --color-text-2: #3d3422;
-  --color-text-3: #6b5e42;
-  --color-text-4: #9a8e78;
+  --color-text-3: #5a4e36;
+  --color-text-4: #7a6e58;
 
   --color-accent: #0a6640;
   --color-accent-soft: rgba(10, 102, 64, 0.10);
@@ -65,9 +63,7 @@
   --color-code-bg: #eceadf;
 }
 
-html,
-body,
-#app {
+html, body, #app {
   width: 100%;
   height: 100%;
   margin: 0;
@@ -83,16 +79,17 @@ html, body {
 }
 
 body {
-  font-family: var(--font-mono);
-  font-feature-settings: "calt", "liga";
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.5;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   -webkit-font-smoothing: antialiased;
-  /* Enhanced phosphor scanline texture on dark */
   background-image: repeating-linear-gradient(
     0deg,
     transparent,
     transparent 2px,
-    rgba(0, 255, 136, 0.015) 2px,
-    rgba(0, 255, 136, 0.015) 4px
+    rgba(0, 255, 136, 0.012) 2px,
+    rgba(0, 255, 136, 0.012) 4px
   );
 }
 
@@ -100,34 +97,24 @@ body {
   background-image: none;
 }
 
-/* ── Scrollbars — phosphor-tinted, ultra-slim ───────────────────── */
-*::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
-}
-*::-webkit-scrollbar-track {
-  background: transparent;
-}
-*::-webkit-scrollbar-thumb {
-  background: var(--color-line-strong);
-  border-radius: 2px;
-}
-*::-webkit-scrollbar-thumb:hover {
-  background: var(--color-accent-strong);
+/* Mono applied only where it earns its keep */
+.font-mono, code, kbd, pre {
+  font-family: var(--font-mono);
+  font-feature-settings: "calt", "liga";
 }
 
-/* xterm.js polish */
-.xterm-viewport::-webkit-scrollbar {
-  width: 5px;
-}
+/* ── Scrollbars ────────────────────────────────────────────────── */
+*::-webkit-scrollbar { width: 5px; height: 5px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--color-line-strong); border-radius: 2px; }
+*::-webkit-scrollbar-thumb:hover { background: var(--color-accent-strong); }
+.xterm-viewport::-webkit-scrollbar { width: 5px; }
 
-/* Inputs — mono font, crisp phosphor focus ring */
-input,
-textarea,
-select,
-button {
+input, textarea, select, button {
   font-family: inherit;
+  font-size: inherit;
 }
+
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
@@ -136,64 +123,33 @@ select:focus-visible {
   box-shadow: 0 0 0 3px rgba(0, 255, 136, 0.08), 0 0 12px rgba(0, 255, 136, 0.04);
 }
 
-/* ── Utility classes ────────────────────────────────────────────── */
-@utility surface-1 {
-  background-color: var(--color-surface-1);
-}
-@utility surface-2 {
-  background-color: var(--color-surface-2);
-}
-@utility surface-3 {
-  background-color: var(--color-surface-3);
-}
-@utility hairline {
-  border-color: var(--color-line);
-}
-@utility hairline-strong {
-  border-color: var(--color-line-strong);
-}
-
-/* Phosphor glow strip below the top bar */
+/* ── Utility classes ───────────────────────────────────────────── */
+@utility surface-1 { background-color: var(--color-surface-1); }
+@utility surface-2 { background-color: var(--color-surface-2); }
+@utility surface-3 { background-color: var(--color-surface-3); }
+@utility hairline { border-color: var(--color-line); }
+@utility hairline-strong { border-color: var(--color-line-strong); }
 @utility gloss {
-  background-image: linear-gradient(
-    180deg,
-    rgba(0, 255, 136, 0.05) 0%,
-    transparent 100%
-  );
+  background-image: linear-gradient(180deg, rgba(0, 255, 136, 0.05) 0%, transparent 100%);
 }
-
-/* Frosted glass effect for premium overlays */
 @utility glass {
   backdrop-filter: blur(12px) saturate(1.2);
   -webkit-backdrop-filter: blur(12px) saturate(1.2);
 }
 
-/* ── Animations ──────────────────────────────────────────────── */
-
+/* ── Animations ────────────────────────────────────────────────── */
 @keyframes pulse-soft {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.3; }
 }
-.pulse-soft {
-  animation: pulse-soft 1.4s ease-in-out infinite;
-}
+.pulse-soft { animation: pulse-soft 1.4s ease-in-out infinite; }
 
-/* Smoother glow pulse — used on active elements and status indicators */
 @keyframes glow-pulse {
-  0%, 100% {
-    opacity: 1;
-    filter: drop-shadow(0 0 2px currentColor);
-  }
-  50% {
-    opacity: 0.6;
-    filter: drop-shadow(0 0 6px currentColor);
-  }
+  0%, 100% { opacity: 1; filter: drop-shadow(0 0 2px currentColor); }
+  50%       { opacity: 0.6; filter: drop-shadow(0 0 6px currentColor); }
 }
-.glow-pulse {
-  animation: glow-pulse 2s ease-in-out infinite;
-}
+.glow-pulse { animation: glow-pulse 2s ease-in-out infinite; }
 
-/* Phosphor flicker — used on the live indicator dot (subtler, more realistic) */
 @keyframes phosphor-flicker {
   0%, 93%, 95%, 97%, 100% { opacity: 1; }
   94% { opacity: 0.7; }
@@ -201,74 +157,49 @@ select:focus-visible {
   98% { opacity: 0.5; }
   99% { opacity: 0.9; }
 }
-.phosphor-flicker {
-  animation: phosphor-flicker 5s ease-in-out infinite;
-}
+.phosphor-flicker { animation: phosphor-flicker 5s ease-in-out infinite; }
 
-/* Shimmer — loading state with a moving highlight */
 @keyframes shimmer {
   from { background-position: -200% 0; }
   to   { background-position: 200% 0; }
 }
 .shimmer {
-  background: linear-gradient(
-    90deg,
-    var(--color-surface-2) 25%,
-    var(--color-surface-3) 50%,
-    var(--color-surface-2) 75%
-  );
+  background: linear-gradient(90deg, var(--color-surface-2) 25%, var(--color-surface-3) 50%, var(--color-surface-2) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.8s ease-in-out infinite;
 }
 
-/* Slide-in from right for toasts */
 @keyframes slide-in-right {
   from { transform: translateX(calc(100% + 12px)); opacity: 0; }
-  to   { transform: translateX(0);                opacity: 1; }
+  to   { transform: translateX(0); opacity: 1; }
 }
-.toast-enter {
-  animation: slide-in-right 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
+.toast-enter { animation: slide-in-right 0.18s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
-/* Fade up for modals / overlays */
 @keyframes fade-up {
   from { transform: translateY(6px); opacity: 0; }
-  to   { transform: translateY(0);   opacity: 1; }
+  to   { transform: translateY(0); opacity: 1; }
 }
-.fade-up {
-  animation: fade-up 0.16s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
+.fade-up { animation: fade-up 0.16s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
-/* Slide up for panel transitions */
 @keyframes slide-up {
   from { transform: translateY(10px); opacity: 0; }
-  to   { transform: translateY(0);    opacity: 1; }
+  to   { transform: translateY(0); opacity: 1; }
 }
-.slide-up {
-  animation: slide-up 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
+.slide-up { animation: slide-up 0.2s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
-/* Progress bar shrink — used by toasts */
 @keyframes shrink-x {
   from { transform: scaleX(1); }
   to   { transform: scaleX(0); }
 }
-.toast-progress {
-  transform-origin: left;
-  animation: shrink-x 6s linear forwards;
-}
+.toast-progress { transform-origin: left; animation: shrink-x 6s linear forwards; }
 
-/* Boot-in for the whole app — fast, sharp */
 @keyframes boot-in {
   from { opacity: 0; transform: translateY(2px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-#app {
-  animation: boot-in 0.25s ease-out both;
-}
+#app { animation: boot-in 0.25s ease-out both; }
 
-/* Sudo pill entrance */
 @keyframes sudo-enter {
   from { transform: translateX(-50%) translateY(8px); opacity: 0; }
-  to   { transform: translateX(-50%) translateY(0);   opacity: 1; }
+  to   { transform: translateX(-50%) translateY(0); opacity: 1; }
 }

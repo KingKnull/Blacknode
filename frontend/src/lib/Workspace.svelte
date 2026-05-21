@@ -512,75 +512,72 @@
 >
   <!-- ── TOP BAR ─────────────────────────────────────────────────────── -->
   <header class="relative flex h-9 shrink-0 items-center gap-3 border-b hairline surface-1 px-3" style="backdrop-filter: blur(12px);">
-    <!-- Phosphor glow line -->
     <div class="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[var(--color-accent)]/40 to-transparent"></div>
-    <!-- Bracket logo mark -->
     <div class="flex items-center gap-1.5 select-none">
       <Logo size={16} />
     </div>
 
-    <!-- Divider -->
     <div class="h-4 w-px bg-[var(--color-line-strong)]"></div>
 
-    <!-- Path breadcrumb showing current view -->
-    <span class="font-mono text-[11px] tracking-widest text-[var(--color-text-3)] uppercase">
+    <!-- Breadcrumb — Inter, normal case, readable size -->
+    <span class="text-xs text-[var(--color-text-4)] tracking-wide">
       /{app.view}
     </span>
 
-    <div class="ml-auto flex items-center gap-1 font-mono text-[10px]">
+    <div class="ml-auto flex items-center gap-1 text-xs">
       <!-- Broadcast -->
       <button
-        class="flex items-center gap-1.5 border px-2 py-0.5 transition-all {app.broadcastEnabled
+        class="flex items-center gap-1.5 border px-2 py-0.5 rounded-sm transition-all {app.broadcastEnabled
           ? 'border-[var(--color-warn)]/40 bg-[var(--color-warn)]/8 text-[var(--color-warn)]'
           : 'border-[var(--color-line)] text-[var(--color-text-4)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-2)]'}"
         onclick={() => {
           if (!app.broadcastEnabled && app.broadcastSet.size === 0) {
-            app.toast('warn', 'NO PANES IN BROADCAST', 'Click the \'cast\' button on each pane you want to include before enabling broadcast.');
+            app.toast('warn', 'No panes in broadcast', 'Click the Cast button on each pane you want to include before enabling broadcast.');
           }
           app.broadcastEnabled = !app.broadcastEnabled;
         }}
         title={app.broadcastEnabled ? `Broadcasting to ${app.broadcastSet.size} panes` : 'Enable multi-pane keystroke broadcast'}
       >
-        <Radio size="10" class={app.broadcastEnabled ? 'pulse-soft' : ''} />
-        <span>CAST</span>
+        <Radio size="11" class={app.broadcastEnabled ? 'pulse-soft' : ''} />
+        <span>Cast</span>
         {#if app.broadcastEnabled}
-          <span class="border border-[var(--color-warn)]/30 bg-[var(--color-warn)]/15 px-1 text-[9px]">{app.broadcastSet.size}</span>
+          <span class="font-mono border border-[var(--color-warn)]/30 bg-[var(--color-warn)]/15 px-1 text-[10px]">{app.broadcastSet.size}</span>
         {/if}
       </button>
 
       <!-- AI -->
       <button
-        class="flex items-center gap-1.5 border px-2 py-0.5 transition-all {app.aiOpen
+        class="flex items-center gap-1.5 border px-2 py-0.5 rounded-sm transition-all {app.aiOpen
           ? 'border-[var(--color-accent)]/50 bg-[var(--color-accent)]/8 text-[var(--color-accent)]'
           : 'border-[var(--color-line)] text-[var(--color-text-4)] hover:border-[var(--color-accent)]/30 hover:text-[var(--color-accent)]'}"
         onclick={() => (app.aiOpen = !app.aiOpen)}
         title="AI assistant (⌘I)"
       >
-        <Sparkles size="10" />
+        <Sparkles size="11" />
         <span>AI</span>
       </button>
 
       <!-- Command palette -->
       <button
-        class="flex items-center gap-1.5 border border-[var(--color-line)] px-2 py-0.5 text-[var(--color-text-4)] transition-all hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-2)]"
+        class="flex items-center gap-1.5 border border-[var(--color-line)] px-2 py-0.5 rounded-sm text-[var(--color-text-4)] transition-all hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-2)]"
         onclick={() => (app.paletteOpen = true)}
         title="Command palette (⌘K)"
       >
-        <Command size="10" />
-        <span>CMD</span>
-        <kbd class="border border-[var(--color-line-strong)] px-1 text-[8px] opacity-50">⌘K</kbd>
+        <Command size="11" />
+        <span>Palette</span>
+        <kbd class="font-mono border border-[var(--color-line-strong)] px-1 text-[10px] opacity-50">⌘K</kbd>
       </button>
 
       <div class="mx-1 h-3 w-px bg-[var(--color-line-strong)]"></div>
 
-      <!-- Vault -->
+      <!-- Vault lock -->
       <button
-        class="flex items-center gap-1.5 border border-[var(--color-line)] px-2 py-0.5 text-[var(--color-text-4)] hover:border-[var(--color-accent)]/30 hover:text-[var(--color-accent)]"
+        class="flex items-center gap-1.5 border border-[var(--color-line)] px-2 py-0.5 rounded-sm text-[var(--color-text-4)] hover:border-[var(--color-accent)]/30 hover:text-[var(--color-accent)]"
         onclick={lockVault}
-        title="Vault unlocked — click to lock everything"
+        title="Vault unlocked — click to lock"
       >
-        <Lock size="10" class="text-[var(--color-accent)]" />
-        <span class="text-[var(--color-accent)]">LOCK VAULT</span>
+        <Lock size="11" class="text-[var(--color-accent)]" />
+        <span class="text-[var(--color-accent)]">Lock vault</span>
       </button>
     </div>
   </header>
@@ -611,9 +608,9 @@
           <v.Icon size="14" strokeWidth={app.view === v.id ? 1.5 : 1.5} />
 
           {#if hoveredNav === v.label}
-            <div class="absolute left-full z-50 ml-2 whitespace-nowrap border hairline-strong bg-[var(--color-surface-2)] px-2.5 py-1.5 font-mono text-[10px] tracking-wider text-[var(--color-text-1)] shadow-xl pointer-events-none fade-up"
+            <div class="absolute left-full z-50 ml-2 whitespace-nowrap border hairline-strong bg-[var(--color-surface-2)] px-2.5 py-1.5 text-xs text-[var(--color-text-1)] shadow-xl pointer-events-none fade-up"
               style="box-shadow: 0 0 12px rgba(0,255,136,0.06), 0 4px 16px rgba(0,0,0,0.4);">
-              {v.label.toUpperCase()}
+              {v.label}
             </div>
           {/if}
         </button>
@@ -638,8 +635,8 @@
             {/if}
             <Puzzle size="14" />
             {#if hoveredNav === panel.title}
-              <div class="absolute left-full z-50 ml-2 whitespace-nowrap border hairline-strong bg-[var(--color-surface-2)] px-2 py-1 font-mono text-[10px] tracking-wider text-[var(--color-text-1)] shadow-xl pointer-events-none">
-                {panel.title.toUpperCase()}
+              <div class="absolute left-full z-50 ml-2 whitespace-nowrap border hairline-strong bg-[var(--color-surface-2)] px-2.5 py-1.5 text-xs text-[var(--color-text-1)] shadow-xl pointer-events-none fade-up">
+                {panel.title}
               </div>
             {/if}
           </button>
@@ -679,7 +676,7 @@
                   tabindex="0"
                   draggable="true"
                   aria-selected={isActive}
-                  class="group flex max-w-[160px] cursor-pointer items-center gap-1.5 border-r border-[var(--color-line)] px-2.5 py-1 font-mono text-[10px] select-none transition-colors {isActive
+                  class="group flex max-w-[180px] cursor-pointer items-center gap-1.5 border-r border-[var(--color-line)] px-3 py-1 text-xs select-none transition-colors {isActive
                     ? 'bg-[var(--color-surface-2)] text-[var(--color-text-1)] border-t border-t-[var(--color-accent)]/60'
                     : 'text-[var(--color-text-4)] hover:bg-[var(--color-surface-2)]/50 hover:text-[var(--color-text-3)]'}"
                   class:opacity-40={dragSourceID === t.id}
@@ -694,11 +691,11 @@
                   ondrop={(e) => e.preventDefault()}
                 >
                   {#if isActive}
-                    <span class="h-1.5 w-1.5 shrink-0 bg-[var(--color-accent)] phosphor-flicker shadow-[0_0_4px_var(--color-accent)]"></span>
+                    <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-accent)] phosphor-flicker shadow-[0_0_4px_var(--color-accent)]"></span>
                   {:else}
-                    <span class="h-1 w-1 shrink-0 bg-[var(--color-text-4)]"></span>
+                    <span class="h-1 w-1 shrink-0 rounded-full bg-[var(--color-text-4)]"></span>
                   {/if}
-                  <span class="truncate">{label}</span>
+                  <span class="truncate font-mono text-[11px]">{label}</span>
                   <span
                     role="button"
                     tabindex="0"
