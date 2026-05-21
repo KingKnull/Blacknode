@@ -12,6 +12,7 @@ import (
 	"github.com/blacknode/blacknode/internal/sshconn"
 	"github.com/blacknode/blacknode/internal/store"
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"golang.org/x/crypto/ssh"
 )
 
 // LogLine is the per-line payload streamed to the frontend during a log run.
@@ -30,6 +31,7 @@ type LogLine struct {
 type logStream struct {
 	cancel   context.CancelFunc
 	releases []func()
+	sessions []*ssh.Session
 }
 
 type LogsService struct {
@@ -101,6 +103,9 @@ func (s *LogsService) Start(streamID string, hostIDs []string, passwords map[str
 			s.emit(streamID, id, h.Name, fmt.Sprintf("[session error: %v]", err), true)
 			continue
 		}
+		s.mu.Lock()
+		state.sessions = append(state.sessions, sess)
+		s.mu.Unlock()
 		stdout, err := sess.StdoutPipe()
 		if err != nil {
 			sess.Close()
@@ -170,6 +175,9 @@ func (s *LogsService) Stop(streamID string) error {
 		return nil
 	}
 	state.cancel()
+	for _, sess := range state.sessions {
+		_ = sess.Close()
+	}
 	for _, rel := range state.releases {
 		rel()
 	}
@@ -183,6 +191,9 @@ func (s *LogsService) StopAll(ctx context.Context) error {
 	s.mu.Unlock()
 	for _, state := range streams {
 		state.cancel()
+		for _, sess := range state.sessions {
+			_ = sess.Close()
+		}
 		for _, rel := range state.releases {
 			rel()
 		}

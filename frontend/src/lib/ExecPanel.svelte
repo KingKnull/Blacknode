@@ -16,6 +16,7 @@
     AlertTriangle,
     Server,
     Sparkles,
+    Columns,
   } from "@lucide/svelte";
 
   let command = $state("uname -a");
@@ -130,6 +131,29 @@
       r: results[id],
     })),
   );
+
+  // ── Compare / diff mode ───────────────────────────────────────────
+  let compareMode = $state(false);
+  let referenceHostID = $state<string | null>(null);
+
+  // Finished results for comparison
+  let finishedResults = $derived(
+    resultList.filter((item) => item.r && !item.r.error && item.host),
+  );
+
+  // Compute line-level diff. Returns lines with a `same` flag.
+  function diffLines(refOutput: string, targetOutput: string): { text: string; same: boolean }[] {
+    const refLines = refOutput.split('\n');
+    const targetLines = targetOutput.split('\n');
+    const maxLen = Math.max(refLines.length, targetLines.length);
+    const result: { text: string; same: boolean }[] = [];
+    for (let i = 0; i < maxLen; i++) {
+      const tLine = targetLines[i] ?? '';
+      const rLine = refLines[i] ?? '';
+      result.push({ text: tLine, same: tLine === rLine });
+    }
+    return result;
+  }
 </script>
 
 <div class="flex h-full flex-col">
@@ -173,6 +197,17 @@
           <Play size="14" />Run
         {/if}
       </button>
+      {#if finishedResults.length >= 2}
+        <button
+          class="flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm font-medium transition-all {compareMode
+            ? 'border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 text-[var(--color-accent)]'
+            : 'border-[var(--color-line)] text-[var(--color-text-3)] hover:border-[var(--color-accent)]/30 hover:text-[var(--color-accent)]'}"
+          onclick={() => { compareMode = !compareMode; if (compareMode && !referenceHostID && finishedResults[0]?.host) referenceHostID = finishedResults[0].host.id; }}
+          title="Compare output across hosts"
+        >
+          <Columns size="14" />{compareMode ? 'List' : 'Compare'}
+        </button>
+      {/if}
     </div>
   </div>
 
@@ -217,6 +252,46 @@
     </div>
 
     <div class="overflow-y-auto">
+      {#if compareMode && finishedResults.length >= 2}
+        <!-- Reference host picker -->
+        <div class="flex items-center gap-2 border-b hairline surface-1 px-4 py-2 text-[11px]">
+          <span class="text-[var(--color-text-3)]">Reference:</span>
+          <select
+            class="rounded border hairline bg-[var(--color-surface-3)] px-2 py-1 font-mono text-[10px] text-[var(--color-text-1)] outline-none"
+            onchange={(e) => referenceHostID = (e.target as HTMLSelectElement).value}
+          >
+            {#each finishedResults as item}
+              {#if item.host}
+                <option value={item.host.id} selected={item.host.id === referenceHostID}>{item.host.name}</option>
+              {/if}
+            {/each}
+          </select>
+        </div>
+        <!-- Side-by-side diff grid -->
+        {@const refResult = finishedResults.find((i) => i.host?.id === referenceHostID)}
+        <div class="grid overflow-x-auto" style:grid-template-columns="repeat({finishedResults.length}, minmax(300px, 1fr))">
+          {#each finishedResults as item}
+            {#if item.host && item.r}
+              <div class="border-r hairline">
+                <div class="flex items-center gap-2 surface-1 px-3 py-1.5 text-[10px] font-mono border-b hairline">
+                  <Server size="10" class="text-[var(--color-text-3)]" />
+                  <span class="text-[var(--color-text-1)] font-medium">{item.host.name}</span>
+                  {#if item.host.id === referenceHostID}
+                    <span class="rounded border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/10 px-1 text-[8px] text-[var(--color-accent)]">REF</span>
+                  {/if}
+                  {#if item.r.exitCode === 0}
+                    <Check size="10" class="ml-auto text-[var(--color-accent)]" />
+                  {:else}
+                    <AlertTriangle size="10" class="ml-auto text-[var(--color-warn)]" />
+                  {/if}
+                </div>
+                <pre class="overflow-x-auto px-3 py-2 font-mono text-[10px] leading-relaxed">{#if refResult && item.host.id !== referenceHostID}{#each diffLines(refResult.r?.stdout ?? '', item.r.stdout ?? '') as line}<span class="{line.same ? 'text-[var(--color-text-4)]' : 'text-[var(--color-text-1)] bg-[var(--color-accent)]/8'}">{line.text}
+</span>{/each}{:else}{item.r.stdout ?? ''}{/if}</pre>
+              </div>
+            {/if}
+          {/each}
+        </div>
+      {:else}
       {#each resultList as item (item.host?.id)}
         {#if item.host}
           <div class="border-b hairline">
@@ -288,6 +363,7 @@
             </p>
           </div>
         </div>
+      {/if}
       {/if}
     </div>
   </div>

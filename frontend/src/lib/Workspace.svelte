@@ -88,9 +88,49 @@
   let tabs = $state<Tab[]>([firstTab]);
   let activeTabID = $state(firstTab.id);
 
+  // Session persistence — save tab layout info to localStorage.
+  // We save tab count, active view, and connected host IDs for restoration.
+  const SESSION_KEY = 'blacknode.session';
+
+  function saveSession() {
+    try {
+      const data = {
+        tabCount: tabs.length,
+        view: app.view,
+        sidebarWidth: sidebarWidth,
+      };
+      localStorage.setItem(SESSION_KEY, JSON.stringify(data));
+    } catch { /* ignore quota errors */ }
+  }
+
+  function restoreSession() {
+    try {
+      const raw = localStorage.getItem(SESSION_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      // Restore extra tabs beyond the initial one
+      if (data.tabCount > 1) {
+        for (let i = 1; i < data.tabCount; i++) {
+          tabs.push(makeTab());
+        }
+      }
+      if (data.view) app.view = data.view;
+      if (data.sidebarWidth) sidebarWidth = data.sidebarWidth;
+    } catch { /* ignore parse errors */ }
+  }
+
+  // Save session whenever tabs change
+  $effect(() => {
+    // Access reactive deps
+    tabs.length;
+    app.view;
+    saveSession();
+  });
+
   let vaultLockOff: (() => void) | undefined;
 
   onMount(() => {
+    restoreSession();
     void app.refreshAll();
 
     // Activity tracking for vault auto-lock.
@@ -98,17 +138,55 @@
     window.addEventListener("keydown", onActivity, true);
     window.addEventListener("mousedown", onActivity, true);
 
-    // Cmd+I toggles AI drawer; Cmd+T new terminal tab.
+    // Keyboard shortcuts for workspace navigation.
     const onShortcut = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
       if (!mod) return;
       const k = e.key.toLowerCase();
+
+      // Cmd+I — toggle AI drawer
       if (k === "i") {
         e.preventDefault();
         app.aiOpen = !app.aiOpen;
-      } else if (k === "t" && app.view === "terminals") {
+        return;
+      }
+
+      // Tab shortcuts only apply in terminals view
+      if (app.view !== "terminals") return;
+
+      // Cmd+T — new tab
+      if (k === "t") {
         e.preventDefault();
         newTab();
+        return;
+      }
+
+      // Cmd+W — close active tab
+      if (k === "w") {
+        e.preventDefault();
+        closeTab(activeTabID);
+        return;
+      }
+
+      // Ctrl+Tab / Ctrl+Shift+Tab — cycle tabs
+      if (e.key === "Tab") {
+        e.preventDefault();
+        const idx = tabs.findIndex((t) => t.id === activeTabID);
+        if (e.shiftKey) {
+          activeTabID = tabs[(idx - 1 + tabs.length) % tabs.length].id;
+        } else {
+          activeTabID = tabs[(idx + 1) % tabs.length].id;
+        }
+        return;
+      }
+
+      // Ctrl+1-9 — jump to tab N
+      const num = parseInt(e.key);
+      if (num >= 1 && num <= 9) {
+        e.preventDefault();
+        const target = tabs[Math.min(num - 1, tabs.length - 1)];
+        if (target) activeTabID = target.id;
+        return;
       }
     };
     window.addEventListener("keydown", onShortcut);

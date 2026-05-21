@@ -87,22 +87,34 @@ func (p *Pool) Get(t Target) (*ssh.Client, func(), error) {
 	entry, ok := p.entries[key]
 	if ok && entry.client != nil {
 		idleFor := time.Since(entry.lastUsed)
-		entry.refs++
-		entry.lastUsed = time.Now()
-		p.mu.Unlock()
 		if idleFor < probeIdleAfter {
-			// Recently active — skip the probe.
+			// Recently active — skip the probe, hand back directly.
+			entry.refs++
+			entry.lastUsed = time.Now()
+			p.mu.Unlock()
 			return entry.client, p.release(key), nil
 		}
-		// Idle for a while; probe before handing back. If dead, drop and
-		// fall through to dial a fresh one.
-		if _, _, err := entry.client.SendRequest("keepalive@blacknode", true, nil); err != nil {
+		// Idle long enough to warrant a probe. Don't increment refs yet —
+		// if the probe fails we discard the entry and fall through to dial.
+		client := entry.client
+		p.mu.Unlock()
+		if _, _, err := client.SendRequest("keepalive@blacknode", true, nil); err == nil {
+			// Still alive — now claim a ref under the lock.
 			p.mu.Lock()
-			entry.refs--
-			p.discardLocked(key, entry)
+			if live, ok := p.entries[key]; ok && live.client == client {
+				live.refs++
+				live.lastUsed = time.Now()
+				p.mu.Unlock()
+				return client, p.release(key), nil
+			}
 			p.mu.Unlock()
+			// Entry was replaced while we probed; fall through to dial.
 		} else {
-			return entry.client, p.release(key), nil
+			p.mu.Lock()
+			if stale, ok := p.entries[key]; ok && stale.client == client {
+				p.discardLocked(key, stale)
+			}
+			p.mu.Unlock()
 		}
 	} else {
 		p.mu.Unlock()

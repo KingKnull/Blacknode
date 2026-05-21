@@ -122,7 +122,7 @@ func (s *LocalShellService) Open(ctx context.Context, sessionID string, cols, ro
 }
 
 func (s *LocalShellService) pump(id string, r io.Reader, cancel <-chan struct{}) {
-	buf := make([]byte, 4096)
+	buf := make([]byte, 32768) // 32KB — reduces event emission overhead for bulk output
 	for {
 		select {
 		case <-cancel:

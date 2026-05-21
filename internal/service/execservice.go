@@ -58,7 +58,7 @@ func (s *ExecService) Run(ctx context.Context, runID, command string, hostIDs []
 		timeoutSeconds = 60
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSeconds)*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, time.Duration(timeoutSeconds)*time.Second)
 	defer cancel()
 
 	startedAt := time.Now()

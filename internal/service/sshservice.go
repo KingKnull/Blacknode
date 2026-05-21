@@ -40,10 +40,11 @@ type SSHConnectOptions struct {
 }
 
 type sshSession struct {
-	client  *ssh.Client
-	session *ssh.Session
-	stdin   io.WriteCloser
-	cancel  chan struct{}
+	client     *ssh.Client
+	session    *ssh.Session
+	stdin      io.WriteCloser
+	cancel     chan struct{}
+	cancelOnce sync.Once
 }
 
 type SSHService struct {
@@ -203,6 +204,9 @@ func (s *SSHService) connectWith(sessionID string, t sshconn.Target, cols, rows 
 	go s.pump(sessionID, stdout, state.cancel)
 	go s.pump(sessionID, stderr, state.cancel)
 
+	// Keepalive heartbeat: detect dead connections within 30s.
+	go s.keepalive(sessionID, client, state.cancel)
+
 	go func() {
 		err := sess.Wait()
 		reason := "ok"
@@ -219,7 +223,7 @@ func (s *SSHService) connectWith(sessionID string, t sshconn.Target, cols, rows 
 }
 
 func (s *SSHService) pump(id string, r io.Reader, cancel <-chan struct{}) {
-	buf := make([]byte, 4096)
+	buf := make([]byte, 32768) // 32KB — reduces event emission overhead for bulk output
 	for {
 		select {
 		case <-cancel:
@@ -233,6 +237,32 @@ func (s *SSHService) pump(id string, r io.Reader, cancel <-chan struct{}) {
 		}
 		if err != nil {
 			return
+		}
+	}
+}
+
+// keepalive sends a request every 30s to detect dead connections early.
+// If 3 consecutive probes fail, the session is cleaned up and a
+// terminal:exit event is emitted so the frontend can auto-reconnect.
+func (s *SSHService) keepalive(sessionID string, client *ssh.Client, cancel <-chan struct{}) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	failures := 0
+	for {
+		select {
+		case <-cancel:
+			return
+		case <-ticker.C:
+			_, _, err := client.SendRequest("keepalive@blacknode", true, nil)
+			if err != nil {
+				failures++
+				if failures >= 3 {
+					s.cleanup(sessionID, "keepalive timeout")
+					return
+				}
+			} else {
+				failures = 0
+			}
 		}
 	}
 }
@@ -319,7 +349,7 @@ func (s *SSHService) cleanup(sessionID, reason string) {
 	if !ok {
 		return
 	}
-	close(state.cancel)
+	state.cancelOnce.Do(func() { close(state.cancel) })
 	_ = state.stdin.Close()
 	_ = state.session.Close()
 	_ = state.client.Close()

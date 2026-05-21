@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { onMount } from "svelte";
+  import { Events } from "@wailsio/runtime";
   import { HostService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { Host } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { app } from "./state.svelte";
@@ -72,6 +74,25 @@
     if (m === "agent") return Lock;
     return Lock;
   };
+
+  // Listen for metrics:update events and store in app state.
+  onMount(() => {
+    return Events.On("metrics:update", (e: any) => {
+      const m = e?.data;
+      if (!m || !m.hostID) return;
+      app.hostMetrics[m.hostID] = {
+        cpuPercent: m.cpuPercent ?? 0,
+        memPercent: m.memPercent ?? 0,
+        diskPercent: m.diskPercent ?? 0,
+      };
+    });
+  });
+
+  function metricColor(pct: number): string {
+    if (pct > 85) return 'var(--color-danger)';
+    if (pct > 60) return 'var(--color-warn)';
+    return 'var(--color-accent)';
+  }
 </script>
 
 <div class="flex h-full w-full flex-col">
@@ -158,6 +179,29 @@
               <div class="truncate font-mono text-[9px] text-[var(--color-text-4)]">
                 {h.username}@{h.host}:{h.port}
               </div>
+              {#if app.hostMetrics[h.id]}
+                {@const m = app.hostMetrics[h.id]}
+                <div class="mt-0.5 flex items-center gap-1.5 font-mono text-[8px] text-[var(--color-text-4)]">
+                  <span class="flex items-center gap-0.5">
+                    <span class="uppercase">C</span>
+                    <span class="inline-block h-[3px] w-[20px] rounded-full bg-[var(--color-surface-3)] overflow-hidden">
+                      <span class="block h-full rounded-full transition-all duration-500" style:width="{Math.min(m.cpuPercent, 100)}%" style:background={metricColor(m.cpuPercent)}></span>
+                    </span>
+                  </span>
+                  <span class="flex items-center gap-0.5">
+                    <span class="uppercase">M</span>
+                    <span class="inline-block h-[3px] w-[20px] rounded-full bg-[var(--color-surface-3)] overflow-hidden">
+                      <span class="block h-full rounded-full transition-all duration-500" style:width="{Math.min(m.memPercent, 100)}%" style:background={metricColor(m.memPercent)}></span>
+                    </span>
+                  </span>
+                  <span class="flex items-center gap-0.5">
+                    <span class="uppercase">D</span>
+                    <span class="inline-block h-[3px] w-[20px] rounded-full bg-[var(--color-surface-3)] overflow-hidden">
+                      <span class="block h-full rounded-full transition-all duration-500" style:width="{Math.min(m.diskPercent, 100)}%" style:background={metricColor(m.diskPercent)}></span>
+                    </span>
+                  </span>
+                </div>
+              {/if}
             </div>
           </button>
 

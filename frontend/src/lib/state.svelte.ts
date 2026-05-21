@@ -61,6 +61,9 @@ class AppState {
   aiOpen = $state(false);
   recordingsEnabled = $state(false);
 
+  // Live metrics per host — populated by metrics:update events.
+  hostMetrics = $state<Record<string, { cpuPercent: number; memPercent: number; diskPercent: number }>>({});
+
   // Track which hosts have active terminal sessions connected
   connectedHosts = $state<Set<string>>(new Set());
 

@@ -156,6 +156,8 @@ func (s *MetricsService) StopAll(ctx context.Context) {
 		cancel()
 		delete(s.cancels, id)
 	}
+	s.prevCPU = make(map[string]struct{ total, idle float64 })
+	s.prevNet = make(map[string]netSample)
 	s.mu.Unlock()
 }
 

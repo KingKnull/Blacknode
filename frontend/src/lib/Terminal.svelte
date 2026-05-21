@@ -5,6 +5,7 @@
   import { FitAddon } from "@xterm/addon-fit";
   import { WebLinksAddon } from "@xterm/addon-web-links";
   import { SearchAddon } from "@xterm/addon-search";
+  import { WebglAddon } from "@xterm/addon-webgl";
   import {
     LocalShellService,
     SSHService,
@@ -55,6 +56,15 @@
 
   // Splash screen tracking
   let hasTyped = $state(false);
+
+  // Auto-reconnect state
+  let reconnecting = $state(false);
+  let reconnectAttempt = $state(0);
+  let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+  const MAX_RECONNECT_ATTEMPTS = 3;
+
+  // Debounce helper
+  let resizeDebounce: ReturnType<typeof setTimeout> | undefined;
 
   let containerEl: HTMLDivElement | undefined = $state();
   let term: Terminal | undefined;
@@ -267,6 +277,15 @@
     term.open(containerEl!);
     fit.fit();
 
+    // GPU-accelerated rendering via WebGL. Falls back to canvas if unavailable.
+    try {
+      const webgl = new WebglAddon();
+      webgl.onContextLoss(() => { webgl.dispose(); });
+      term.loadAddon(webgl);
+    } catch {
+      // WebGL not available — canvas renderer is fine
+    }
+
     term.attachCustomKeyEventHandler((e) => {
       // Ctrl+Shift+S → instant sudo password auto-fill.
       if (e.type === "keydown" && e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "s") {
@@ -300,7 +319,11 @@
       if (mode === "remote" && status === "connected") void SSHService.Resize(sessionID, cols, rows);
     });
 
-    resizeObs = new ResizeObserver(() => fit?.fit());
+    // Debounced resize — prevents 50+ resize events during window drag.
+    resizeObs = new ResizeObserver(() => {
+      clearTimeout(resizeDebounce);
+      resizeDebounce = setTimeout(() => fit?.fit(), 80);
+    });
     resizeObs.observe(containerEl!);
 
     dataOff = Events.On("terminal:data", (e: any) => {
@@ -313,10 +336,37 @@
     exitOff = Events.On("terminal:exit", (e: any) => {
       const p = e?.data;
       if (!p || p.sessionID !== sessionID) return;
-      term?.writeln(`\r\n\x1b[90m[session closed: ${p.reason ?? ""}]\x1b[0m`);
-      if (mode === "remote") {
+      const reason = p.reason ?? "";
+      term?.writeln(`\r\n\x1b[90m[session closed: ${reason}]\x1b[0m`);
+      if (mode === "remote" && connectedHostID) {
+        // Auto-reconnect for remote sessions (network drops, keepalive timeout)
+        const hostID = connectedHostID;
         connectedHostID = null;
-        status = "idle";
+        stopLatencyPolling();
+        if (reconnectAttempt < MAX_RECONNECT_ATTEMPTS) {
+          reconnecting = true;
+          const delay = Math.pow(2, reconnectAttempt + 1) * 1000; // 2s, 4s, 8s
+          reconnectAttempt++;
+          term?.writeln(`\x1b[33m[reconnecting in ${delay / 1000}s... attempt ${reconnectAttempt}/${MAX_RECONNECT_ATTEMPTS}]\x1b[0m`);
+          reconnectTimer = setTimeout(async () => {
+            try {
+              await actuallyConnect(hostID);
+              reconnecting = false;
+              reconnectAttempt = 0;
+              term?.writeln(`\x1b[32m[reconnected]\x1b[0m`);
+            } catch {
+              // actuallyConnect sets status = "error" on failure,
+              // and the next terminal:exit will trigger another attempt
+              reconnecting = false;
+              status = "error";
+              errorMsg = "Reconnection failed";
+            }
+          }, delay);
+        } else {
+          reconnecting = false;
+          reconnectAttempt = 0;
+          status = "idle";
+        }
       } else {
         status = "idle";
       }
@@ -344,6 +394,8 @@
     resizeObs?.disconnect();
     stopLatencyPolling();
     if (sudoPillTimer) clearTimeout(sudoPillTimer);
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    clearTimeout(resizeDebounce);
     app.unregisterBroadcastSink(sessionID);
     term?.dispose();
     if (mode === "local" && status === "running") void LocalShellService.Close(sessionID);
@@ -585,6 +637,12 @@
       {:else if status === "connecting"}
         <Loader2 size="12" class="animate-spin text-[var(--color-text-3)]" />
         <span class="text-[var(--color-text-3)]">connecting…</span>
+      {/if}
+      {#if reconnecting}
+        <span class="ml-1 flex items-center gap-1 font-mono text-[10px] text-[var(--color-warn)]">
+          <Loader2 size="10" class="animate-spin" />
+          reconnecting ({reconnectAttempt}/{MAX_RECONNECT_ATTEMPTS})
+        </span>
       {/if}
     {/if}
 

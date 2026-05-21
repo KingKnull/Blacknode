@@ -246,6 +246,11 @@ func proxy(a, b io.ReadWriteCloser) {
 	go func() { _, _ = io.Copy(a, b); done <- struct{}{} }()
 	go func() { _, _ = io.Copy(b, a); done <- struct{}{} }()
 	<-done
+	// Close both ends so the second goroutine unblocks and exits promptly
+	// rather than leaking until the remote side eventually closes.
+	a.Close()
+	b.Close()
+	<-done
 }
 
 // --- minimal SOCKS5 (RFC 1928) — no auth, CONNECT only --------------------
