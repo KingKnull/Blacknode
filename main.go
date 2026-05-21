@@ -8,6 +8,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
+	"time"
 
 	"github.com/adrg/xdg"
 	"github.com/blacknode/blacknode/internal/db"
@@ -17,6 +19,7 @@ import (
 	"github.com/blacknode/blacknode/internal/store"
 	"github.com/blacknode/blacknode/internal/vault"
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
 //go:embed all:frontend/dist
@@ -113,13 +116,13 @@ func main() {
 		},
 	})
 
-	app.Window.NewWithOptions(application.WebviewWindowOptions{
+	win := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:            "Blacknode",
-		Width:         1280,
-		Height:        820,
-		MinWidth:      800,
-		MinHeight:     500,
-		DisableResize: false,
+		Width:            1280,
+		Height:           820,
+		MinWidth:         800,
+		MinHeight:        500,
+		DisableResize:    false,
 		BackgroundColour: application.NewRGB(8, 8, 11),
 		Mac: application.MacWindow{
 			InvisibleTitleBarHeight: 50,
@@ -128,6 +131,23 @@ func main() {
 		},
 		URL: "/",
 	})
+
+	// Workaround for Wails v3 alpha Linux bug: the webkit2gtk webview does not
+	// resize to fill the OS window on maximize. We intercept the maximize event
+	// and manually set the window size to the screen's usable work area.
+	if runtime.GOOS == "linux" {
+		win.OnWindowEvent(events.Common.WindowMaximise, func(_ *application.WindowEvent) {
+			// Small delay lets the WM finish the maximize transition before
+			// we query the screen size, otherwise we may read stale geometry.
+			time.AfterFunc(50*time.Millisecond, func() {
+				screen, err := win.GetScreen()
+				if err != nil || screen == nil {
+					return
+				}
+				win.SetSize(screen.WorkArea.Width, screen.WorkArea.Height)
+			})
+		})
+	}
 
 	if err := app.Run(); err != nil {
 		log.Fatal(err)

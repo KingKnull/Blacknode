@@ -24,6 +24,7 @@
   import TopologyPanel from "./TopologyPanel.svelte";
   import PluginsPanel from "./PluginsPanel.svelte";
   import ActivityPanel from "./ActivityPanel.svelte";
+  import VaultPanel from "./VaultPanel.svelte";
   import SettingsPanel from "./SettingsPanel.svelte";
   import OnboardingCard from "./OnboardingCard.svelte";
   import Palette from "./Palette.svelte";
@@ -73,6 +74,7 @@
     Server,
     Command,
     Sparkles,
+    Shield,
   } from "@lucide/svelte";
 
   type Tab = { id: string; root: PaneNode; activeLeafID: string };
@@ -154,6 +156,10 @@
 
     void app.refreshPluginPanels();
 
+    // Tile active hosts — build a grid of all connected hosts in one tab.
+    const onTileActiveHosts = () => tileActiveHosts();
+    window.addEventListener("blacknode:tile-active-hosts", onTileActiveHosts);
+
     return () => {
       window.removeEventListener("keydown", onActivity, true);
       window.removeEventListener("mousedown", onActivity, true);
@@ -163,6 +169,7 @@
         onInsertReq as EventListener,
       );
       window.removeEventListener("message", onPluginMessage);
+      window.removeEventListener("blacknode:tile-active-hosts", onTileActiveHosts);
     };
   });
 
@@ -270,6 +277,67 @@
     await app.refreshAll();
   }
 
+  // Build a grid layout from all currently connected hosts.
+  // Creates a new tab with a 2×N grid of terminal panes, one per connected
+  // host. Automatically enables broadcast across all of them.
+  function tileActiveHosts() {
+    const connectedIDs = Array.from(app.connectedHosts);
+    if (connectedIDs.length === 0) {
+      app.toast('warn', 'NO CONNECTED HOSTS', 'Connect to at least one host before tiling.');
+      return;
+    }
+    app.view = 'terminals';
+
+    // Build a balanced binary tree of leaf panes.
+    function buildTree(hostIDs: string[]): PaneNode {
+      if (hostIDs.length === 1) {
+        return newLeaf();
+      }
+      const mid = Math.ceil(hostIDs.length / 2);
+      return {
+        kind: 'split',
+        id: crypto.randomUUID(),
+        direction: hostIDs.length <= 2 ? 'horizontal' : (hostIDs.length <= 4 ? 'horizontal' : 'vertical'),
+        ratio: 0.5,
+        a: buildTree(hostIDs.slice(0, mid)),
+        b: buildTree(hostIDs.slice(mid)),
+      };
+    }
+
+    const root = connectedIDs.length === 1 ? newLeaf() : buildTree(connectedIDs);
+    const allLeaves = leaves(root);
+
+    const tab: Tab = {
+      id: crypto.randomUUID(),
+      root,
+      activeLeafID: allLeaves[0]?.id ?? '',
+    };
+    tabs.push(tab);
+    activeTabID = tab.id;
+
+    // Add all leaf session IDs to the broadcast set and enable broadcast.
+    const broadcastSet = new Set(app.broadcastSet);
+    for (const leaf of allLeaves) {
+      broadcastSet.add(leaf.sessionID);
+    }
+    app.broadcastSet = broadcastSet;
+    app.broadcastEnabled = true;
+
+    // Dispatch events so each Terminal component knows which host to connect to.
+    // We use a small delay so the Terminal components mount first.
+    setTimeout(() => {
+      allLeaves.forEach((leaf, i) => {
+        if (connectedIDs[i]) {
+          window.dispatchEvent(new CustomEvent('blacknode:connect-terminal-to-host', {
+            detail: { sessionID: leaf.sessionID, hostID: connectedIDs[i] }
+          }));
+        }
+      });
+    }, 200);
+
+    app.toast('ok', `TILED ${connectedIDs.length} HOSTS`, 'Broadcast mode enabled. Type once, execute everywhere.');
+  }
+
   // Find the active terminal leaf so AIDrawer's "insert" lands in the right
   // pane.
   function activeSessionID(): string | null {
@@ -304,6 +372,7 @@
     { id: "activity", label: "Activity", Icon: ActivityIcon },
     { id: "topology", label: "Topology", Icon: Share2 },
     { id: "plugins", label: "Plugins", Icon: Puzzle },
+    { id: "vault", label: "Vault", Icon: Shield },
     { id: "keys", label: "Keys", Icon: KeyRound },
     { id: "settings", label: "Settings", Icon: SettingsIcon },
   ];
@@ -618,6 +687,8 @@
           <ActivityPanel />
         {:else if app.view === 'plugins'}
           <PluginsPanel />
+        {:else if app.view === 'vault'}
+          <VaultPanel />
         {:else if typeof app.view === 'string' && app.view.startsWith('plugin:')}
           {@const parts = (app.view as string).split(':')}
           {@const pluginID = parts[1]}

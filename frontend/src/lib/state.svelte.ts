@@ -35,6 +35,7 @@ type View =
   | "topology"
   | "plugins"
   | "activity"
+  | "vault"
   | "keys"
   | "settings"
   // Plugin-contributed panel ids are namespaced as `plugin:<pluginId>:<panelId>`.

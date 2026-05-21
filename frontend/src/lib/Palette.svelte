@@ -27,6 +27,8 @@
     Database,
     Bookmark,
     History as HistoryIcon,
+    LayoutGrid,
+    Radio,
   } from "@lucide/svelte";
 
   type Action = {
@@ -65,6 +67,7 @@
     { id: "snippets", label: "Go to Snippets", icon: Bookmark },
     { id: "history", label: "Go to History", icon: HistoryIcon },
     { id: "keys", label: "Go to Keys", icon: KeyRound },
+    { id: "vault", label: "Go to Vault", icon: Lock },
     { id: "settings", label: "Go to Settings", icon: SettingsIcon },
   ];
 
@@ -122,6 +125,32 @@
       run: async () => {
         await VaultService.Lock();
         await app.refreshAll();
+      },
+    },
+    {
+      id: "cmd:tile",
+      label: "Tile active hosts",
+      hint: "grid split all connected sessions",
+      icon: LayoutGrid,
+      category: "Multi-host",
+      keywords: "split grid pane tile layout",
+      run: () => {
+        window.dispatchEvent(new CustomEvent("blacknode:tile-active-hosts"));
+        app.view = "terminals";
+      },
+    },
+    {
+      id: "cmd:broadcast",
+      label: app.broadcastEnabled ? "Disable broadcast mode" : "Enable broadcast mode",
+      hint: "type once, send to all panes",
+      icon: Radio,
+      category: "Multi-host",
+      keywords: "cast multi broadcast",
+      run: () => {
+        if (!app.broadcastEnabled && app.broadcastSet.size === 0) {
+          app.toast('warn', 'NO PANES IN BROADCAST', 'Click the \'cast\' button on each pane first.');
+        }
+        app.broadcastEnabled = !app.broadcastEnabled;
       },
     },
     ...snippets.map(

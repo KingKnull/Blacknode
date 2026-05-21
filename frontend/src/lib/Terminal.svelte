@@ -323,6 +323,19 @@
     });
 
     void openLocal();
+
+    // Listen for tile-grid auto-connect events from Workspace.
+    const onAutoConnect = (e: Event) => {
+      const ce = e as CustomEvent<{ sessionID: string; hostID: string }>;
+      if (ce.detail?.sessionID === sessionID) {
+        switchToRemote(ce.detail.hostID);
+      }
+    };
+    window.addEventListener('blacknode:connect-terminal-to-host', onAutoConnect as EventListener);
+
+    return () => {
+      window.removeEventListener('blacknode:connect-terminal-to-host', onAutoConnect as EventListener);
+    };
   });
 
   onDestroy(() => {
