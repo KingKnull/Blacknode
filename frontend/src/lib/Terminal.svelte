@@ -53,6 +53,9 @@
   let promptingTofu = $state(false);
   let tofuPayload = $state<{host: string, port: number, keyType: string, presentedFp: string, presentedKey: string} | null>(null);
 
+  // Splash screen tracking
+  let hasTyped = $state(false);
+
   let containerEl: HTMLDivElement | undefined = $state();
   let term: Terminal | undefined;
   let fit: FitAddon | undefined;
@@ -174,6 +177,17 @@
     app.pendingTerminalInsert = null;
   });
 
+  // Keep global app state updated with which hosts have active connections.
+  $effect(() => {
+    if (mode === "remote" && connectedHostID) {
+      if (status === "connected") {
+        app.addConnectedHost(connectedHostID);
+      } else {
+        app.removeConnectedHost(connectedHostID);
+      }
+    }
+  });
+
   // Pick the xterm palette to match the app theme. We don't hot-swap — if
   // the user toggles theme, existing sessions keep the theme they spawned
   // with; new sessions pick up the new theme.
@@ -270,6 +284,7 @@
     });
 
     term.onData((d) => {
+      hasTyped = true;
       writeLocal(d);
       // If broadcast is on and we're in the group, fan out to siblings.
       app.fanOutBroadcast(sessionID, d);
@@ -515,7 +530,7 @@
   >
     {#if mode === "local"}
       <TerminalIcon size="14" class="text-[var(--color-text-3)]" />
-      <span class="text-[var(--color-text-2)]">local</span>
+      <span class="font-mono text-[13px] font-bold tracking-wide text-[var(--color-text-1)]">local</span>
       <span class="font-mono text-[10px] text-[var(--color-text-4)]"
         >· {sessionID.slice(0, 6)}</span
       >
@@ -527,63 +542,10 @@
           class="ml-1 h-1.5 w-1.5 rounded-full bg-[var(--color-accent)] pulse-soft"
         ></span>
       {/if}
-
-      <div class="relative ml-auto">
-        <button
-          class="flex items-center gap-1.5 rounded px-2 py-1 text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
-          onclick={() => (showHostPicker = !showHostPicker)}
-        >
-          <Server size="12" />
-          <span>connect to host</span>
-        </button>
-        {#if showHostPicker}
-          <div
-            class="absolute right-0 top-full z-30 mt-1 w-72 overflow-hidden rounded-lg border hairline-strong surface-2 shadow-2xl shadow-black/50"
-          >
-            <div class="border-b hairline px-3 py-2">
-              <p class="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-3)]">Saved hosts</p>
-            </div>
-            <div class="max-h-64 overflow-y-auto">
-              {#each app.hosts as h (h.id)}
-                {@const hasSavedPw = !!(app.hostPasswords[h.id])}
-                <button
-                  class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs hover:bg-[var(--color-surface-3)] transition-colors"
-                  onclick={() => switchToRemote(h.id)}
-                >
-                  <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
-                    <Server size="13" />
-                  </div>
-                  <div class="min-w-0 flex-1">
-                    <div class="flex items-center gap-1.5 truncate">
-                      <span class="truncate font-medium text-[var(--color-text-1)]">{h.name}</span>
-                      {#if h.environment === 'production'}
-                        <span class="shrink-0 rounded px-1 py-px text-[8px] font-semibold uppercase" style="color:#ef4444;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25)">prod</span>
-                      {:else if h.environment === 'staging'}
-                        <span class="shrink-0 rounded px-1 py-px text-[8px] font-semibold uppercase" style="color:#f59e0b;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.25)">stage</span>
-                      {/if}
-                    </div>
-                    <div class="flex items-center gap-1 truncate text-[10px] text-[var(--color-text-3)] font-mono">
-                      {h.username}@{h.host}:{h.port}
-                      {#if hasSavedPw}
-                        <span class="text-[var(--color-accent)] opacity-70" title="Password saved">&#x2022;</span>
-                      {/if}
-                    </div>
-                  </div>
-                </button>
-              {/each}
-              {#if app.hosts.length === 0}
-                <div class="px-3 py-5 text-center text-[11px] text-[var(--color-text-3)]">
-                  No saved hosts yet.
-                </div>
-              {/if}
-            </div>
-          </div>
-        {/if}
-      </div>
     {:else}
       <Plug size="14" class="text-[var(--color-accent)]" />
       {#if connectedHost}
-        <span class="font-mono text-[var(--color-text-1)]"
+        <span class="font-mono text-[13px] font-bold tracking-wide text-[var(--color-text-1)]"
           >{connectedHost.username}@{connectedHost.host}</span
         >
         <span class="font-mono text-[10px] text-[var(--color-text-4)]"
@@ -611,53 +573,47 @@
         <Loader2 size="12" class="animate-spin text-[var(--color-text-3)]" />
         <span class="text-[var(--color-text-3)]">connecting…</span>
       {/if}
+    {/if}
+
+    <div class="ml-auto flex items-center gap-2 opacity-50 hover:opacity-100 transition-opacity">
+      {#if errorMsg}
+        <span class="truncate font-mono text-[9px] text-[var(--color-danger)]" title={errorMsg}>
+          ERR: {errorMsg}
+        </span>
+      {/if}
+
+      {#if app.recordingsEnabled && (status === "running" || status === "connected")}
+        <span
+          class="flex items-center gap-1 border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/8 px-1.5 py-px font-mono text-[9px] font-bold uppercase tracking-widest text-[var(--color-danger)]"
+          title="This session is being recorded"
+        >
+          <Circle size="6" class="fill-[var(--color-danger)] text-[var(--color-danger)] pulse-soft" />
+          REC
+        </span>
+      {/if}
+
       <button
-        class="ml-auto flex items-center gap-1.5 border border-[var(--color-line)] px-2 py-0.5 text-[var(--color-text-3)] hover:border-[var(--color-danger)]/40 hover:text-[var(--color-danger)] transition-all"
-        onclick={disconnectRemote}
+        class="flex items-center gap-1 border px-1.5 py-px font-mono text-[9px] uppercase tracking-wider transition-all {inBroadcast
+          ? broadcastActive
+            ? 'border-[var(--color-warn)]/40 bg-[var(--color-warn)]/8 text-[var(--color-warn)]'
+            : 'border-[var(--color-line-strong)] text-[var(--color-text-2)]'
+          : 'border-[var(--color-line)] text-[var(--color-text-4)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-2)]'}"
+        onclick={toggleBroadcastMember}
+        title={inBroadcast ? "Remove this pane from the broadcast group" : "Add this pane to the broadcast group"}
       >
-        <Unplug size="10" />
-        <span>DISCONNECT</span>
+        <Radio size="9" class={broadcastActive ? 'pulse-soft' : ''} />
+        CAST
       </button>
-    {/if}
 
-    {#if errorMsg}
-      <span class="ml-2 truncate font-mono text-[9px] text-[var(--color-danger)]" title={errorMsg}>
-        ERR: {errorMsg}
-      </span>
-    {/if}
-
-    {#if app.recordingsEnabled && (status === "running" || status === "connected")}
-      <span
-        class="flex items-center gap-1 border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/8 px-1.5 py-px font-mono text-[9px] font-bold uppercase tracking-widest text-[var(--color-danger)]"
-        title="This session is being recorded"
-      >
-        <Circle size="6" class="fill-[var(--color-danger)] text-[var(--color-danger)] pulse-soft" />
-        REC
-      </span>
-    {/if}
-
-    <button
-      class="flex items-center gap-1 border px-1.5 py-px font-mono text-[9px] uppercase tracking-wider transition-all {inBroadcast
-        ? broadcastActive
-          ? 'border-[var(--color-warn)]/40 bg-[var(--color-warn)]/8 text-[var(--color-warn)]'
-          : 'border-[var(--color-line-strong)] text-[var(--color-text-2)]'
-        : 'border-[var(--color-line)] text-[var(--color-text-4)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-2)]'}"
-      onclick={toggleBroadcastMember}
-      title={inBroadcast ? "Remove this pane from the broadcast group" : "Add this pane to the broadcast group"}
-    >
-      <Radio size="9" class={broadcastActive ? 'pulse-soft' : ''} />
-      CAST
-    </button>
-
-    <div class="relative ml-2">
-      <button
-        class="flex items-center gap-1 border border-[var(--color-line)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--color-text-3)] transition-all hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-2)]"
-        onclick={() => { showSnippets = !showSnippets; if (showSnippets) loadSnippets(); }}
-        title="Insert Snippet"
-      >
-        <BookmarkIcon size="10" />
-        SNIPPET
-      </button>
+      <div class="relative">
+        <button
+          class="flex items-center gap-1 border border-[var(--color-line)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--color-text-3)] transition-all hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-2)]"
+          onclick={() => { showSnippets = !showSnippets; if (showSnippets) loadSnippets(); }}
+          title="Insert Snippet"
+        >
+          <BookmarkIcon size="10" />
+          SNIPPET
+        </button>
 
       {#if showSnippets}
         <div class="absolute right-0 top-full z-50 mt-1 w-64 rounded-md border hairline-strong surface-2 shadow-2xl fade-up" style="backdrop-filter: blur(12px) saturate(1.2); box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
@@ -681,6 +637,70 @@
             {/each}
           </div>
         </div>
+      {/if}
+      </div>
+
+      {#if mode === "local"}
+        <div class="relative ml-2">
+          <button
+            class="flex items-center gap-1.5 border border-[var(--color-line)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--color-text-3)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)] transition-all"
+            onclick={() => (showHostPicker = !showHostPicker)}
+          >
+            <Server size="10" />
+            <span>CONNECT</span>
+          </button>
+          {#if showHostPicker}
+            <div
+              class="absolute right-0 top-full z-30 mt-1 w-72 overflow-hidden rounded-md border hairline-strong surface-2 shadow-2xl"
+            >
+              <div class="border-b hairline px-3 py-2 font-mono text-[10px] font-bold text-[var(--color-text-2)] uppercase tracking-widest">
+                Saved hosts
+              </div>
+              <div class="max-h-64 overflow-y-auto">
+                {#each app.hosts as h (h.id)}
+                  {@const hasSavedPw = !!(app.hostPasswords[h.id])}
+                  <button
+                    class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs hover:bg-[var(--color-surface-3)] transition-colors"
+                    onclick={() => switchToRemote(h.id)}
+                  >
+                    <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
+                      <Server size="13" />
+                    </div>
+                    <div class="min-w-0 flex-1">
+                      <div class="flex items-center gap-1.5 truncate">
+                        <span class="truncate font-medium text-[var(--color-text-1)]">{h.name}</span>
+                        {#if h.environment === 'production'}
+                          <span class="shrink-0 rounded px-1 py-px text-[8px] font-semibold uppercase" style="color:#ef4444;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25)">prod</span>
+                        {:else if h.environment === 'staging'}
+                          <span class="shrink-0 rounded px-1 py-px text-[8px] font-semibold uppercase" style="color:#f59e0b;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.25)">stage</span>
+                        {/if}
+                      </div>
+                      <div class="flex items-center gap-1 truncate text-[10px] text-[var(--color-text-3)] font-mono">
+                        {h.username}@{h.host}:{h.port}
+                        {#if hasSavedPw}
+                          <span class="text-[var(--color-accent)] opacity-70" title="Password saved">&#x2022;</span>
+                        {/if}
+                      </div>
+                    </div>
+                  </button>
+                {/each}
+                {#if app.hosts.length === 0}
+                  <div class="px-3 py-5 text-center font-mono text-[10px] text-[var(--color-text-3)]">
+                    No saved hosts yet.
+                  </div>
+                {/if}
+              </div>
+            </div>
+          {/if}
+        </div>
+      {:else}
+        <button
+          class="ml-2 flex items-center gap-1.5 border border-[var(--color-danger)]/30 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 transition-all"
+          onclick={disconnectRemote}
+        >
+          <Unplug size="10" />
+          <span>DISCONNECT</span>
+        </button>
       {/if}
     </div>
   </div>
@@ -719,6 +739,59 @@
         <button class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]" onclick={() => { showSearch = false; term?.focus(); }}>
           <X size="12" />
         </button>
+      </div>
+    {/if}
+
+    <!-- Empty State Splash Screen -->
+    {#if !hasTyped && (status === "running" || status === "connected")}
+      <div class="pointer-events-none absolute inset-0 flex items-center justify-center fade-up z-10 bg-[var(--color-surface-0)]/40 backdrop-blur-[2px]">
+        <div class="pointer-events-auto border hairline-strong surface-2 p-5 shadow-2xl rounded-xl min-w-[320px]">
+          <div class="mb-4 flex items-center gap-2">
+            <TerminalIcon size="14" class="text-[var(--color-accent)]" />
+            <span class="font-mono text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-1)]">
+              {#if mode === "remote"}
+                Connected to {connectedHost?.name ?? connectedHostID}
+              {:else}
+                Local Shell Ready
+              {/if}
+            </span>
+          </div>
+          
+          <div class="space-y-3">
+            <div class="font-mono text-[9px] uppercase tracking-widest text-[var(--color-text-4)]">Quick Commands</div>
+            <div class="flex flex-wrap gap-2">
+              {#each ['htop', 'df -h', 'docker ps -a', 'uptime'] as cmd}
+                <button
+                  class="rounded-sm border hairline bg-[var(--color-surface-3)] px-2.5 py-1.5 font-mono text-[10px] text-[var(--color-text-2)] hover:border-[var(--color-accent)]/50 hover:text-[var(--color-accent)] hover:bg-[var(--color-accent)]/5 transition-all"
+                  onclick={() => { term?.paste(cmd); term?.focus(); }}
+                  title="Paste '{cmd}'"
+                >
+                  {cmd}
+                </button>
+              {/each}
+            </div>
+
+            {#if snippets.length > 0}
+              <div class="mt-4 border-t hairline pt-3">
+                <div class="mb-2 font-mono text-[9px] uppercase tracking-widest text-[var(--color-text-4)]">Recent Snippets</div>
+                <div class="space-y-1.5">
+                  {#each snippets.slice(0, 2) as s}
+                    <button
+                      class="flex w-full items-center justify-between rounded-sm border hairline border-transparent bg-[var(--color-surface-3)]/50 px-2.5 py-1.5 hover:border-[var(--color-line-strong)] hover:bg-[var(--color-surface-3)] transition-all"
+                      onclick={() => { applyingSnippet = s; }}
+                    >
+                      <span class="font-mono text-[10px] text-[var(--color-text-1)]">{s.name}</span>
+                      <span class="font-mono text-[9px] text-[var(--color-text-4)] truncate max-w-[120px]">{s.body}</span>
+                    </button>
+                  {/each}
+                </div>
+              </div>
+            {/if}
+          </div>
+          <div class="mt-5 text-center font-mono text-[9px] text-[var(--color-text-4)]">
+            Start typing to dismiss
+          </div>
+        </div>
       </div>
     {/if}
   </div>

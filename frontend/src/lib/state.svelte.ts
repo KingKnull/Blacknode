@@ -60,6 +60,25 @@ class AppState {
   aiOpen = $state(false);
   recordingsEnabled = $state(false);
 
+  // Track which hosts have active terminal sessions connected
+  connectedHosts = $state<Set<string>>(new Set());
+
+  addConnectedHost(hostID: string) {
+    if (!this.connectedHosts.has(hostID)) {
+      const next = new Set(this.connectedHosts);
+      next.add(hostID);
+      this.connectedHosts = next;
+    }
+  }
+
+  removeConnectedHost(hostID: string) {
+    if (this.connectedHosts.has(hostID)) {
+      const next = new Set(this.connectedHosts);
+      next.delete(hostID);
+      this.connectedHosts = next;
+    }
+  }
+
   // Plugin-contributed panels surfaced in the sidebar nav.
   pluginPanels = $state<PanelView[]>([]);
   async refreshPluginPanels() {

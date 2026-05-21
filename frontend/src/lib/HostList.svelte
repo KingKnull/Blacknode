@@ -136,10 +136,12 @@
             onclick={() => (app.selectedHostID = h.id)}
           >
             <!-- Status dot -->
-            {#if app.selectedHostID === h.id}
-              <span class="h-1.5 w-1.5 shrink-0 bg-[var(--color-accent)] phosphor-flicker shadow-[0_0_4px_var(--color-accent)]"></span>
+            {#if app.connectedHosts.has(h.id)}
+              <span class="h-1.5 w-1.5 shrink-0 bg-[var(--color-success)] pulse-soft shadow-[0_0_4px_var(--color-success)] rounded-full"></span>
+            {:else if app.selectedHostID === h.id}
+              <span class="h-1.5 w-1.5 shrink-0 bg-[var(--color-accent)] phosphor-flicker shadow-[0_0_4px_var(--color-accent)] rounded-full"></span>
             {:else}
-              <span class="h-1 w-1 shrink-0 bg-[var(--color-text-4)]"></span>
+              <span class="h-1 w-1 shrink-0 bg-[var(--color-text-4)] rounded-full"></span>
             {/if}
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-1.5 truncate font-mono text-[11px] leading-tight">

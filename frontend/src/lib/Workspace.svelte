@@ -455,8 +455,8 @@
         >
           {#if app.view === v.id}
             <!-- Active: left accent bar + phosphor glow bg -->
-            <span class="absolute inset-0 bg-[var(--color-accent)]/6"></span>
-            <span class="absolute left-0 inset-y-0 w-[2px] bg-[var(--color-accent)] shadow-[0_0_8px_var(--color-accent)]"></span>
+            <span class="absolute inset-0 bg-[var(--color-accent)]/10"></span>
+            <span class="absolute left-0 inset-y-0 w-1 bg-[var(--color-accent)] shadow-[0_0_12px_var(--color-accent)] rounded-r-sm"></span>
           {:else}
             <!-- Hover glow -->
             <span class="absolute inset-0 bg-[var(--color-accent)]/0 group-hover:bg-[var(--color-accent)]/3 transition-colors duration-200"></span>
@@ -486,8 +486,8 @@
             onblur={() => (hoveredNav = null)}
           >
             {#if app.view === viewID}
-              <span class="absolute inset-0 bg-[var(--color-accent)]/5"></span>
-              <span class="absolute left-0 inset-y-0 w-[2px] bg-[var(--color-accent)] shadow-[0_0_6px_var(--color-accent)]"></span>
+              <span class="absolute inset-0 bg-[var(--color-accent)]/10"></span>
+              <span class="absolute left-0 inset-y-0 w-1 bg-[var(--color-accent)] shadow-[0_0_12px_var(--color-accent)] rounded-r-sm"></span>
             {/if}
             <Puzzle size="14" />
             {#if hoveredNav === panel.title}

@@ -22,8 +22,8 @@
 
   --color-text-1: #dffff0;      /* brighter primary for better readability */
   --color-text-2: #7ecfa8;      /* warmer mid phosphor */
-  --color-text-3: #467a5e;      /* improved dim contrast */
-  --color-text-4: #1f4035;      /* ghost phosphor */
+  --color-text-3: #548e6f;      /* improved dim contrast */
+  --color-text-4: #2e5443;      /* ghost phosphor */
 
   /* Phosphor green accent — the ONE color that pops */
   --color-accent: #00ff88;
