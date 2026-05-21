@@ -114,9 +114,12 @@ func main() {
 	})
 
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title: "Blacknode",
+		Title:            "Blacknode",
 		Width:            1280,
 		Height:           820,
+		MinWidth:         800,
+		MinHeight:        500,
+		Resizable:        true,
 		BackgroundColour: application.NewRGB(8, 8, 11),
 		Mac: application.MacWindow{
 			InvisibleTitleBarHeight: 50,
