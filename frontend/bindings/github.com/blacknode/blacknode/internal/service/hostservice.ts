@@ -48,11 +48,29 @@ export function GetAllPasswords(): $CancellablePromise<{ [_ in string]?: string 
 }
 
 /**
+ * GetAllSudoPasswords returns a map of hostID → plaintext sudo password for
+ * every host that has a saved sudo password.
+ */
+export function GetAllSudoPasswords(): $CancellablePromise<{ [_ in string]?: string }> {
+    return $Call.ByID(2510428474).then(($result: any) => {
+        return $$createType1($result);
+    });
+}
+
+/**
  * GetPassword decrypts and returns the saved SSH password for a host, or
  * an empty string if no password has been stored.
  */
 export function GetPassword(hostID: string): $CancellablePromise<string> {
     return $Call.ByID(3372347491, hostID);
+}
+
+/**
+ * GetSudoPassword decrypts and returns the saved sudo password for a host, or
+ * an empty string if none has been stored.
+ */
+export function GetSudoPassword(hostID: string): $CancellablePromise<string> {
+    return $Call.ByID(1852625642, hostID);
 }
 
 /**
@@ -97,6 +115,16 @@ export function ScanSSHConfig(): $CancellablePromise<$models.SSHConfigCandidate[
  */
 export function SetPassword(hostID: string, password: string): $CancellablePromise<void> {
     return $Call.ByID(2730291407, hostID, password);
+}
+
+/**
+ * SetSudoPassword encrypts and persists the sudo/root password for a host in
+ * the vault. This is separate from the SSH auth password because many hosts
+ * use a different password for privilege escalation (or the same user password
+ * but need it at sudo time).
+ */
+export function SetSudoPassword(hostID: string, password: string): $CancellablePromise<void> {
+    return $Call.ByID(2206115214, hostID, password);
 }
 
 export function Update(h: store$0.Host): $CancellablePromise<void> {

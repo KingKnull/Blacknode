@@ -157,13 +157,13 @@
     </div>
     <div class="flex items-stretch gap-2">
       <input
-        class="flex-1 rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-sm outline-none"
+        class="flex-1 rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-sm outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(0,255,136,0.06)] transition-all"
         bind:value={command}
         placeholder="command to run on every selected host"
         onkeydown={(e) => e.key === "Enter" && run()}
       />
       <button
-        class="flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
+        class="flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-[var(--color-surface-0)] hover:opacity-90 hover:shadow-[0_0_20px_rgba(0,255,136,0.15)] disabled:opacity-50 transition-all"
         onclick={run}
         disabled={running || !command || selected.size === 0}
       >

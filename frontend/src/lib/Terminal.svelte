@@ -4,13 +4,17 @@
   import { Terminal } from "@xterm/xterm";
   import { FitAddon } from "@xterm/addon-fit";
   import { WebLinksAddon } from "@xterm/addon-web-links";
+  import { SearchAddon } from "@xterm/addon-search";
   import {
     LocalShellService,
     SSHService,
     HostService,
+    SnippetService,
   } from "../../bindings/github.com/blacknode/blacknode/internal/service";
+  import type { Snippet } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { focus } from "./actions";
   import { app } from "./state.svelte";
+  import SnippetApplyDialog from "./SnippetApplyDialog.svelte";
   import { envBadge } from "./envColor";
   import {
     TerminalIcon,
@@ -23,6 +27,13 @@
     Circle,
     Radio,
     Activity,
+    ShieldCheck,
+    Search,
+    ChevronUp,
+    ChevronDown,
+    X,
+    BookmarkIcon,
+    Wand,
   } from "@lucide/svelte";
 
   type Props = { sessionID: string };
@@ -45,6 +56,7 @@
   let containerEl: HTMLDivElement | undefined = $state();
   let term: Terminal | undefined;
   let fit: FitAddon | undefined;
+  let searchAddon: SearchAddon | undefined;
   let dataOff: (() => void) | undefined;
   let exitOff: (() => void) | undefined;
   let resizeObs: ResizeObserver | undefined;
@@ -52,6 +64,101 @@
   // 5s. Null means "not measured yet" or "ping failed".
   let latencyMs = $state<number | null>(null);
   let latencyTimer: ReturnType<typeof setInterval> | undefined;
+
+  // ── Sudo prompt detection ──────────────────────────────────────────
+  // Watches terminal output for sudo-style password prompts and shows
+  // a floating pill the user can click to auto-type the stored password.
+  let showSudoPill = $state(false);
+  let sudoPillTimer: ReturnType<typeof setTimeout> | undefined;
+  let sudoInlineInput = $state(false);
+  let sudoInlinePassword = $state("");
+
+  // ── Search state ───────────────────────────────────────────────────
+  let showSearch = $state(false);
+  let searchQuery = $state("");
+  let searchResults = $state({ resultIndex: 0, resultCount: 0 });
+
+  // ── Snippets state ─────────────────────────────────────────────────
+  let showSnippets = $state(false);
+  let snippets = $state<Snippet[]>([]);
+  let applyingSnippet: Snippet | null = $state(null);
+
+  async function loadSnippets() {
+    if (snippets.length === 0) {
+      snippets = ((await SnippetService.List()) ?? []) as Snippet[];
+    }
+  }
+
+  const SUDO_PATTERNS = [
+    /\[sudo\] password for/i,
+    /Password:\s*$/i,
+    /password for \S+/i,
+    /\(current\) UNIX password:/i,
+    /Password for \S+@/i,
+  ];
+
+  function checkForSudoPrompt(data: string) {
+    for (const re of SUDO_PATTERNS) {
+      if (re.test(data)) {
+        triggerSudoPill();
+        return;
+      }
+    }
+  }
+
+  function triggerSudoPill() {
+    if (sudoPillTimer) clearTimeout(sudoPillTimer);
+    showSudoPill = true;
+    // Auto-dismiss after 20 seconds if user doesn't interact.
+    sudoPillTimer = setTimeout(() => {
+      showSudoPill = false;
+      sudoInlineInput = false;
+    }, 20_000);
+  }
+
+  function dismissSudoPill() {
+    if (sudoPillTimer) clearTimeout(sudoPillTimer);
+    showSudoPill = false;
+    sudoInlineInput = false;
+  }
+
+  function getSudoPassword(): string | null {
+    // For remote sessions, use the connected host's sudo password.
+    if (mode === "remote" && connectedHostID) {
+      return app.hostSudoPasswords[connectedHostID] || null;
+    }
+    // For local sessions, use the special "local" host ID.
+    if (mode === "local") {
+      return app.hostSudoPasswords["local"] || null;
+    }
+    return null;
+  }
+
+  function sendSudoPassword() {
+    const pw = getSudoPassword();
+    if (!pw) {
+      // No stored password — show inline input.
+      sudoInlineInput = true;
+      return;
+    }
+    writeLocal(pw + "\n");
+    dismissSudoPill();
+  }
+
+  function sendInlineSudoPassword() {
+    if (!sudoInlinePassword) return;
+    writeLocal(sudoInlinePassword + "\n");
+    // Permanently save to the secure vault and update session state
+    if (mode === "remote" && connectedHostID) {
+      void HostService.SetSudoPassword(connectedHostID, sudoInlinePassword);
+      app.setSudoPassword(connectedHostID, sudoInlinePassword);
+    } else if (mode === "local") {
+      void HostService.SetSudoPassword("local", sudoInlinePassword);
+      app.setSudoPassword("local", sudoInlinePassword);
+    }
+    sudoInlinePassword = "";
+    dismissSudoPill();
+  }
 
   // When the AI drawer asks us to insert a command, write it to the active
   // session (local PTY or SSH stdin). Only the matching session reacts.
@@ -134,15 +241,40 @@
       theme: termTheme(),
     });
     fit = new FitAddon();
+    searchAddon = new SearchAddon();
     term.loadAddon(fit);
     term.loadAddon(new WebLinksAddon());
+    term.loadAddon(searchAddon);
+
+    searchAddon.onDidChangeResults((e) => {
+      searchResults = e;
+    });
+
     term.open(containerEl!);
     fit.fit();
+
+    term.attachCustomKeyEventHandler((e) => {
+      // Ctrl+Shift+S → instant sudo password auto-fill.
+      if (e.type === "keydown" && e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        sendSudoPassword();
+        return false;
+      }
+      // Ctrl+Shift+F → terminal search
+      if (e.type === "keydown" && e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        showSearch = true;
+        return false;
+      }
+      return true;
+    });
 
     term.onData((d) => {
       writeLocal(d);
       // If broadcast is on and we're in the group, fan out to siblings.
       app.fanOutBroadcast(sessionID, d);
+      // Dismiss sudo pill on any manual typing (user is handling it).
+      if (showSudoPill && !sudoInlineInput) dismissSudoPill();
     });
 
     // Register a sink so other terminals can broadcast keystrokes into us
@@ -160,6 +292,8 @@
       const p = e?.data;
       if (!p || p.sessionID !== sessionID) return;
       term?.write(p.data);
+      // Check for sudo prompts in the output.
+      checkForSudoPrompt(p.data);
     });
     exitOff = Events.On("terminal:exit", (e: any) => {
       const p = e?.data;
@@ -181,6 +315,7 @@
     exitOff?.();
     resizeObs?.disconnect();
     stopLatencyPolling();
+    if (sudoPillTimer) clearTimeout(sudoPillTimer);
     app.unregisterBroadcastSink(sessionID);
     term?.dispose();
     if (mode === "local" && status === "running") void LocalShellService.Close(sessionID);
@@ -513,9 +648,80 @@
       <Radio size="9" class={broadcastActive ? 'pulse-soft' : ''} />
       CAST
     </button>
+
+    <div class="relative ml-2">
+      <button
+        class="flex items-center gap-1 border border-[var(--color-line)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--color-text-3)] transition-all hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-2)]"
+        onclick={() => { showSnippets = !showSnippets; if (showSnippets) loadSnippets(); }}
+        title="Insert Snippet"
+      >
+        <BookmarkIcon size="10" />
+        SNIPPET
+      </button>
+
+      {#if showSnippets}
+        <div class="absolute right-0 top-full z-50 mt-1 w-64 rounded-md border hairline-strong surface-2 shadow-2xl fade-up" style="backdrop-filter: blur(12px) saturate(1.2); box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+          <div class="border-b hairline px-3 py-2 font-mono text-[10px] font-bold text-[var(--color-text-2)] uppercase tracking-widest">
+            Saved Snippets
+          </div>
+          <div class="max-h-60 overflow-y-auto p-1">
+            {#if snippets.length === 0}
+              <div class="px-3 py-4 text-center font-mono text-[10px] text-[var(--color-text-4)]">
+                No snippets found.
+              </div>
+            {/if}
+            {#each snippets as s (s.id)}
+              <button
+                class="flex w-full flex-col gap-1 rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-[var(--color-surface-3)]"
+                onclick={() => { applyingSnippet = s; showSnippets = false; }}
+              >
+                <span class="font-mono text-[11px] font-bold text-[var(--color-text-1)] truncate">{s.name}</span>
+                <span class="font-mono text-[9px] text-[var(--color-text-3)] truncate">{s.body}</span>
+              </button>
+            {/each}
+          </div>
+        </div>
+      {/if}
+    </div>
   </div>
 
-  <div bind:this={containerEl} class="flex-1 overflow-hidden p-1.5"></div>
+  <div bind:this={containerEl} class="relative flex-1 overflow-hidden p-1.5">
+    <!-- Search Bar Overlay -->
+    {#if showSearch}
+      <div class="absolute right-4 top-2 z-30 flex items-center gap-2 rounded-md border hairline-strong surface-2 p-1.5 shadow-xl fade-up" style="backdrop-filter: blur(8px);">
+        <Search size="12" class="ml-1 text-[var(--color-text-4)]" />
+        <input
+          class="w-40 bg-transparent px-1 font-mono text-xs outline-none placeholder:text-[var(--color-text-4)]"
+          placeholder="Find..."
+          bind:value={searchQuery}
+          use:focus
+          oninput={() => searchAddon?.findNext(searchQuery)}
+          onkeydown={(e) => {
+            if (e.key === "Escape") {
+              showSearch = false;
+              term?.focus();
+            } else if (e.key === "Enter") {
+              if (e.shiftKey) searchAddon?.findPrevious(searchQuery);
+              else searchAddon?.findNext(searchQuery);
+            }
+          }}
+        />
+        <span class="px-1 font-mono text-[10px] text-[var(--color-text-4)]">
+          {searchResults.resultCount > 0 ? `${searchResults.resultIndex + 1}/${searchResults.resultCount}` : '0/0'}
+        </span>
+        <button class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]" onclick={() => searchAddon?.findPrevious(searchQuery)}>
+          <ChevronUp size="12" />
+        </button>
+        <button class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]" onclick={() => searchAddon?.findNext(searchQuery)}>
+          <ChevronDown size="12" />
+        </button>
+        <div class="h-4 w-px bg-[var(--color-line)]"></div>
+        <button class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]" onclick={() => { showSearch = false; term?.focus(); }}>
+          <X size="12" />
+        </button>
+      </div>
+    {/if}
+  </div>
 
   {#if promptingPassword && app.selectedHostID}
     {@const host = app.hosts.find((h) => h.id === app.selectedHostID)}
@@ -590,4 +796,78 @@
       </div>
     </div>
   {/if}
+
+  <!-- ── SUDO PILL ── floating auto-fill prompt ─────────────────────── -->
+  {#if showSudoPill && (status === "running" || status === "connected")}
+    {@const hasPw = !!getSudoPassword()}
+    <div class="absolute bottom-3 left-1/2 z-30 -translate-x-1/2 fade-up">
+      <div
+        class="flex items-center gap-2 border border-[var(--color-warn)]/50 bg-[var(--color-surface-2)]/95 px-3 py-2 shadow-2xl shadow-black/60"
+        style="backdrop-filter: blur(12px); box-shadow: 0 0 20px rgba(255,170,0,0.08), 0 8px 32px rgba(0,0,0,0.5);"
+      >
+        <ShieldCheck size="13" class="shrink-0 text-[var(--color-warn)]" />
+        {#if sudoInlineInput}
+          <!-- Inline password entry when no stored password exists -->
+          <input
+            type="password"
+            class="w-44 border hairline bg-[var(--color-surface-3)] px-2 py-1 font-mono text-[11px] text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-warn)]/50"
+            bind:value={sudoInlinePassword}
+            placeholder="sudo password"
+            use:focus
+            onkeydown={(e) => e.key === "Enter" && sendInlineSudoPassword()}
+          />
+          <button
+            class="border border-[var(--color-warn)]/50 bg-[var(--color-warn)]/10 px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-[var(--color-warn)] hover:bg-[var(--color-warn)]/20 disabled:opacity-30 transition-all"
+            disabled={!sudoInlinePassword}
+            onclick={sendInlineSudoPassword}
+          >SEND</button>
+        {:else}
+          <span class="font-mono text-[10px] text-[var(--color-text-2)]">
+            {#if hasPw}
+              sudo password ready
+            {:else}
+              sudo prompt detected
+            {/if}
+          </span>
+          <button
+            class="flex items-center gap-1.5 border border-[var(--color-warn)]/50 bg-[var(--color-warn)]/10 px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-[var(--color-warn)] hover:bg-[var(--color-warn)]/20 transition-all"
+            onclick={sendSudoPassword}
+          >
+            {#if hasPw}
+              <ShieldCheck size="9" />AUTO-FILL
+            {:else}
+              TYPE PASSWORD
+            {/if}
+          </button>
+          {#if hasPw}
+            <button
+              class="flex items-center gap-1.5 border border-[var(--color-warn)]/50 bg-transparent px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-[var(--color-warn)] hover:bg-[var(--color-warn)]/20 transition-all"
+              onclick={() => sudoInlineInput = true}
+              title="Edit saved sudo password"
+            >
+              EDIT
+            </button>
+          {/if}
+          <span class="font-mono text-[8px] text-[var(--color-text-4)] tracking-wider">CTRL+SHIFT+S</span>
+        {/if}
+        <button
+          class="ml-1 text-[var(--color-text-4)] hover:text-[var(--color-text-2)] transition-colors"
+          onclick={dismissSudoPill}
+          title="Dismiss"
+        >&times;</button>
+      </div>
+    </div>
+  {/if}
 </div>
+{#if applyingSnippet}
+  <SnippetApplyDialog
+    snippet={applyingSnippet}
+    onCancel={() => (applyingSnippet = null)}
+    onApply={(rendered) => {
+      applyingSnippet = null;
+      writeLocal(rendered);
+      app.fanOutBroadcast(sessionID, rendered);
+      term?.focus();
+    }}
+  />
+{/if}

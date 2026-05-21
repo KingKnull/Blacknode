@@ -2,7 +2,7 @@
   import { HostService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { Host } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { app } from "./state.svelte";
-  import { Server, X, Loader2, Eye, EyeOff } from "@lucide/svelte";
+  import { Server, X, Loader2, Eye, EyeOff, ShieldCheck } from "@lucide/svelte";
 
   type Props = {
     host?: Host | null;
@@ -35,6 +35,11 @@
   // svelte-ignore state_referenced_locally
   let password = $state(host?.id ? (app.hostPasswords[host.id] ?? "") : "");
   let showPassword = $state(false);
+  // Sudo password: separate from SSH auth password.
+  // svelte-ignore state_referenced_locally
+  let sudoPassword = $state(host?.id ? (app.hostSudoPasswords[host.id] ?? "") : "");
+  let showSudoPassword = $state(false);
+  let sudoSameAsSSH = $state(false);
   let busy = $state(false);
   let err = $state("");
 
@@ -89,6 +94,18 @@
           console.warn("password save failed:", pe);
         }
       }
+      // Persist sudo password (works for any auth method).
+      if (savedHost?.id) {
+        const sudoPw = sudoSameAsSSH ? password : sudoPassword;
+        try {
+          await HostService.SetSudoPassword(savedHost.id, sudoPw);
+          if (sudoPw) {
+            app.setSudoPassword(savedHost.id, sudoPw);
+          }
+        } catch (pe: any) {
+          console.warn("sudo password save failed:", pe);
+        }
+      }
       await app.refreshHosts();
       onsaved();
     } catch (e: any) {
@@ -100,13 +117,14 @@
 </script>
 
 <div
-  class="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+  class="fixed inset-0 z-50 flex items-center justify-center"
+  style="background: rgba(0,0,0,0.82); backdrop-filter: blur(4px);"
   role="presentation"
   onclick={(e) => { if (e.target === e.currentTarget) onclose(); }}
   onkeydown={(e) => e.key === "Escape" && onclose()}
 >
   <div
-    class="w-[520px] overflow-hidden border hairline-strong surface-2 shadow-2xl"
+    class="w-[520px] max-h-[85vh] overflow-y-auto overflow-x-hidden border hairline-strong surface-2 shadow-2xl fade-up"
     style="box-shadow: 0 0 0 1px var(--color-line-strong), 0 0 60px rgba(0,255,136,0.04), 0 40px 80px rgba(0,0,0,0.6);"
   >
     <!-- Header -->
@@ -265,6 +283,46 @@
         </p>
       </label>
 
+      <!-- Sudo password (all auth methods) -->
+      <div class="border hairline surface-3 p-3">
+        <div class="flex items-center gap-2 mb-2">
+          <ShieldCheck size="11" class="text-[var(--color-warn)]" />
+          <span class="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--color-text-2)]">SUDO PASSWORD</span>
+        </div>
+        <label class="flex items-center gap-2 mb-2">
+          <input
+            type="checkbox"
+            class="accent-[var(--color-accent)]"
+            bind:checked={sudoSameAsSSH}
+          />
+          <span class="font-mono text-[9px] uppercase tracking-widest text-[var(--color-text-3)]">
+            Same as SSH password
+          </span>
+        </label>
+        {#if !sudoSameAsSSH}
+          <div class="relative">
+            <input
+              type={showSudoPassword ? 'text' : 'password'}
+              class="w-full border hairline bg-[var(--color-surface-2)] px-3 py-2 pr-9 font-mono text-[11px] text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
+              bind:value={sudoPassword}
+              placeholder="sudo / root password"
+              autocomplete="new-password"
+            />
+            <button
+              type="button"
+              class="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-text-4)] hover:text-[var(--color-accent)] transition-colors"
+              onclick={() => (showSudoPassword = !showSudoPassword)}
+              title={showSudoPassword ? 'Hide' : 'Show'}
+            >
+              {#if showSudoPassword}<EyeOff size="12" />{:else}<Eye size="12" />{/if}
+            </button>
+          </div>
+        {/if}
+        <p class="mt-1 font-mono text-[9px] uppercase tracking-widest text-[var(--color-text-4)]">
+          AES-256 ENCRYPTED · AUTO-FILLS WHEN SUDO PROMPT DETECTED
+        </p>
+      </div>
+
       <!-- Notes -->
       <label class="block">
         <span class="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--color-text-4)]">NOTES</span>
@@ -288,7 +346,7 @@
         onclick={onclose}>CANCEL</button
       >
       <button
-        class="flex items-center gap-1.5 border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest text-[var(--color-accent)] hover:bg-[var(--color-accent)]/18 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+        class="flex items-center gap-1.5 border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest text-[var(--color-accent)] hover:bg-[var(--color-accent)]/18 hover:shadow-[0_0_16px_rgba(0,255,136,0.08)] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
         disabled={busy}
         onclick={save}
       >

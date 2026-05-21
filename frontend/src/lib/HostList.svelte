@@ -23,6 +23,20 @@
   let importing = $state(false);
   let filter = $state("");
 
+  // Per-host action menu
+  let menuHostID = $state<string | null>(null);
+  let menuPos = $state<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  function openMenu(e: MouseEvent, h: Host) {
+    e.stopPropagation();
+    menuHostID = h.id;
+    menuPos = { x: e.clientX, y: e.clientY };
+  }
+
+  function closeMenu() {
+    menuHostID = null;
+  }
+
   let visible = $derived(
     app.hosts.filter((h) => {
       if (!filter) return true;
@@ -82,9 +96,7 @@
 
   <!-- Search -->
   <div class="border-b hairline px-2 py-2">
-    <div
-      class="relative flex items-center border hairline surface-2 focus-within:border-[var(--color-accent)]/50 transition-colors"
-    >
+    <div class="relative flex items-center border hairline surface-2 focus-within:border-[var(--color-accent)]/50 transition-colors">
       <Search size="10" class="absolute left-2 text-[var(--color-text-4)]" />
       <input
         class="w-full bg-transparent py-1 pl-6 pr-2 font-mono text-[10px] outline-none placeholder:text-[var(--color-text-4)] text-[var(--color-text-2)]"
@@ -97,26 +109,22 @@
   <!-- Host list -->
   <div class="flex-1 overflow-y-auto pb-2">
     {#each Object.entries(groups) as [name, list] (name)}
-      <div
-        class="px-3 pt-3 pb-1 font-mono text-[8px] font-bold tracking-[0.2em] text-[var(--color-text-4)] uppercase"
-      >
+      <div class="px-3 pt-3 pb-1 font-mono text-[8px] font-bold tracking-[0.2em] text-[var(--color-accent)]/40 uppercase flex items-center gap-2">
+        <span class="h-px flex-1 bg-[var(--color-line)]"></span>
         [{name}]
+        <span class="h-px flex-1 bg-[var(--color-line)]"></span>
       </div>
       {#each list as h (h.id)}
         {@const Icon = authIcon(h.authMethod)}
         {@const env = envBadge(h.environment)}
         <div
-          class="group relative mx-2 my-px flex items-center gap-2 overflow-hidden border border-transparent px-2 py-1.5 transition-all {app.selectedHostID ===
-          h.id
+          class="group relative mx-2 my-px flex items-center gap-2 overflow-hidden border border-transparent px-2 py-1.5 transition-all duration-150 {app.selectedHostID === h.id
             ? 'border-[var(--color-accent)]/25 bg-[var(--color-accent)]/6 text-[var(--color-text-1)]'
-            : 'text-[var(--color-text-3)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-2)]'}"
+            : 'text-[var(--color-text-3)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-2)] hover:translate-x-0.5'}"
         >
           <!-- Env stripe -->
           {#if env.label}
-            <span
-              class="absolute inset-y-0 left-0 w-[2px]"
-              style:background={env.color}
-            ></span>
+            <span class="absolute inset-y-0 left-0 w-[2px]" style:background={env.color}></span>
           {/if}
           <!-- Active glow -->
           {#if app.selectedHostID === h.id}
@@ -142,9 +150,7 @@
                     style:color={env.color}
                     style:background={env.bg}
                     style:border="1px solid {env.border}"
-                  >
-                    {env.label}
-                  </span>
+                  >{env.label}</span>
                 {/if}
               </div>
               <div class="truncate font-mono text-[9px] text-[var(--color-text-4)]">
@@ -153,63 +159,74 @@
             </div>
           </button>
 
-          <!-- Action buttons (hover + menu) -->
-          <div class="flex items-center">
-            <button
-              class="flex h-6 w-6 items-center justify-center text-[var(--color-text-4)] hover:text-[var(--color-text-2)] group-hover:hidden"
-              title="Actions"
-            >
-              <MoreVertical size="12" />
-            </button>
-            <div class="hidden gap-px group-hover:flex">
-              <button
-                class="border border-[var(--color-line)] p-1 text-[var(--color-text-3)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)] transition-all"
-                onclick={() => (editing = h)}
-                title="Edit"
-              >
-                <Pencil size="9" />
-              </button>
-              <button
-                class="border border-[var(--color-line)] p-1 text-[var(--color-text-3)] hover:border-[var(--color-danger)]/40 hover:text-[var(--color-danger)] transition-all"
-                onclick={() => (hostToDelete = h)}
-                title="Delete"
-              >
-                <Trash2 size="9" />
-              </button>
-            </div>
-          </div>
+          <!-- ⋯ action button — always visible, tappable on any device -->
+          <button
+            class="flex h-6 w-6 shrink-0 items-center justify-center border border-transparent text-[var(--color-text-4)] transition-all hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-2)] focus-visible:border-[var(--color-accent)]/50"
+            onclick={(e) => openMenu(e, h)}
+            title="Actions"
+            aria-label="Host actions"
+          >
+            <MoreVertical size="11" />
+          </button>
         </div>
       {/each}
     {/each}
+
     {#if app.hosts.length === 0}
       <div class="px-4 py-10 text-center">
-        <div class="mx-auto mb-3 flex h-10 w-10 items-center justify-center border hairline text-[var(--color-text-4)]">
-          <Server size="18" />
+        <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center border hairline text-[var(--color-text-4)]" style="box-shadow: 0 0 20px rgba(0,255,136,0.04);">
+          <Server size="20" class="glow-pulse" />
         </div>
-        <p class="font-mono text-[10px] text-[var(--color-text-4)] uppercase tracking-widest">
-          NO HOSTS
-        </p>
+        <p class="font-mono text-[10px] text-[var(--color-text-4)] uppercase tracking-widest">NO HOSTS</p>
+        <p class="mt-1 font-mono text-[8px] text-[var(--color-text-4)]/60 uppercase tracking-widest">Add your first server to get started</p>
         <button
-          class="mt-3 border hairline px-3 py-1.5 font-mono text-[10px] text-[var(--color-accent)]/70 hover:border-[var(--color-accent)]/40 hover:text-[var(--color-accent)] transition-all uppercase tracking-widest"
-          onclick={() => (creating = true)}>+ ADD HOST</button
-        >
+          class="mt-3 border hairline px-3 py-1.5 font-mono text-[10px] text-[var(--color-accent)]/70 hover:border-[var(--color-accent)]/40 hover:text-[var(--color-accent)] hover:bg-[var(--color-accent)]/5 transition-all uppercase tracking-widest"
+          onclick={() => (creating = true)}
+        >+ ADD HOST</button>
       </div>
     {/if}
   </div>
 </div>
 
+<!-- Action menu backdrop -->
+{#if menuHostID}
+  {@const menuHost = app.hosts.find((h) => h.id === menuHostID)}
+  <div
+    class="fixed inset-0 z-40"
+    role="presentation"
+    onclick={closeMenu}
+    oncontextmenu={(e) => { e.preventDefault(); closeMenu(); }}
+  ></div>
+  <div
+    class="fade-up fixed z-50 min-w-[140px] overflow-hidden border hairline-strong surface-2 py-0.5 font-mono text-[10px] shadow-xl shadow-black/60"
+    style="left: {menuPos.x}px; top: {menuPos.y}px"
+  >
+    <button
+      class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)] transition-colors"
+      onclick={() => {
+        if (menuHost) editing = menuHost;
+        closeMenu();
+      }}
+    >
+      <Pencil size="10" /> EDIT
+    </button>
+    <button
+      class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-danger)] transition-colors"
+      onclick={() => {
+        if (menuHost) hostToDelete = menuHost;
+        closeMenu();
+      }}
+    >
+      <Trash2 size="10" /> DELETE
+    </button>
+  </div>
+{/if}
+
 {#if creating}
-  <HostEditor
-    onclose={() => (creating = false)}
-    onsaved={() => (creating = false)}
-  />
+  <HostEditor onclose={() => (creating = false)} onsaved={() => (creating = false)} />
 {/if}
 {#if editing}
-  <HostEditor
-    host={editing}
-    onclose={() => (editing = null)}
-    onsaved={() => (editing = null)}
-  />
+  <HostEditor host={editing} onclose={() => (editing = null)} onsaved={() => (editing = null)} />
 {/if}
 {#if importing}
   <SSHConfigImport

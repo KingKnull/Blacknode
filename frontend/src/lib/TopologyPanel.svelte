@@ -281,24 +281,44 @@
           </div>
         </div>
       {:else}
-        <svg
-          bind:this={svgEl}
-          class="h-full w-full"
-          role="presentation"
-        >
-          <defs>
-            <marker
-              id="arrowhead"
-              viewBox="0 0 10 10"
-              refX="10"
-              refY="5"
-              markerWidth="6"
-              markerHeight="6"
-              orient="auto-start-reverse"
-            >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-text-3)" />
-            </marker>
-          </defs>
+        <div class="relative h-full w-full overflow-hidden bg-[var(--color-surface-0)]">
+          <!-- Ambient grid and glow background -->
+          <div class="pointer-events-none absolute inset-0" style="
+            background-image:
+              linear-gradient(var(--color-line) 1px, transparent 1px),
+              linear-gradient(90deg, var(--color-line) 1px, transparent 1px);
+            background-size: 40px 40px;
+            opacity: 0.15;
+            animation: pulse-soft 12s ease-in-out infinite;
+          "></div>
+          <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <div class="h-[800px] w-[800px] rounded-full"
+              style="background: radial-gradient(circle, rgba(0,255,136,0.03) 0%, transparent 65%);"></div>
+          </div>
+
+          <svg
+            bind:this={svgEl}
+            class="relative z-10 h-full w-full"
+            role="presentation"
+          >
+            <defs>
+              <marker
+                id="arrowhead"
+                viewBox="0 0 10 10"
+                refX="8"
+                refY="5"
+                markerWidth="5"
+                markerHeight="5"
+                orient="auto-start-reverse"
+              >
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-accent)" opacity="0.6" />
+              </marker>
+              <!-- Glow filter for nodes -->
+              <filter id="nodeGlow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="4" result="blur" />
+                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+              </filter>
+            </defs>
           {#each renderEdges as e (e.from + "->" + e.to)}
             {@const a = renderNodes.find((m) => m.id === e.from)}
             {@const b = renderNodes.find((m) => m.id === e.to)}
@@ -308,20 +328,18 @@
               {@const dist = Math.sqrt(dx * dx + dy * dy) || 1}
               {@const ux = dx / dist}
               {@const uy = dy / dist}
-              <!-- Pull endpoints in by node radius so the arrow lands on the rim. -->
+              <!-- Edge line -->
               <line
-                x1={a.x + ux * 20}
-                y1={a.y + uy * 20}
-                x2={b.x - ux * 20}
-                y2={b.y - uy * 20}
-                stroke="var(--color-text-4)"
-                stroke-width="1"
+                x1={a.x + ux * 22}
+                y1={a.y + uy * 22}
+                x2={b.x - ux * 22}
+                y2={b.y - uy * 22}
+                stroke={hovered === e.from || hovered === e.to ? "var(--color-accent)" : "var(--color-text-4)"}
+                stroke-width={hovered === e.from || hovered === e.to ? "2" : "1"}
+                stroke-dasharray={hovered === e.from || hovered === e.to ? "4,2" : "none"}
                 marker-end="url(#arrowhead)"
-                opacity={hovered &&
-                hovered !== e.from &&
-                hovered !== e.to
-                  ? 0.2
-                  : 0.7}
+                class={hovered === e.from || hovered === e.to ? "shimmer-edge" : "transition-opacity duration-300"}
+                opacity={hovered && hovered !== e.from && hovered !== e.to ? 0.15 : (hovered ? 0.9 : 0.4)}
               />
             {/if}
           {/each}
@@ -338,38 +356,42 @@
               onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); app.selectedHostID = node.id; } }}
             >
               <circle
-                r="18"
+                r={hovered === node.id ? "22" : "20"}
                 fill={node.isBastion
-                  ? "var(--color-accent)"
-                  : "var(--color-surface-3)"}
+                  ? "var(--color-accent-strong)"
+                  : "var(--color-surface-2)"}
                 stroke={envColor(node.env)}
-                stroke-width="2"
-                opacity={hovered === null || hovered === node.id ? 1 : 0.5}
+                stroke-width={hovered === node.id ? "2.5" : "1.5"}
+                opacity={hovered === null || hovered === node.id || renderEdges.some(e => (e.from === hovered && e.to === node.id) || (e.to === hovered && e.from === node.id)) ? 1 : 0.3}
+                class="transition-all duration-300"
+                style={hovered === node.id ? "filter: url(#nodeGlow);" : ""}
               />
-              <foreignObject x="-9" y="-9" width="18" height="18">
+              <foreignObject x="-11" y="-11" width="22" height="22">
                 <div
-                  class="flex h-full w-full items-center justify-center"
+                  class="flex h-full w-full items-center justify-center transition-all duration-300"
                   style="color: {node.isBastion
-                    ? 'var(--color-surface-0)'
-                    : 'var(--color-text-1)'}"
+                    ? 'var(--color-accent)'
+                    : 'var(--color-text-1)'}; opacity: {hovered === null || hovered === node.id || renderEdges.some(e => (e.from === hovered && e.to === node.id) || (e.to === hovered && e.from === node.id)) ? 1 : 0.3}"
                 >
                   {#if node.isBastion}
-                    <Shield size="11" />
+                    <Shield size={hovered === node.id ? "13" : "12"} class={hovered === node.id ? "glow-pulse" : ""} />
                   {:else}
-                    <Server size="11" />
+                    <Server size={hovered === node.id ? "13" : "12"} class={hovered === node.id ? "glow-pulse" : ""} />
                   {/if}
                 </div>
               </foreignObject>
               <text
-                y="32"
+                y={hovered === node.id ? "36" : "32"}
                 text-anchor="middle"
-                style="pointer-events: none; user-select: none; font-size: 10px; fill: var(--color-text-2)"
+                style="pointer-events: none; user-select: none; font-size: {hovered === node.id ? '11px' : '10px'}; font-weight: {hovered === node.id ? 'bold' : 'normal'}; fill: {hovered === node.id ? 'var(--color-text-1)' : 'var(--color-text-3)'}; opacity: {hovered === null || hovered === node.id || renderEdges.some(e => (e.from === hovered && e.to === node.id) || (e.to === hovered && e.from === node.id)) ? 1 : 0.3}"
+                class="transition-all duration-300"
               >
                 {node.name}
               </text>
             </g>
           {/each}
         </svg>
+      </div>
       {/if}
     </div>
 
@@ -430,3 +452,14 @@
     </aside>
   </div>
 </div>
+
+<style>
+  @keyframes dash {
+    to {
+      stroke-dashoffset: -8;
+    }
+  }
+  :global(.shimmer-edge) {
+    animation: dash 0.5s linear infinite;
+  }
+</style>

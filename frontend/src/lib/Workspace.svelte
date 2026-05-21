@@ -361,10 +361,10 @@
 <svelte:window onmousemove={onMouseMove} onmouseup={onMouseUp} />
 
 <div
-  class="flex h-screen w-screen flex-col bg-[var(--color-surface-0)] text-[var(--color-text-1)]"
+  class="flex h-full w-full flex-col bg-[var(--color-surface-0)] text-[var(--color-text-1)]"
 >
   <!-- ── TOP BAR ─────────────────────────────────────────────────────── -->
-  <header class="relative flex h-9 shrink-0 items-center gap-3 border-b hairline surface-1 px-3">
+  <header class="relative flex h-9 shrink-0 items-center gap-3 border-b hairline surface-1 px-3" style="backdrop-filter: blur(12px);">
     <!-- Phosphor glow line -->
     <div class="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[var(--color-accent)]/40 to-transparent"></div>
     <!-- Bracket logo mark -->
@@ -455,13 +455,17 @@
         >
           {#if app.view === v.id}
             <!-- Active: left accent bar + phosphor glow bg -->
-            <span class="absolute inset-0 bg-[var(--color-accent)]/5"></span>
-            <span class="absolute left-0 inset-y-0 w-[2px] bg-[var(--color-accent)] shadow-[0_0_6px_var(--color-accent)]"></span>
+            <span class="absolute inset-0 bg-[var(--color-accent)]/6"></span>
+            <span class="absolute left-0 inset-y-0 w-[2px] bg-[var(--color-accent)] shadow-[0_0_8px_var(--color-accent)]"></span>
+          {:else}
+            <!-- Hover glow -->
+            <span class="absolute inset-0 bg-[var(--color-accent)]/0 group-hover:bg-[var(--color-accent)]/3 transition-colors duration-200"></span>
           {/if}
           <v.Icon size="14" strokeWidth={app.view === v.id ? 1.5 : 1.5} />
 
           {#if hoveredNav === v.label}
-            <div class="absolute left-full z-50 ml-2 whitespace-nowrap border hairline-strong bg-[var(--color-surface-2)] px-2 py-1 font-mono text-[10px] tracking-wider text-[var(--color-text-1)] shadow-xl pointer-events-none">
+            <div class="absolute left-full z-50 ml-2 whitespace-nowrap border hairline-strong bg-[var(--color-surface-2)] px-2.5 py-1.5 font-mono text-[10px] tracking-wider text-[var(--color-text-1)] shadow-xl pointer-events-none fade-up"
+              style="box-shadow: 0 0 12px rgba(0,255,136,0.06), 0 4px 16px rgba(0,0,0,0.4);">
               {v.label.toUpperCase()}
             </div>
           {/if}
@@ -667,9 +671,9 @@
   {/if}
 
   <!-- ── STATUS BAR ──────────────────────────────────────────────── -->
-  <footer class="flex h-5 shrink-0 items-center gap-4 border-t hairline px-3 font-mono text-[10px] text-[var(--color-text-4)] select-none">
+  <footer class="flex h-5 shrink-0 items-center gap-5 border-t hairline px-3 font-mono text-[10px] text-[var(--color-text-4)] select-none">
     <span class="flex items-center gap-1.5">
-      <span class="text-[var(--color-accent)]/60">//</span>
+      <span class="text-[var(--color-accent)]/50">//</span>
       <Server size="8" /> {app.hosts.length} HOST{app.hosts.length === 1 ? '' : 'S'}
     </span>
     <span class="flex items-center gap-1.5">

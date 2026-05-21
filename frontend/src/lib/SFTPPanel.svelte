@@ -22,6 +22,7 @@
   let busy = $state(false);
   let err = $state("");
   let editingPath: string | null = $state(null);
+  let isDraggingOver = $state(false);
 
   let host = $derived(
     app.selectedHostID
@@ -115,9 +116,23 @@
 
   function onDrop(ev: DragEvent) {
     ev.preventDefault();
+    isDraggingOver = false;
     const files = ev.dataTransfer?.files;
     if (!files) return;
     for (const f of files) void uploadFile(f);
+  }
+
+  function onDragEnter(ev: DragEvent) {
+    ev.preventDefault();
+    isDraggingOver = true;
+  }
+
+  function onDragLeave(ev: DragEvent) {
+    ev.preventDefault();
+    // Only set false if we're leaving the actual container, not moving to a child
+    if (ev.currentTarget === ev.target) {
+      isDraggingOver = false;
+    }
   }
 
   function fmtSize(n: number) {
@@ -190,11 +205,22 @@
     </div>
 
     <div
-      class="flex-1 overflow-y-auto"
+      class="relative flex-1 overflow-y-auto"
       role="region"
-      ondragover={(e) => e.preventDefault()}
+      ondragover={(e) => { e.preventDefault(); isDraggingOver = true; }}
+      ondragenter={onDragEnter}
+      ondragleave={onDragLeave}
       ondrop={onDrop}
     >
+      {#if isDraggingOver}
+        <div class="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-[var(--color-surface-1)]/80 fade-up" style="backdrop-filter: blur(8px);">
+          <div class="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-[var(--color-accent)]/50 bg-[var(--color-surface-2)] p-10 shadow-2xl">
+            <Upload size="40" class="text-[var(--color-accent)] pulse-soft" />
+            <span class="font-mono text-sm font-bold uppercase tracking-widest text-[var(--color-text-1)]">Drop files to upload</span>
+            <span class="font-mono text-[10px] text-[var(--color-text-3)]">to {path || "(home)"}</span>
+          </div>
+        </div>
+      {/if}
       {#if err}
         <div class="m-4 rounded-md border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-3 text-xs text-[var(--color-danger)]">
           {err}

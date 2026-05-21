@@ -14,8 +14,8 @@ import type {
   PublicKeyView,
   VaultStatus,
   AppSettings,
-  NotifyKind,
 } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
+import { NotifyKind } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
 
 type View =
   | "terminals"
@@ -54,6 +54,7 @@ class AppState {
   });
   selectedHostID = $state<string | null>(null);
   hostPasswords = $state<Record<string, string>>({});
+  hostSudoPasswords = $state<Record<string, string>>({});
   loading = $state(false);
   paletteOpen = $state(false);
   aiOpen = $state(false);
@@ -166,6 +167,27 @@ class AppState {
     }
   }
 
+  async refreshSudoPasswords() {
+    if (!this.vault.unlocked) {
+      this.hostSudoPasswords = {};
+      return;
+    }
+    try {
+      const map = (await HostService.GetAllSudoPasswords()) as Record<string, string> | null;
+      if (map) {
+        for (const [id, pw] of Object.entries(map)) {
+          if (pw) this.hostSudoPasswords[id] = pw;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  setSudoPassword(hostID: string, password: string) {
+    this.hostSudoPasswords[hostID] = password;
+  }
+
   async refreshKeys() {
     if (!this.vault.unlocked) {
       this.keys = [];
@@ -188,6 +210,7 @@ class AppState {
       await this.refreshKeys();
       await this.refreshSettings();
       await this.refreshPasswords();
+      await this.refreshSudoPasswords();
     } finally {
       this.loading = false;
     }

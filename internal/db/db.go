@@ -216,6 +216,9 @@ func OpenPath(dbPath string) (*DB, error) {
 	if _, err := conn.Exec(schemaHostSecrets); err != nil {
 		return nil, fmt.Errorf("apply host secrets schema: %w", err)
 	}
+	if _, err := conn.Exec(schemaHostSudoSecrets); err != nil {
+		return nil, fmt.Errorf("apply host sudo secrets schema: %w", err)
+	}
 	if _, err := conn.Exec(schemaVaultRemember); err != nil {
 		return nil, fmt.Errorf("apply vault remember schema: %w", err)
 	}
@@ -253,6 +256,15 @@ CREATE TABLE IF NOT EXISTS port_forwards (
 );
 
 CREATE INDEX IF NOT EXISTS idx_forwards_host ON port_forwards(host_id);
+`
+
+const schemaHostSudoSecrets = `
+CREATE TABLE IF NOT EXISTS host_sudo_secrets (
+    host_id TEXT PRIMARY KEY,
+    ciphertext BLOB NOT NULL,
+    nonce BLOB NOT NULL,
+    updated_at INTEGER NOT NULL
+);
 `
 
 const schemaVaultRemember = `

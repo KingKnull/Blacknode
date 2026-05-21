@@ -9,31 +9,33 @@
     Consolas, monospace;
 
   /* ── BLACKNODE DARK — Phosphor Noir ────────────────────────────────────
-     Surface stack: deeper = more background. Chromatic black with green tint. */
-  --color-surface-0: #020304;   /* void — true app bg */
-  --color-surface-1: #060809;   /* panel bg */
-  --color-surface-2: #0b0f10;   /* cards / drawers */
-  --color-surface-3: #111618;   /* inputs / hover cells */
-  --color-surface-4: #182020;   /* raised borders */
+     Surface stack: deeper = more background. Chromatic black with green tint.
+     Refined for better depth perception and contrast. */
+  --color-surface-0: #030405;   /* void — true app bg (warmer) */
+  --color-surface-1: #070a0c;   /* panel bg (richer) */
+  --color-surface-2: #0c1014;   /* cards / drawers (more visible separation) */
+  --color-surface-3: #131a1e;   /* inputs / hover cells (clearer contrast) */
+  --color-surface-4: #1a2226;   /* raised borders */
 
-  --color-line: #0f1a1a;
-  --color-line-strong: #1a2828;
+  --color-line: #0e1a1c;
+  --color-line-strong: #1a2c2e;
 
-  --color-text-1: #c8ffe8;      /* phosphor white-green */
-  --color-text-2: #6bbf99;      /* mid phosphor */
-  --color-text-3: #3d7a60;      /* dim phosphor */
+  --color-text-1: #dffff0;      /* brighter primary for better readability */
+  --color-text-2: #7ecfa8;      /* warmer mid phosphor */
+  --color-text-3: #467a5e;      /* improved dim contrast */
   --color-text-4: #1f4035;      /* ghost phosphor */
 
   /* Phosphor green accent — the ONE color that pops */
   --color-accent: #00ff88;
   --color-accent-soft: rgba(0, 255, 136, 0.07);
   --color-accent-strong: rgba(0, 255, 136, 0.22);
+  --color-accent-2: #00d4ff;    /* cyan secondary — info & status elements */
   --color-danger: #ff3c3c;
   --color-warn: #ffaa00;
   --color-info: #00aaff;
   --color-success: #00dd88;
 
-  --color-code-bg: #020304;
+  --color-code-bg: #030405;
 }
 
 /* ── LIGHT THEME ── warm paper terminal ─────────────────────────────── */
@@ -55,6 +57,7 @@
   --color-accent: #0a6640;
   --color-accent-soft: rgba(10, 102, 64, 0.10);
   --color-accent-strong: rgba(10, 102, 64, 0.28);
+  --color-accent-2: #0891b2;
   --color-danger: #9b1c1c;
   --color-warn: #92400e;
   --color-info: #1e3a8a;
@@ -65,8 +68,11 @@
 html,
 body,
 #app {
-  height: 100%;
+  width: 100vw;
+  height: 100vh;
   margin: 0;
+  padding: 0;
+  overflow: hidden;
   background: var(--color-surface-0);
   color: var(--color-text-1);
 }
@@ -75,13 +81,13 @@ body {
   font-family: var(--font-mono);
   font-feature-settings: "calt", "liga";
   -webkit-font-smoothing: antialiased;
-  /* Subtle phosphor scanline texture on dark */
+  /* Enhanced phosphor scanline texture on dark */
   background-image: repeating-linear-gradient(
     0deg,
     transparent,
     transparent 2px,
-    rgba(0, 255, 136, 0.012) 2px,
-    rgba(0, 255, 136, 0.012) 4px
+    rgba(0, 255, 136, 0.015) 2px,
+    rgba(0, 255, 136, 0.015) 4px
   );
 }
 
@@ -91,15 +97,15 @@ body {
 
 /* ── Scrollbars — phosphor-tinted, ultra-slim ───────────────────── */
 *::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 5px;
+  height: 5px;
 }
 *::-webkit-scrollbar-track {
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
   background: var(--color-line-strong);
-  border-radius: 0;
+  border-radius: 2px;
 }
 *::-webkit-scrollbar-thumb:hover {
   background: var(--color-accent-strong);
@@ -107,7 +113,7 @@ body {
 
 /* xterm.js polish */
 .xterm-viewport::-webkit-scrollbar {
-  width: 4px;
+  width: 5px;
 }
 
 /* Inputs — mono font, crisp phosphor focus ring */
@@ -122,7 +128,7 @@ textarea:focus-visible,
 select:focus-visible {
   outline: 1px solid var(--color-accent);
   outline-offset: -1px;
-  box-shadow: 0 0 0 3px rgba(0, 255, 136, 0.08);
+  box-shadow: 0 0 0 3px rgba(0, 255, 136, 0.08), 0 0 12px rgba(0, 255, 136, 0.04);
 }
 
 /* ── Utility classes ────────────────────────────────────────────── */
@@ -151,6 +157,12 @@ select:focus-visible {
   );
 }
 
+/* Frosted glass effect for premium overlays */
+@utility glass {
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+}
+
 /* ── Animations ──────────────────────────────────────────────── */
 
 @keyframes pulse-soft {
@@ -161,15 +173,47 @@ select:focus-visible {
   animation: pulse-soft 1.4s ease-in-out infinite;
 }
 
-/* Phosphor flicker — used on the live indicator dot */
+/* Smoother glow pulse — used on active elements and status indicators */
+@keyframes glow-pulse {
+  0%, 100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 2px currentColor);
+  }
+  50% {
+    opacity: 0.6;
+    filter: drop-shadow(0 0 6px currentColor);
+  }
+}
+.glow-pulse {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+/* Phosphor flicker — used on the live indicator dot (subtler, more realistic) */
 @keyframes phosphor-flicker {
-  0%, 96%, 100% { opacity: 1; }
-  97%           { opacity: 0.4; }
-  98%           { opacity: 1; }
-  99%           { opacity: 0.6; }
+  0%, 93%, 95%, 97%, 100% { opacity: 1; }
+  94% { opacity: 0.7; }
+  96% { opacity: 0.85; }
+  98% { opacity: 0.5; }
+  99% { opacity: 0.9; }
 }
 .phosphor-flicker {
-  animation: phosphor-flicker 4s ease-in-out infinite;
+  animation: phosphor-flicker 5s ease-in-out infinite;
+}
+
+/* Shimmer — loading state with a moving highlight */
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to   { background-position: 200% 0; }
+}
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-2) 25%,
+    var(--color-surface-3) 50%,
+    var(--color-surface-2) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
 }
 
 /* Slide-in from right for toasts */
@@ -190,6 +234,15 @@ select:focus-visible {
   animation: fade-up 0.16s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* Slide up for panel transitions */
+@keyframes slide-up {
+  from { transform: translateY(10px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+.slide-up {
+  animation: slide-up 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 /* Progress bar shrink — used by toasts */
 @keyframes shrink-x {
   from { transform: scaleX(1); }
@@ -207,4 +260,10 @@ select:focus-visible {
 }
 #app {
   animation: boot-in 0.25s ease-out both;
+}
+
+/* Sudo pill entrance */
+@keyframes sudo-enter {
+  from { transform: translateX(-50%) translateY(8px); opacity: 0; }
+  to   { transform: translateX(-50%) translateY(0);   opacity: 1; }
 }

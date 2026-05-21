@@ -115,6 +115,81 @@ func (s *HostService) GetAllPasswords(ctx context.Context) (map[string]string, e
 	return out, rows.Err()
 }
 
+// SetSudoPassword encrypts and persists the sudo/root password for a host in
+// the vault. This is separate from the SSH auth password because many hosts
+// use a different password for privilege escalation (or the same user password
+// but need it at sudo time).
+func (s *HostService) SetSudoPassword(ctx context.Context, hostID, password string) error {
+	if s.vault == nil || s.db == nil {
+		return errors.New("vault not available")
+	}
+	if password == "" {
+		_, err := s.db.Exec(`DELETE FROM host_sudo_secrets WHERE host_id = ?`, hostID)
+		return err
+	}
+	ciphertext, nonce, err := s.vault.Encrypt([]byte(password))
+	if err != nil {
+		return fmt.Errorf("encrypt: %w", err)
+	}
+	_, err = s.db.Exec(
+		`INSERT INTO host_sudo_secrets (host_id, ciphertext, nonce, updated_at)
+		 VALUES (?, ?, ?, ?)
+		 ON CONFLICT(host_id) DO UPDATE SET ciphertext=excluded.ciphertext, nonce=excluded.nonce, updated_at=excluded.updated_at`,
+		hostID, ciphertext, nonce, time.Now().Unix(),
+	)
+	return err
+}
+
+// GetSudoPassword decrypts and returns the saved sudo password for a host, or
+// an empty string if none has been stored.
+func (s *HostService) GetSudoPassword(ctx context.Context, hostID string) (string, error) {
+	if s.vault == nil || s.db == nil {
+		return "", nil
+	}
+	var ciphertext, nonce []byte
+	err := s.db.QueryRow(
+		`SELECT ciphertext, nonce FROM host_sudo_secrets WHERE host_id = ?`, hostID,
+	).Scan(&ciphertext, &nonce)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	plain, err := s.vault.Decrypt(ciphertext, nonce)
+	if err != nil {
+		return "", fmt.Errorf("decrypt: %w", err)
+	}
+	return string(plain), nil
+}
+
+// GetAllSudoPasswords returns a map of hostID → plaintext sudo password for
+// every host that has a saved sudo password.
+func (s *HostService) GetAllSudoPasswords(ctx context.Context) (map[string]string, error) {
+	out := map[string]string{}
+	if s.vault == nil || s.db == nil {
+		return out, nil
+	}
+	rows, err := s.db.Query(`SELECT host_id, ciphertext, nonce FROM host_sudo_secrets`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var hostID string
+		var ciphertext, nonce []byte
+		if err := rows.Scan(&hostID, &ciphertext, &nonce); err != nil {
+			continue
+		}
+		plain, err := s.vault.Decrypt(ciphertext, nonce)
+		if err != nil {
+			continue
+		}
+		out[hostID] = string(plain)
+	}
+	return out, rows.Err()
+}
+
 // SSHConfigCandidate is one Host block from the user's ~/.ssh/config that
 // could be imported as a saved host. Identity file is reported for context
 // — we don't auto-import key material (that's a separate vault flow).

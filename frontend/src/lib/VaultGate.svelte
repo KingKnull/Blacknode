@@ -58,19 +58,20 @@
 </script>
 
 {#if !app.vault.initialized || !app.vault.unlocked}
-  <div class="relative flex h-screen items-center justify-center overflow-hidden bg-[var(--color-surface-0)]">
+  <div class="relative flex h-full w-full items-center justify-center overflow-hidden bg-[var(--color-surface-0)]">
     <!-- Grid overlay for depth -->
     <div class="pointer-events-none absolute inset-0" style="
       background-image:
         linear-gradient(var(--color-line) 1px, transparent 1px),
         linear-gradient(90deg, var(--color-line) 1px, transparent 1px);
       background-size: 40px 40px;
-      opacity: 0.4;
+      opacity: 0.35;
+      animation: pulse-soft 8s ease-in-out infinite;
     "></div>
     <!-- Phosphor glow bloom -->
     <div class="pointer-events-none absolute inset-0">
-      <div class="absolute left-1/2 top-1/3 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full"
-        style="background: radial-gradient(circle, rgba(0,255,136,0.06) 0%, transparent 65%);"></div>
+      <div class="absolute left-1/2 top-1/3 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full"
+        style="background: radial-gradient(circle, rgba(0,255,136,0.08) 0%, rgba(0,255,136,0.02) 40%, transparent 65%);"></div>
     </div>
 
     <div class="relative w-[400px]">
@@ -90,7 +91,7 @@
       <!-- Vault card -->
       <div
         class="overflow-hidden border hairline-strong surface-2 shadow-2xl"
-        style="box-shadow: 0 0 0 1px var(--color-line-strong), 0 0 40px rgba(0,255,136,0.05), 0 32px 64px rgba(0,0,0,0.5);"
+        style="backdrop-filter: blur(16px) saturate(1.3); box-shadow: 0 0 0 1px var(--color-line-strong), 0 0 60px rgba(0,255,136,0.06), 0 40px 80px rgba(0,0,0,0.6);"
       >
         {#if !app.vault.initialized}
           <!-- SETUP -->
@@ -125,7 +126,7 @@
             <button
               onclick={setup}
               disabled={busy}
-              class="flex w-full items-center justify-center gap-2 border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/18 disabled:opacity-30 transition-all"
+              class="flex w-full items-center justify-center gap-2 border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/18 hover:shadow-[0_0_20px_rgba(0,255,136,0.1)] disabled:opacity-30 transition-all"
             >
               {#if busy}
                 <Loader2 size="12" class="animate-spin" />INITIALIZING...
@@ -171,7 +172,7 @@
             <button
               onclick={unlock}
               disabled={busy || !passphrase}
-              class="flex w-full items-center justify-center gap-2 border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/18 disabled:opacity-30 transition-all"
+              class="flex w-full items-center justify-center gap-2 border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/18 hover:shadow-[0_0_20px_rgba(0,255,136,0.1)] disabled:opacity-30 transition-all"
             >
               {#if busy}
                 <Loader2 size="12" class="animate-spin" />UNLOCKING...
