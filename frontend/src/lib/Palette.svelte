@@ -6,6 +6,7 @@
     SnippetService,
   } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { Snippet } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
+  import { bus } from "./events";
   import {
     TerminalSquare,
     Server,
@@ -135,7 +136,7 @@
       category: "Multi-host",
       keywords: "split grid pane tile layout",
       run: () => {
-        window.dispatchEvent(new CustomEvent("blacknode:tile-active-hosts"));
+        bus.emit('tile-active-hosts');
         app.view = "terminals";
       },
     },
@@ -169,11 +170,7 @@
             "",
             true,
           )) as string;
-          window.dispatchEvent(
-            new CustomEvent("blacknode:insert-into-active-terminal", {
-              detail: rendered,
-            }),
-          );
+          bus.emit('insert-into-active-terminal', rendered);
           app.view = "terminals";
         },
       }),

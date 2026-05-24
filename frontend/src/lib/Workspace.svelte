@@ -8,31 +8,15 @@
   import { app, type View } from "./state.svelte";
   import HostList from "./HostList.svelte";
   import Pane from "./Pane.svelte";
-  import ExecPanel from "./ExecPanel.svelte";
-  import SFTPPanel from "./SFTPPanel.svelte";
-  import MetricsPanel from "./MetricsPanel.svelte";
-  import KeysPanel from "./KeysPanel.svelte";
-  import LogsPanel from "./LogsPanel.svelte";
-  import ForwardsPanel from "./ForwardsPanel.svelte";
-  import RecordingsPanel from "./RecordingsPanel.svelte";
-  import ContainersPanel from "./ContainersPanel.svelte";
-  import NetworkPanel from "./NetworkPanel.svelte";
-  import ProcessesPanel from "./ProcessesPanel.svelte";
-  import HTTPPanel from "./HTTPPanel.svelte";
-  import SnippetsPanel from "./SnippetsPanel.svelte";
-  import HistoryPanel from "./HistoryPanel.svelte";
-  import TopologyPanel from "./TopologyPanel.svelte";
-  import PluginsPanel from "./PluginsPanel.svelte";
-  import ActivityPanel from "./ActivityPanel.svelte";
-  import VaultPanel from "./VaultPanel.svelte";
-  import SettingsPanel from "./SettingsPanel.svelte";
   import OnboardingCard from "./OnboardingCard.svelte";
   import Palette from "./Palette.svelte";
+  import NavRail from "./NavRail.svelte";
+  import TabBar from "./TabBar.svelte";
+  import PanelRouter from "./PanelRouter.svelte";
+  import StatusBar from "./StatusBar.svelte";
 
-  // Heavy panels (CodeMirror, AI SDK glue) are lazy-loaded so the code
+  // Heavy panels (AI SDK glue) are lazy-loaded so the code
   // they pull in doesn't sit in the main bundle.
-  const loadDBPanel = () =>
-    import("./DBPanel.svelte").then((m) => m.default);
   const loadAIDrawer = () =>
     import("./AIDrawer.svelte").then((m) => m.default);
   import Toaster from "./Toaster.svelte";
@@ -46,35 +30,13 @@
     type Direction,
     type PaneNode,
   } from "./panes";
+  import { bus } from "./events";
   import {
-    TerminalSquare,
-    Zap,
-    Folder,
-    Activity,
-    KeyRound,
-    Network,
-    ScrollText,
-    Film,
-    Boxes,
-    Radar,
-    Cpu,
-    Globe2,
-    Database,
-    Bookmark,
-    Share2,
-    Puzzle,
-    Activity as ActivityIcon,
-    History as HistoryIcon,
     Radio,
-    Settings as SettingsIcon,
     Lock,
-    Unlock,
-    Plus,
-    X,
     Server,
     Command,
     Sparkles,
-    Shield,
   } from "@lucide/svelte";
 
   type Tab = { id: string; root: PaneNode; activeLeafID: string };
@@ -196,17 +158,12 @@
       app.aiOpen = false;
     });
 
-    // Snippets and History panels emit a DOM CustomEvent rather than calling
-    // into the workspace directly (they don't know which leaf is active).
+    // Snippets and History panels emit events via the typed bus rather than
+    // calling into the workspace directly (they don't know which leaf is active).
     // Bridge it to the existing pending-insert channel.
-    const onInsertReq = (e: Event) => {
-      const ce = e as CustomEvent<string>;
-      aiInsert(ce.detail);
-    };
-    window.addEventListener(
-      "blacknode:insert-into-active-terminal",
-      onInsertReq as EventListener,
-    );
+    const offInsert = bus.on('insert-into-active-terminal', (text) => {
+      aiInsert(text);
+    });
 
     // Bridge for plugin iframe → host backchannel. Iframes post messages
     // to the parent window; we whitelist a handful of methods and route
@@ -235,19 +192,15 @@
     void app.refreshPluginPanels();
 
     // Tile active hosts — build a grid of all connected hosts in one tab.
-    const onTileActiveHosts = () => tileActiveHosts();
-    window.addEventListener("blacknode:tile-active-hosts", onTileActiveHosts);
+    const offTile = bus.on('tile-active-hosts', () => tileActiveHosts());
 
     return () => {
       window.removeEventListener("keydown", onActivity, true);
       window.removeEventListener("mousedown", onActivity, true);
       window.removeEventListener("keydown", onShortcut);
-      window.removeEventListener(
-        "blacknode:insert-into-active-terminal",
-        onInsertReq as EventListener,
-      );
+      offInsert();
       window.removeEventListener("message", onPluginMessage);
-      window.removeEventListener("blacknode:tile-active-hosts", onTileActiveHosts);
+      offTile();
     };
   });
 
@@ -406,9 +359,10 @@
     setTimeout(() => {
       allLeaves.forEach((leaf, i) => {
         if (connectedIDs[i]) {
-          window.dispatchEvent(new CustomEvent('blacknode:connect-terminal-to-host', {
-            detail: { sessionID: leaf.sessionID, hostID: connectedIDs[i] }
-          }));
+          bus.emit('connect-terminal-to-host', {
+            sessionID: leaf.sessionID,
+            hostID: connectedIDs[i],
+          });
         }
       });
     }, 200);
@@ -432,13 +386,36 @@
     app.insertIntoTerminal(sid, text);
   }
 
+  import {
+    TerminalSquare,
+    Zap,
+    Folder,
+    Activity,
+    KeyRound,
+    Network as NetworkIcon,
+    ScrollText,
+    Film,
+    Boxes,
+    Radar,
+    Cpu,
+    Globe2,
+    Database,
+    Bookmark,
+    Share2,
+    Puzzle,
+    Activity as ActivityIcon,
+    History as HistoryIcon,
+    Shield,
+    Settings as SettingsIcon,
+  } from "@lucide/svelte";
+
   const VIEWS: { id: View; label: string; Icon: any }[] = [
     { id: "terminals", label: "Terminals", Icon: TerminalSquare },
     { id: "exec", label: "Multi-host", Icon: Zap },
     { id: "files", label: "Files", Icon: Folder },
     { id: "metrics", label: "Metrics", Icon: Activity },
     { id: "logs", label: "Logs", Icon: ScrollText },
-    { id: "forwards", label: "Forwards", Icon: Network },
+    { id: "forwards", label: "Forwards", Icon: NetworkIcon },
     { id: "recordings", label: "Recordings", Icon: Film },
     { id: "containers", label: "Containers", Icon: Boxes },
     { id: "network", label: "Network", Icon: Radar },
@@ -458,26 +435,19 @@
   let activeTab = $derived(tabs.find((t) => t.id === activeTabID));
   let activeLeafCount = $derived(activeTab ? leaves(activeTab.root).length : 0);
 
-  // Derive a human-readable label for each tab: prefer the connected host
-  // name if the terminal state has one, fall back to a short session ID.
-  // Terminal.svelte exposes connected host via the shared `app.selectedHostID`
-  // when connecting — but that's global. For per-tab labels we track a map
-  // from tab ID → host name that Terminal.svelte updates via a custom event.
+  // Per-tab labels from Terminal.svelte via the typed event bus.
   let tabLabels = $state<Record<string, string>>({});
 
   $effect(() => {
-    const onLabel = (e: Event) => {
-      const ce = e as CustomEvent<{ tabID: string; label: string }>;
-      if (ce.detail?.tabID) tabLabels[ce.detail.tabID] = ce.detail.label;
-    };
-    window.addEventListener('blacknode:tab-label', onLabel as EventListener);
-    return () => window.removeEventListener('blacknode:tab-label', onLabel as EventListener);
+    const off = bus.on('tab-label', (detail) => {
+      if (detail.tabID) tabLabels[detail.tabID] = detail.label;
+    });
+    return () => off();
   });
 
   function tabLabel(t: Tab): string {
     const label = tabLabels[t.id];
     if (label) return label;
-    // Fallback to local-index if no host connected
     const idx = tabs.indexOf(t) + 1;
     return `local-${idx}`;
   }
@@ -501,8 +471,6 @@
       localStorage.setItem('blacknode.sidebar-width', sidebarWidth.toString());
     }
   }
-
-  let hoveredNav = $state<string | null>(null);
 </script>
 
 <svelte:window onmousemove={onMouseMove} onmouseup={onMouseUp} />
@@ -585,64 +553,7 @@
   <!-- ── BODY ─────────────────────────────────────────────────────────── -->
   <div class="grid flex-1 grid-cols-[44px_1fr_1fr] overflow-hidden" style="grid-template-columns: 44px {sidebarWidth}px 1fr">
     <!-- ── ICON NAV RAIL ─────────────────────────────── -->
-    <nav class="flex flex-col items-center gap-px border-r hairline surface-1 py-2">
-      {#each VIEWS as v (v.id)}
-        <button
-          class="group relative flex h-8 w-8 items-center justify-center transition-all {app.view === v.id
-            ? 'text-[var(--color-accent)]'
-            : 'text-[var(--color-text-4)] hover:text-[var(--color-text-2)]'}"
-          onclick={() => (app.view = v.id)}
-          onmouseenter={() => (hoveredNav = v.label)}
-          onmouseleave={() => (hoveredNav = null)}
-          onfocus={() => (hoveredNav = v.label)}
-          onblur={() => (hoveredNav = null)}
-        >
-          {#if app.view === v.id}
-            <!-- Active: left accent bar + phosphor glow bg -->
-            <span class="absolute inset-0 bg-[var(--color-accent)]/10"></span>
-            <span class="absolute left-0 inset-y-0 w-1 bg-[var(--color-accent)] shadow-[0_0_12px_var(--color-accent)] rounded-r-sm"></span>
-          {:else}
-            <!-- Hover glow -->
-            <span class="absolute inset-0 bg-[var(--color-accent)]/0 group-hover:bg-[var(--color-accent)]/3 transition-colors duration-200"></span>
-          {/if}
-          <v.Icon size="14" strokeWidth={app.view === v.id ? 1.5 : 1.5} />
-
-          {#if hoveredNav === v.label}
-            <div class="absolute left-full z-50 ml-2 whitespace-nowrap border hairline-strong bg-[var(--color-surface-2)] px-2.5 py-1.5 text-xs text-[var(--color-text-1)] shadow-xl pointer-events-none fade-up"
-              style="box-shadow: 0 0 12px rgba(0,255,136,0.06), 0 4px 16px rgba(0,0,0,0.4);">
-              {v.label}
-            </div>
-          {/if}
-        </button>
-      {/each}
-      {#if app.pluginPanels.length > 0}
-        <div class="my-1.5 h-px w-5 bg-[var(--color-line)]"></div>
-        {#each app.pluginPanels as panel (panel.pluginId + ':' + panel.id)}
-          {@const viewID = `plugin:${panel.pluginId}:${panel.id}` as View}
-          <button
-            class="group relative flex h-8 w-8 items-center justify-center transition-all {app.view === viewID
-              ? 'text-[var(--color-accent)]'
-              : 'text-[var(--color-text-4)] hover:text-[var(--color-text-2)]'}"
-            onclick={() => (app.view = viewID)}
-            onmouseenter={() => (hoveredNav = panel.title)}
-            onmouseleave={() => (hoveredNav = null)}
-            onfocus={() => (hoveredNav = panel.title)}
-            onblur={() => (hoveredNav = null)}
-          >
-            {#if app.view === viewID}
-              <span class="absolute inset-0 bg-[var(--color-accent)]/10"></span>
-              <span class="absolute left-0 inset-y-0 w-1 bg-[var(--color-accent)] shadow-[0_0_12px_var(--color-accent)] rounded-r-sm"></span>
-            {/if}
-            <Puzzle size="14" />
-            {#if hoveredNav === panel.title}
-              <div class="absolute left-full z-50 ml-2 whitespace-nowrap border hairline-strong bg-[var(--color-surface-2)] px-2.5 py-1.5 text-xs text-[var(--color-text-1)] shadow-xl pointer-events-none fade-up">
-                {panel.title}
-              </div>
-            {/if}
-          </button>
-        {/each}
-      {/if}
-    </nav>
+    <NavRail views={VIEWS} pluginPanels={app.pluginPanels} />
 
     <!-- ── SIDEBAR ─────────────────────────────────────── -->
     <aside class="relative overflow-hidden border-r hairline group/sidebar">
@@ -663,56 +574,19 @@
       style:grid-template-columns={app.aiOpen ? 'minmax(400px, 1fr) 360px' : '1fr'}
     >
       <main class="flex flex-col overflow-hidden">
-        {#if app.view === 'terminals'}
+        <PanelRouter>
+          <!-- terminals view: tab bar + pane grid -->
           <div class="relative flex h-full flex-col">
             <OnboardingCard />
-            <!-- Tab bar -->
-            <div class="flex h-8 shrink-0 items-center gap-px border-b hairline surface-1 px-2">
-              {#each tabs as t (t.id)}
-                {@const label = tabLabel(t)}
-                {@const isActive = activeTabID === t.id}
-                <div
-                  role="tab"
-                  tabindex="0"
-                  draggable="true"
-                  aria-selected={isActive}
-                  class="group flex max-w-[180px] cursor-pointer items-center gap-1.5 border-r border-[var(--color-line)] px-3 py-1 text-xs select-none transition-colors {isActive
-                    ? 'bg-[var(--color-surface-2)] text-[var(--color-text-1)] border-t border-t-[var(--color-accent)]/60'
-                    : 'text-[var(--color-text-4)] hover:bg-[var(--color-surface-2)]/50 hover:text-[var(--color-text-3)]'}"
-                  class:opacity-40={dragSourceID === t.id}
-                  class:outline={dragOverID === t.id && dragSourceID !== t.id}
-                  class:outline-[var(--color-accent)]={dragOverID === t.id && dragSourceID !== t.id}
-                  onclick={() => (activeTabID = t.id)}
-                  onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activeTabID = t.id; } }}
-                  oncontextmenu={(e) => openTabMenu(e, t.id)}
-                  ondragstart={(e) => tabDragStart(e, t.id)}
-                  ondragover={(e) => tabDragOver(e, t.id)}
-                  ondragend={tabDragEnd}
-                  ondrop={(e) => e.preventDefault()}
-                >
-                  {#if isActive}
-                    <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-accent)] phosphor-flicker shadow-[0_0_4px_var(--color-accent)]"></span>
-                  {:else}
-                    <span class="h-1 w-1 shrink-0 rounded-full bg-[var(--color-text-4)]"></span>
-                  {/if}
-                  <span class="truncate font-mono text-[11px]">{label}</span>
-                  <span
-                    role="button"
-                    tabindex="0"
-                    class="ml-auto shrink-0 p-0.5 opacity-0 group-hover:opacity-40 hover:!opacity-100 hover:text-[var(--color-danger)]"
-                    onclick={(e) => { e.stopPropagation(); closeTab(t.id); }}
-                    onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); closeTab(t.id); } }}
-                  ><X size="9" /></span>
-                </div>
-              {/each}
-              <button
-                class="ml-1 flex h-6 w-6 shrink-0 items-center justify-center border border-[var(--color-line)] text-[var(--color-text-4)] hover:border-[var(--color-accent)]/40 hover:text-[var(--color-accent)] transition-colors"
-                onclick={newTab}
-                title="New terminal (⌘T)"
-              >
-                <Plus size="10" />
-              </button>
-            </div>
+            <TabBar
+              {tabs}
+              {activeTabID}
+              {tabLabel}
+              onNewTab={newTab}
+              onCloseTab={closeTab}
+              onCloseOthers={closeOthers}
+              onSelectTab={(id) => (activeTabID = id)}
+            />
             <div class="flex-1 overflow-hidden">
               {#each tabs as t (t.id)}
                 <div class="h-full w-full" class:hidden={activeTabID !== t.id}>
@@ -728,57 +602,7 @@
               {/each}
             </div>
           </div>
-        {:else if app.view === 'exec'}
-          <ExecPanel />
-        {:else if app.view === 'files'}
-          <SFTPPanel />
-        {:else if app.view === 'metrics'}
-          <MetricsPanel />
-        {:else if app.view === 'logs'}
-          <LogsPanel />
-        {:else if app.view === 'forwards'}
-          <ForwardsPanel />
-        {:else if app.view === 'recordings'}
-          <RecordingsPanel />
-        {:else if app.view === 'containers'}
-          <ContainersPanel />
-        {:else if app.view === 'network'}
-          <NetworkPanel />
-        {:else if app.view === 'processes'}
-          <ProcessesPanel />
-        {:else if app.view === 'http'}
-          <HTTPPanel />
-        {:else if app.view === 'database'}
-          {#await loadDBPanel() then DBPanel}
-            <DBPanel />
-          {/await}
-        {:else if app.view === 'snippets'}
-          <SnippetsPanel />
-        {:else if app.view === 'history'}
-          <HistoryPanel />
-        {:else if app.view === 'topology'}
-          <TopologyPanel />
-        {:else if app.view === 'activity'}
-          <ActivityPanel />
-        {:else if app.view === 'plugins'}
-          <PluginsPanel />
-        {:else if app.view === 'vault'}
-          <VaultPanel />
-        {:else if typeof app.view === 'string' && app.view.startsWith('plugin:')}
-          {@const parts = (app.view as string).split(':')}
-          {@const pluginID = parts[1]}
-          {@const panelID = parts[2]}
-          {@const found = app.pluginPanels.find((p) => p.pluginId === pluginID && p.id === panelID)}
-          {#if found}
-            <iframe title={found.title} class="h-full w-full border-0 bg-transparent" sandbox="allow-scripts" srcdoc={found.html}></iframe>
-          {:else}
-            <div class="flex h-full items-center justify-center text-xs text-[var(--color-text-3)]">Plugin panel not loaded.</div>
-          {/if}
-        {:else if app.view === 'keys'}
-          <KeysPanel />
-        {:else if app.view === 'settings'}
-          <SettingsPanel />
-        {/if}
+        </PanelRouter>
       </main>
 
       {#if app.aiOpen}
@@ -792,49 +616,7 @@
   <Palette onNewTab={newTab} />
   <Toaster />
 
-  <!-- ── TAB CONTEXT MENU ─────────────────────────────────── -->
-  {#if tabMenu}
-    <div
-      class="fixed inset-0 z-40"
-      role="presentation"
-      onclick={closeTabMenu}
-      oncontextmenu={(e) => { e.preventDefault(); closeTabMenu(); }}
-    ></div>
-    <div
-      class="fade-up fixed z-50 min-w-[160px] overflow-hidden border hairline-strong surface-2 py-0.5 font-mono text-[10px] shadow-xl shadow-black/60"
-      style="left: {tabMenu.x}px; top: {tabMenu.y}px"
-    >
-      <button
-        class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-danger)] transition-colors"
-        onclick={() => { if (tabMenu) closeTab(tabMenu.tabID); closeTabMenu(); }}
-      ><X size="10" /> CLOSE TAB</button>
-      <button
-        class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-danger)] disabled:opacity-30 transition-colors"
-        disabled={tabs.length <= 1}
-        onclick={() => { if (tabMenu) closeOthers(tabMenu.tabID); closeTabMenu(); }}
-      ><X size="10" /> CLOSE OTHERS</button>
-    </div>
-  {/if}
-
   <!-- ── STATUS BAR ──────────────────────────────────────────────── -->
-  <footer class="flex h-5 shrink-0 items-center gap-5 border-t hairline px-3 font-mono text-[10px] text-[var(--color-text-4)] select-none">
-    <span class="flex items-center gap-1.5">
-      <span class="text-[var(--color-accent)]/50">//</span>
-      <Server size="8" /> {app.hosts.length} HOST{app.hosts.length === 1 ? '' : 'S'}
-    </span>
-    <span class="flex items-center gap-1.5">
-      <TerminalSquare size="8" /> {tabs.length} TAB{tabs.length === 1 ? '' : 'S'}{activeLeafCount > 1 ? ` · ${activeLeafCount} PANES` : ''}
-    </span>
-    {#if app.settings.hasAnthropicKey}
-      <span class="flex items-center gap-1.5 text-[var(--color-accent)]/50">
-        <Sparkles size="8" /> AI_READY
-      </span>
-    {/if}
-    {#if app.broadcastEnabled}
-      <span class="flex items-center gap-1.5 text-[var(--color-warn)]">
-        <Radio size="8" class="pulse-soft" /> BROADCASTING
-      </span>
-    {/if}
-    <span class="ml-auto text-[var(--color-text-4)]/50">v0.1-alpha</span>
-  </footer>
+  <StatusBar tabCount={tabs.length} {activeLeafCount} />
 </div>
+

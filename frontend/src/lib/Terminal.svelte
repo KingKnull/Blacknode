@@ -15,6 +15,7 @@
   import type { Snippet } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { focus } from "./actions";
   import { app } from "./state.svelte";
+  import { bus } from "./events";
   import SnippetApplyDialog from "./SnippetApplyDialog.svelte";
   import { envBadge } from "./envColor";
   import {
@@ -375,16 +376,14 @@
     void openLocal();
 
     // Listen for tile-grid auto-connect events from Workspace.
-    const onAutoConnect = (e: Event) => {
-      const ce = e as CustomEvent<{ sessionID: string; hostID: string }>;
-      if (ce.detail?.sessionID === sessionID) {
-        switchToRemote(ce.detail.hostID);
+    const offAutoConnect = bus.on('connect-terminal-to-host', (detail) => {
+      if (detail.sessionID === sessionID) {
+        switchToRemote(detail.hostID);
       }
-    };
-    window.addEventListener('blacknode:connect-terminal-to-host', onAutoConnect as EventListener);
+    });
 
     return () => {
-      window.removeEventListener('blacknode:connect-terminal-to-host', onAutoConnect as EventListener);
+      offAutoConnect();
     };
   });
 

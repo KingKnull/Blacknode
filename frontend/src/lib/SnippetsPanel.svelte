@@ -17,6 +17,7 @@
     Tag as TagIcon,
   } from "@lucide/svelte";
   import { focus } from "./actions";
+  import { bus } from "./events";
 
   let list = $state<Snippet[]>([]);
   let filter = $state("");
@@ -120,16 +121,7 @@
 
   // Find the active terminal session and insert the rendered command into it.
   function insertIntoActiveTerminal(rendered: string) {
-    // Same channel pattern Workspace uses for the AI drawer's "insert" path.
-    // We don't have the active sessionID here directly — Workspace exposes
-    // it via a small helper on app state.
-    if (typeof window === "undefined") return;
-    // Fall back to a global event Workspace listens for.
-    window.dispatchEvent(
-      new CustomEvent("blacknode:insert-into-active-terminal", {
-        detail: rendered,
-      }),
-    );
+    bus.emit('insert-into-active-terminal', rendered);
     app.view = "terminals";
   }
 

@@ -3,6 +3,7 @@
   import { HistoryService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { HistoryEntry } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { app } from "./state.svelte";
+  import { bus } from "./events";
   import PageHeader from "./PageHeader.svelte";
   import {
     History as HistoryIcon,
@@ -73,12 +74,7 @@
   }
 
   function insertIntoActiveTerminal(rendered: string) {
-    if (typeof window === "undefined") return;
-    window.dispatchEvent(
-      new CustomEvent("blacknode:insert-into-active-terminal", {
-        detail: rendered,
-      }),
-    );
+    bus.emit('insert-into-active-terminal', rendered);
     app.view = "terminals";
   }
 
