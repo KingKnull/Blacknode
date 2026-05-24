@@ -106,10 +106,10 @@
             </button>
           </div>
           {#if t.body}
-            <p class="mt-0.5 font-mono text-[9px] leading-snug text-[var(--color-text-3)]">{t.body}</p>
+            <p class="mt-0.5 text-xs leading-snug text-[var(--color-text-3)]">{t.body}</p>
           {/if}
           {#if t.hostName}
-            <p class="mt-1 font-mono text-[9px] text-[var(--color-text-4)]">{t.hostName}</p>
+            <p class="mt-1 font-mono text-[10px] text-[var(--color-text-4)]">{t.hostName}</p>
           {/if}
         </div>
       </div>

@@ -98,7 +98,7 @@
 <div class="flex h-full w-full flex-col">
   <!-- Header -->
   <div class="flex items-center gap-2 border-b hairline px-3 py-2">
-    <span class="font-mono text-[10px] font-bold tracking-[0.2em] text-[var(--color-accent)]/70 uppercase">// HOSTS</span>
+    <span class="text-xs font-semibold text-[var(--color-text-3)]">Hosts</span>
     <button
       class="ml-auto flex h-5 w-5 items-center justify-center border border-[var(--color-line)] text-[var(--color-text-4)] hover:border-[var(--color-accent)]/40 hover:text-[var(--color-accent)] transition-all"
       onclick={() => (importing = true)}
@@ -120,8 +120,8 @@
     <div class="relative flex items-center border hairline surface-2 focus-within:border-[var(--color-accent)]/50 transition-colors">
       <Search size="10" class="absolute left-2 text-[var(--color-text-4)]" />
       <input
-        class="w-full bg-transparent py-1 pl-6 pr-2 font-mono text-[10px] outline-none placeholder:text-[var(--color-text-4)] text-[var(--color-text-2)]"
-        placeholder="FILTER HOSTS..."
+        class="w-full bg-transparent py-1.5 pl-6 pr-2 font-mono text-xs outline-none placeholder:text-[var(--color-text-4)] text-[var(--color-text-2)]"
+        placeholder="Filter hosts..."
         bind:value={filter}
       />
     </div>
@@ -130,9 +130,9 @@
   <!-- Host list -->
   <div class="flex-1 overflow-y-auto pb-2">
     {#each Object.entries(groups) as [name, list] (name)}
-      <div class="px-3 pt-3 pb-1 font-mono text-[8px] font-bold tracking-[0.2em] text-[var(--color-accent)]/40 uppercase flex items-center gap-2">
+      <div class="px-3 pt-3 pb-1 flex items-center gap-2">
         <span class="h-px flex-1 bg-[var(--color-line)]"></span>
-        [{name}]
+        <span class="text-[10px] text-[var(--color-text-4)] font-mono">{name}</span>
         <span class="h-px flex-1 bg-[var(--color-line)]"></span>
       </div>
       {#each list as h (h.id)}
@@ -223,12 +223,12 @@
         <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center border hairline text-[var(--color-text-4)]" style="box-shadow: 0 0 20px rgba(0,255,136,0.04);">
           <Server size="20" class="glow-pulse" />
         </div>
-        <p class="font-mono text-[10px] text-[var(--color-text-4)] uppercase tracking-widest">NO HOSTS</p>
-        <p class="mt-1 font-mono text-[8px] text-[var(--color-text-4)]/60 uppercase tracking-widest">Add your first server to get started</p>
+        <p class="text-xs text-[var(--color-text-3)] font-medium">No hosts yet</p>
+        <p class="mt-1 text-xs text-[var(--color-text-4)]">Add your first server to get started</p>
         <button
-          class="mt-3 border hairline px-3 py-1.5 font-mono text-[10px] text-[var(--color-accent)]/70 hover:border-[var(--color-accent)]/40 hover:text-[var(--color-accent)] hover:bg-[var(--color-accent)]/5 transition-all uppercase tracking-widest"
+          class="mt-3 border hairline px-3 py-1.5 text-xs text-[var(--color-accent)]/70 hover:border-[var(--color-accent)]/40 hover:text-[var(--color-accent)] hover:bg-[var(--color-accent)]/5 transition-all"
           onclick={() => (creating = true)}
-        >+ ADD HOST</button>
+        >+ Add host</button>
       </div>
     {/if}
   </div>

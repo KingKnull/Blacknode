@@ -44,8 +44,8 @@
     >
       <!-- Header -->
       <div class="flex items-center gap-2 border-b hairline px-4 py-2.5">
-        <span class="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-accent)]/80">// BLACKNODE</span>
-        <span class="font-mono text-[10px] text-[var(--color-text-4)]">SETUP GUIDE</span>
+        <span class="text-sm font-semibold text-[var(--color-accent)]/80">Blacknode</span>
+        <span class="text-xs text-[var(--color-text-4)]">Setup guide</span>
         <button
           class="ml-auto border border-[var(--color-line)] p-1 text-[var(--color-text-4)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-2)] transition-all"
           title="Dismiss"
@@ -70,19 +70,17 @@
             {#if hasHost}✓{:else}01{/if}
           </div>
           <div class="flex-1">
-            <p class="font-mono text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-1)]">
-              ADD YOUR FIRST HOST
-            </p>
-            <p class="mt-0.5 font-mono text-[9px] text-[var(--color-text-4)] leading-relaxed">
+            <p class="text-sm font-semibold text-[var(--color-text-1)]">Add your first host</p>
+            <p class="mt-0.5 text-xs text-[var(--color-text-4)] leading-relaxed">
               Save SSH connection details. Encrypted at rest in your local vault.
             </p>
           </div>
           {#if !hasHost}
             <button
-              class="flex items-center gap-1.5 border border-[var(--color-accent)]/40 bg-[var(--color-accent)]/8 px-2.5 py-1.5 font-mono text-[9px] font-bold uppercase tracking-widest text-[var(--color-accent)] hover:bg-[var(--color-accent)]/15 transition-all"
+              class="flex items-center gap-1.5 border border-[var(--color-accent)]/40 bg-[var(--color-accent)]/8 px-2.5 py-1.5 text-xs font-semibold text-[var(--color-accent)] hover:bg-[var(--color-accent)]/15 transition-all"
               onclick={() => (editorOpen = true)}
             >
-              ADD <ArrowRight size="9" />
+              Add <ArrowRight size="11" />
             </button>
           {/if}
         </li>
@@ -98,19 +96,19 @@
             {#if hasKey}✓{:else}02{/if}
           </div>
           <div class="flex-1">
-            <p class="font-mono text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-2)]">
-              SSH KEY <span class="text-[var(--color-text-4)] text-[9px]">(OPTIONAL)</span>
+            <p class="text-sm font-semibold text-[var(--color-text-2)]">
+              SSH key <span class="text-xs text-[var(--color-text-4)] font-normal">(optional)</span>
             </p>
-            <p class="mt-0.5 font-mono text-[9px] text-[var(--color-text-4)] leading-relaxed">
-              Import or generate an ed25519 keypair. Skip for password/agent auth.
+            <p class="mt-0.5 text-xs text-[var(--color-text-4)] leading-relaxed">
+              Import or generate an ed25519 keypair. Skip for password or agent auth.
             </p>
           </div>
           {#if !hasKey}
             <button
-              class="border border-[var(--color-line)] px-2.5 py-1.5 font-mono text-[9px] uppercase tracking-widest text-[var(--color-text-3)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)] transition-all"
+              class="border border-[var(--color-line)] px-2.5 py-1.5 text-xs text-[var(--color-text-3)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)] transition-all"
               onclick={() => (app.view = 'keys')}
             >
-              KEYS
+              Keys
             </button>
           {/if}
         </li>
@@ -130,10 +128,8 @@
             {#if connected}✓{:else}03{/if}
           </div>
           <div class="flex-1">
-            <p class="font-mono text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-1)]">
-              CLICK A HOST TO CONNECT
-            </p>
-            <p class="mt-0.5 font-mono text-[9px] text-[var(--color-text-4)] leading-relaxed">
+            <p class="text-sm font-semibold text-[var(--color-text-1)]">Click a host to connect</p>
+            <p class="mt-0.5 text-xs text-[var(--color-text-4)] leading-relaxed">
               Select a host in the sidebar. An SSH session binds to this tab.
             </p>
           </div>
@@ -142,8 +138,8 @@
 
       <!-- Footer tip -->
       <div class="border-t hairline px-3 py-2">
-        <p class="font-mono text-[9px] uppercase tracking-widest text-[var(--color-text-4)]">
-          ⌘K PALETTE · ⌘I AI · ⌘T NEW TAB
+        <p class="font-mono text-[10px] text-[var(--color-text-4)]">
+          ⌘K palette · ⌘I AI · ⌘T new tab
         </p>
       </div>
     </div>

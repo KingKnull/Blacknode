@@ -17,9 +17,9 @@
     <Icon size="12" />
   </div>
   <div>
-    <div class="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--color-text-1)]">{title}</div>
+    <div class="text-sm font-semibold text-[var(--color-text-1)]">{title}</div>
     {#if subtitle}
-      <div class="font-mono text-[9px] uppercase tracking-widest text-[var(--color-text-4)]">{subtitle}</div>
+      <div class="text-xs text-[var(--color-text-4)] mt-0.5">{subtitle}</div>
     {/if}
   </div>
   {#if actions}

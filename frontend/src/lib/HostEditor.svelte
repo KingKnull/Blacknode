@@ -130,8 +130,8 @@
     <!-- Header -->
     <div class="flex items-center gap-2.5 border-b hairline px-5 py-3">
       <Server size="12" class="text-[var(--color-accent)]" />
-      <span class="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-text-1)]">
-        {host ? 'EDIT HOST' : 'NEW HOST'}
+      <span class="text-sm font-semibold text-[var(--color-text-1)]">
+        {host ? 'Edit host' : 'New host'}
       </span>
       <button
         class="ml-auto border border-[var(--color-line)] p-1 text-[var(--color-text-4)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-danger)] transition-all"
@@ -146,9 +146,9 @@
     <div class="space-y-3 p-5">
       <!-- Name -->
       <label class="block">
-        <span class="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--color-text-4)]">NAME</span>
+        <span class="text-xs text-[var(--color-text-4)]">Name</span>
         <input
-          class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-[11px] text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
+          class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-sm text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
           bind:value={name}
           placeholder="prod-web-01"
         />
@@ -157,18 +157,18 @@
       <!-- Host + Port -->
       <div class="grid grid-cols-[1fr_88px] gap-2">
         <label class="block">
-          <span class="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--color-text-4)]">HOST</span>
+          <span class="text-xs text-[var(--color-text-4)]">Host</span>
           <input
-            class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-[11px] text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
+            class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-sm text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
             bind:value={hostName}
             placeholder="10.0.0.5"
           />
         </label>
         <label class="block">
-          <span class="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--color-text-4)]">PORT</span>
+          <span class="text-xs text-[var(--color-text-4)]">Port</span>
           <input
             type="number"
-            class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-[11px] text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50 transition-colors"
+            class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-sm text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50 transition-colors"
             bind:value={port}
           />
         </label>
@@ -177,22 +177,22 @@
       <!-- User + Auth -->
       <div class="grid grid-cols-2 gap-2">
         <label class="block">
-          <span class="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--color-text-4)]">USER</span>
+          <span class="text-xs text-[var(--color-text-4)]">Username</span>
           <input
-            class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-[11px] text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
+            class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-sm text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
             bind:value={username}
             placeholder="ubuntu"
           />
         </label>
         <label class="block">
-          <span class="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--color-text-4)]">AUTH</span>
+          <span class="text-xs text-[var(--color-text-4)]">Auth method</span>
           <select
-            class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-[11px] text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50 transition-colors"
+            class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 text-sm text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50 transition-colors"
             bind:value={authMethod}
           >
-            <option value="password">PASSWORD</option>
-            <option value="key">KEY</option>
-            <option value="agent">AGENT</option>
+            <option value="password">Password</option>
+            <option value="key">SSH key</option>
+            <option value="agent">Agent</option>
           </select>
         </label>
       </div>
@@ -200,12 +200,12 @@
       <!-- Key selector -->
       {#if authMethod === 'key'}
         <label class="block">
-          <span class="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--color-text-4)]">SSH KEY</span>
+          <span class="text-xs text-[var(--color-text-4)]">SSH key</span>
           <select
-            class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-[11px] text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50 transition-colors"
+            class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 text-sm text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50 transition-colors"
             bind:value={keyID}
           >
-            <option value="">— SELECT KEY —</option>
+            <option value="">— Select key —</option>
             {#each app.keys as k (k.id)}
               <option value={k.id}>{k.name} ({k.keyType})</option>
             {/each}
@@ -216,13 +216,11 @@
       <!-- Password -->
       {#if authMethod === 'password'}
         <label class="block">
-          <span class="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--color-text-4)]">
-            PASSWORD <span class="text-[var(--color-text-4)]/60">(VAULT)</span>
-          </span>
+          <span class="text-xs text-[var(--color-text-4)]">Password <span class="opacity-50">(vault)</span></span>
           <div class="relative mt-1">
             <input
               type={showPassword ? 'text' : 'password'}
-              class="w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 pr-9 font-mono text-[11px] text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
+              class="w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 pr-9 font-mono text-sm text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
               bind:value={password}
               placeholder="leave blank to keep current"
               autocomplete="new-password"
@@ -236,74 +234,64 @@
               {#if showPassword}<EyeOff size="12" />{:else}<Eye size="12" />{/if}
             </button>
           </div>
-          <p class="mt-1 font-mono text-[9px] uppercase tracking-widest text-[var(--color-text-4)]">
-            AES-256 ENCRYPTED · SKIPS PROMPT AT CONNECT TIME
-          </p>
+          <p class="mt-1 text-xs text-[var(--color-text-4)]">AES-256 encrypted · auto-fills at connect time</p>
         </label>
       {/if}
 
       <!-- Group + Environment -->
       <div class="grid grid-cols-2 gap-2">
         <label class="block">
-          <span class="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--color-text-4)]">GROUP</span>
+          <span class="text-xs text-[var(--color-text-4)]">Group</span>
           <input
-            class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-[11px] text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
+            class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-sm text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
             bind:value={group}
             placeholder="web · db · cache"
           />
         </label>
         <label class="block">
-          <span class="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--color-text-4)]">ENV</span>
+          <span class="text-xs text-[var(--color-text-4)]">Environment</span>
           <select
-            class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-[11px] outline-none focus:border-[var(--color-accent)]/50 transition-colors {environment === 'production' ? 'text-[var(--color-danger)] border-[var(--color-danger)]/30' : 'text-[var(--color-text-1)]'}"
+            class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]/50 transition-colors {environment === 'production' ? 'text-[var(--color-danger)] border-[var(--color-danger)]/30' : 'text-[var(--color-text-1)]'}"
             bind:value={environment}
           >
-            <option value="">— NONE —</option>
-            <option value="dev">DEV</option>
-            <option value="staging">STAGING</option>
-            <option value="production">PRODUCTION ⚠</option>
+            <option value="">— None —</option>
+            <option value="dev">Dev</option>
+            <option value="staging">Staging</option>
+            <option value="production">Production ⚠</option>
           </select>
         </label>
       </div>
 
       <!-- ProxyJump -->
       <label class="block">
-        <span class="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--color-text-4)]">PROXYJUMP (BASTION)</span>
+        <span class="text-xs text-[var(--color-text-4)]">ProxyJump (bastion)</span>
         <select
-          class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-[11px] text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50 transition-colors"
+          class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 text-sm text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50 transition-colors"
           bind:value={proxyJump}
         >
-          <option value="">— DIRECT CONNECT —</option>
+          <option value="">— Direct connect —</option>
           {#each app.hosts.filter((h) => h.id !== host?.id) as h (h.id)}
             <option value={h.name}>{h.name} ({h.username}@{h.host}:{h.port})</option>
           {/each}
         </select>
-        <p class="mt-1 font-mono text-[9px] uppercase tracking-widest text-[var(--color-text-4)]">
-          TUNNELS THROUGH SELECTED BASTION · CYCLES DETECTED AT CONNECT
-        </p>
+        <p class="mt-1 text-xs text-[var(--color-text-4)]">Tunnels through selected bastion · cycles detected at connect</p>
       </label>
 
-      <!-- Sudo password (all auth methods) -->
+      <!-- Sudo password -->
       <div class="border hairline surface-3 p-3">
         <div class="flex items-center gap-2 mb-2">
           <ShieldCheck size="11" class="text-[var(--color-warn)]" />
-          <span class="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--color-text-2)]">SUDO PASSWORD</span>
+          <span class="text-xs font-semibold text-[var(--color-text-2)]">Sudo password</span>
         </div>
         <label class="flex items-center gap-2 mb-2">
-          <input
-            type="checkbox"
-            class="accent-[var(--color-accent)]"
-            bind:checked={sudoSameAsSSH}
-          />
-          <span class="font-mono text-[9px] uppercase tracking-widest text-[var(--color-text-3)]">
-            Same as SSH password
-          </span>
+          <input type="checkbox" class="accent-[var(--color-accent)]" bind:checked={sudoSameAsSSH} />
+          <span class="text-xs text-[var(--color-text-3)]">Same as SSH password</span>
         </label>
         {#if !sudoSameAsSSH}
           <div class="relative">
             <input
               type={showSudoPassword ? 'text' : 'password'}
-              class="w-full border hairline bg-[var(--color-surface-2)] px-3 py-2 pr-9 font-mono text-[11px] text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
+              class="w-full border hairline bg-[var(--color-surface-2)] px-3 py-2 pr-9 font-mono text-sm text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
               bind:value={sudoPassword}
               placeholder="sudo / root password"
               autocomplete="new-password"
@@ -318,43 +306,34 @@
             </button>
           </div>
         {/if}
-        <p class="mt-1 font-mono text-[9px] uppercase tracking-widest text-[var(--color-text-4)]">
-          AES-256 ENCRYPTED · AUTO-FILLS WHEN SUDO PROMPT DETECTED
-        </p>
+        <p class="mt-1 text-xs text-[var(--color-text-4)]">AES-256 encrypted · auto-fills when sudo prompt detected</p>
       </div>
 
       <!-- Notes -->
       <label class="block">
-        <span class="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--color-text-4)]">NOTES</span>
+        <span class="text-xs text-[var(--color-text-4)]">Notes</span>
         <textarea
-          class="mt-1 h-14 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-[11px] text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors resize-none"
+          class="mt-1 h-14 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 text-sm text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors resize-none"
           bind:value={notes}
         ></textarea>
       </label>
 
       {#if err}
-        <p class="font-mono text-[10px] text-[var(--color-danger)] uppercase tracking-widest">
-          ERR: {err}
-        </p>
+        <p class="text-xs text-[var(--color-danger)]">{err}</p>
       {/if}
     </div>
 
     <!-- Footer -->
     <div class="flex items-center justify-end gap-2 border-t hairline px-5 py-3">
       <button
-        class="border border-[var(--color-line)] px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest text-[var(--color-text-3)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)] transition-all"
-        onclick={onclose}>CANCEL</button
-      >
+        class="border border-[var(--color-line)] px-3 py-1.5 text-sm text-[var(--color-text-3)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)] transition-all"
+        onclick={onclose}>Cancel</button>
       <button
-        class="flex items-center gap-1.5 border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest text-[var(--color-accent)] hover:bg-[var(--color-accent)]/18 hover:shadow-[0_0_16px_rgba(0,255,136,0.08)] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+        class="flex items-center gap-1.5 border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 px-3 py-1.5 text-sm font-semibold text-[var(--color-accent)] hover:bg-[var(--color-accent)]/18 hover:shadow-[0_0_16px_rgba(0,255,136,0.08)] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
         disabled={busy}
         onclick={save}
       >
-        {#if busy}
-          <Loader2 size="10" class="animate-spin" />SAVING...
-        {:else}
-          SAVE HOST
-        {/if}
+        {#if busy}<Loader2 size="12" class="animate-spin" /> Saving...{:else}Save host{/if}
       </button>
     </div>
   </div>
