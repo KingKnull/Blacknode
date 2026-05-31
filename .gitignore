@@ -17,6 +17,7 @@ frontend/.svelte-kit
 build/linux/appimage/build
 build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
 build/bin
+.patches
 
 # Editor / OS
 .vscode

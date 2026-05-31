@@ -132,19 +132,42 @@ func main() {
 		URL: "/",
 	})
 
-	// Workaround for Wails v3 alpha Linux bug: the webkit2gtk webview does not
-	// resize to fill the OS window on maximize. We intercept the maximize event
-	// and manually set the window size to the screen's usable work area.
 	if runtime.GOOS == "linux" {
-		win.OnWindowEvent(events.Common.WindowMaximise, func(_ *application.WindowEvent) {
-			// Small delay lets the WM finish the maximize transition before
-			// we query the screen size, otherwise we may read stale geometry.
+		applyLinuxFullscreenFix := func() {
 			time.AfterFunc(50*time.Millisecond, func() {
 				screen, err := win.GetScreen()
 				if err != nil || screen == nil {
 					return
 				}
 				win.SetSize(screen.WorkArea.Width, screen.WorkArea.Height)
+			})
+			time.AfterFunc(300*time.Millisecond, func() {
+				screen, err := win.GetScreen()
+				if err != nil || screen == nil {
+					return
+				}
+				win.SetSize(screen.WorkArea.Width, screen.WorkArea.Height)
+			})
+		}
+
+		win.OnWindowEvent(events.Common.WindowMaximise, func(_ *application.WindowEvent) {
+			applyLinuxFullscreenFix()
+		})
+
+		win.OnWindowEvent(events.Common.WindowFullscreen, func(_ *application.WindowEvent) {
+			time.AfterFunc(50*time.Millisecond, func() {
+				screen, err := win.GetScreen()
+				if err != nil || screen == nil {
+					return
+				}
+				win.SetSize(screen.Size.Width, screen.Size.Height)
+			})
+			time.AfterFunc(300*time.Millisecond, func() {
+				screen, err := win.GetScreen()
+				if err != nil || screen == nil {
+					return
+				}
+				win.SetSize(screen.Size.Width, screen.Size.Height)
 			})
 		})
 	}
@@ -153,16 +176,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Graceful shutdown: drain resources that would otherwise leak.
 	pfSvc.StopAll(context.Background())
 	pool.Close()
 	close(autoLock.StopChan)
 	log.Printf("=== blacknode stop ===")
 }
 
-// setupFileLogger tees stderr-style log output to <data-dir>/blacknode.log so
-// startup errors are recoverable on Windows where the GUI subsystem hides the
-// console. The returned closer flushes and closes the file.
 func setupFileLogger() func() {
 	dir := filepath.Join(xdg.DataHome, "blacknode")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
