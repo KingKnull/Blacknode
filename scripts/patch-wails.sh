@@ -14,7 +14,7 @@
 #
 set -euo pipefail
 
-WAILS_VERSION="v3.0.0-alpha.96"
+WAILS_VERSION="v3.0.0-alpha.98"
 WAILS_MOD="github.com/wailsapp/wails/v3"
 PATCH_DIR=".patches/wails-v3"
 TARGET_FILE="internal/assetserver/webview/webkit_linux_gtk3.go"

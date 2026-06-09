@@ -53,11 +53,11 @@ tasks:
       - go build {{.BUILD_FLAGS}} -o {{.OUTPUT}}
       - cp {{.ROOT_DIR}}/build/appicon.png {{dir .OUTPUT}}/{{.APP_NAME}}.png
     vars:
-      # gtk3 tag: forces webkit2gtk-4.1 (GTK3 stack) instead of the GTK4 default
-      # promoted in alpha.93. The GTK4 stack (webkitgtk-6.0) causes a SIGSEGV
-      # inside g_application_run due to a GLib/Go signal conflict on some systems.
-      # Remove "gtk3" once upstream fixes the GTK4 crash (track: wailsapp/wails#5469).
-      BUILD_FLAGS: '{{if eq .DEV "true"}}-tags gtk3{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -buildvcs=false -gcflags=all="-l"{{else}}-tags production,gtk3{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -buildvcs=false -ldflags="-w -s"{{end}}'
+      # GTK4 (default): uses webkitgtk-6.0 with native Wayland support.
+      # Previously forced gtk3 due to a SIGSEGV in g_application_run caused by
+      # GLib/Go signal conflicts (wailsapp/wails#5469). Fixed in alpha.98 which
+      # no longer forces SA_ONSTACK on SIGUSR1.
+      BUILD_FLAGS: '{{if eq .DEV "true"}}-buildvcs=false -gcflags=all="-l"{{if .EXTRA_TAGS}} -tags {{.EXTRA_TAGS}}{{end}}{{else}}-tags production{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -buildvcs=false -ldflags="-w -s"{{end}}'
       DEFAULT_OUTPUT: '{{.BIN_DIR}}/{{.APP_NAME}}'
       OUTPUT: '{{ .OUTPUT | default .DEFAULT_OUTPUT }}'
     env:

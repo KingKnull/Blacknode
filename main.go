@@ -8,8 +8,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"runtime"
-	"time"
 
 	"github.com/adrg/xdg"
 	"github.com/blacknode/blacknode/internal/db"
@@ -19,7 +17,6 @@ import (
 	"github.com/blacknode/blacknode/internal/store"
 	"github.com/blacknode/blacknode/internal/vault"
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
 //go:embed all:frontend/dist
@@ -122,6 +119,7 @@ func main() {
 		Height:           820,
 		MinWidth:         800,
 		MinHeight:        500,
+		StartState:       application.WindowStateMaximised,
 		DisableResize:    false,
 		BackgroundColour: application.NewRGB(8, 8, 11),
 		Mac: application.MacWindow{
@@ -132,45 +130,7 @@ func main() {
 		URL: "/",
 	})
 
-	if runtime.GOOS == "linux" {
-		applyLinuxFullscreenFix := func() {
-			time.AfterFunc(50*time.Millisecond, func() {
-				screen, err := win.GetScreen()
-				if err != nil || screen == nil {
-					return
-				}
-				win.SetSize(screen.WorkArea.Width, screen.WorkArea.Height)
-			})
-			time.AfterFunc(300*time.Millisecond, func() {
-				screen, err := win.GetScreen()
-				if err != nil || screen == nil {
-					return
-				}
-				win.SetSize(screen.WorkArea.Width, screen.WorkArea.Height)
-			})
-		}
-
-		win.OnWindowEvent(events.Common.WindowMaximise, func(_ *application.WindowEvent) {
-			applyLinuxFullscreenFix()
-		})
-
-		win.OnWindowEvent(events.Common.WindowFullscreen, func(_ *application.WindowEvent) {
-			time.AfterFunc(50*time.Millisecond, func() {
-				screen, err := win.GetScreen()
-				if err != nil || screen == nil {
-					return
-				}
-				win.SetSize(screen.Size.Width, screen.Size.Height)
-			})
-			time.AfterFunc(300*time.Millisecond, func() {
-				screen, err := win.GetScreen()
-				if err != nil || screen == nil {
-					return
-				}
-				win.SetSize(screen.Size.Width, screen.Size.Height)
-			})
-		})
-	}
+	_ = win
 
 	if err := app.Run(); err != nil {
 		log.Fatal(err)
