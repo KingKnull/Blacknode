@@ -33,9 +33,11 @@
   let { children }: Props = $props();
 </script>
 
-{#if app.view === 'terminals'}
+<div class:hidden={app.view !== 'terminals'}>
   {@render children()}
-{:else if app.view === 'exec'}
+</div>
+
+{#if app.view === 'exec'}
   <ErrorBoundary name="Multi-host">
     <ExecPanel />
   </ErrorBoundary>

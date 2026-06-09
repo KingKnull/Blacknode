@@ -207,9 +207,9 @@
       return {
         background: "#f5f2eb",
         foreground: "#1a1208",
-        cursor: "#0a6640",
+        cursor: "#059669",
         cursorAccent: "#f5f2eb",
-        selectionBackground: "rgba(10, 102, 64, 0.18)",
+        selectionBackground: "rgba(5, 150, 105, 0.18)",
         black: "#2a2010",
         brightBlack: "#6b5e42",
         red: "#9b1c1c",

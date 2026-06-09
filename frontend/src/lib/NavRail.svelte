@@ -12,6 +12,12 @@
   let { views, pluginPanels }: Props = $props();
 
   let hoveredNav = $state<string | null>(null);
+
+  // Split views into main (top) and utility (bottom).
+  // Utility views are always pushed to the bottom of the rail.
+  const UTILITY_IDS = new Set(['vault', 'keys', 'plugins', 'activity', 'settings']);
+  let mainViews = $derived(views.filter(v => !UTILITY_IDS.has(v.id)));
+  let utilityViews = $derived(views.filter(v => UTILITY_IDS.has(v.id)));
 </script>
 
 <nav class="flex flex-col items-center gap-px border-r hairline surface-1 py-2">
