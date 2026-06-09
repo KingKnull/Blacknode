@@ -174,7 +174,7 @@
       {#each forwards as f (f.id)}
         {@const Icon = kindIcon(f.kind)}
         <div
-          class="flex items-center gap-3 rounded-lg border hairline surface-2 p-3 {f.active
+          class="flex items-center gap-3 border hairline surface-2 p-3 {f.active
             ? 'border-[var(--color-accent)]/30'
             : ''}"
         >
@@ -198,7 +198,7 @@
           </div>
           {#if f.active}
             <button
-              class="flex items-center gap-1 rounded-md border hairline-strong px-2 py-1 text-[11px] hover:bg-[var(--color-surface-3)] disabled:opacity-50"
+              class="flex items-center gap-1 border hairline-strong px-2 py-1 text-[11px] hover:bg-[var(--color-surface-3)] disabled:opacity-50"
               disabled={busyID === f.id}
               onclick={() => stop(f)}
             >
@@ -209,7 +209,7 @@
             </button>
           {:else}
             <button
-              class="flex items-center gap-1 rounded-md bg-[var(--color-accent)] px-2 py-1 text-[11px] font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
+              class="flex items-center gap-1 bg-[var(--color-accent)] px-2 py-1 text-[11px] font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
               disabled={busyID === f.id}
               onclick={() => start(f)}
             >
@@ -252,7 +252,7 @@
     }}
   >
     <div
-      class="w-[560px] overflow-hidden rounded-xl border hairline-strong surface-2 shadow-2xl shadow-black/50"
+      class="w-[560px] overflow-hidden border hairline-strong surface-2 shadow-2xl shadow-black/50"
     >
       <div class="flex items-center gap-2 border-b hairline px-5 py-3">
         <Network size="14" class="text-[var(--color-accent)]" />
@@ -270,7 +270,7 @@
           <span class="text-[var(--color-text-3)]">presets:</span>
           {#each ["postgres", "mysql", "redis", "socks"] as p (p)}
             <button
-              class="rounded-md border hairline-strong px-2 py-0.5 hover:bg-[var(--color-surface-3)]"
+              class="border hairline-strong px-2 py-0.5 hover:bg-[var(--color-surface-3)]"
               onclick={() => applyPreset(p)}>{p}</button
             >
           {/each}
@@ -282,7 +282,7 @@
             >Name</span
           >
           <input
-            class="mt-1 w-full rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 outline-none"
+            class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 outline-none"
             bind:value={cName}
             placeholder="prod-db-tunnel"
           />
@@ -294,7 +294,7 @@
               >Host</span
             >
             <select
-              class="mt-1 w-full rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 outline-none"
+              class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 outline-none"
               bind:value={cHostID}
             >
               <option value="">— select —</option>
@@ -309,7 +309,7 @@
               >Kind</span
             >
             <select
-              class="mt-1 w-full rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 outline-none"
+              class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 outline-none"
               bind:value={cKind}
             >
               <option value="local">local — bind here, dial through SSH</option>
@@ -326,7 +326,7 @@
               >Local bind</span
             >
             <input
-              class="mt-1 w-full rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono outline-none"
+              class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono outline-none"
               bind:value={cLocalAddr}
               placeholder="127.0.0.1"
             />
@@ -373,11 +373,11 @@
 
       <div class="flex items-center justify-end gap-2 border-t hairline px-5 py-3">
         <button
-          class="rounded-md px-3 py-1.5 text-xs text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
+          class="px-3 py-1.5 text-xs text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
           onclick={() => (creating = false)}>Cancel</button
         >
         <button
-          class="flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
+          class="flex items-center gap-1.5 bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
           disabled={saving || !cName || !cHostID}
           onclick={save}
         >

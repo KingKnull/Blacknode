@@ -21,7 +21,7 @@
 </script>
 
 <nav class="flex flex-col items-center gap-px border-r hairline surface-1 py-2">
-  {#each views as v (v.id)}
+  {#each mainViews as v (v.id)}
     <button
       class="group relative flex h-8 w-8 items-center justify-center transition-all {app.view === v.id
         ? 'text-[var(--color-accent)]'
@@ -50,6 +50,7 @@
       {/if}
     </button>
   {/each}
+
   {#if pluginPanels.length > 0}
     <div class="my-1.5 h-px w-5 bg-[var(--color-line)]"></div>
     {#each pluginPanels as panel (panel.pluginId + ':' + panel.id)}
@@ -77,4 +78,36 @@
       </button>
     {/each}
   {/if}
+
+  <!-- Spacer pushes utility views to bottom -->
+  <div class="flex-1"></div>
+  <div class="my-1 h-px w-5 bg-[var(--color-line)]"></div>
+
+  {#each utilityViews as v (v.id)}
+    <button
+      class="group relative flex h-8 w-8 items-center justify-center transition-all {app.view === v.id
+        ? 'text-[var(--color-accent)]'
+        : 'text-[var(--color-text-4)] hover:text-[var(--color-text-2)]'}"
+      onclick={() => (app.view = v.id)}
+      onmouseenter={() => (hoveredNav = v.label)}
+      onmouseleave={() => (hoveredNav = null)}
+      onfocus={() => (hoveredNav = v.label)}
+      onblur={() => (hoveredNav = null)}
+    >
+      {#if app.view === v.id}
+        <span class="absolute inset-0 bg-[var(--color-accent)]/10"></span>
+        <span class="absolute left-0 inset-y-0 w-1 bg-[var(--color-accent)] shadow-[0_0_12px_var(--color-accent)] rounded-r-sm"></span>
+      {:else}
+        <span class="absolute inset-0 bg-[var(--color-accent)]/0 group-hover:bg-[var(--color-accent)]/3 transition-colors duration-200"></span>
+      {/if}
+      <v.Icon size="14" />
+
+      {#if hoveredNav === v.label}
+        <div class="absolute left-full z-50 ml-2 whitespace-nowrap border hairline-strong bg-[var(--color-surface-2)] px-2.5 py-1.5 text-xs text-[var(--color-text-1)] shadow-xl pointer-events-none fade-up"
+          style="box-shadow: 0 0 12px rgba(0,255,136,0.06), 0 4px 16px rgba(0,0,0,0.4);">
+          {v.label}
+        </div>
+      {/if}
+    </button>
+  {/each}
 </nav>

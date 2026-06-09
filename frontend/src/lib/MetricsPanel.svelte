@@ -123,7 +123,7 @@
       {@const s = history[h.id]}
       {@const isPolling = polling.has(h.id)}
       <div
-        class="overflow-hidden rounded-lg border hairline surface-2 transition-colors {isPolling
+        class="overflow-hidden border hairline surface-2 transition-colors {isPolling
           ? 'border-[var(--color-accent)]/30'
           : ''}"
       >
@@ -140,14 +140,14 @@
               class="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)] pulse-soft"
             ></span>
             <button
-              class="flex items-center gap-1 rounded-md border hairline-strong px-2 py-1 text-[11px] text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)]"
+              class="flex items-center gap-1 border hairline-strong px-2 py-1 text-[11px] text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)]"
               onclick={() => stop(h.id)}
             >
               <Square size="10" />stop
             </button>
           {:else}
             <button
-              class="flex items-center gap-1 rounded-md bg-[var(--color-accent)] px-2 py-1 text-[11px] font-medium text-[var(--color-surface-0)] hover:opacity-90"
+              class="flex items-center gap-1 bg-[var(--color-accent)] px-2 py-1 text-[11px] font-medium text-[var(--color-surface-0)] hover:opacity-90"
               onclick={() => start(h.id)}
             >
               <Play size="10" />start

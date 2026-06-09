@@ -100,7 +100,7 @@
       <ul class="grid grid-cols-1 gap-2 p-4 md:grid-cols-2">
         {#each plugins as p (p.id)}
           <li
-            class="rounded-lg border hairline surface-2 p-4 transition-colors hover:border-[var(--color-accent)]/30"
+            class="border hairline surface-2 p-4 transition-colors hover:border-[var(--color-accent)]/30"
           >
             <div class="flex items-center gap-2">
               <Puzzle size="13" class="text-[var(--color-accent)]" />
@@ -139,7 +139,7 @@
               <ul class="mt-2 flex flex-wrap gap-1.5 text-[10px]">
                 {#each p.panels as panel (panel.id)}
                   <li
-                    class="rounded border hairline px-1.5 py-0.5 text-[var(--color-text-3)]"
+                    class="border hairline px-1.5 py-0.5 text-[var(--color-text-3)]"
                   >
                     panel: {panel.title}
                   </li>

@@ -164,7 +164,7 @@
     <div class="flex items-center gap-1 border-b hairline surface-1 px-3 py-1.5">
       {#each TOOLS as t (t.id)}
         <button
-          class="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] {tool ===
+          class="flex items-center gap-1.5 px-2.5 py-1 text-[11px] {tool ===
           t.id
             ? 'bg-[var(--color-surface-3)] text-[var(--color-text-1)]'
             : 'text-[var(--color-text-3)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-1)]'}"
@@ -190,7 +190,7 @@
             >Target</span
           >
           <input
-            class="rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-sm outline-none"
+            class="border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-sm outline-none"
             placeholder={TOOLS.find((t) => t.id === tool)!.placeholder}
             bind:value={target}
             onkeydown={(e) => e.key === "Enter" && run()}
@@ -206,7 +206,7 @@
               type="number"
               min="1"
               max="50"
-              class="w-20 rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 outline-none"
+              class="w-20 border hairline bg-[var(--color-surface-3)] px-3 py-2 outline-none"
               bind:value={pingCount}
             />
           </label>
@@ -216,7 +216,7 @@
               >Record</span
             >
             <select
-              class="w-24 rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 outline-none"
+              class="w-24 border hairline bg-[var(--color-surface-3)] px-3 py-2 outline-none"
               bind:value={dnsType}
             >
               {#each ["A", "AAAA", "MX", "TXT", "CNAME", "NS", "SOA", "SRV"] as t (t)}
@@ -238,7 +238,7 @@
         {/if}
 
         <button
-          class="flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
+          class="flex items-center gap-1.5 bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
           disabled={busy || !target}
           onclick={run}
         >
@@ -253,7 +253,7 @@
             >Ports — comma-separated, ranges like 1000-1010 supported</span
           >
           <input
-            class="mt-1 w-full rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-xs outline-none"
+            class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-xs outline-none"
             bind:value={portList}
           />
         </label>
@@ -272,7 +272,7 @@
       {#if tool === "ping" && pingResult}
         <div class="m-4 space-y-3">
           <div class="grid grid-cols-4 gap-3">
-            <div class="rounded-lg border hairline surface-2 p-3">
+            <div class="border hairline surface-2 p-3">
               <div class="text-[10px] uppercase tracking-wider text-[var(--color-text-3)]">
                 Reachable
               </div>
@@ -284,7 +284,7 @@
                 {pingResult.reachable ? "yes" : "no"}
               </div>
             </div>
-            <div class="rounded-lg border hairline surface-2 p-3">
+            <div class="border hairline surface-2 p-3">
               <div class="text-[10px] uppercase tracking-wider text-[var(--color-text-3)]">
                 Loss
               </div>
@@ -295,7 +295,7 @@
                 {pingResult.lost} / {pingResult.sent}
               </div>
             </div>
-            <div class="rounded-lg border hairline surface-2 p-3">
+            <div class="border hairline surface-2 p-3">
               <div class="text-[10px] uppercase tracking-wider text-[var(--color-text-3)]">
                 Avg latency
               </div>
@@ -303,7 +303,7 @@
                 {pingResult.avgLatencyMs.toFixed(2)}<span class="text-xs"> ms</span>
               </div>
             </div>
-            <div class="rounded-lg border hairline surface-2 p-3">
+            <div class="border hairline surface-2 p-3">
               <div class="text-[10px] uppercase tracking-wider text-[var(--color-text-3)]">
                 Min / Max
               </div>
@@ -313,7 +313,7 @@
               </div>
             </div>
           </div>
-          <details class="rounded-md border hairline surface-2">
+          <details class="border hairline surface-2">
             <summary
               class="cursor-pointer px-4 py-2 text-[11px] text-[var(--color-text-3)]"
               >raw output</summary
@@ -328,7 +328,7 @@
         <div class="m-4 space-y-3">
           {#if dnsResult.answers.length === 0}
             <div
-              class="rounded-md border border-[var(--color-warn)]/30 bg-[var(--color-warn)]/10 p-3 text-xs text-[var(--color-warn)]"
+              class="border border-[var(--color-warn)]/30 bg-[var(--color-warn)]/10 p-3 text-xs text-[var(--color-warn)]"
             >
               No structured answers parsed — see raw output below.
             </div>
@@ -355,7 +355,7 @@
               </tbody>
             </table>
           {/if}
-          <details class="rounded-md border hairline surface-2">
+          <details class="border hairline surface-2">
             <summary
               class="cursor-pointer px-4 py-2 text-[11px] text-[var(--color-text-3)]"
               >raw output</summary
@@ -429,14 +429,14 @@
         <div class="m-4 space-y-3">
           {#if sslResult.error}
             <div
-              class="rounded-md border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-3 text-xs text-[var(--color-danger)]"
+              class="border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-3 text-xs text-[var(--color-danger)]"
             >
               <AlertTriangle size="12" class="mb-1 inline" />
               {sslResult.error}
             </div>
           {:else if sslResult.handshakeOK}
             <div class="grid grid-cols-3 gap-3">
-              <div class="rounded-lg border hairline surface-2 p-3">
+              <div class="border hairline surface-2 p-3">
                 <div class="text-[10px] uppercase tracking-wider text-[var(--color-text-3)]">
                   TLS
                 </div>
@@ -446,7 +446,7 @@
                   {sslResult.cipherSuite}
                 </div>
               </div>
-              <div class="rounded-lg border hairline surface-2 p-3">
+              <div class="border hairline surface-2 p-3">
                 <div class="text-[10px] uppercase tracking-wider text-[var(--color-text-3)]">
                   Expires
                 </div>
@@ -457,7 +457,7 @@
                   {fmtTime(sslResult.cert.notAfter)}
                 </div>
               </div>
-              <div class="rounded-lg border hairline surface-2 p-3">
+              <div class="border hairline surface-2 p-3">
                 <div class="text-[10px] uppercase tracking-wider text-[var(--color-text-3)]">
                   Issued
                 </div>
@@ -467,7 +467,7 @@
               </div>
             </div>
 
-            <div class="rounded-lg border hairline surface-2 p-4">
+            <div class="border hairline surface-2 p-4">
               <div class="grid grid-cols-[140px_1fr] gap-y-2 text-xs">
                 <span class="text-[var(--color-text-3)]">Subject</span>
                 <span class="font-mono">{sslResult.cert.subject}</span>

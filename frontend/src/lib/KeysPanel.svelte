@@ -199,7 +199,7 @@
     <div class="space-y-2">
       {#each app.keys as k (k.id)}
         <div
-          class="rounded-lg border hairline surface-2 p-3 transition-colors hover:border-[var(--color-line-strong)]"
+          class="border hairline surface-2 p-3 transition-colors hover:border-[var(--color-line-strong)]"
         >
           <div class="flex items-center gap-2">
             <KeyRound size="13" class="text-[var(--color-accent)]" />
@@ -207,7 +207,7 @@
               >{k.name}</span
             >
             <span
-              class="rounded-md border hairline px-1.5 py-0.5 text-[10px] font-mono text-[var(--color-text-2)]"
+              class="border hairline px-1.5 py-0.5 text-[10px] font-mono text-[var(--color-text-2)]"
               >{k.keyType}</span
             >
             <span
