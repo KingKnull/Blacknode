@@ -38,91 +38,93 @@
 </div>
 
 {#if app.view === 'exec'}
-  <ErrorBoundary name="Multi-host">
-    <ExecPanel />
-  </ErrorBoundary>
+  <div class="view-enter h-full w-full" key={app.view}>
+    <ErrorBoundary name="Multi-host"><ExecPanel /></ErrorBoundary>
+  </div>
 {:else if app.view === 'files'}
-  <ErrorBoundary name="Files">
-    <SFTPPanel />
-  </ErrorBoundary>
+  <div class="view-enter h-full w-full" key={app.view}>
+    <ErrorBoundary name="Files"><SFTPPanel /></ErrorBoundary>
+  </div>
 {:else if app.view === 'metrics'}
-  <ErrorBoundary name="Metrics">
-    <MetricsPanel />
-  </ErrorBoundary>
+  <div class="view-enter h-full w-full" key={app.view}>
+    <ErrorBoundary name="Metrics"><MetricsPanel /></ErrorBoundary>
+  </div>
 {:else if app.view === 'logs'}
-  <ErrorBoundary name="Logs">
-    <LogsPanel />
-  </ErrorBoundary>
+  <div class="view-enter h-full w-full" key={app.view}>
+    <ErrorBoundary name="Logs"><LogsPanel /></ErrorBoundary>
+  </div>
 {:else if app.view === 'forwards'}
-  <ErrorBoundary name="Forwards">
-    <ForwardsPanel />
-  </ErrorBoundary>
+  <div class="view-enter h-full w-full" key={app.view}>
+    <ErrorBoundary name="Forwards"><ForwardsPanel /></ErrorBoundary>
+  </div>
 {:else if app.view === 'recordings'}
-  <ErrorBoundary name="Recordings">
-    <RecordingsPanel />
-  </ErrorBoundary>
+  <div class="view-enter h-full w-full" key={app.view}>
+    <ErrorBoundary name="Recordings"><RecordingsPanel /></ErrorBoundary>
+  </div>
 {:else if app.view === 'containers'}
-  <ErrorBoundary name="Containers">
-    <ContainersPanel />
-  </ErrorBoundary>
+  <div class="view-enter h-full w-full" key={app.view}>
+    <ErrorBoundary name="Containers"><ContainersPanel /></ErrorBoundary>
+  </div>
 {:else if app.view === 'network'}
-  <ErrorBoundary name="Network">
-    <NetworkPanel />
-  </ErrorBoundary>
+  <div class="view-enter h-full w-full" key={app.view}>
+    <ErrorBoundary name="Network"><NetworkPanel /></ErrorBoundary>
+  </div>
 {:else if app.view === 'processes'}
-  <ErrorBoundary name="Processes">
-    <ProcessesPanel />
-  </ErrorBoundary>
+  <div class="view-enter h-full w-full" key={app.view}>
+    <ErrorBoundary name="Processes"><ProcessesPanel /></ErrorBoundary>
+  </div>
 {:else if app.view === 'http'}
-  <ErrorBoundary name="HTTP">
-    <HTTPPanel />
-  </ErrorBoundary>
+  <div class="view-enter h-full w-full" key={app.view}>
+    <ErrorBoundary name="HTTP"><HTTPPanel /></ErrorBoundary>
+  </div>
 {:else if app.view === 'database'}
-  {#await loadDBPanel() then DBPanel}
-    <ErrorBoundary name="Database">
-      <DBPanel />
-    </ErrorBoundary>
-  {/await}
+  <div class="view-enter h-full w-full" key={app.view}>
+    {#await loadDBPanel() then DBPanel}
+      <ErrorBoundary name="Database"><DBPanel /></ErrorBoundary>
+    {/await}
+  </div>
 {:else if app.view === 'snippets'}
-  <ErrorBoundary name="Snippets">
-    <SnippetsPanel />
-  </ErrorBoundary>
+  <div class="view-enter h-full w-full" key={app.view}>
+    <ErrorBoundary name="Snippets"><SnippetsPanel /></ErrorBoundary>
+  </div>
 {:else if app.view === 'history'}
-  <ErrorBoundary name="History">
-    <HistoryPanel />
-  </ErrorBoundary>
+  <div class="view-enter h-full w-full" key={app.view}>
+    <ErrorBoundary name="History"><HistoryPanel /></ErrorBoundary>
+  </div>
 {:else if app.view === 'topology'}
-  <ErrorBoundary name="Topology">
-    <TopologyPanel />
-  </ErrorBoundary>
+  <div class="view-enter h-full w-full" key={app.view}>
+    <ErrorBoundary name="Topology"><TopologyPanel /></ErrorBoundary>
+  </div>
 {:else if app.view === 'activity'}
-  <ErrorBoundary name="Activity">
-    <ActivityPanel />
-  </ErrorBoundary>
+  <div class="view-enter h-full w-full" key={app.view}>
+    <ErrorBoundary name="Activity"><ActivityPanel /></ErrorBoundary>
+  </div>
 {:else if app.view === 'plugins'}
-  <ErrorBoundary name="Plugins">
-    <PluginsPanel />
-  </ErrorBoundary>
+  <div class="view-enter h-full w-full" key={app.view}>
+    <ErrorBoundary name="Plugins"><PluginsPanel /></ErrorBoundary>
+  </div>
 {:else if app.view === 'vault'}
-  <ErrorBoundary name="Vault">
-    <VaultPanel />
-  </ErrorBoundary>
+  <div class="view-enter h-full w-full" key={app.view}>
+    <ErrorBoundary name="Vault"><VaultPanel /></ErrorBoundary>
+  </div>
 {:else if typeof app.view === 'string' && app.view.startsWith('plugin:')}
   {@const parts = (app.view as string).split(':')}
   {@const pluginID = parts[1]}
   {@const panelID = parts[2]}
   {@const found = app.pluginPanels.find((p) => p.pluginId === pluginID && p.id === panelID)}
-  {#if found}
-    <iframe title={found.title} class="h-full w-full border-0 bg-transparent" sandbox="allow-scripts" srcdoc={found.html}></iframe>
-  {:else}
-    <div class="flex h-full items-center justify-center text-xs text-[var(--color-text-3)]">Plugin panel not loaded.</div>
-  {/if}
+  <div class="view-enter h-full w-full" key={app.view}>
+    {#if found}
+      <iframe title={found.title} class="h-full w-full border-0 bg-transparent" sandbox="allow-scripts" srcdoc={found.html}></iframe>
+    {:else}
+      <div class="flex h-full items-center justify-center text-xs text-[var(--color-text-3)]">Plugin panel not loaded.</div>
+    {/if}
+  </div>
 {:else if app.view === 'keys'}
-  <ErrorBoundary name="Keys">
-    <KeysPanel />
-  </ErrorBoundary>
+  <div class="view-enter h-full w-full" key={app.view}>
+    <ErrorBoundary name="Keys"><KeysPanel /></ErrorBoundary>
+  </div>
 {:else if app.view === 'settings'}
-  <ErrorBoundary name="Settings">
-    <SettingsPanel />
-  </ErrorBoundary>
+  <div class="view-enter h-full w-full" key={app.view}>
+    <ErrorBoundary name="Settings"><SettingsPanel /></ErrorBoundary>
+  </div>
 {/if}

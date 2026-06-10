@@ -139,9 +139,11 @@
         {@const Icon = authIcon(h.authMethod)}
         {@const env = envBadge(h.environment)}
         <div
-          class="group relative mx-2 my-px flex items-center gap-2 overflow-hidden border border-transparent px-2 py-1.5 transition-all duration-150 {app.selectedHostID === h.id
+          class="group relative mx-2 my-px flex items-center gap-2 overflow-hidden border px-2 py-1.5 transition-all duration-150 {app.connectedHosts.has(h.id)
+            ? 'border-l-2 border-l-[var(--color-accent)] border-[var(--color-accent)]/20 bg-[var(--color-accent)]/5 text-[var(--color-text-1)]'
+            : app.selectedHostID === h.id
             ? 'border-[var(--color-accent)]/25 bg-[var(--color-accent)]/6 text-[var(--color-text-1)]'
-            : 'text-[var(--color-text-3)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-2)] hover:translate-x-0.5'}"
+            : 'border-transparent text-[var(--color-text-3)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-2)] hover:translate-x-0.5'}"
         >
           <!-- Env stripe -->
           {#if env.label}

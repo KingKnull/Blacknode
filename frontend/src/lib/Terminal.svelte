@@ -686,7 +686,7 @@
         </button>
 
       {#if showSnippets}
-        <div class="absolute right-0 top-full z-50 mt-1 w-64 rounded-md border hairline-strong surface-2 shadow-2xl fade-up" style="backdrop-filter: blur(12px) saturate(1.2); box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+        <div class="absolute right-0 top-full z-50 mt-1 w-64 border hairline-strong surface-2 shadow-2xl fade-up" style="backdrop-filter: blur(12px) saturate(1.2); box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
           <div class="border-b hairline px-3 py-2 font-mono text-[10px] font-bold text-[var(--color-text-2)] uppercase tracking-widest">
             Saved Snippets
           </div>
@@ -721,7 +721,7 @@
           </button>
           {#if showHostPicker}
             <div
-              class="absolute right-0 top-full z-30 mt-1 w-72 overflow-hidden rounded-md border hairline-strong surface-2 shadow-2xl"
+              class="absolute right-0 top-full z-30 mt-1 w-72 overflow-hidden border hairline-strong surface-2 shadow-2xl"
             >
               <div class="border-b hairline px-3 py-2 font-mono text-[10px] font-bold text-[var(--color-text-2)] uppercase tracking-widest">
                 Saved hosts
@@ -778,7 +778,7 @@
   <div bind:this={containerEl} class="relative flex-1 overflow-hidden p-1.5">
     <!-- Search Bar Overlay -->
     {#if showSearch}
-      <div class="absolute right-4 top-2 z-30 flex items-center gap-2 rounded-md border hairline-strong surface-2 p-1.5 shadow-xl fade-up" style="backdrop-filter: blur(8px);">
+      <div class="absolute right-4 top-2 z-30 flex items-center gap-2 border hairline-strong surface-2 p-1.5 shadow-xl fade-up" style="backdrop-filter: blur(8px);">
         <Search size="12" class="ml-1 text-[var(--color-text-4)]" />
         <input
           class="w-40 bg-transparent px-1 font-mono text-xs outline-none placeholder:text-[var(--color-text-4)]"
@@ -815,7 +815,7 @@
     <!-- Empty State Splash Screen -->
     {#if !hasTyped && (status === "running" || status === "connected")}
       <div class="pointer-events-none absolute inset-0 flex items-center justify-center fade-up z-10 bg-[var(--color-surface-0)]/40 backdrop-blur-[2px]">
-        <div class="pointer-events-auto border hairline-strong surface-2 p-5 shadow-2xl rounded-xl min-w-[320px]">
+        <div class="pointer-events-auto border hairline-strong surface-2 p-5 shadow-2xl min-w-[320px]">
           <div class="mb-4 flex items-center gap-2">
             <TerminalIcon size="14" class="text-[var(--color-accent)]" />
             <span class="font-mono text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-1)]">

@@ -14,6 +14,7 @@
   import TabBar from "./TabBar.svelte";
   import PanelRouter from "./PanelRouter.svelte";
   import StatusBar from "./StatusBar.svelte";
+  import ShortcutOverlay from "./ShortcutOverlay.svelte";
 
   // Heavy panels (AI SDK glue) are lazy-loaded so the code
   // they pull in doesn't sit in the main bundle.
@@ -102,6 +103,13 @@
 
     // Keyboard shortcuts for workspace navigation.
     const onShortcut = (e: KeyboardEvent) => {
+      // ? opens shortcut overlay (only when not typing in an input)
+      if (e.key === '?' && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
+        e.preventDefault();
+        shortcutOpen = !shortcutOpen;
+        return;
+      }
+
       const mod = e.metaKey || e.ctrlKey;
       if (!mod) return;
       const k = e.key.toLowerCase();
@@ -454,6 +462,7 @@
 
   let sidebarWidth = $state(Number(localStorage.getItem('blacknode.sidebar-width') || 252));
   let isResizing = $state(false);
+  let shortcutOpen = $state(false);
 
   function startResize(e: MouseEvent) {
     isResizing = true;
@@ -615,6 +624,10 @@
 
   <Palette onNewTab={newTab} />
   <Toaster />
+
+  {#if shortcutOpen}
+    <ShortcutOverlay onclose={() => (shortcutOpen = false)} />
+  {/if}
 
   <!-- ── STATUS BAR ──────────────────────────────────────────────── -->
   <StatusBar tabCount={tabs.length} {activeLeafCount} />
