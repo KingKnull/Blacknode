@@ -38,73 +38,73 @@
 </div>
 
 {#if app.view === 'exec'}
-  <div class="view-enter h-full w-full" key={app.view}>
+  <div class="view-enter h-full w-full">
     <ErrorBoundary name="Multi-host"><ExecPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'files'}
-  <div class="view-enter h-full w-full" key={app.view}>
+  <div class="view-enter h-full w-full">
     <ErrorBoundary name="Files"><SFTPPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'metrics'}
-  <div class="view-enter h-full w-full" key={app.view}>
+  <div class="view-enter h-full w-full">
     <ErrorBoundary name="Metrics"><MetricsPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'logs'}
-  <div class="view-enter h-full w-full" key={app.view}>
+  <div class="view-enter h-full w-full">
     <ErrorBoundary name="Logs"><LogsPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'forwards'}
-  <div class="view-enter h-full w-full" key={app.view}>
+  <div class="view-enter h-full w-full">
     <ErrorBoundary name="Forwards"><ForwardsPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'recordings'}
-  <div class="view-enter h-full w-full" key={app.view}>
+  <div class="view-enter h-full w-full">
     <ErrorBoundary name="Recordings"><RecordingsPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'containers'}
-  <div class="view-enter h-full w-full" key={app.view}>
+  <div class="view-enter h-full w-full">
     <ErrorBoundary name="Containers"><ContainersPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'network'}
-  <div class="view-enter h-full w-full" key={app.view}>
+  <div class="view-enter h-full w-full">
     <ErrorBoundary name="Network"><NetworkPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'processes'}
-  <div class="view-enter h-full w-full" key={app.view}>
+  <div class="view-enter h-full w-full">
     <ErrorBoundary name="Processes"><ProcessesPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'http'}
-  <div class="view-enter h-full w-full" key={app.view}>
+  <div class="view-enter h-full w-full">
     <ErrorBoundary name="HTTP"><HTTPPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'database'}
-  <div class="view-enter h-full w-full" key={app.view}>
+  <div class="view-enter h-full w-full">
     {#await loadDBPanel() then DBPanel}
       <ErrorBoundary name="Database"><DBPanel /></ErrorBoundary>
     {/await}
   </div>
 {:else if app.view === 'snippets'}
-  <div class="view-enter h-full w-full" key={app.view}>
+  <div class="view-enter h-full w-full">
     <ErrorBoundary name="Snippets"><SnippetsPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'history'}
-  <div class="view-enter h-full w-full" key={app.view}>
+  <div class="view-enter h-full w-full">
     <ErrorBoundary name="History"><HistoryPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'topology'}
-  <div class="view-enter h-full w-full" key={app.view}>
+  <div class="view-enter h-full w-full">
     <ErrorBoundary name="Topology"><TopologyPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'activity'}
-  <div class="view-enter h-full w-full" key={app.view}>
+  <div class="view-enter h-full w-full">
     <ErrorBoundary name="Activity"><ActivityPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'plugins'}
-  <div class="view-enter h-full w-full" key={app.view}>
+  <div class="view-enter h-full w-full">
     <ErrorBoundary name="Plugins"><PluginsPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'vault'}
-  <div class="view-enter h-full w-full" key={app.view}>
+  <div class="view-enter h-full w-full">
     <ErrorBoundary name="Vault"><VaultPanel /></ErrorBoundary>
   </div>
 {:else if typeof app.view === 'string' && app.view.startsWith('plugin:')}
@@ -112,7 +112,7 @@
   {@const pluginID = parts[1]}
   {@const panelID = parts[2]}
   {@const found = app.pluginPanels.find((p) => p.pluginId === pluginID && p.id === panelID)}
-  <div class="view-enter h-full w-full" key={app.view}>
+  <div class="view-enter h-full w-full">
     {#if found}
       <iframe title={found.title} class="h-full w-full border-0 bg-transparent" sandbox="allow-scripts" srcdoc={found.html}></iframe>
     {:else}
@@ -120,11 +120,11 @@
     {/if}
   </div>
 {:else if app.view === 'keys'}
-  <div class="view-enter h-full w-full" key={app.view}>
+  <div class="view-enter h-full w-full">
     <ErrorBoundary name="Keys"><KeysPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'settings'}
-  <div class="view-enter h-full w-full" key={app.view}>
+  <div class="view-enter h-full w-full">
     <ErrorBoundary name="Settings"><SettingsPanel /></ErrorBoundary>
   </div>
 {/if}

@@ -528,8 +528,10 @@
     <!-- ── SIDEBAR ─────────────────────────────────────── -->
     <aside class="relative overflow-hidden border-r hairline group/sidebar">
       <HostList />
-      <!-- Resize handle -->
-      <div 
+      <!-- Resize handle — a separator is the correct role for a drag-to-resize
+           divider, and pointer-drag is its native interaction. -->
+      <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+      <div
         role="separator"
         aria-orientation="vertical"
         tabindex="-1"
