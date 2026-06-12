@@ -172,6 +172,7 @@
         onclick={up}
         disabled={!path}
         title="Up one directory"
+        aria-label="Up one directory"
       >
         <ChevronUp size="14" />
       </button>
@@ -185,6 +186,7 @@
         class="flex items-center gap-1 rounded p-1.5 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
         onclick={reload}
         title="Reload"
+        aria-label="Reload directory"
       >
         <RefreshCw size="13" />
       </button>
@@ -206,6 +208,7 @@
     <div
       class="relative flex-1 overflow-y-auto"
       role="region"
+      aria-label="File browser — drop files here to upload"
       ondragover={(e) => { e.preventDefault(); isDraggingOver = true; }}
       ondragenter={onDragEnter}
       ondragleave={onDragLeave}
@@ -221,12 +224,12 @@
         </div>
       {/if}
       {#if err}
-        <div class="m-4 rounded-md border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-3 text-xs text-[var(--color-danger)]">
+        <div class="m-4 rounded-md border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-3 text-xs text-[var(--color-danger)]" role="alert">
           {err}
         </div>
       {/if}
       {#if busy && entries.length === 0}
-        <div class="p-4 text-center text-xs text-[var(--color-text-3)]">Loading…</div>
+        <Skeleton rows={8} rowClass="h-6" />
       {/if}
       <div class="divide-y divide-[var(--color-line)]">
         {#each entries as e (e.name)}
@@ -257,6 +260,7 @@
                   class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-accent)]"
                   onclick={() => (editingPath = joinPath(path, e.name))}
                   title="Edit"
+                  aria-label="Edit {e.name}"
                 >
                   <FileCode size="11" />
                 </button>
@@ -264,6 +268,7 @@
                   class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
                   onclick={() => download(e)}
                   title="Download"
+                  aria-label="Download {e.name}"
                 >
                   <Download size="11" />
                 </button>
@@ -272,6 +277,7 @@
                 class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)]"
                 onclick={() => (entryToDelete = e)}
                 title="Delete"
+                aria-label="Delete {e.name}"
               >
                 <Trash2 size="11" />
               </button>
@@ -280,9 +286,12 @@
         {/each}
       </div>
       {#if entries.length === 0 && !busy && !err}
-        <div class="p-6 text-center text-xs text-[var(--color-text-3)]">
-          empty
-        </div>
+        <EmptyState
+          icon={FolderOpen}
+          title="Empty directory"
+          description="Nothing here yet. Drop files anywhere in this pane to upload."
+          compact
+        />
       {/if}
     </div>
   {/if}

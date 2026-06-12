@@ -7,6 +7,9 @@
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
+  import EmptyState from "./EmptyState.svelte";
+  import Skeleton from "./Skeleton.svelte";
+  import Dialog from "./Dialog.svelte";
   import {
     Activity,
     Cpu,
@@ -226,15 +229,11 @@
   </PageHeader>
 
   {#if !host}
-    <div class="flex flex-1 items-center justify-center">
-      <div class="text-center">
-        <Activity size="22" class="mx-auto text-[var(--color-text-4)]" />
-        <p class="mt-2 text-xs text-[var(--color-text-3)]">
-          Select a host to view its top processes and systemd units. All
-          operations run remotely via SSH.
-        </p>
-      </div>
-    </div>
+    <EmptyState
+      icon={Activity}
+      title="No host selected"
+      description="Select a host to view its top processes and systemd units. All operations run remotely via SSH."
+    />
   {:else}
     <div class="flex items-center gap-1 border-b hairline surface-1 px-3 py-1.5">
       <button
@@ -283,7 +282,9 @@
     {/if}
 
     <div class="flex-1 overflow-y-auto">
-      {#if tab === "procs"}
+      {#if loading && procs.length === 0 && units.length === 0}
+        <Skeleton rows={10} rowClass="h-6" />
+      {:else if tab === "procs"}
         {@const list = visibleProcs()}
         {#snippet sortTh(key: SortKey, label: string, align: "left" | "right")}
           {@const dir = sortKey === key ? (sortDir === "desc" ? "descending" : "ascending") : "none"}
@@ -477,19 +478,16 @@
 {/if}
 
 {#if serviceLog}
-  <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-    role="presentation"
-    onclick={(e) => {
-      if (e.target === e.currentTarget) serviceLog = null;
-    }}
+  <Dialog
+    onclose={() => (serviceLog = null)}
+    labelledby="service-log-title"
+    backdropClass="bg-black/70 backdrop-blur-sm"
+    panelClass="flex max-h-[80vh] w-[min(90vw,900px)] flex-col overflow-hidden rounded-xl border hairline-strong surface-2 shadow-2xl shadow-black/60"
   >
-    <div
-      class="flex max-h-[80vh] w-[min(90vw,900px)] flex-col overflow-hidden rounded-xl border hairline-strong surface-2 shadow-2xl shadow-black/60"
-    >
+    {#snippet children()}
       <div class="flex items-center gap-2 border-b hairline px-4 py-2.5">
         <Cog size="14" class="text-[var(--color-accent)]" />
-        <span class="font-mono text-sm">{serviceLog.unit}</span>
+        <span id="service-log-title" class="font-mono text-sm">{serviceLog?.unit}</span>
         <button
           class="ml-auto rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
           onclick={() => (serviceLog = null)}
@@ -500,8 +498,8 @@
       </div>
       <div class="flex-1 overflow-auto bg-[var(--color-code-bg)] p-3">
         <pre
-          class="overflow-x-auto whitespace-pre-wrap font-mono text-[11px] text-[var(--color-text-1)]">{serviceLog.body || "(no output)"}</pre>
+          class="overflow-x-auto whitespace-pre-wrap font-mono text-[11px] text-[var(--color-text-1)]">{serviceLog?.body || "(no output)"}</pre>
       </div>
-    </div>
-  </div>
+    {/snippet}
+  </Dialog>
 {/if}

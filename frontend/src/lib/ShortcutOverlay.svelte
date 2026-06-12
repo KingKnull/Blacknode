@@ -1,5 +1,6 @@
 <script lang="ts">
   import { X } from "@lucide/svelte";
+  import Dialog from "./Dialog.svelte";
 
   type Props = { onclose: () => void };
   let { onclose }: Props = $props();
@@ -33,8 +34,9 @@
     },
   ];
 
+  // Escape + focus trap handled by Dialog; '?' also toggles the overlay shut.
   function handleKeydown(e: KeyboardEvent) {
-    if (e.key === "Escape" || e.key === "?") {
+    if (e.key === "?") {
       e.preventDefault();
       onclose();
     }
@@ -43,16 +45,14 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<!-- Backdrop -->
-<div
-  class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[3px]"
-  role="dialog"
-  aria-modal="true"
-  aria-label="Keyboard shortcuts"
-  onclick={(e) => { if (e.target === e.currentTarget) onclose(); }}
+<Dialog
+  onclose={onclose}
+  label="Keyboard shortcuts"
+  backdropClass="bg-black/60 backdrop-blur-[3px]"
+  panelClass="fade-up w-[480px] max-h-[80vh] overflow-y-auto border hairline-strong surface-2 shadow-2xl shadow-black/60"
+  panelStyle="box-shadow: 0 0 40px rgba(0,255,136,0.04), 0 20px 60px rgba(0,0,0,0.6);"
 >
-  <div class="fade-up w-[480px] max-h-[80vh] overflow-y-auto border hairline-strong surface-2 shadow-2xl shadow-black/60"
-    style="box-shadow: 0 0 40px rgba(0,255,136,0.04), 0 20px 60px rgba(0,0,0,0.6);">
+  {#snippet children()}
 
     <!-- Header -->
     <div class="flex items-center justify-between border-b hairline px-5 py-3">
@@ -99,5 +99,5 @@
     <div class="border-t hairline px-5 py-2.5">
       <p class="font-mono text-[9px] text-[var(--color-text-4)]">Press <kbd class="border hairline bg-[var(--color-surface-3)] px-1 py-px font-mono text-[9px]">Esc</kbd> or <kbd class="border hairline bg-[var(--color-surface-3)] px-1 py-px font-mono text-[9px]">?</kbd> to close</p>
     </div>
-  </div>
-</div>
+  {/snippet}
+</Dialog>

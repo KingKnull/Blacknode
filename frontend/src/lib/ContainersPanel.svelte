@@ -6,6 +6,9 @@
   } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
+  import EmptyState from "./EmptyState.svelte";
+  import Skeleton from "./Skeleton.svelte";
+  import Dialog from "./Dialog.svelte";
   import {
     Container as ContainerIcon,
     Boxes,
@@ -166,15 +169,11 @@
   </PageHeader>
 
   {#if !host}
-    <div class="flex flex-1 items-center justify-center">
-      <div class="text-center">
-        <Boxes size="22" class="mx-auto text-[var(--color-text-4)]" />
-        <p class="mt-2 text-xs text-[var(--color-text-3)]">
-          Select a host on the left, then list its containers or pods. Commands
-          run remotely over SSH — no local docker/kubectl install needed.
-        </p>
-      </div>
-    </div>
+    <EmptyState
+      icon={Boxes}
+      title="No host selected"
+      description="Select a host on the left to list its containers or pods. Commands run remotely over SSH — no local docker/kubectl needed."
+    />
   {:else}
     <div class="flex items-center gap-1 border-b hairline surface-1 px-3 py-1.5">
       <button
@@ -226,16 +225,22 @@
       {#if err}
         <div
           class="m-4 rounded-md border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-3 font-mono text-[11px] whitespace-pre-wrap text-[var(--color-danger)]"
+          role="alert"
         >
           {err}
         </div>
       {/if}
 
-      {#if tab === "docker"}
-        {#if containers.length === 0 && !loading && !err}
-          <div class="p-6 text-center text-xs text-[var(--color-text-3)]">
-            no containers running on this host
-          </div>
+      {#if loading && (tab === "docker" ? containers.length === 0 : pods.length === 0)}
+        <Skeleton rows={8} rowClass="h-7" />
+      {:else if tab === "docker"}
+        {#if containers.length === 0 && !err}
+          <EmptyState
+            icon={ContainerIcon}
+            title="No containers"
+            description={includeStopped ? "No containers on this host." : "No running containers. Toggle 'show stopped' to include exited ones."}
+            compact
+          />
         {:else}
           <table class="w-full text-xs">
             <thead
@@ -281,6 +286,7 @@
                       class="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
                       onclick={() => showContainerLogs(c)}
                       title="View logs"
+                      aria-label="View logs for {c.name}"
                     >
                       <ScrollText size="10" /> logs
                     </button>
@@ -291,10 +297,13 @@
           </table>
         {/if}
       {:else if tab === "k8s"}
-        {#if pods.length === 0 && !loading && !err}
-          <div class="p-6 text-center text-xs text-[var(--color-text-3)]">
-            no pods in {namespace || "any namespace"}
-          </div>
+        {#if pods.length === 0 && !err}
+          <EmptyState
+            icon={Boxes}
+            title="No pods"
+            description="No pods in {namespace || 'any namespace'}."
+            compact
+          />
         {:else}
           <table class="w-full text-xs">
             <thead
@@ -339,6 +348,8 @@
                     <button
                       class="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
                       onclick={() => showPodLogs(p)}
+                      title="View logs"
+                      aria-label="View logs for {p.namespace}/{p.name}"
                     >
                       <ScrollText size="10" /> logs
                     </button>
@@ -354,29 +365,27 @@
 </div>
 
 {#if logs}
-  <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-    role="presentation"
-    onclick={(e) => {
-      if (e.target === e.currentTarget) logs = null;
-    }}
+  <Dialog
+    onclose={() => (logs = null)}
+    labelledby="container-logs-title"
+    backdropClass="bg-black/70 backdrop-blur-sm"
+    panelClass="flex max-h-[85vh] w-[min(95vw,1100px)] flex-col overflow-hidden rounded-xl border hairline-strong surface-2 shadow-2xl shadow-black/60"
   >
-    <div
-      class="flex max-h-[85vh] w-[min(95vw,1100px)] flex-col overflow-hidden rounded-xl border hairline-strong surface-2 shadow-2xl shadow-black/60"
-    >
+    {#snippet children()}
       <div class="flex items-center gap-2 border-b hairline px-4 py-2.5">
         <ScrollText size="14" class="text-[var(--color-accent)]" />
-        <span class="truncate text-sm font-semibold">{logs.title}</span>
+        <span id="container-logs-title" class="truncate text-sm font-semibold">{logs?.title}</span>
         <span class="ml-2 text-[10px] text-[var(--color-text-3)]">last 500 lines</span>
         <button
           class="ml-auto rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
           onclick={() => (logs = null)}
+          aria-label="Close logs"
         >
           <X size="14" />
         </button>
       </div>
       <div class="flex-1 overflow-auto bg-[var(--color-code-bg)] p-3">
-        {#if logs.loading}
+        {#if logs?.loading}
           <div
             class="flex h-32 items-center justify-center gap-2 text-xs text-[var(--color-text-3)]"
           >
@@ -384,10 +393,10 @@
           </div>
         {:else}
           <pre
-            class="overflow-x-auto whitespace-pre-wrap font-mono text-[11px] text-[var(--color-text-1)]">{logs.body || "(no output)"}</pre>
+            class="overflow-x-auto whitespace-pre-wrap font-mono text-[11px] text-[var(--color-text-1)]">{logs?.body || "(no output)"}</pre>
         {/if}
       </div>
-    </div>
-  </div>
+    {/snippet}
+  </Dialog>
 {/if}
 

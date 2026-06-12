@@ -240,45 +240,6 @@
     activeTabID = keep.id;
   }
 
-  // Drag-reorder state. We move tabs in the array as the dragged element
-  // crosses each sibling's midpoint — feels like Chrome / VS Code rather
-  // than the default "drop at the end" behavior of the HTML5 DnD API.
-  let dragSourceID = $state<string | null>(null);
-  let dragOverID = $state<string | null>(null);
-
-  function tabDragStart(e: DragEvent, id: string) {
-    dragSourceID = id;
-    if (e.dataTransfer) {
-      e.dataTransfer.effectAllowed = "move";
-      e.dataTransfer.setData("text/plain", id);
-    }
-  }
-  function tabDragOver(e: DragEvent, id: string) {
-    if (!dragSourceID || dragSourceID === id) return;
-    e.preventDefault();
-    if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
-    dragOverID = id;
-    const from = tabs.findIndex((t) => t.id === dragSourceID);
-    const to = tabs.findIndex((t) => t.id === id);
-    if (from === -1 || to === -1 || from === to) return;
-    const [moved] = tabs.splice(from, 1);
-    tabs.splice(to, 0, moved);
-  }
-  function tabDragEnd() {
-    dragSourceID = null;
-    dragOverID = null;
-  }
-
-  // Right-click context menu on tabs.
-  let tabMenu = $state<{ x: number; y: number; tabID: string } | null>(null);
-  function openTabMenu(e: MouseEvent, id: string) {
-    e.preventDefault();
-    tabMenu = { x: e.clientX, y: e.clientY, tabID: id };
-  }
-  function closeTabMenu() {
-    tabMenu = null;
-  }
-
   function onActivate(tabID: string, leafID: string) {
     const t = tabs.find((t) => t.id === tabID);
     if (t) t.activeLeafID = leafID;

@@ -34,6 +34,8 @@
     ChevronDown,
     RefreshCw,
   } from "@lucide/svelte";
+  import EmptyState from "./EmptyState.svelte";
+  import Skeleton from "./Skeleton.svelte";
 
   let kind = $state<"postgres" | "mysql">("postgres");
   let dsn = $state("postgres://postgres:postgres@localhost:5432/postgres");
@@ -385,15 +387,11 @@
   </PageHeader>
 
   {#if !host}
-    <div class="flex flex-1 items-center justify-center">
-      <div class="text-center">
-        <Database size="22" class="mx-auto text-[var(--color-text-4)]" />
-        <p class="mt-2 text-xs text-[var(--color-text-3)]">
-          Pick a host. Connections are tunneled through SSH — point the DSN
-          at a Postgres reachable from that host.
-        </p>
-      </div>
-    </div>
+    <EmptyState
+      icon={Database}
+      title="No host selected"
+      description="Pick a host. Connections are tunneled through SSH — point the DSN at a database reachable from that host."
+    />
   {:else if !conn}
     <!-- Connect form -->
     <div class="m-auto w-full max-w-2xl space-y-4 p-6">
@@ -516,6 +514,7 @@
             disabled={loadingTables}
             onclick={refreshTables}
             title="Refresh"
+            aria-label="Refresh schema"
           >
             {#if loadingTables}<Loader2 size="10" class="animate-spin" />{:else}<RefreshCw
                 size="10"
@@ -530,8 +529,12 @@
           />
         </div>
         <div class="flex-1 overflow-y-auto py-1">
+          {#if loadingTables && tables.length === 0}
+            <Skeleton rows={10} rowClass="h-4" class="px-2 py-2" />
+          {/if}
           {#each Object.keys(groupedTables).sort() as schema (schema)}
-            {#if conn.kind !== "mysql" || tables.length > 0}
+            <!-- MySQL has no schema namespace; the group label is redundant there. -->
+            {#if conn.kind !== "mysql"}
               <div
                 class="px-3 pt-2 pb-1 text-[9px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-4)]"
               >
@@ -613,9 +616,7 @@
             {/each}
           {/each}
           {#if tables.length === 0 && !loadingTables}
-            <div class="px-3 py-4 text-center text-[10px] text-[var(--color-text-4)]">
-              no tables found
-            </div>
+            <EmptyState icon={TableIcon} title="No tables" compact />
           {/if}
         </div>
       </div>

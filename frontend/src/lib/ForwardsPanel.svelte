@@ -5,6 +5,7 @@
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
+  import EmptyState from "./EmptyState.svelte";
   import {
     Network,
     Plus,
@@ -241,14 +242,11 @@
     </div>
 
     {#if forwards.length === 0 && !creating}
-      <div class="flex h-full items-center justify-center">
-        <div class="text-center">
-          <Network size="22" class="mx-auto text-[var(--color-text-4)]" />
-          <p class="mt-2 text-xs text-[var(--color-text-3)]">
-            No port forwards yet. Click "new forward" to create one.
-          </p>
-        </div>
-      </div>
+      <EmptyState
+        icon={Network}
+        title="No port forwards yet"
+        description={'Click "new forward" to create a local, remote, or SOCKS5 tunnel.'}
+      />
     {/if}
   </div>
 </div>

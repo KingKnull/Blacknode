@@ -22,7 +22,9 @@
   --color-text-1: #dffff0;
   --color-text-2: #7ecfa8;
   --color-text-3: #5aaa80;
-  --color-text-4: #4a7a60;
+  /* Raised from #4a7a60 (~4.0:1) to clear WCAG AA (~5.4:1) on surface-1
+     while staying a rung below text-3 in the hierarchy. */
+  --color-text-4: #5c9176;
 
   --color-accent: #00ff88;
   --color-accent-soft: rgba(0, 255, 136, 0.07);
@@ -51,7 +53,8 @@
   --color-text-1: #1a1208;
   --color-text-2: #3d3422;
   --color-text-3: #5a4e36;
-  --color-text-4: #7a6e58;
+  /* Darkened from #7a6e58 (~4.0:1) to clear WCAG AA on the light surfaces. */
+  --color-text-4: #645a44;
 
   --color-accent: #059669;
   --color-accent-soft: rgba(5, 150, 105, 0.10);
