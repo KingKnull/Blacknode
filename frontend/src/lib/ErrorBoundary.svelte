@@ -39,7 +39,7 @@
 </script>
 
 {#if error}
-  <div class="flex h-full w-full items-center justify-center bg-[var(--color-surface-0)]">
+  <div class="flex h-full w-full items-center justify-center bg-[var(--color-surface-0)]" role="alert">
     <div class="max-w-md text-center">
       <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-danger)]/10">
         <AlertTriangle size="22" class="text-[var(--color-danger)]" />

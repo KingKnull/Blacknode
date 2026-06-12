@@ -249,6 +249,7 @@
             class="px-1 py-0.5 text-[var(--color-text-4)] opacity-0 hover:text-[var(--color-danger)] group-hover:opacity-100"
             onclick={() => (queryToDelete = q)}
             title="Delete"
+            aria-label="Delete saved query {q.name}"
           >
             ×
           </button>

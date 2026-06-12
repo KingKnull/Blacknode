@@ -285,42 +285,37 @@
     <div class="flex-1 overflow-y-auto">
       {#if tab === "procs"}
         {@const list = visibleProcs()}
+        {#snippet sortTh(key: SortKey, label: string, align: "left" | "right")}
+          {@const dir = sortKey === key ? (sortDir === "desc" ? "descending" : "ascending") : "none"}
+          <th
+            scope="col"
+            aria-sort={dir}
+            class="px-0 py-0 font-medium text-{align}"
+          >
+            <button
+              type="button"
+              class="flex w-full items-center gap-1 px-3 py-2 hover:text-[var(--color-text-1)] {align === 'right' ? 'justify-end' : 'justify-start'}"
+              onclick={() => flipSort(key)}
+              aria-label="Sort by {label}"
+            >
+              {label}
+              <span aria-hidden="true">{sortKey === key ? (sortDir === "desc" ? "↓" : "↑") : ""}</span>
+            </button>
+          </th>
+        {/snippet}
         <table class="w-full text-xs">
           <thead
             class="sticky top-0 z-10 surface-1 text-[10px] uppercase tracking-[0.14em] text-[var(--color-text-3)]"
           >
             <tr>
-              <th class="cursor-pointer px-3 py-2 text-left font-medium hover:text-[var(--color-text-1)]"
-                onclick={() => flipSort("pid")}
-                >PID {sortKey === "pid" ? (sortDir === "desc" ? "↓" : "↑") : ""}</th
-              >
-              <th
-                class="cursor-pointer px-3 py-2 text-left font-medium hover:text-[var(--color-text-1)]"
-                onclick={() => flipSort("user")}
-                >User {sortKey === "user" ? (sortDir === "desc" ? "↓" : "↑") : ""}</th
-              >
-              <th
-                class="cursor-pointer px-3 py-2 text-right font-medium hover:text-[var(--color-text-1)]"
-                onclick={() => flipSort("cpu")}
-                >CPU% {sortKey === "cpu" ? (sortDir === "desc" ? "↓" : "↑") : ""}</th
-              >
-              <th
-                class="cursor-pointer px-3 py-2 text-right font-medium hover:text-[var(--color-text-1)]"
-                onclick={() => flipSort("mem")}
-                >MEM% {sortKey === "mem" ? (sortDir === "desc" ? "↓" : "↑") : ""}</th
-              >
-              <th
-                class="cursor-pointer px-3 py-2 text-right font-medium hover:text-[var(--color-text-1)]"
-                onclick={() => flipSort("rss")}
-                >RSS {sortKey === "rss" ? (sortDir === "desc" ? "↓" : "↑") : ""}</th
-              >
-              <th class="px-3 py-2 text-left font-medium">State</th>
-              <th class="px-3 py-2 text-left font-medium">Time</th>
-              <th
-                class="cursor-pointer px-3 py-2 text-left font-medium hover:text-[var(--color-text-1)]"
-                onclick={() => flipSort("command")}
-                >Command {sortKey === "command" ? (sortDir === "desc" ? "↓" : "↑") : ""}</th
-              >
+              {@render sortTh("pid", "PID", "left")}
+              {@render sortTh("user", "User", "left")}
+              {@render sortTh("cpu", "CPU%", "right")}
+              {@render sortTh("mem", "MEM%", "right")}
+              {@render sortTh("rss", "RSS", "right")}
+              <th scope="col" class="px-3 py-2 text-left font-medium">State</th>
+              <th scope="col" class="px-3 py-2 text-left font-medium">Time</th>
+              {@render sortTh("command", "Command", "left")}
               <th class="w-10"></th>
             </tr>
           </thead>
@@ -357,6 +352,7 @@
                   <button
                     class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)] disabled:opacity-30"
                     title="Kill"
+                    aria-label="Kill process {p.pid} ({p.command})"
                     disabled={killing === p.pid}
                     onclick={() => (pendingKill = p)}
                   >
@@ -416,6 +412,7 @@
                   <button
                     class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-accent)] disabled:opacity-30"
                     title="Start"
+                    aria-label="Start {u.name}"
                     disabled={serviceBusy === u.name + ":start"}
                     onclick={() => unitAction(u, "start")}
                   >
@@ -424,6 +421,7 @@
                   <button
                     class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-accent)] disabled:opacity-30"
                     title="Restart"
+                    aria-label="Restart {u.name}"
                     disabled={serviceBusy === u.name + ":restart"}
                     onclick={() => unitAction(u, "restart")}
                   >
@@ -432,6 +430,7 @@
                   <button
                     class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-danger)] disabled:opacity-30"
                     title="Stop"
+                    aria-label="Stop {u.name}"
                     disabled={serviceBusy === u.name + ":stop"}
                     onclick={() => unitAction(u, "stop")}
                   >
@@ -440,6 +439,7 @@
                   <button
                     class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
                     title="Status"
+                    aria-label="Show status for {u.name}"
                     onclick={() => unitAction(u, "status")}
                   >
                     <Check size="11" />
@@ -493,6 +493,7 @@
         <button
           class="ml-auto rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
           onclick={() => (serviceLog = null)}
+          aria-label="Close status"
         >
           ×
         </button>

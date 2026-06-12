@@ -16,6 +16,8 @@
     FileCode,
   } from "@lucide/svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
+  import EmptyState from "./EmptyState.svelte";
+  import Skeleton from "./Skeleton.svelte";
 
   let path = $state("");
   let entries = $state<SFTPEntry[]>([]);
@@ -158,14 +160,11 @@
   />
 
   {#if !host}
-    <div class="flex flex-1 items-center justify-center">
-      <div class="text-center">
-        <FolderOpen size="22" class="mx-auto text-[var(--color-text-4)]" />
-        <p class="mt-2 text-xs text-[var(--color-text-3)]">
-          Pick a host on the left to browse its filesystem.
-        </p>
-      </div>
-    </div>
+    <EmptyState
+      icon={FolderOpen}
+      title="No host selected"
+      description="Pick a host on the left to browse its filesystem."
+    />
   {:else}
     <div class="flex items-center gap-2 border-b hairline surface-1 px-4 py-2">
       <button

@@ -465,16 +465,13 @@
             {#if !collapsed}
               <ul class="mb-1">
                 {#each items as r (r.id)}
-                  <li>
-                    <div
-                      role="button"
-                      tabindex="0"
-                      class="group flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1 text-left hover:bg-[var(--color-surface-3)]"
-                      class:bg-[var(--color-surface-3)]={loadedID === r.id}
+                  <li
+                    class="group flex w-full items-center gap-2 rounded pr-1 hover:bg-[var(--color-surface-3)]"
+                    class:bg-[var(--color-surface-3)]={loadedID === r.id}
+                  >
+                    <button
+                      class="flex min-w-0 flex-1 cursor-pointer items-center gap-2 px-2 py-1 text-left"
                       onclick={() => loadSaved(r)}
-                      onkeydown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") loadSaved(r);
-                      }}
                     >
                       <span
                         class="font-mono text-[9px] uppercase {methodColor(r.method)}"
@@ -485,14 +482,15 @@
                       <span class="truncate text-[11px] text-[var(--color-text-1)]"
                         >{r.name}</span
                       >
-                      <button
-                        class="ml-auto hidden rounded p-0.5 text-[var(--color-text-4)] hover:bg-[var(--color-danger)]/20 hover:text-[var(--color-danger)] group-hover:block"
-                        title="Delete"
-                        onclick={(e) => deleteSaved(r, e)}
-                      >
-                        <Trash2 size="10" />
-                      </button>
-                    </div>
+                    </button>
+                    <button
+                      class="hidden shrink-0 rounded p-0.5 text-[var(--color-text-4)] hover:bg-[var(--color-danger)]/20 hover:text-[var(--color-danger)] group-hover:block"
+                      title="Delete"
+                      aria-label="Delete saved request {r.name}"
+                      onclick={(e) => deleteSaved(r, e)}
+                    >
+                      <Trash2 size="10" />
+                    </button>
                   </li>
                 {/each}
               </ul>

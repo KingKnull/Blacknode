@@ -216,7 +216,7 @@
                 </span>
               </div>
               {#if s && s.netRate.length > 0}
-                <svg viewBox="0 0 220 36" class="mt-1 h-9 w-full" style="color: #a855f7">
+                <svg viewBox="0 0 220 36" class="mt-1 h-9 w-full" style="color: var(--color-accent-3)">
                   <path
                     d={sparkArea(s.netRate, s.netMax)}
                     fill="currentColor"

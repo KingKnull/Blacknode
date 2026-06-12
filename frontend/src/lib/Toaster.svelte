@@ -79,7 +79,7 @@
   }
 </script>
 
-<div class="pointer-events-none fixed right-3 top-11 z-[60] flex w-[320px] flex-col gap-1.5">
+<div class="pointer-events-none fixed right-3 top-11 z-[60] flex w-[320px] flex-col gap-1.5" role="status" aria-live="polite" aria-atomic="false">
   {#each toasts as t (t.id)}
     {@const k = kindStyle(t.kind)}
     {@const Icon = k.icon}
@@ -101,6 +101,8 @@
             <button
               class="-mr-0.5 -mt-0.5 p-0.5 text-[var(--color-text-4)] hover:text-[var(--color-danger)] transition-colors"
               onclick={() => dismiss(t.id)}
+              aria-label="Dismiss notification"
+              title="Dismiss"
             >
               <X size="10" />
             </button>

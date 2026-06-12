@@ -16,7 +16,7 @@
     Loader2,
     Tag as TagIcon,
   } from "@lucide/svelte";
-  import { focus } from "./actions";
+  import Dialog from "./Dialog.svelte";
   import { bus } from "./events";
 
   let list = $state<Snippet[]>([]);
@@ -228,19 +228,16 @@
 </div>
 
 {#if creating || editing}
-  <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-    role="presentation"
-    onclick={(e) => {
-      if (e.target === e.currentTarget) closeForm();
-    }}
+  <Dialog
+    onclose={closeForm}
+    labelledby="snippet-editor-title"
+    backdropClass="bg-black/70 backdrop-blur-sm"
+    panelClass="w-[640px] overflow-hidden rounded-xl border hairline-strong surface-2 shadow-2xl shadow-black/50"
   >
-    <div
-      class="w-[640px] overflow-hidden rounded-xl border hairline-strong surface-2 shadow-2xl shadow-black/50"
-    >
+    {#snippet children()}
       <div class="flex items-center gap-2 border-b hairline px-5 py-3">
         <BookmarkIcon size="14" class="text-[var(--color-accent)]" />
-        <h3 class="text-sm font-semibold">{editing ? "Edit snippet" : "New snippet"}</h3>
+        <h3 id="snippet-editor-title" class="text-sm font-semibold">{editing ? "Edit snippet" : "New snippet"}</h3>
         <button
           class="ml-auto rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
           onclick={closeForm}
@@ -258,7 +255,7 @@
             class="mt-1 w-full rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 outline-none"
             bind:value={f_name}
             placeholder="restart nginx"
-            use:focus
+            data-autofocus
           />
         </label>
         <label class="block">
@@ -292,7 +289,7 @@
           />
         </label>
         {#if f_err}
-          <p class="text-xs text-[var(--color-danger)]">{f_err}</p>
+          <p class="text-xs text-[var(--color-danger)]" role="alert">{f_err}</p>
         {/if}
       </div>
 
@@ -309,8 +306,8 @@
           {#if f_busy}<Loader2 size="11" class="animate-spin" />{:else}Save{/if}
         </button>
       </div>
-    </div>
-  </div>
+    {/snippet}
+  </Dialog>
 {/if}
 
 {#if applying}

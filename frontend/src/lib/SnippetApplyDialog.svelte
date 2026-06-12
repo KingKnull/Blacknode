@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { onMount, tick } from "svelte";
+  import { onMount } from "svelte";
   import { SnippetService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { SnippetVariable } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import type { Snippet } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { Wand, X, Loader2 } from "@lucide/svelte";
+  import Dialog from "./Dialog.svelte";
 
   type Props = {
     snippet: Snippet;
@@ -17,15 +18,12 @@
   // svelte-ignore state_referenced_locally
   let preview = $state(snippet.body);
   let busy = $state(false);
-  let firstInput: HTMLInputElement | undefined = $state();
 
   onMount(async () => {
     vars = ((await SnippetService.ExtractVariables(snippet.body)) ??
       []) as SnippetVariable[];
     for (const v of vars) values[v.name] = v.default ?? "";
     recompute();
-    await tick();
-    firstInput?.focus();
   });
 
   function recompute() {
@@ -58,19 +56,16 @@
   }
 </script>
 
-<div
-  class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-  role="presentation"
-  onclick={(e) => {
-    if (e.target === e.currentTarget) onCancel();
-  }}
+<Dialog
+  onclose={onCancel}
+  labelledby="snippet-apply-title"
+  backdropClass="bg-black/70 backdrop-blur-sm"
+  panelClass="w-[560px] overflow-hidden rounded-xl border hairline-strong surface-2 shadow-2xl shadow-black/50"
 >
-  <div
-    class="w-[560px] overflow-hidden rounded-xl border hairline-strong surface-2 shadow-2xl shadow-black/50"
-  >
+  {#snippet children()}
     <div class="flex items-center gap-2 border-b hairline px-5 py-3">
       <Wand size="14" class="text-[var(--color-accent)]" />
-      <h3 class="truncate text-sm font-semibold">{snippet.name}</h3>
+      <h3 id="snippet-apply-title" class="truncate text-sm font-semibold">{snippet.name}</h3>
       <button
         class="ml-auto rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
         onclick={onCancel}
@@ -96,22 +91,13 @@
                 class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
                 >{v.name}</span
               >
-              {#if i === 0}
-                <input
-                  bind:this={firstInput}
-                  class="mt-1 w-full rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-sm outline-none"
-                  placeholder={v.default || `value for ${v.name}`}
-                  bind:value={values[v.name]}
-                  oninput={recompute}
-                />
-              {:else}
-                <input
-                  class="mt-1 w-full rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-sm outline-none"
-                  placeholder={v.default || `value for ${v.name}`}
-                  bind:value={values[v.name]}
-                  oninput={recompute}
-                />
-              {/if}
+              <input
+                data-autofocus={i === 0 ? true : undefined}
+                class="mt-1 w-full rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-sm outline-none"
+                placeholder={v.default || `value for ${v.name}`}
+                bind:value={values[v.name]}
+                oninput={recompute}
+              />
             </label>
           {/each}
         </div>
@@ -141,5 +127,5 @@
         {#if busy}<Loader2 size="11" class="animate-spin" />{:else}Insert into terminal{/if}
       </button>
     </div>
-  </div>
-</div>
+  {/snippet}
+</Dialog>

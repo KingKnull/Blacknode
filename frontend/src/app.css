@@ -28,6 +28,7 @@
   --color-accent-soft: rgba(0, 255, 136, 0.07);
   --color-accent-strong: rgba(0, 255, 136, 0.22);
   --color-accent-2: #00d4ff;
+  --color-accent-3: #b07cff;
   --color-danger: #ff3c3c;
   --color-warn: #ffaa00;
   --color-info: #00aaff;
@@ -56,6 +57,7 @@
   --color-accent-soft: rgba(5, 150, 105, 0.10);
   --color-accent-strong: rgba(5, 150, 105, 0.28);
   --color-accent-2: #0891b2;
+  --color-accent-3: #7c3aed;
   --color-danger: #9b1c1c;
   --color-warn: #92400e;
   --color-info: #1e3a8a;

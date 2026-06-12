@@ -4,6 +4,7 @@
   import type { ActiveForward } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
+  import ConfirmDanger from "./ConfirmDanger.svelte";
   import {
     Network,
     Plus,
@@ -21,6 +22,7 @@
   let creating = $state(false);
   let busyID = $state<string | null>(null);
   let err = $state("");
+  let forwardToDelete = $state<ActiveForward | null>(null);
 
   // create form
   let cName = $state("");
@@ -67,10 +69,16 @@
     }
   }
 
-  async function del(f: ActiveForward) {
-    if (!confirm(`Delete forward "${f.name}"?`)) return;
-    await PortForwardService.Delete(f.id);
-    await refresh();
+  async function del() {
+    const f = forwardToDelete;
+    if (!f) return;
+    forwardToDelete = null;
+    try {
+      await PortForwardService.Delete(f.id);
+      await refresh();
+    } catch (e: any) {
+      err = String(e?.message ?? e);
+    }
   }
 
   async function save() {
@@ -164,6 +172,7 @@
   {#if err}
     <div
       class="m-4 rounded-md border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-3 text-xs text-[var(--color-danger)]"
+      role="alert"
     >
       {err}
     </div>
@@ -221,8 +230,9 @@
           {/if}
           <button
             class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)]"
-            onclick={() => del(f)}
+            onclick={() => (forwardToDelete = f)}
             title="Delete"
+            aria-label="Delete forward {f.name}"
           >
             <Trash2 size="11" />
           </button>
@@ -386,4 +396,15 @@
       </div>
     </div>
   </div>
+{/if}
+
+{#if forwardToDelete}
+  <ConfirmDanger
+    title="DELETE FORWARD"
+    body="Delete port forward '{forwardToDelete.name}'? Any active tunnel will be torn down."
+    severity="warn"
+    productionHosts={[]}
+    onCancel={() => (forwardToDelete = null)}
+    onConfirm={del}
+  />
 {/if}

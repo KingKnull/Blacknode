@@ -220,6 +220,7 @@
               class="ml-auto flex items-center gap-1 rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
               onclick={() => copyPub(k.publicKey)}
               title="Copy public key"
+              aria-label="Copy public key for {k.name}"
             >
               <Copy size="11" />
             </button>
@@ -227,6 +228,7 @@
               class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)]"
               onclick={() => del(k.id, k.name)}
               title="Delete"
+              aria-label="Delete key {k.name}"
             >
               <Trash2 size="11" />
             </button>

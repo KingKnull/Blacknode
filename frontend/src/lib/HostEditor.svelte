@@ -3,6 +3,7 @@
   import type { Host } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { app } from "./state.svelte";
   import { Server, X, Loader2, Eye, EyeOff, ShieldCheck } from "@lucide/svelte";
+  import Dialog from "./Dialog.svelte";
 
   type Props = {
     host?: Host | null;
@@ -116,21 +117,18 @@
   }
 </script>
 
-<div
-  class="fixed inset-0 z-50 flex items-center justify-center"
-  style="background: rgba(0,0,0,0.82); backdrop-filter: blur(4px);"
-  role="presentation"
-  onclick={(e) => { if (e.target === e.currentTarget) onclose(); }}
-  onkeydown={(e) => e.key === "Escape" && onclose()}
+<Dialog
+  onclose={onclose}
+  labelledby="host-editor-title"
+  backdropClass="bg-black/[0.82] backdrop-blur-[4px]"
+  panelClass="w-[520px] max-h-[85vh] overflow-y-auto overflow-x-hidden border hairline-strong surface-2 shadow-2xl fade-up"
+  panelStyle="box-shadow: 0 0 0 1px var(--color-line-strong), 0 0 60px rgba(0,255,136,0.04), 0 40px 80px rgba(0,0,0,0.6);"
 >
-  <div
-    class="w-[520px] max-h-[85vh] overflow-y-auto overflow-x-hidden border hairline-strong surface-2 shadow-2xl fade-up"
-    style="box-shadow: 0 0 0 1px var(--color-line-strong), 0 0 60px rgba(0,255,136,0.04), 0 40px 80px rgba(0,0,0,0.6);"
-  >
+  {#snippet children()}
     <!-- Header -->
     <div class="flex items-center gap-2.5 border-b hairline px-5 py-3">
       <Server size="12" class="text-[var(--color-accent)]" />
-      <span class="text-sm font-semibold text-[var(--color-text-1)]">
+      <span id="host-editor-title" class="text-sm font-semibold text-[var(--color-text-1)]">
         {host ? 'Edit host' : 'New host'}
       </span>
       <button
@@ -151,6 +149,7 @@
           class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-sm text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
           bind:value={name}
           placeholder="prod-web-01"
+          data-autofocus
         />
       </label>
 
@@ -230,6 +229,8 @@
               class="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-text-4)] hover:text-[var(--color-accent)] transition-colors"
               onclick={() => (showPassword = !showPassword)}
               title={showPassword ? 'Hide' : 'Show'}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              aria-pressed={showPassword}
             >
               {#if showPassword}<EyeOff size="12" />{:else}<Eye size="12" />{/if}
             </button>
@@ -301,6 +302,8 @@
               class="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-text-4)] hover:text-[var(--color-accent)] transition-colors"
               onclick={() => (showSudoPassword = !showSudoPassword)}
               title={showSudoPassword ? 'Hide' : 'Show'}
+              aria-label={showSudoPassword ? 'Hide sudo password' : 'Show sudo password'}
+              aria-pressed={showSudoPassword}
             >
               {#if showSudoPassword}<EyeOff size="12" />{:else}<Eye size="12" />{/if}
             </button>
@@ -319,7 +322,7 @@
       </label>
 
       {#if err}
-        <p class="text-xs text-[var(--color-danger)]">{err}</p>
+        <p class="text-xs text-[var(--color-danger)]" role="alert">{err}</p>
       {/if}
     </div>
 
@@ -336,5 +339,5 @@
         {#if busy}<Loader2 size="12" class="animate-spin" /> Saving...{:else}Save host{/if}
       </button>
     </div>
-  </div>
-</div>
+  {/snippet}
+</Dialog>

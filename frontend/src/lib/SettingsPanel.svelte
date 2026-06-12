@@ -472,7 +472,7 @@
               disabled={savingTheme}
               onclick={() => setTheme("dark")}
             >
-              <div class="h-3 w-6 border hairline-strong" style="background:#08080b"></div>
+              <div class="h-3 w-6 border hairline-strong" style="background:#030405"></div>
               DARK
             </button>
             <button
@@ -482,7 +482,7 @@
               disabled={savingTheme}
               onclick={() => setTheme("light")}
             >
-              <div class="h-3 w-6 border hairline-strong" style="background:#f7f8fa"></div>
+              <div class="h-3 w-6 border hairline-strong" style="background:#f5f2eb"></div>
               LIGHT
             </button>
           </div>
