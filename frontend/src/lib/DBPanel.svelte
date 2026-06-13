@@ -36,6 +36,7 @@
   } from "@lucide/svelte";
   import EmptyState from "./EmptyState.svelte";
   import Skeleton from "./Skeleton.svelte";
+  import ConfirmDanger from "./ConfirmDanger.svelte";
 
   let kind = $state<"postgres" | "mysql">("postgres");
   let dsn = $state("postgres://postgres:postgres@localhost:5432/postgres");
@@ -331,10 +332,18 @@
     }
   }
 
-  async function deleteSaved(s: SavedConnection) {
-    if (!confirm(`Delete saved connection "${s.name}"?`)) return;
-    await DBService.DeleteSavedConnection(s.id);
-    await refreshSaved();
+  let savedToDelete = $state<SavedConnection | null>(null);
+
+  async function deleteSaved() {
+    if (!savedToDelete) return;
+    const id = savedToDelete.id;
+    savedToDelete = null;
+    try {
+      await DBService.DeleteSavedConnection(id);
+      await refreshSaved();
+    } catch (e: any) {
+      app.toast('error', 'DELETE FAILED', String(e?.message ?? e));
+    }
   }
 
   async function runQuery() {
@@ -420,8 +429,9 @@
                 </button>
                 <button
                   class="rounded p-1 text-[var(--color-text-3)] opacity-0 hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)] group-hover:opacity-100"
-                  onclick={() => deleteSaved(s)}
+                  onclick={() => (savedToDelete = s)}
                   title="Delete"
+                  aria-label="Delete saved connection {s.name}"
                 >
                   <Trash2 size="11" />
                 </button>
@@ -779,5 +789,16 @@
       </div>
     </div>
   </div>
+{/if}
+
+{#if savedToDelete}
+  <ConfirmDanger
+    title="DELETE CONNECTION"
+    body="Delete saved connection '{savedToDelete.name}'? The stored DSN and credentials will be removed from the vault."
+    severity="warn"
+    productionHosts={[]}
+    onCancel={() => (savedToDelete = null)}
+    onConfirm={deleteSaved}
+  />
 {/if}
 

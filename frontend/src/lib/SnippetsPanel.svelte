@@ -5,6 +5,7 @@
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
   import SnippetApplyDialog from "./SnippetApplyDialog.svelte";
+  import ConfirmDanger from "./ConfirmDanger.svelte";
   import {
     BookmarkIcon,
     Plus,
@@ -113,10 +114,18 @@
     }
   }
 
-  async function del(s: Snippet) {
-    if (!confirm(`Delete snippet "${s.name}"?`)) return;
-    await SnippetService.Delete(s.id);
-    await refresh();
+  let snippetToDelete = $state<Snippet | null>(null);
+
+  async function del() {
+    if (!snippetToDelete) return;
+    const id = snippetToDelete.id;
+    snippetToDelete = null;
+    try {
+      await SnippetService.Delete(id);
+      await refresh();
+    } catch (e: any) {
+      app.toast('error', 'DELETE FAILED', String(e?.message ?? e));
+    }
   }
 
   // Find the active terminal session and insert the rendered command into it.
@@ -206,8 +215,9 @@
                 </button>
                 <button
                   class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)]"
-                  onclick={() => del(s)}
+                  onclick={() => (snippetToDelete = s)}
                   title="Delete"
+                  aria-label="Delete snippet {s.name}"
                 >
                   <Trash2 size="10" />
                 </button>
@@ -318,5 +328,16 @@
       applying = null;
       insertIntoActiveTerminal(rendered);
     }}
+  />
+{/if}
+
+{#if snippetToDelete}
+  <ConfirmDanger
+    title="DELETE SNIPPET"
+    body="Delete snippet '{snippetToDelete.name}'? This cannot be undone."
+    severity="warn"
+    productionHosts={[]}
+    onCancel={() => (snippetToDelete = null)}
+    onConfirm={del}
   />
 {/if}

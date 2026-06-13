@@ -2,6 +2,7 @@
   import { KeyService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
+  import ConfirmDanger from "./ConfirmDanger.svelte";
   import {
     KeyRound,
     Plus,
@@ -67,19 +68,23 @@
     }
   }
 
-  async function del(id: string, name: string) {
-    if (
-      !confirm(
-        `Delete key "${name}"? Hosts referencing it will fail to connect.`,
-      )
-    )
-      return;
-    await KeyService.Delete(id);
-    await app.refreshKeys();
+  let keyToDelete = $state<{ id: string; name: string } | null>(null);
+
+  async function del() {
+    if (!keyToDelete) return;
+    const { id } = keyToDelete;
+    keyToDelete = null;
+    try {
+      await KeyService.Delete(id);
+      await app.refreshKeys();
+    } catch (e: any) {
+      app.toast('error', 'DELETE FAILED', String(e?.message ?? e));
+    }
   }
 
   function copyPub(text: string) {
-    navigator.clipboard.writeText(text);
+    void navigator.clipboard.writeText(text);
+    app.toast('ok', 'COPIED', 'Public key copied to clipboard.');
   }
 </script>
 
@@ -226,7 +231,7 @@
             </button>
             <button
               class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)]"
-              onclick={() => del(k.id, k.name)}
+              onclick={() => (keyToDelete = { id: k.id, name: k.name })}
               title="Delete"
               aria-label="Delete key {k.name}"
             >
@@ -250,3 +255,14 @@
     {/if}
   </div>
 </div>
+
+{#if keyToDelete}
+  <ConfirmDanger
+    title="DELETE KEY"
+    body="Delete key '{keyToDelete.name}'? Hosts referencing it will fail to connect until reconfigured."
+    severity="warn"
+    productionHosts={[]}
+    onCancel={() => (keyToDelete = null)}
+    onConfirm={del}
+  />
+{/if}

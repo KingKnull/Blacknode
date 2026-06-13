@@ -221,7 +221,8 @@
       body,
       insecure: insecureSkipVerify,
     });
-    navigator.clipboard.writeText(txt);
+    void navigator.clipboard.writeText(txt);
+    app.toast('ok', 'COPIED', 'curl command copied to clipboard.');
   }
 
   // Parse the env-vars textarea (KEY=VALUE per line) and persist.
@@ -396,7 +397,8 @@
   }
 
   function copy(text: string) {
-    navigator.clipboard.writeText(text);
+    void navigator.clipboard.writeText(text);
+    app.toast('ok', 'COPIED', 'Response copied to clipboard.');
   }
 
   function fmtSize(n: number) {

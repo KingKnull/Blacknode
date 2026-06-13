@@ -4,6 +4,7 @@
     HostService,
   } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import { Shield, Key, Lock, Trash2, Eye, EyeOff, Edit3, Check, X } from "@lucide/svelte";
+  import ConfirmDanger from "./ConfirmDanger.svelte";
 
   // Reactive derivation of secrets grouped by host
   let showPasswords = $state<Record<string, boolean>>({});
@@ -42,9 +43,13 @@
     editingSecret = null;
   }
 
-  async function deleteSecret(hostID: string, type: "ssh" | "sudo") {
+  let pendingDelete = $state<{ hostID: string; type: "ssh" | "sudo" } | null>(null);
+
+  async function deleteSecret() {
+    if (!pendingDelete) return;
+    const { hostID, type } = pendingDelete;
+    pendingDelete = null;
     const label = type === "ssh" ? "SSH password" : "Sudo password";
-    if (!confirm(`Delete ${label} for this host?`)) return;
     try {
       if (type === "ssh") {
         await HostService.SetPassword(hostID, "");
@@ -141,7 +146,7 @@
                 <button class="p-1 text-[var(--color-text-4)] hover:text-[var(--color-text-2)] transition-colors" onclick={() => startEdit(entry.host.id, "ssh", entry.sshPassword ?? "")} title="Edit">
                   <Edit3 size="12" />
                 </button>
-                <button class="p-1 text-[var(--color-text-4)] hover:text-[var(--color-danger)] transition-colors" onclick={() => deleteSecret(entry.host.id, "ssh")} title="Delete">
+                <button class="p-1 text-[var(--color-text-4)] hover:text-[var(--color-danger)] transition-colors" onclick={() => (pendingDelete = { hostID: entry.host.id, type: "ssh" })} title="Delete" aria-label="Delete SSH password for {entry.host.name}">
                   <Trash2 size="12" />
                 </button>
               {/if}
@@ -181,7 +186,7 @@
                 <button class="p-1 text-[var(--color-text-4)] hover:text-[var(--color-text-2)] transition-colors" onclick={() => startEdit(entry.host.id, "sudo", entry.sudoPassword ?? "")} title="Edit">
                   <Edit3 size="12" />
                 </button>
-                <button class="p-1 text-[var(--color-text-4)] hover:text-[var(--color-danger)] transition-colors" onclick={() => deleteSecret(entry.host.id, "sudo")} title="Delete">
+                <button class="p-1 text-[var(--color-text-4)] hover:text-[var(--color-danger)] transition-colors" onclick={() => (pendingDelete = { hostID: entry.host.id, type: "sudo" })} title="Delete" aria-label="Delete sudo password for {entry.host.name}">
                   <Trash2 size="12" />
                 </button>
               {/if}
@@ -192,3 +197,14 @@
     {/if}
   </div>
 </div>
+
+{#if pendingDelete}
+  <ConfirmDanger
+    title="DELETE SECRET"
+    body="Remove the {pendingDelete.type === 'ssh' ? 'SSH password' : 'sudo password'} for this host from the vault? Connections that rely on it will prompt again."
+    severity="warn"
+    productionHosts={[]}
+    onCancel={() => (pendingDelete = null)}
+    onConfirm={deleteSecret}
+  />
+{/if}

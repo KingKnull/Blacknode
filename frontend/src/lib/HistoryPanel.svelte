@@ -5,6 +5,7 @@
   import { app } from "./state.svelte";
   import { bus } from "./events";
   import PageHeader from "./PageHeader.svelte";
+  import ConfirmDanger from "./ConfirmDanger.svelte";
   import {
     History as HistoryIcon,
     Search,
@@ -63,14 +64,17 @@
     entries = entries.filter((x) => x.id !== e.id);
   }
 
+  let confirmClear = $state(false);
+
   async function clearAll() {
-    if (!confirm("Clear ALL command history? Not undoable.")) return;
+    confirmClear = false;
     await HistoryService.Clear();
     entries = [];
   }
 
   function copy(text: string) {
-    navigator.clipboard.writeText(text);
+    void navigator.clipboard.writeText(text);
+    app.toast('ok', 'COPIED', 'Command copied to clipboard.');
   }
 
   function insertIntoActiveTerminal(rendered: string) {
@@ -100,7 +104,7 @@
     {#snippet actions()}
       <button
         class="flex items-center gap-1 rounded-md border hairline-strong px-2.5 py-1 text-[11px] text-[var(--color-text-3)] hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)]"
-        onclick={clearAll}
+        onclick={() => (confirmClear = true)}
       >
         <Trash2 size="11" /> clear all
       </button>
@@ -227,3 +231,14 @@
     {/if}
   </div>
 </div>
+
+{#if confirmClear}
+  <ConfirmDanger
+    title="CLEAR HISTORY"
+    body="Clear ALL command history? This cannot be undone."
+    severity="warn"
+    productionHosts={[]}
+    onCancel={() => (confirmClear = false)}
+    onConfirm={clearAll}
+  />
+{/if}

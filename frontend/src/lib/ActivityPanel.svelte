@@ -4,6 +4,7 @@
   import { ActivityService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { Activity } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import PageHeader from "./PageHeader.svelte";
+  import ConfirmDanger from "./ConfirmDanger.svelte";
   import {
     Activity as ActivityIcon,
     AlertTriangle,
@@ -71,8 +72,10 @@
     selectedSources = next;
   }
 
+  let confirmPurge = $state(false);
+
   async function purgeOld() {
-    if (!confirm("Delete activity older than 30 days?")) return;
+    confirmPurge = false;
     purging = true;
     try {
       await ActivityService.PurgeOlderThanDays(30);
@@ -145,7 +148,7 @@
     <button
       class="flex items-center gap-1 rounded-md border hairline-strong px-2 py-1 text-[10px] text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)] disabled:opacity-50"
       disabled={purging}
-      onclick={purgeOld}
+      onclick={() => (confirmPurge = true)}
       title="Delete entries older than 30 days"
     >
       {#if purging}
@@ -215,3 +218,14 @@
     {/if}
   </div>
 </div>
+
+{#if confirmPurge}
+  <ConfirmDanger
+    title="PURGE ACTIVITY"
+    body="Delete all activity entries older than 30 days? This cannot be undone."
+    severity="warn"
+    productionHosts={[]}
+    onCancel={() => (confirmPurge = false)}
+    onConfirm={purgeOld}
+  />
+{/if}

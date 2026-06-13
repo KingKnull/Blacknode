@@ -91,8 +91,9 @@
             app.setPassword(savedHost.id, password);
           }
         } catch (pe: any) {
-          // Non-fatal: password save failed (e.g. vault locked)
-          console.warn("password save failed:", pe);
+          // Non-fatal for the host record, but the user must know the
+          // credential didn't land (e.g. vault locked) so they can retry.
+          app.toast('warn', 'PASSWORD NOT SAVED', String(pe?.message ?? pe));
         }
       }
       // Persist sudo password (works for any auth method).
@@ -104,7 +105,7 @@
             app.setSudoPassword(savedHost.id, sudoPw);
           }
         } catch (pe: any) {
-          console.warn("sudo password save failed:", pe);
+          app.toast('warn', 'SUDO PASSWORD NOT SAVED', String(pe?.message ?? pe));
         }
       }
       await app.refreshHosts();
