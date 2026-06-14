@@ -6,6 +6,7 @@
   import { bus } from "./events";
   import PageHeader from "./PageHeader.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
+  import Skeleton from "./Skeleton.svelte";
   import {
     History as HistoryIcon,
     Search,
@@ -161,7 +162,9 @@
   </div>
 
   <div class="flex-1 overflow-y-auto">
-    {#if entries.length === 0 && !loading}
+    {#if loading && entries.length === 0}
+      <Skeleton rows={10} rowClass="h-10" />
+    {:else if entries.length === 0}
       <div class="flex h-full items-center justify-center">
         <div class="max-w-md text-center">
           <HistoryIcon size="22" class="mx-auto text-[var(--color-text-4)]" />

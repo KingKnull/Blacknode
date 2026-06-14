@@ -4,6 +4,7 @@
   import type { HTTPRequest as SavedRequest } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
+  import ConfirmDanger from "./ConfirmDanger.svelte";
   import { parseCurl, toCurl, substituteVars } from "./httpCurl";
   import {
     Globe2,
@@ -257,15 +258,20 @@
     localStorage.setItem(ACTIVE_ENV_KEY, trimmed);
   }
 
+  let envToDelete = $state<string | null>(null);
+
   function deleteEnv() {
-    if (!activeEnv) return;
-    if (!confirm(`Delete environment "${activeEnv}"?`)) return;
+    const name = envToDelete;
+    envToDelete = null;
+    if (!name) return;
     const next = { ...envs };
-    delete next[activeEnv];
+    delete next[name];
     envs = next;
     persistEnvs(envs);
-    activeEnv = "";
-    localStorage.setItem(ACTIVE_ENV_KEY, "");
+    if (activeEnv === name) {
+      activeEnv = "";
+      localStorage.setItem(ACTIVE_ENV_KEY, "");
+    }
   }
 
   function selectEnv(name: string) {
@@ -358,9 +364,12 @@
     }
   }
 
-  async function deleteSaved(r: SavedRequest, e: Event) {
-    e.stopPropagation();
-    if (!confirm(`Delete saved request "${r.name}"?`)) return;
+  let requestToDelete = $state<SavedRequest | null>(null);
+
+  async function deleteSaved() {
+    const r = requestToDelete;
+    requestToDelete = null;
+    if (!r) return;
     try {
       await HTTPService.DeleteSavedRequest(r.id);
       if (loadedID === r.id) {
@@ -489,7 +498,7 @@
                       class="hidden shrink-0 rounded p-0.5 text-[var(--color-text-4)] hover:bg-[var(--color-danger)]/20 hover:text-[var(--color-danger)] group-hover:block"
                       title="Delete"
                       aria-label="Delete saved request {r.name}"
-                      onclick={(e) => deleteSaved(r, e)}
+                      onclick={(e) => { e.stopPropagation(); requestToDelete = r; }}
                     >
                       <Trash2 size="10" />
                     </button>
@@ -635,7 +644,7 @@
               >
               <button
                 class="px-2 py-1 text-[10px] text-[var(--color-text-4)] hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)]"
-                onclick={deleteEnv}>Delete</button
+                onclick={() => (envToDelete = activeEnv)}>Delete</button
               >
             {/if}
             {#if activeEnv && envs[activeEnv]}
@@ -824,3 +833,25 @@
     </div>
   </div>
 </div>
+
+{#if envToDelete}
+  <ConfirmDanger
+    title="DELETE ENVIRONMENT"
+    body="Delete environment '{envToDelete}' and its variables? This cannot be undone."
+    severity="warn"
+    productionHosts={[]}
+    onCancel={() => (envToDelete = null)}
+    onConfirm={deleteEnv}
+  />
+{/if}
+
+{#if requestToDelete}
+  <ConfirmDanger
+    title="DELETE REQUEST"
+    body="Delete saved request '{requestToDelete.name}'? This cannot be undone."
+    severity="warn"
+    productionHosts={[]}
+    onCancel={() => (requestToDelete = null)}
+    onConfirm={deleteSaved}
+  />
+{/if}

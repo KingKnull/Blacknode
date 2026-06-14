@@ -5,6 +5,7 @@
   import type { Activity } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import PageHeader from "./PageHeader.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
+  import Skeleton from "./Skeleton.svelte";
   import {
     Activity as ActivityIcon,
     AlertTriangle,
@@ -162,9 +163,7 @@
 
   <div class="flex-1 overflow-y-auto">
     {#if busy && entries.length === 0}
-      <div class="flex h-full items-center justify-center">
-        <Loader2 size="14" class="animate-spin text-[var(--color-text-4)]" />
-      </div>
+      <Skeleton rows={10} rowClass="h-8" />
     {:else if entries.length === 0}
       <div class="flex h-full items-center justify-center">
         <div class="max-w-md text-center">

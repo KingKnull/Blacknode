@@ -16,6 +16,7 @@
     Circle,
   } from "@lucide/svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
+  import Skeleton from "./Skeleton.svelte";
 
   let list = $state<Recording[]>([]);
   let hits = $state<SearchHit[]>([]);
@@ -157,11 +158,7 @@
 
   <div class="flex-1 overflow-y-auto">
     {#if loading}
-      <div
-        class="flex h-32 items-center justify-center text-xs text-[var(--color-text-3)]"
-      >
-        <Loader2 size="14" class="animate-spin" /> &nbsp;loading…
-      </div>
+      <Skeleton rows={8} rowClass="h-9" />
     {:else if hits.length > 0}
       {#each hits as hit (hit.recording.id)}
         <div class="border-b hairline">
@@ -227,6 +224,8 @@
               <button
                 class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)]"
                 onclick={() => (recordingToDelete = r)}
+                title="Delete"
+                aria-label="Delete recording {r.title || r.id}"
               >
                 <Trash2 size="11" />
               </button>

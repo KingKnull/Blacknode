@@ -174,8 +174,8 @@ github.com/u-root/gobusybox/src v0.0.0-20221229083637-46b2883a7f90 h1:zTk5683I9K
 github.com/u-root/gobusybox/src v0.0.0-20221229083637-46b2883a7f90/go.mod h1:lYt+LVfZBBwDZ3+PHk4k/c/TnKOkjJXiJO73E32Mmpc=
 github.com/u-root/u-root v0.11.0 h1:6gCZLOeRyevw7gbTwMj3fKxnr9+yHFlgF3N7udUVNO8=
 github.com/u-root/u-root v0.11.0/go.mod h1:DBkDtiZyONk9hzVEdB/PWI9B4TxDkElWlVTHseglrZY=
-github.com/wailsapp/wails/v3 v3.0.0-alpha.98 h1:IVscEvCp90GGyUuLNU+t5XygHEvu4AuHOyiLnTpra9o=
-github.com/wailsapp/wails/v3 v3.0.0-alpha.98/go.mod h1:UAa98ub+zb3lGOzbDBSFfdd+YyORyY37oRaFZQqgj1w=
+github.com/wailsapp/wails/v3 v3.0.0-alpha.101 h1:dLf5rgClvX8kRcRJqEh05N7eRERpis3tlflLyvfl1bQ=
+github.com/wailsapp/wails/v3 v3.0.0-alpha.101/go.mod h1:c1YZyDdutynq8HfCsTTJmTel++aVqYMjQz0CepAx8P0=
 github.com/wailsapp/wails/webview2 v1.0.24 h1:uULnjCSaRfMlU84mS3kjLgPsRosEOIusVK1nFOHZHzs=
 github.com/wailsapp/wails/webview2 v1.0.24/go.mod h1:sdf+s0nAdxlzVWf9SCxC15XaxnQPJeY+uU1Ucn3jHQM=
 github.com/wk8/go-ordered-map/v2 v2.1.8 h1:5h/BUHu93oj4gIdvHHHGsScSTMijfx5PeYkE/fJgbpc=
