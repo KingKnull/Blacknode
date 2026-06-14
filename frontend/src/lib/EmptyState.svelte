@@ -15,13 +15,13 @@
   <div class="max-w-xs text-center">
     {#if Icon}
       <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center border hairline text-[var(--color-text-4)]"
-        style="box-shadow: 0 0 20px rgba(0,255,136,0.04);">
+        style="border-radius: var(--radius-sm); box-shadow: 0 0 20px rgba(0,255,136,0.04);">
         <Icon size="20" class="glow-pulse" />
       </div>
     {/if}
-    <p class="text-xs font-medium text-[var(--color-text-3)]">{title}</p>
+    <p class="type-caption font-medium text-[var(--color-text-3)]">{title}</p>
     {#if description}
-      <p class="mt-1 text-xs leading-relaxed text-[var(--color-text-4)]">{description}</p>
+      <p class="mt-1 type-caption text-[var(--color-text-4)]">{description}</p>
     {/if}
     {#if action}
       <div class="mt-3 flex items-center justify-center gap-2">

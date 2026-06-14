@@ -8,6 +8,19 @@
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono Variable", ui-monospace, "Cascadia Mono", Consolas, monospace;
 
+  /* ── Type scale ────────────────────────────────────────────────── */
+  --text-title: 15px;
+  --text-body: 13.5px;
+  --text-caption: 11.5px;
+  --text-micro: 10px;
+
+  --leading-tight: 1.25;   /* headings, labels, single-line UI */
+  --leading-body: 1.5;     /* body text, descriptions */
+
+  /* ── Radius — just enough to soften interactive targets ──────── */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+
   /* ── BLACKNODE DARK — Phosphor Noir ──────────────────────────────── */
   --color-surface-0: #030405;
   --color-surface-1: #070a0c;
@@ -85,8 +98,8 @@ html, body {
 
 body {
   font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   -webkit-font-smoothing: antialiased;
   background-image: repeating-linear-gradient(
@@ -118,6 +131,7 @@ body {
 input, textarea, select, button {
   font-family: inherit;
   font-size: inherit;
+  border-radius: var(--radius-sm);
 }
 
 input:focus-visible,
@@ -140,6 +154,38 @@ select:focus-visible {
 @utility glass {
   backdrop-filter: blur(12px) saturate(1.2);
   -webkit-backdrop-filter: blur(12px) saturate(1.2);
+}
+
+/* ── Typography utilities ─────────────────────────────────────── */
+@utility type-title {
+  font-size: var(--text-title);
+  line-height: var(--leading-tight);
+  font-weight: 600;
+}
+@utility type-body {
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+}
+@utility type-caption {
+  font-size: var(--text-caption);
+  line-height: var(--leading-body);
+}
+@utility type-micro {
+  font-size: var(--text-micro);
+  line-height: var(--leading-tight);
+}
+
+/* ── Truncation ───────────────────────────────────────────────── */
+@utility clamp-1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@utility clamp-2 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 /* ── Animations ────────────────────────────────────────────────── */

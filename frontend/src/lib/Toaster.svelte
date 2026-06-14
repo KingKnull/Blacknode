@@ -85,6 +85,7 @@
     {@const Icon = k.icon}
     <div
       class="toast-enter pointer-events-auto overflow-hidden border {k.border} {k.bg} shadow-2xl shadow-black/60"
+      style="border-radius: var(--radius-sm);"
     >
       <!-- Top accent line -->
       <div class="h-px w-full {k.bar} opacity-60"></div>
@@ -92,11 +93,11 @@
         <Icon size="12" class="mt-px shrink-0 {k.accent}" />
         <div class="min-w-0 flex-1">
           <div class="flex items-start gap-2">
-            <span class="flex-1 font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-1)] leading-snug">
+            <span class="flex-1 font-mono type-micro font-bold uppercase tracking-wider text-[var(--color-text-1)] leading-snug">
               {t.title}
             </span>
             {#if t.source}
-              <span class="mt-px shrink-0 border border-[var(--color-line-strong)] px-1 font-mono text-[8px] uppercase tracking-widest text-[var(--color-text-4)]">{t.source}</span>
+              <span class="mt-px shrink-0 border border-[var(--color-line-strong)] px-1 font-mono text-[8px] uppercase tracking-widest text-[var(--color-text-4)]" style="border-radius: var(--radius-sm);">{t.source}</span>
             {/if}
             <button
               class="-mr-0.5 -mt-0.5 p-0.5 text-[var(--color-text-4)] hover:text-[var(--color-danger)] transition-colors"
@@ -108,10 +109,10 @@
             </button>
           </div>
           {#if t.body}
-            <p class="mt-0.5 text-xs leading-snug text-[var(--color-text-3)]">{t.body}</p>
+            <p class="mt-0.5 type-caption leading-snug text-[var(--color-text-3)]">{t.body}</p>
           {/if}
           {#if t.hostName}
-            <p class="mt-1 font-mono text-[10px] text-[var(--color-text-4)]">{t.hostName}</p>
+            <p class="mt-1 font-mono type-micro text-[var(--color-text-4)]">{t.hostName}</p>
           {/if}
         </div>
       </div>

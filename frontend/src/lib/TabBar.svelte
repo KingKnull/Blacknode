@@ -93,6 +93,7 @@
   {/each}
   <button
     class="ml-1 flex h-6 w-6 shrink-0 items-center justify-center border border-[var(--color-line)] text-[var(--color-text-4)] hover:border-[var(--color-accent)]/40 hover:text-[var(--color-accent)] transition-colors"
+    style="border-radius: var(--radius-sm);"
     onclick={onNewTab}
     title="New terminal (⌘T)"
   >
@@ -109,8 +110,8 @@
     oncontextmenu={(e) => { e.preventDefault(); closeTabMenu(); }}
   ></div>
   <div
-    class="fade-up fixed z-50 min-w-[160px] overflow-hidden border hairline-strong surface-2 py-0.5 font-mono text-[10px] shadow-xl shadow-black/60"
-    style="left: {tabMenu.x}px; top: {tabMenu.y}px"
+    class="fade-up fixed z-50 min-w-[160px] overflow-hidden border hairline-strong surface-2 py-0.5 font-mono type-micro shadow-xl shadow-black/60"
+    style="left: {tabMenu.x}px; top: {tabMenu.y}px; border-radius: var(--radius-sm);"
   >
     <button
       class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-danger)] transition-colors"

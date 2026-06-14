@@ -277,7 +277,7 @@
   >
     <div
       class="w-[580px] overflow-hidden border hairline-strong surface-2 shadow-2xl"
-      style="box-shadow: 0 0 0 1px var(--color-line-strong), 0 0 60px rgba(0,255,136,0.05), 0 40px 80px rgba(0,0,0,0.6);"
+      style="border-radius: var(--radius-md); box-shadow: 0 0 0 1px var(--color-line-strong), 0 0 60px rgba(0,255,136,0.05), 0 40px 80px rgba(0,0,0,0.6);"
     >
       <!-- Search input -->
       <div class="flex items-center gap-3 border-b hairline px-4 py-3">
@@ -288,13 +288,13 @@
           class="flex-1 bg-transparent text-sm text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)]"
           placeholder="Type a command, host, or view..."
         />
-        <kbd class="border border-[var(--color-line-strong)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--color-text-4)]">ESC</kbd>
+        <kbd class="border border-[var(--color-line-strong)] px-1.5 py-0.5 font-mono type-micro text-[var(--color-text-4)]" style="border-radius: var(--radius-sm);">ESC</kbd>
       </div>
 
       <!-- Results -->
       <div class="max-h-[400px] overflow-y-auto">
         {#each grouped() as group (group.name)}
-          <div class="px-4 pt-3 pb-1 text-[10px] font-semibold text-[var(--color-text-4)] uppercase tracking-wider">
+          <div class="px-4 pt-3 pb-1 type-micro font-semibold text-[var(--color-text-4)] uppercase tracking-wider">
             {group.name}
           </div>
           {#each group.items as a (a.id)}
@@ -309,7 +309,7 @@
               <a.icon size="13" class={idx === highlighted ? 'text-[var(--color-accent)] shrink-0' : 'text-[var(--color-text-4)] shrink-0'} />
               <span class="flex-1 truncate">{a.label}</span>
               {#if a.hint}
-                <span class="shrink-0 font-mono text-[10px] text-[var(--color-text-4)]">{a.hint}</span>
+                <span class="shrink-0 font-mono type-micro text-[var(--color-text-4)]">{a.hint}</span>
               {/if}
             </button>
           {/each}
@@ -322,10 +322,10 @@
       </div>
 
       <!-- Footer -->
-      <div class="flex items-center gap-4 border-t hairline px-4 py-2 font-mono text-[10px] text-[var(--color-text-4)]">
-        <span class="flex items-center gap-1.5"><kbd class="border border-[var(--color-line-strong)] px-1">↑↓</kbd> navigate</span>
-        <span class="flex items-center gap-1.5"><kbd class="border border-[var(--color-line-strong)] px-1">↵</kbd> select</span>
-        <span class="ml-auto flex items-center gap-1.5"><kbd class="border border-[var(--color-line-strong)] px-1">⌘K</kbd> toggle</span>
+      <div class="flex items-center gap-4 border-t hairline px-4 py-2 font-mono type-micro text-[var(--color-text-4)]">
+        <span class="flex items-center gap-1.5"><kbd class="border border-[var(--color-line-strong)] px-1" style="border-radius: var(--radius-sm);">↑↓</kbd> navigate</span>
+        <span class="flex items-center gap-1.5"><kbd class="border border-[var(--color-line-strong)] px-1" style="border-radius: var(--radius-sm);">↵</kbd> select</span>
+        <span class="ml-auto flex items-center gap-1.5"><kbd class="border border-[var(--color-line-strong)] px-1" style="border-radius: var(--radius-sm);">⌘K</kbd> toggle</span>
       </div>
     </div>
   </div>

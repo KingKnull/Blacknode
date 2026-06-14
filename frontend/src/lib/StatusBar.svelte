@@ -14,7 +14,7 @@
   let { tabCount, activeLeafCount }: Props = $props();
 </script>
 
-<footer class="flex h-5 shrink-0 items-center gap-5 border-t hairline px-3 font-mono text-[10px] text-[var(--color-text-4)] select-none">
+<footer class="flex h-5 shrink-0 items-center gap-5 border-t hairline px-3 font-mono type-micro text-[var(--color-text-4)] select-none">
   <span class="flex items-center gap-1.5">
     <span class="text-[var(--color-accent)]/50">//</span>
     <Server size="8" /> {app.hosts.length} HOST{app.hosts.length === 1 ? '' : 'S'}
@@ -32,5 +32,5 @@
       <Radio size="8" class="pulse-soft" /> BROADCASTING
     </span>
   {/if}
-  <span class="ml-auto text-[var(--color-text-4)]/50">v0.1-alpha</span>
+  <span class="ml-auto text-[var(--color-text-4)]/60">v0.1-alpha</span>
 </footer>

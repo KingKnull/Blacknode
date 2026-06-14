@@ -13,13 +13,14 @@
 <div class="flex items-center gap-3 border-b hairline surface-1 px-4 py-2">
   <div
     class="flex h-6 w-6 items-center justify-center border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 text-[var(--color-accent)]"
+    style="border-radius: var(--radius-sm);"
   >
     <Icon size="12" />
   </div>
   <div>
-    <div class="text-sm font-semibold text-[var(--color-text-1)]">{title}</div>
+    <div class="type-title text-[var(--color-text-1)]">{title}</div>
     {#if subtitle}
-      <div class="text-xs text-[var(--color-text-4)] mt-0.5">{subtitle}</div>
+      <div class="type-caption text-[var(--color-text-4)] mt-0.5">{subtitle}</div>
     {/if}
   </div>
   {#if actions}

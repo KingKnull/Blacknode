@@ -59,8 +59,8 @@
     <Icon size="14" strokeWidth={active ? 2 : 1.5} />
 
     {#if hoveredNav === label}
-      <div class="absolute left-full z-50 ml-2 whitespace-nowrap border hairline-strong bg-[var(--color-surface-2)] px-2.5 py-1.5 text-xs text-[var(--color-text-1)] shadow-xl pointer-events-none fade-up"
-        style="box-shadow: 0 0 12px rgba(0,255,136,0.06), 0 4px 16px rgba(0,0,0,0.4);">
+      <div class="absolute left-full z-50 ml-2 whitespace-nowrap border hairline-strong bg-[var(--color-surface-2)] px-2.5 py-1.5 type-caption text-[var(--color-text-1)] shadow-xl pointer-events-none fade-up"
+        style="border-radius: var(--radius-sm); box-shadow: 0 0 12px rgba(0,255,136,0.06), 0 4px 16px rgba(0,0,0,0.4);">
         {label}
       </div>
     {/if}
