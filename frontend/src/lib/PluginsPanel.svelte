@@ -56,7 +56,7 @@
   />
 
   <div class="flex flex-1 flex-col overflow-y-auto">
-    <div class="flex items-center gap-2 border-b hairline surface-1 px-4 py-2 text-[11px]">
+    <div class="flex items-center gap-2 border-b hairline surface-1 px-4 py-2 type-caption">
       <Folder size="12" class="text-[var(--color-text-3)]" />
       <span class="font-mono text-[var(--color-text-3)]">{root || "—"}</span>
       <span class="text-[var(--color-text-4)]">·</span>
@@ -64,7 +64,7 @@
         >{plugins.length} discovered</span
       >
       <button
-        class="ml-auto flex items-center gap-1.5 rounded-md border hairline-strong px-3 py-1.5 text-[11px] hover:bg-[var(--color-surface-3)] disabled:opacity-50"
+        class="ml-auto flex items-center gap-1.5 rounded-md border hairline-strong px-3 py-1.5 type-caption hover:bg-[var(--color-surface-3)] disabled:opacity-50"
         disabled={busy}
         onclick={loadAll}
       >
@@ -72,7 +72,7 @@
         Load all
       </button>
       <button
-        class="flex items-center gap-1.5 rounded-md border hairline-strong px-3 py-1.5 text-[11px] hover:bg-[var(--color-surface-3)] disabled:opacity-50"
+        class="flex items-center gap-1.5 rounded-md border hairline-strong px-3 py-1.5 type-caption hover:bg-[var(--color-surface-3)] disabled:opacity-50"
         disabled={busy}
         onclick={reload}
       >
@@ -85,12 +85,12 @@
       <div class="flex flex-1 items-center justify-center">
         <div class="max-w-md text-center">
           <Puzzle size="22" class="mx-auto text-[var(--color-text-4)]" />
-          <p class="mt-2 text-xs text-[var(--color-text-3)]">
+          <p class="mt-2 type-caption text-[var(--color-text-3)]">
             No plugins loaded. Drop a plugin directory containing
             <span class="font-mono">plugin.json</span> + an executable into
             the directory above, then click <em>Load all</em>.
           </p>
-          <p class="mt-2 text-[10px] text-[var(--color-text-4)]">
+          <p class="mt-2 type-micro text-[var(--color-text-4)]">
             See <span class="font-mono">examples/plugin-hello/</span> in
             the repo for the manifest schema.
           </p>
@@ -104,13 +104,13 @@
           >
             <div class="flex items-center gap-2">
               <Puzzle size="13" class="text-[var(--color-accent)]" />
-              <h4 class="text-[13px] font-semibold text-[var(--color-text-1)]">
+              <h4 class="type-body font-semibold text-[var(--color-text-1)]">
                 {p.name || p.id}
               </h4>
-              <span class="font-mono text-[10px] text-[var(--color-text-4)]"
+              <span class="font-mono type-micro text-[var(--color-text-4)]"
                 >v{p.version}</span
               >
-              <span class="ml-auto flex items-center gap-1 text-[10px]">
+              <span class="ml-auto flex items-center gap-1 type-micro">
                 {#if p.status === "loaded"}
                   <CheckCircle2 size="10" class="text-[var(--color-accent)]" />
                   <span class="text-[var(--color-accent)]">loaded</span>
@@ -126,17 +126,17 @@
               </span>
             </div>
             {#if p.description}
-              <p class="mt-1 text-[11px] text-[var(--color-text-3)]">
+              <p class="mt-1 type-caption text-[var(--color-text-3)]">
                 {p.description}
               </p>
             {/if}
             {#if p.error}
-              <p class="mt-2 rounded border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-1.5 font-mono text-[10px] text-[var(--color-danger)]">
+              <p class="mt-2 rounded border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-1.5 font-mono type-micro text-[var(--color-danger)]">
                 {p.error}
               </p>
             {/if}
             {#if p.panels && p.panels.length > 0}
-              <ul class="mt-2 flex flex-wrap gap-1.5 text-[10px]">
+              <ul class="mt-2 flex flex-wrap gap-1.5 type-micro">
                 {#each p.panels as panel (panel.id)}
                   <li
                     class="border hairline px-1.5 py-0.5 text-[var(--color-text-3)]"
@@ -147,7 +147,7 @@
               </ul>
             {/if}
             {#if p.permissions && p.permissions.length > 0}
-              <ul class="mt-2 flex flex-wrap gap-1.5 text-[10px]">
+              <ul class="mt-2 flex flex-wrap gap-1.5 type-micro">
                 {#each p.permissions as perm (perm)}
                   <li
                     class="rounded border hairline px-1.5 py-0.5 text-[var(--color-text-4)]"

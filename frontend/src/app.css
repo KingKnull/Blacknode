@@ -8,77 +8,83 @@
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono Variable", ui-monospace, "Cascadia Mono", Consolas, monospace;
 
-  /* ── Type scale ────────────────────────────────────────────────── */
-  --text-title: 15px;
-  --text-body: 13.5px;
-  --text-caption: 11.5px;
-  --text-micro: 10px;
+  /* ── Type scale — one disciplined ladder, applied everywhere ───── */
+  --text-display: 18px;    /* hero & empty-state headings */
+  --text-title: 15px;      /* panel & section titles */
+  --text-body: 13px;       /* default UI text */
+  --text-caption: 11px;    /* secondary / meta */
+  --text-micro: 10px;      /* dense labels, badges, eyebrows */
+  --text-nano: 9px;        /* terminal chrome, dense table cells */
 
   --leading-tight: 1.25;   /* headings, labels, single-line UI */
   --leading-body: 1.5;     /* body text, descriptions */
 
-  /* ── Radius — just enough to soften interactive targets ──────── */
-  --radius-sm: 2px;
-  --radius-md: 4px;
+  /* Optical letter-spacing — tighten large text, open up small caps */
+  --tracking-display: -0.02em;
+  --tracking-title: -0.011em;
+  --tracking-eyebrow: 0.12em;
 
-  /* ── BLACKNODE DARK — Phosphor Noir ──────────────────────────────── */
-  --color-surface-0: #030405;
-  --color-surface-1: #070a0c;
-  --color-surface-2: #0c1014;
-  --color-surface-3: #131a1e;
-  --color-surface-4: #1a2226;
+  /* ── Radius — soft, modern, Termius-class ────────────────────── */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
 
-  --color-line: #0e1a1c;
-  --color-line-strong: #1a2c2e;
+  /* ── BLACKNODE DARK — navy / charcoal (Termius-class) ────────────── */
+  --color-surface-0: #0b0e14;
+  --color-surface-1: #11151d;
+  --color-surface-2: #161b24;
+  --color-surface-3: #1d2430;
+  --color-surface-4: #283143;
 
-  /* Text — raised floor on text-3/4 for legibility */
-  --color-text-1: #dffff0;
-  --color-text-2: #7ecfa8;
-  --color-text-3: #5aaa80;
-  /* Raised from #4a7a60 (~4.0:1) to clear WCAG AA (~5.4:1) on surface-1
-     while staying a rung below text-3 in the hierarchy. */
-  --color-text-4: #5c9176;
+  --color-line: #232a36;
+  --color-line-strong: #323b4a;
 
-  --color-accent: #00ff88;
-  --color-accent-soft: rgba(0, 255, 136, 0.07);
-  --color-accent-strong: rgba(0, 255, 136, 0.22);
-  --color-accent-2: #00d4ff;
-  --color-accent-3: #b07cff;
-  --color-danger: #ff3c3c;
-  --color-warn: #ffaa00;
-  --color-info: #00aaff;
-  --color-success: #00dd88;
+  /* Text — neutral slate ramp */
+  --color-text-1: #e6e9ef;
+  --color-text-2: #9aa4b2;
+  --color-text-3: #6b7585;
+  --color-text-4: #545d6b;
 
-  --color-code-bg: #030405;
+  --color-accent: #3b82f6;
+  --color-accent-soft: rgba(59, 130, 246, 0.10);
+  --color-accent-strong: rgba(59, 130, 246, 0.28);
+  --color-accent-2: #38bdf8;
+  --color-accent-3: #a78bfa;
+  --color-danger: #ef4444;
+  --color-warn: #f59e0b;
+  --color-info: #3b82f6;
+  --color-success: #22c55e;
+
+  --color-code-bg: #0b0e14;
 }
 
 /* ── LIGHT THEME ─────────────────────────────────────────────────── */
 [data-theme="light"] {
-  --color-surface-0: #f5f2eb;
-  --color-surface-1: #ede9df;
-  --color-surface-2: #e4e0d5;
-  --color-surface-3: #d8d3c6;
-  --color-surface-4: #c8c2b0;
+  --color-surface-0: #ffffff;
+  --color-surface-1: #f7f8fa;
+  --color-surface-2: #eef0f4;
+  --color-surface-3: #e3e7ed;
+  --color-surface-4: #d4dae3;
 
-  --color-line: #cdc8ba;
-  --color-line-strong: #b8b2a2;
+  --color-line: #dfe3ea;
+  --color-line-strong: #c7cdd8;
 
-  --color-text-1: #1a1208;
-  --color-text-2: #3d3422;
-  --color-text-3: #5a4e36;
-  /* Darkened from #7a6e58 (~4.0:1) to clear WCAG AA on the light surfaces. */
-  --color-text-4: #645a44;
+  --color-text-1: #0f1722;
+  --color-text-2: #4a5568;
+  --color-text-3: #6b7383;
+  --color-text-4: #8a93a3;
 
-  --color-accent: #059669;
-  --color-accent-soft: rgba(5, 150, 105, 0.10);
-  --color-accent-strong: rgba(5, 150, 105, 0.28);
+  --color-accent: #2563eb;
+  --color-accent-soft: rgba(37, 99, 235, 0.08);
+  --color-accent-strong: rgba(37, 99, 235, 0.22);
   --color-accent-2: #0891b2;
   --color-accent-3: #7c3aed;
-  --color-danger: #9b1c1c;
-  --color-warn: #92400e;
-  --color-info: #1e3a8a;
+  --color-danger: #dc2626;
+  --color-warn: #d97706;
+  --color-info: #2563eb;
+  --color-success: #16a34a;
 
-  --color-code-bg: #eceadf;
+  --color-code-bg: #f3f4f7;
 }
 
 html, body, #app {
@@ -102,17 +108,7 @@ body {
   line-height: var(--leading-body);
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   -webkit-font-smoothing: antialiased;
-  background-image: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0, 255, 136, 0.012) 2px,
-    rgba(0, 255, 136, 0.012) 4px
-  );
-}
-
-[data-theme="light"] body {
-  background-image: none;
+  text-rendering: optimizeLegibility;
 }
 
 /* Mono applied only where it earns its keep */
@@ -139,7 +135,7 @@ textarea:focus-visible,
 select:focus-visible {
   outline: 1px solid var(--color-accent);
   outline-offset: -1px;
-  box-shadow: 0 0 0 3px rgba(0, 255, 136, 0.08), 0 0 12px rgba(0, 255, 136, 0.04);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
 }
 
 /* ── Utility classes ───────────────────────────────────────────── */
@@ -149,7 +145,7 @@ select:focus-visible {
 @utility hairline { border-color: var(--color-line); }
 @utility hairline-strong { border-color: var(--color-line-strong); }
 @utility gloss {
-  background-image: linear-gradient(180deg, rgba(0, 255, 136, 0.05) 0%, transparent 100%);
+  background-image: linear-gradient(180deg, var(--color-accent-soft) 0%, transparent 100%);
 }
 @utility glass {
   backdrop-filter: blur(12px) saturate(1.2);
@@ -157,10 +153,17 @@ select:focus-visible {
 }
 
 /* ── Typography utilities ─────────────────────────────────────── */
+@utility type-display {
+  font-size: var(--text-display);
+  line-height: var(--leading-tight);
+  font-weight: 600;
+  letter-spacing: var(--tracking-display);
+}
 @utility type-title {
   font-size: var(--text-title);
   line-height: var(--leading-tight);
   font-weight: 600;
+  letter-spacing: var(--tracking-title);
 }
 @utility type-body {
   font-size: var(--text-body);
@@ -173,6 +176,27 @@ select:focus-visible {
 @utility type-micro {
   font-size: var(--text-micro);
   line-height: var(--leading-tight);
+}
+@utility type-nano {
+  font-size: var(--text-nano);
+  line-height: var(--leading-tight);
+}
+
+/* Eyebrow — the canonical small-caps label. Replaces ~120 hand-rolled
+   uppercase + tracking variants scattered across panels. */
+@utility type-eyebrow {
+  font-size: var(--text-micro);
+  line-height: var(--leading-tight);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-eyebrow);
+}
+
+/* Tabular figures — for metrics, ports, counts, sizes, durations so
+   numeric columns stay aligned as values change. */
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "cv02", "cv03", "cv04";
 }
 
 /* ── Truncation ───────────────────────────────────────────────── */
@@ -195,20 +219,14 @@ select:focus-visible {
 }
 .pulse-soft { animation: pulse-soft 1.4s ease-in-out infinite; }
 
-@keyframes glow-pulse {
-  0%, 100% { opacity: 1; filter: drop-shadow(0 0 2px currentColor); }
-  50%       { opacity: 0.6; filter: drop-shadow(0 0 6px currentColor); }
+/* Calm breathing pulse — replaces the old CRT glow/phosphor effects.
+   Kept as aliases so existing class usages restyle without churn. */
+@keyframes soft-breathe {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.55; }
 }
-.glow-pulse { animation: glow-pulse 2s ease-in-out infinite; }
-
-@keyframes phosphor-flicker {
-  0%, 93%, 95%, 97%, 100% { opacity: 1; }
-  94% { opacity: 0.7; }
-  96% { opacity: 0.85; }
-  98% { opacity: 0.5; }
-  99% { opacity: 0.9; }
-}
-.phosphor-flicker { animation: phosphor-flicker 5s ease-in-out infinite; }
+.glow-pulse { animation: soft-breathe 2s ease-in-out infinite; }
+.phosphor-flicker { animation: soft-breathe 2.4s ease-in-out infinite; }
 
 @keyframes shimmer {
   from { background-position: -200% 0; }

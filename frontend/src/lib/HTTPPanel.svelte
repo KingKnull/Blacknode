@@ -434,7 +434,7 @@
     <!-- Saved requests rail -->
     <aside class="w-60 shrink-0 border-r hairline surface-1 flex flex-col">
       <div class="flex items-center gap-2 border-b hairline px-3 py-2">
-        <span class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+        <span class="type-eyebrow text-[var(--color-text-3)]"
           >Saved</span
         >
         <button
@@ -448,7 +448,7 @@
 
       <div class="flex-1 overflow-y-auto py-1">
         {#if saved.length === 0}
-          <p class="px-3 py-2 text-[10px] text-[var(--color-text-4)]">
+          <p class="px-3 py-2 type-micro text-[var(--color-text-4)]">
             No saved requests yet. Compose one and hit Save.
           </p>
         {/if}
@@ -456,7 +456,7 @@
           {@const collapsed = collapsedFolders[folder]}
           <div class="px-1">
             <button
-              class="flex w-full items-center gap-1 rounded px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)]"
+              class="flex w-full items-center gap-1 rounded px-2 py-1 type-eyebrow text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)]"
               onclick={() => toggleFolder(folder)}
             >
               {#if collapsed}
@@ -485,12 +485,12 @@
                       onclick={() => loadSaved(r)}
                     >
                       <span
-                        class="font-mono text-[9px] uppercase {methodColor(r.method)}"
+                        class="font-mono type-eyebrow {methodColor(r.method)}"
                         style="min-width:34px"
                       >
                         {r.method}
                       </span>
-                      <span class="truncate text-[11px] text-[var(--color-text-1)]"
+                      <span class="truncate type-caption text-[var(--color-text-1)]"
                         >{r.name}</span
                       >
                     </button>
@@ -517,7 +517,7 @@
         <div class="flex flex-1 items-center justify-center">
           <div class="text-center">
             <Globe2 size="22" class="mx-auto text-[var(--color-text-4)]" />
-            <p class="mt-2 text-xs text-[var(--color-text-3)]">
+            <p class="mt-2 type-caption text-[var(--color-text-3)]">
               Pick a host. Requests are tunneled through its SSH session, so any
               URL the host can resolve is reachable — internal services on a VPC,
               health endpoints behind a firewall, mTLS-protected staging APIs
@@ -529,7 +529,7 @@
         <div class="space-y-2 border-b hairline surface-1 px-4 py-3">
           <div class="flex items-stretch gap-2">
             <select
-              class="border hairline bg-[var(--color-surface-3)] px-2 py-2 font-mono text-sm outline-none"
+              class="border hairline bg-[var(--color-surface-3)] px-2 py-2 font-mono type-body outline-none"
               bind:value={method}
             >
               {#each METHODS as m (m)}
@@ -537,13 +537,13 @@
               {/each}
             </select>
             <input
-              class="flex-1 border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-sm outline-none"
+              class="flex-1 border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-body outline-none"
               placeholder="https://api.internal.example.com/v1/health"
               bind:value={url}
               onkeydown={(e) => e.key === "Enter" && send()}
             />
             <button
-              class="flex items-center gap-1.5 border hairline px-3 py-2 text-xs font-medium text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
+              class="flex items-center gap-1.5 border hairline px-3 py-2 type-caption font-medium text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
               title="Import cURL"
               onclick={() => {
                 curlImportOpen = !curlImportOpen;
@@ -554,7 +554,7 @@
               cURL
             </button>
             <button
-              class="flex items-center gap-1.5 border hairline px-3 py-2 text-xs font-medium text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)] disabled:opacity-40"
+              class="flex items-center gap-1.5 border hairline px-3 py-2 type-caption font-medium text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)] disabled:opacity-40"
               disabled={!url}
               title="Copy current request as cURL"
               onclick={copyAsCurl}
@@ -563,7 +563,7 @@
               Copy cURL
             </button>
             <button
-              class="flex items-center gap-1.5 border hairline px-3 py-2 text-xs font-medium text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
+              class="flex items-center gap-1.5 border hairline px-3 py-2 type-caption font-medium text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
               title={loadedID ? "Update saved request" : "Save request"}
               onclick={saveRequest}
             >
@@ -571,7 +571,7 @@
               {loadedID ? "Update" : "Save"}
             </button>
             <button
-              class="flex items-center gap-1.5 bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
+              class="flex items-center gap-1.5 bg-[var(--color-accent)] px-4 py-2 type-body font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
               disabled={busy || !url}
               onclick={send}
             >
@@ -586,26 +586,26 @@
             >
               <div class="flex items-center gap-2">
                 <Terminal size="12" class="text-[var(--color-text-3)]" />
-                <span class="text-[10px] uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+                <span class="type-eyebrow text-[var(--color-text-3)]"
                   >Paste cURL</span
                 >
                 <button
-                  class="ml-auto bg-[var(--color-accent)] px-2 py-1 text-[11px] font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-40"
+                  class="ml-auto bg-[var(--color-accent)] px-2 py-1 type-caption font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-40"
                   disabled={!curlImportText.trim()}
                   onclick={applyCurlImport}>Import</button
                 >
                 <button
-                  class="px-2 py-1 text-[11px] text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)]"
+                  class="px-2 py-1 type-caption text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)]"
                   onclick={() => (curlImportOpen = false)}>Cancel</button
                 >
               </div>
               <textarea
-                class="h-20 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-xs outline-none"
+                class="h-20 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-caption outline-none"
                 placeholder={"curl -X POST 'https://api.example.com/v1/foo' -H 'Authorization: Bearer …' --data '{}'"}
                 bind:value={curlImportText}
               ></textarea>
               {#if curlImportErr}
-                <p class="text-[11px] text-[var(--color-danger)]">{curlImportErr}</p>
+                <p class="type-caption text-[var(--color-danger)]">{curlImportErr}</p>
               {/if}
             </div>
           {/if}
@@ -616,11 +616,11 @@
             class="flex flex-wrap items-center gap-2 border hairline surface-2 px-2 py-1.5"
           >
             <Variable size="12" class="text-[var(--color-text-3)]" />
-            <span class="text-[10px] uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+            <span class="type-eyebrow text-[var(--color-text-3)]"
               >Env</span
             >
             <select
-              class="border hairline bg-[var(--color-surface-3)] px-2 py-1 text-[11px] outline-none"
+              class="border hairline bg-[var(--color-surface-3)] px-2 py-1 type-caption outline-none"
               value={activeEnv}
               onchange={(e) => selectEnv((e.currentTarget as HTMLSelectElement).value)}
             >
@@ -630,7 +630,7 @@
               {/each}
             </select>
             <button
-              class="px-1.5 py-1 text-[10px] text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
+              class="px-1.5 py-1 type-micro text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
               onclick={createEnv}
               title="New environment"
             >
@@ -638,17 +638,17 @@
             </button>
             {#if activeEnv}
               <button
-                class="px-2 py-1 text-[10px] text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
+                class="px-2 py-1 type-micro text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
                 onclick={() => (envEditorOpen = !envEditorOpen)}
                 >{envEditorOpen ? "Hide vars" : "Edit vars"}</button
               >
               <button
-                class="px-2 py-1 text-[10px] text-[var(--color-text-4)] hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)]"
+                class="px-2 py-1 type-micro text-[var(--color-text-4)] hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)]"
                 onclick={() => (envToDelete = activeEnv)}>Delete</button
               >
             {/if}
             {#if activeEnv && envs[activeEnv]}
-              <span class="ml-2 text-[10px] text-[var(--color-text-4)]">
+              <span class="ml-2 type-micro text-[var(--color-text-4)]">
                 {Object.keys(envs[activeEnv]).length} vars · use <span
                   class="font-mono">{`{{name}}`}</span
                 > in fields
@@ -658,20 +658,20 @@
           {#if envEditorOpen && activeEnv}
             <div class="border hairline surface-2 p-2">
               <div class="mb-1 flex items-center gap-2">
-                <span class="text-[10px] uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+                <span class="type-eyebrow text-[var(--color-text-3)]"
                   >Variables ({activeEnv})</span
                 >
                 <button
-                  class="ml-auto bg-[var(--color-accent)] px-2 py-1 text-[11px] font-medium text-[var(--color-surface-0)] hover:opacity-90"
+                  class="ml-auto bg-[var(--color-accent)] px-2 py-1 type-caption font-medium text-[var(--color-surface-0)] hover:opacity-90"
                   onclick={saveEnvVars}>Save</button
                 >
               </div>
               <textarea
-                class="h-24 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-xs outline-none"
+                class="h-24 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-caption outline-none"
                 placeholder={"BASE_URL=https://api.staging.example.com\nTOKEN=abc123"}
                 bind:value={envVarsText}
               ></textarea>
-              <p class="mt-1 text-[10px] text-[var(--color-text-4)]">
+              <p class="mt-1 type-micro text-[var(--color-text-4)]">
                 One <span class="font-mono">KEY=value</span> per line. Lines starting
                 with # are ignored.
               </p>
@@ -682,30 +682,30 @@
             <div
               class="flex flex-wrap items-center gap-2 border hairline surface-2 p-2"
             >
-              <span class="text-[10px] uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+              <span class="type-eyebrow text-[var(--color-text-3)]"
                 >Name</span
               >
               <input
-                class="flex-1 border hairline bg-[var(--color-surface-3)] px-2 py-1 text-xs outline-none"
+                class="flex-1 border hairline bg-[var(--color-surface-3)] px-2 py-1 type-caption outline-none"
                 placeholder="health check"
                 bind:value={saveName}
                 onkeydown={(e) => e.key === "Enter" && confirmSave()}
               />
-              <span class="text-[10px] uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+              <span class="type-eyebrow text-[var(--color-text-3)]"
                 >Folder</span
               >
               <input
-                class="w-28 border hairline bg-[var(--color-surface-3)] px-2 py-1 text-xs outline-none"
+                class="w-28 border hairline bg-[var(--color-surface-3)] px-2 py-1 type-caption outline-none"
                 placeholder="(optional)"
                 bind:value={saveFolder}
                 onkeydown={(e) => e.key === "Enter" && confirmSave()}
               />
               <button
-                class="bg-[var(--color-accent)] px-2 py-1 text-[11px] font-medium text-[var(--color-surface-0)] hover:opacity-90"
+                class="bg-[var(--color-accent)] px-2 py-1 type-caption font-medium text-[var(--color-surface-0)] hover:opacity-90"
                 onclick={confirmSave}>Save</button
               >
               <button
-                class="px-2 py-1 text-[11px] text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)]"
+                class="px-2 py-1 type-caption text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)]"
                 onclick={() => (savePromptOpen = false)}>Cancel</button
               >
             </div>
@@ -713,20 +713,20 @@
 
           <div class="grid grid-cols-2 gap-2">
             <label class="block">
-              <span class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+              <span class="type-eyebrow text-[var(--color-text-3)]"
                 >Headers — one per line, <span class="font-mono">Header: value</span></span
               >
               <textarea
-                class="mt-1 h-20 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-xs outline-none"
+                class="mt-1 h-20 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-caption outline-none"
                 bind:value={headersText}
               ></textarea>
             </label>
             <label class="block">
-              <span class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+              <span class="type-eyebrow text-[var(--color-text-3)]"
                 >Body</span
               >
               <textarea
-                class="mt-1 h-20 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-xs outline-none"
+                class="mt-1 h-20 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-caption outline-none"
                 placeholder="{`{"key": "value"}`}"
                 bind:value={body}
               ></textarea>
@@ -734,7 +734,7 @@
           </div>
 
           <label
-            class="flex items-center gap-2 text-[10px] text-[var(--color-text-3)]"
+            class="flex items-center gap-2 type-micro text-[var(--color-text-3)]"
           >
             <input
               type="checkbox"
@@ -748,7 +748,7 @@
         <div class="flex-1 overflow-y-auto">
           {#if err}
             <div
-              class="m-4 border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-3 font-mono text-[11px] whitespace-pre-wrap text-[var(--color-danger)]"
+              class="m-4 border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-3 font-mono type-caption whitespace-pre-wrap text-[var(--color-danger)]"
             >
               {err}
             </div>
@@ -758,27 +758,27 @@
             <div class="m-4 space-y-3">
               <div class="flex flex-wrap items-center gap-3 border hairline surface-2 p-3">
                 <div class="flex items-center gap-2">
-                  <span class="font-mono text-xl font-semibold {statusColor(response.status)}"
+                  <span class="font-mono type-display font-semibold {statusColor(response.status)}"
                     >{response.status}</span
                   >
-                  <span class="text-xs text-[var(--color-text-2)]">{response.statusText}</span>
+                  <span class="type-caption text-[var(--color-text-2)]">{response.statusText}</span>
                 </div>
                 <span
-                  class="border hairline px-2 py-0.5 font-mono text-[10px] text-[var(--color-text-3)]"
+                  class="border hairline px-2 py-0.5 font-mono type-micro text-[var(--color-text-3)]"
                   >{response.proto}</span
                 >
-                <span class="text-[11px] text-[var(--color-text-3)]">
+                <span class="type-caption text-[var(--color-text-3)]">
                   {response.durationMs} ms · {fmtSize(response.sizeBytes)}
                 </span>
                 {#if response.truncated}
                   <span
-                    class="ml-2 inline-flex items-center gap-1 rounded border border-[var(--color-warn)]/40 bg-[var(--color-warn)]/10 px-1.5 py-0.5 text-[10px] text-[var(--color-warn)]"
+                    class="ml-2 inline-flex items-center gap-1 rounded border border-[var(--color-warn)]/40 bg-[var(--color-warn)]/10 px-1.5 py-0.5 type-micro text-[var(--color-warn)]"
                   >
                     <AlertTriangle size="10" /> body truncated at 1 MB
                   </span>
                 {/if}
                 <button
-                  class="ml-auto flex items-center gap-1 rounded px-2 py-1 text-[10px] text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
+                  class="ml-auto flex items-center gap-1 rounded px-2 py-1 type-micro text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
                   onclick={() => response && copy(response.body)}
                 >
                   <Copy size="11" /> copy body
@@ -787,12 +787,12 @@
 
               {#if response.headers.length > 0}
                 <details class="border hairline surface-2">
-                  <summary class="cursor-pointer px-4 py-2 text-[11px] text-[var(--color-text-3)]"
+                  <summary class="cursor-pointer px-4 py-2 type-caption text-[var(--color-text-3)]"
                     >response headers ({response.headers.length})</summary
                   >
                   <div class="border-t hairline">
                     {#each response.headers as h (h.name + h.value)}
-                      <div class="grid grid-cols-[180px_1fr] gap-2 border-b hairline px-4 py-1 text-[11px]">
+                      <div class="grid grid-cols-[180px_1fr] gap-2 border-b hairline px-4 py-1 type-caption">
                         <span class="truncate font-mono text-[var(--color-text-3)]"
                           >{h.name}</span
                         >
@@ -806,22 +806,22 @@
               {/if}
 
               <div class="border hairline surface-2">
-                <div class="border-b hairline px-4 py-2 text-[10px] uppercase tracking-[0.14em] text-[var(--color-text-3)]">
+                <div class="border-b hairline px-4 py-2 type-eyebrow text-[var(--color-text-3)]">
                   body
                 </div>
                 <pre
-                  class="overflow-x-auto bg-[var(--color-code-bg)] px-4 py-3 font-mono text-[12px] text-[var(--color-text-1)]">{prettyBody}</pre>
+                  class="overflow-x-auto bg-[var(--color-code-bg)] px-4 py-3 font-mono type-body text-[var(--color-text-1)]">{prettyBody}</pre>
               </div>
             </div>
           {:else if !err && !busy}
             <div class="flex h-full items-center justify-center">
               <div class="max-w-md text-center">
                 <Globe2 size="22" class="mx-auto text-[var(--color-text-4)]" />
-                <p class="mt-2 text-xs text-[var(--color-text-3)]">
+                <p class="mt-2 type-caption text-[var(--color-text-3)]">
                   Compose a request and hit Send. Bodies under 1 MB are returned
                   in full; longer responses get truncated.
                 </p>
-                <p class="mt-1 text-[10px] text-[var(--color-text-4)]">
+                <p class="mt-1 type-micro text-[var(--color-text-4)]">
                   Redirects are <em>not</em> followed automatically — you'll see
                   the 301/302 directly.
                 </p>

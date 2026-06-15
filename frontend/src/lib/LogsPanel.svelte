@@ -184,21 +184,21 @@
     {#snippet actions()}
       {#if running}
         <button
-          class="flex items-center gap-1 rounded-md border hairline-strong px-2.5 py-1 text-[11px] text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)]"
+          class="flex items-center gap-1 rounded-md border hairline-strong px-2.5 py-1 type-caption text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)]"
           onclick={() => (paused = !paused)}
         >
           <Pause size="11" />
           {paused ? "resume" : "pause"}
         </button>
         <button
-          class="flex items-center gap-1 rounded-md bg-[var(--color-danger)] px-2.5 py-1 text-[11px] font-medium text-white hover:opacity-90"
+          class="flex items-center gap-1 rounded-md bg-[var(--color-danger)] px-2.5 py-1 type-caption font-medium text-white hover:opacity-90"
           onclick={stop}
         >
           <Square size="11" /> stop
         </button>
       {:else}
         <button
-          class="flex items-center gap-1 rounded-md bg-[var(--color-accent)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
+          class="flex items-center gap-1 rounded-md bg-[var(--color-accent)] px-2.5 py-1 type-caption font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
           disabled={!command || selectedHosts.size === 0}
           onclick={start}
         >
@@ -206,7 +206,7 @@
         </button>
       {/if}
       <button
-        class="flex items-center gap-1 rounded-md border hairline-strong px-2 py-1 text-[11px] text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)] disabled:opacity-50"
+        class="flex items-center gap-1 rounded-md border hairline-strong px-2 py-1 type-caption text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)] disabled:opacity-50"
         title="Save current command + host set + filter as a named query"
         disabled={!command || selectedHosts.size === 0}
         onclick={() => (saveDialogOpen = true)}
@@ -215,7 +215,7 @@
         save
       </button>
       <button
-        class="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
+        class="flex items-center gap-1 rounded-md px-2 py-1 type-caption text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
         onclick={clear}
         title="Clear buffer"
       >
@@ -229,13 +229,13 @@
       class="flex flex-wrap items-center gap-1.5 border-b hairline surface-1 px-4 py-2"
     >
       <span
-        class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+        class="type-eyebrow text-[var(--color-text-3)]"
       >
         <Bookmark size="10" class="mr-1 inline" /> saved
       </span>
       {#each savedQueries as q (q.id)}
         <div
-          class="group flex items-center gap-0.5 rounded-md border hairline bg-[var(--color-surface-3)] text-[11px]"
+          class="group flex items-center gap-0.5 rounded-md border hairline bg-[var(--color-surface-3)] type-caption"
         >
           <button
             class="px-2 py-0.5 hover:text-[var(--color-accent)] disabled:opacity-50"
@@ -261,7 +261,7 @@
   <div class="border-b hairline surface-1 px-4 py-3 space-y-2">
     <div class="flex items-stretch gap-2">
       <input
-        class="flex-1 rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-sm outline-none disabled:opacity-50"
+        class="flex-1 rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-body outline-none disabled:opacity-50"
         bind:value={command}
         placeholder="tail -F /var/log/syslog"
         disabled={running}
@@ -269,12 +269,12 @@
     </div>
     <div class="flex items-center gap-2">
       <input
-        class="flex-1 rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-1.5 font-mono text-xs outline-none"
+        class="flex-1 rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-1.5 font-mono type-caption outline-none"
         bind:value={filter}
         placeholder={useRegex ? "regex filter (case-insensitive)" : "substring filter"}
       />
       <label
-        class="flex items-center gap-1.5 rounded-md border hairline-strong px-2 py-1 text-[11px] text-[var(--color-text-2)]"
+        class="flex items-center gap-1.5 rounded-md border hairline-strong px-2 py-1 type-caption text-[var(--color-text-2)]"
       >
         <input
           type="checkbox"
@@ -288,13 +288,13 @@
 
   <div class="grid h-full grid-cols-[240px_1fr] overflow-hidden">
     <div class="overflow-y-auto border-r hairline">
-      <div class="px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-[var(--color-text-4)]">
+      <div class="px-3 py-2 type-eyebrow text-[var(--color-text-4)]">
         Hosts
       </div>
       {#each app.hosts as h (h.id)}
         {@const isSel = selectedHosts.has(h.id)}
         <label
-          class="flex cursor-pointer items-center gap-2 border-b hairline px-3 py-1.5 text-xs transition-colors hover:bg-[var(--color-surface-2)]"
+          class="flex cursor-pointer items-center gap-2 border-b hairline px-3 py-1.5 type-caption transition-colors hover:bg-[var(--color-surface-2)]"
         >
           <input
             type="checkbox"
@@ -313,14 +313,14 @@
           {/if}
           <div class="min-w-0 flex-1">
             <div class="truncate text-[var(--color-text-1)]">{h.name}</div>
-            <div class="truncate text-[10px] text-[var(--color-text-3)]">
+            <div class="truncate type-micro text-[var(--color-text-3)]">
               {h.username}@{h.host}
             </div>
           </div>
         </label>
       {/each}
       {#if app.hosts.length === 0}
-        <div class="p-4 text-center text-[11px] text-[var(--color-text-3)]">
+        <div class="p-4 text-center type-caption text-[var(--color-text-3)]">
           No hosts.
         </div>
       {/if}
@@ -329,7 +329,7 @@
     <div
       bind:this={scrollEl}
       onscroll={onScroll}
-      class="overflow-y-auto bg-[var(--color-surface-0)] font-mono text-[12px] leading-[1.45]"
+      class="overflow-y-auto bg-[var(--color-surface-0)] font-mono type-body leading-[1.45]"
     >
       {#each filtered() as l (l.id)}
         <div
@@ -338,7 +338,7 @@
             : 'text-[var(--color-text-1)]'}"
         >
           <span
-            class="truncate text-[10px]"
+            class="truncate type-micro"
             style="color:{hostColor(l.hostID)}"
             title={l.hostName}>{l.hostName}</span
           >
@@ -349,7 +349,7 @@
         <div class="flex h-full items-center justify-center">
           <div class="text-center">
             <ScrollText size="22" class="mx-auto text-[var(--color-text-4)]" />
-            <p class="mt-2 text-xs text-[var(--color-text-3)]">
+            <p class="mt-2 type-caption text-[var(--color-text-3)]">
               {#if running}
                 Listening… nothing matches the current filter.
               {:else}
@@ -364,7 +364,7 @@
 
   {#if running}
     <div
-      class="border-t hairline surface-1 px-4 py-1 text-[10px] text-[var(--color-text-3)]"
+      class="border-t hairline surface-1 px-4 py-1 type-micro text-[var(--color-text-3)]"
     >
       <span
         class="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-accent)] pulse-soft"
@@ -387,16 +387,16 @@
     >
       <div class="flex items-center gap-2 border-b hairline px-5 py-3">
         <BookmarkPlus size="14" class="text-[var(--color-accent)]" />
-        <h3 class="text-sm font-semibold">Save log query</h3>
+        <h3 class="type-body font-semibold">Save log query</h3>
       </div>
-      <div class="space-y-3 p-5 text-sm">
-        <p class="text-xs text-[var(--color-text-3)]">
+      <div class="space-y-3 p-5 type-body">
+        <p class="type-caption text-[var(--color-text-3)]">
           Saves the command, the current host selection ({selectedHosts.size}{" "}
           host{selectedHosts.size === 1 ? "" : "s"}), and the active filter.
           Recall it later from the bar above.
         </p>
         <label class="block">
-          <span class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+          <span class="type-eyebrow text-[var(--color-text-3)]"
             >Name</span
           >
           <input
@@ -409,11 +409,11 @@
       </div>
       <div class="flex items-center justify-end gap-2 border-t hairline px-5 py-3">
         <button
-          class="rounded-md px-3 py-1.5 text-xs text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
+          class="rounded-md px-3 py-1.5 type-caption text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
           onclick={() => (saveDialogOpen = false)}>Cancel</button
         >
         <button
-          class="rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
+          class="rounded-md bg-[var(--color-accent)] px-3 py-1.5 type-caption font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
           disabled={!saveName.trim() || saveBusy}
           onclick={saveCurrent}>{saveBusy ? "saving…" : "Save"}</button
         >

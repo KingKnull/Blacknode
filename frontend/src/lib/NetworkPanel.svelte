@@ -154,7 +154,7 @@
     <div class="flex flex-1 items-center justify-center">
       <div class="text-center">
         <Radar size="22" class="mx-auto text-[var(--color-text-4)]" />
-        <p class="mt-2 text-xs text-[var(--color-text-3)]">
+        <p class="mt-2 type-caption text-[var(--color-text-3)]">
           Select a host on the left. Ping/DNS/port-scan/SSL all run *through*
           that host, so you can probe internal services from a bastion.
         </p>
@@ -164,10 +164,7 @@
     <div class="flex items-center gap-1 border-b hairline surface-1 px-3 py-1.5">
       {#each TOOLS as t (t.id)}
         <button
-          class="flex items-center gap-1.5 px-2.5 py-1 text-[11px] {tool ===
-          t.id
-            ? 'bg-[var(--color-surface-3)] text-[var(--color-text-1)]'
-            : 'text-[var(--color-text-3)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-1)]'}"
+          class="flex items-center gap-1.5 px-2.5 py-1 type-caption {tool === t.id ? 'bg-[var(--color-surface-3)] text-[var(--color-text-1)]' : 'text-[var(--color-text-3)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-1)]'}"
           onclick={() => {
             tool = t.id;
             clearResults();
@@ -177,7 +174,7 @@
           {t.label}
         </button>
       {/each}
-      <span class="ml-auto flex items-center gap-1 text-[10px] text-[var(--color-text-3)]">
+      <span class="ml-auto flex items-center gap-1 type-micro text-[var(--color-text-3)]">
         <Server size="10" />
         {host.name}
       </span>
@@ -186,11 +183,11 @@
     <div class="border-b hairline surface-1 px-4 py-3">
       <div class="flex items-end gap-2">
         <label class="flex flex-1 flex-col gap-1">
-          <span class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+          <span class="type-eyebrow text-[var(--color-text-3)]"
             >Target</span
           >
           <input
-            class="border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-sm outline-none"
+            class="border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-body outline-none"
             placeholder={TOOLS.find((t) => t.id === tool)!.placeholder}
             bind:value={target}
             onkeydown={(e) => e.key === "Enter" && run()}
@@ -199,7 +196,7 @@
 
         {#if tool === "ping"}
           <label class="flex flex-col gap-1">
-            <span class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+            <span class="type-eyebrow text-[var(--color-text-3)]"
               >Count</span
             >
             <input
@@ -212,7 +209,7 @@
           </label>
         {:else if tool === "dns"}
           <label class="flex flex-col gap-1">
-            <span class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+            <span class="type-eyebrow text-[var(--color-text-3)]"
               >Record</span
             >
             <select
@@ -226,7 +223,7 @@
           </label>
         {:else if tool === "ssl"}
           <label class="flex flex-col gap-1">
-            <span class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+            <span class="type-eyebrow text-[var(--color-text-3)]"
               >Port</span
             >
             <input
@@ -238,7 +235,7 @@
         {/if}
 
         <button
-          class="flex items-center gap-1.5 bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
+          class="flex items-center gap-1.5 bg-[var(--color-accent)] px-4 py-2 type-body font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
           disabled={busy || !target}
           onclick={run}
         >
@@ -249,11 +246,11 @@
 
       {#if tool === "scan"}
         <label class="mt-2 block">
-          <span class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+          <span class="type-eyebrow text-[var(--color-text-3)]"
             >Ports — comma-separated, ranges like 1000-1010 supported</span
           >
           <input
-            class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-xs outline-none"
+            class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-caption outline-none"
             bind:value={portList}
           />
         </label>
@@ -263,7 +260,7 @@
     <div class="flex-1 overflow-y-auto">
       {#if err}
         <div
-          class="m-4 rounded-md border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-3 font-mono text-[11px] whitespace-pre-wrap text-[var(--color-danger)]"
+          class="m-4 rounded-md border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-3 font-mono type-caption whitespace-pre-wrap text-[var(--color-danger)]"
         >
           {err}
         </div>
@@ -273,53 +270,51 @@
         <div class="m-4 space-y-3">
           <div class="grid grid-cols-4 gap-3">
             <div class="border hairline surface-2 p-3">
-              <div class="text-[10px] uppercase tracking-wider text-[var(--color-text-3)]">
+              <div class="type-eyebrow text-[var(--color-text-3)]">
                 Reachable
               </div>
               <div
-                class="mt-0.5 text-base font-mono {pingResult.reachable
-                  ? 'text-[var(--color-accent)]'
-                  : 'text-[var(--color-danger)]'}"
+                class="mt-0.5 type-title font-mono {pingResult.reachable ? 'text-[var(--color-accent)]' : 'text-[var(--color-danger)]'}"
               >
                 {pingResult.reachable ? "yes" : "no"}
               </div>
             </div>
             <div class="border hairline surface-2 p-3">
-              <div class="text-[10px] uppercase tracking-wider text-[var(--color-text-3)]">
+              <div class="type-eyebrow text-[var(--color-text-3)]">
                 Loss
               </div>
-              <div class="mt-0.5 font-mono text-base">
+              <div class="mt-0.5 font-mono type-title">
                 {pingResult.lossPercent.toFixed(0)}%
               </div>
-              <div class="text-[10px] text-[var(--color-text-3)]">
+              <div class="type-micro text-[var(--color-text-3)]">
                 {pingResult.lost} / {pingResult.sent}
               </div>
             </div>
             <div class="border hairline surface-2 p-3">
-              <div class="text-[10px] uppercase tracking-wider text-[var(--color-text-3)]">
+              <div class="type-eyebrow text-[var(--color-text-3)]">
                 Avg latency
               </div>
-              <div class="mt-0.5 font-mono text-base">
-                {pingResult.avgLatencyMs.toFixed(2)}<span class="text-xs"> ms</span>
+              <div class="mt-0.5 font-mono type-title">
+                {pingResult.avgLatencyMs.toFixed(2)}<span class="type-caption"> ms</span>
               </div>
             </div>
             <div class="border hairline surface-2 p-3">
-              <div class="text-[10px] uppercase tracking-wider text-[var(--color-text-3)]">
+              <div class="type-eyebrow text-[var(--color-text-3)]">
                 Min / Max
               </div>
-              <div class="mt-0.5 font-mono text-sm">
+              <div class="mt-0.5 font-mono type-body">
                 {pingResult.minLatencyMs.toFixed(1)} / {pingResult.maxLatencyMs.toFixed(1)}
-                <span class="text-xs">ms</span>
+                <span class="type-caption">ms</span>
               </div>
             </div>
           </div>
           <details class="border hairline surface-2">
             <summary
-              class="cursor-pointer px-4 py-2 text-[11px] text-[var(--color-text-3)]"
+              class="cursor-pointer px-4 py-2 type-caption text-[var(--color-text-3)]"
               >raw output</summary
             >
             <pre
-              class="overflow-x-auto bg-[var(--color-code-bg)] px-4 py-2 font-mono text-[11px] text-[var(--color-text-2)]">{pingResult.rawOutput}</pre>
+              class="overflow-x-auto bg-[var(--color-code-bg)] px-4 py-2 font-mono type-caption text-[var(--color-text-2)]">{pingResult.rawOutput}</pre>
           </details>
         </div>
       {/if}
@@ -328,14 +323,14 @@
         <div class="m-4 space-y-3">
           {#if dnsResult.answers.length === 0}
             <div
-              class="border border-[var(--color-warn)]/30 bg-[var(--color-warn)]/10 p-3 text-xs text-[var(--color-warn)]"
+              class="border border-[var(--color-warn)]/30 bg-[var(--color-warn)]/10 p-3 type-caption text-[var(--color-warn)]"
             >
               No structured answers parsed — see raw output below.
             </div>
           {:else}
-            <table class="w-full text-xs">
+            <table class="w-full type-caption">
               <thead
-                class="text-[10px] uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+                class="type-eyebrow text-[var(--color-text-3)]"
               >
                 <tr>
                   <th class="px-3 py-2 text-left font-medium">Type</th>
@@ -346,7 +341,7 @@
                 {#each dnsResult.answers as a, i (i)}
                   <tr class="border-b hairline">
                     <td
-                      class="px-3 py-1.5 font-mono text-[11px] text-[var(--color-accent)]"
+                      class="px-3 py-1.5 font-mono type-caption text-[var(--color-accent)]"
                       >{a.type}</td
                     >
                     <td class="px-3 py-1.5 font-mono">{a.value}</td>
@@ -357,18 +352,18 @@
           {/if}
           <details class="border hairline surface-2">
             <summary
-              class="cursor-pointer px-4 py-2 text-[11px] text-[var(--color-text-3)]"
+              class="cursor-pointer px-4 py-2 type-caption text-[var(--color-text-3)]"
               >raw output</summary
             >
             <pre
-              class="overflow-x-auto bg-[var(--color-code-bg)] px-4 py-2 font-mono text-[11px] text-[var(--color-text-2)]">{dnsResult.rawOutput}</pre>
+              class="overflow-x-auto bg-[var(--color-code-bg)] px-4 py-2 font-mono type-caption text-[var(--color-text-2)]">{dnsResult.rawOutput}</pre>
           </details>
         </div>
       {/if}
 
       {#if tool === "scan" && scanResult}
         <div class="m-4">
-          <div class="mb-3 text-[11px] text-[var(--color-text-3)]">
+          <div class="mb-3 type-caption text-[var(--color-text-3)]">
             scanned {scanResult.results.length} ports on
             <span class="font-mono">{scanResult.target}</span>
             ·
@@ -380,9 +375,9 @@
               >{scanResult.results.filter((r) => !r.open).length} closed/filtered</span
             >
           </div>
-          <table class="w-full text-xs">
+          <table class="w-full type-caption">
             <thead
-              class="text-[10px] uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+              class="type-eyebrow text-[var(--color-text-3)]"
             >
               <tr>
                 <th class="px-3 py-2 text-left font-medium">Port</th>
@@ -410,11 +405,11 @@
                       </span>
                     {/if}
                   </td>
-                  <td class="px-3 py-1.5 font-mono text-[10px] text-[var(--color-text-3)]">
+                  <td class="px-3 py-1.5 font-mono type-micro text-[var(--color-text-3)]">
                     {r.open ? `${r.latencyMs.toFixed(1)} ms` : ""}
                   </td>
                   <td
-                    class="px-3 py-1.5 font-mono text-[10px] text-[var(--color-text-3)]"
+                    class="px-3 py-1.5 font-mono type-micro text-[var(--color-text-3)]"
                   >
                     {r.banner || ""}
                   </td>
@@ -429,7 +424,7 @@
         <div class="m-4 space-y-3">
           {#if sslResult.error}
             <div
-              class="border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-3 text-xs text-[var(--color-danger)]"
+              class="border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-3 type-caption text-[var(--color-danger)]"
             >
               <AlertTriangle size="12" class="mb-1 inline" />
               {sslResult.error}
@@ -437,56 +432,56 @@
           {:else if sslResult.handshakeOK}
             <div class="grid grid-cols-3 gap-3">
               <div class="border hairline surface-2 p-3">
-                <div class="text-[10px] uppercase tracking-wider text-[var(--color-text-3)]">
+                <div class="type-eyebrow text-[var(--color-text-3)]">
                   TLS
                 </div>
-                <div class="mt-0.5 font-mono text-sm">{sslResult.tlsVersion}</div>
-                <div class="mt-1 truncate font-mono text-[10px] text-[var(--color-text-3)]"
+                <div class="mt-0.5 font-mono type-body">{sslResult.tlsVersion}</div>
+                <div class="mt-1 truncate font-mono type-micro text-[var(--color-text-3)]"
                   title={sslResult.cipherSuite}>
                   {sslResult.cipherSuite}
                 </div>
               </div>
               <div class="border hairline surface-2 p-3">
-                <div class="text-[10px] uppercase tracking-wider text-[var(--color-text-3)]">
+                <div class="type-eyebrow text-[var(--color-text-3)]">
                   Expires
                 </div>
-                <div class="mt-0.5 font-mono text-sm {expiryColor(sslResult.cert.daysUntilExpiry)}">
+                <div class="mt-0.5 font-mono type-body {expiryColor(sslResult.cert.daysUntilExpiry)}">
                   {sslResult.cert.daysUntilExpiry}d
                 </div>
-                <div class="mt-1 text-[10px] text-[var(--color-text-3)]">
+                <div class="mt-1 type-micro text-[var(--color-text-3)]">
                   {fmtTime(sslResult.cert.notAfter)}
                 </div>
               </div>
               <div class="border hairline surface-2 p-3">
-                <div class="text-[10px] uppercase tracking-wider text-[var(--color-text-3)]">
+                <div class="type-eyebrow text-[var(--color-text-3)]">
                   Issued
                 </div>
-                <div class="mt-0.5 font-mono text-[11px]">
+                <div class="mt-0.5 font-mono type-caption">
                   {fmtTime(sslResult.cert.notBefore)}
                 </div>
               </div>
             </div>
 
             <div class="border hairline surface-2 p-4">
-              <div class="grid grid-cols-[140px_1fr] gap-y-2 text-xs">
+              <div class="grid grid-cols-[140px_1fr] gap-y-2 type-caption">
                 <span class="text-[var(--color-text-3)]">Subject</span>
                 <span class="font-mono">{sslResult.cert.subject}</span>
                 <span class="text-[var(--color-text-3)]">Issuer</span>
                 <span class="font-mono">{sslResult.cert.issuer}</span>
                 <span class="text-[var(--color-text-3)]">Serial</span>
-                <span class="font-mono break-all text-[10px]"
+                <span class="font-mono break-all type-micro"
                   >{sslResult.cert.serialNumber}</span
                 >
                 <span class="text-[var(--color-text-3)]">Fingerprint</span>
-                <span class="font-mono break-all text-[10px]"
+                <span class="font-mono break-all type-micro"
                   >{sslResult.cert.fingerprint}</span
                 >
                 <span class="text-[var(--color-text-3)]">DNS names</span>
-                <span class="font-mono text-[11px]"
+                <span class="font-mono type-caption"
                   >{(sslResult.cert.dnsNames ?? []).join(", ") || "—"}</span
                 >
                 <span class="text-[var(--color-text-3)]">Chain</span>
-                <span class="space-y-0.5 text-[11px]">
+                <span class="space-y-0.5 type-caption">
                   {#each sslResult.cert.chain as c, i (i)}
                     <div class="font-mono">
                       <span class="text-[var(--color-text-4)]">{i}.</span>

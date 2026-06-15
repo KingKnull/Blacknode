@@ -160,10 +160,10 @@
     class="flex max-h-[85vh] w-[min(95vw,1100px)] flex-col overflow-hidden rounded-xl border hairline-strong surface-2 shadow-2xl shadow-black/60"
   >
     <div class="flex items-center gap-2 border-b hairline px-4 py-2.5">
-      <div class="text-sm font-semibold">
+      <div class="type-body font-semibold">
         {detail?.title || "Recording"}
         {#if detail}
-          <span class="ml-2 font-mono text-[11px] text-[var(--color-text-3)]">
+          <span class="ml-2 font-mono type-caption text-[var(--color-text-3)]">
             {fmt(detail.durationSeconds)} · {(detail.sizeBytes / 1024).toFixed(
               1,
             )} KB
@@ -180,17 +180,17 @@
 
     <div class="flex-1 overflow-auto bg-[var(--color-surface-0)] p-3">
       {#if loading}
-        <div class="flex h-32 items-center justify-center text-xs text-[var(--color-text-3)]">
+        <div class="flex h-32 items-center justify-center type-caption text-[var(--color-text-3)]">
           <Loader2 size="14" class="animate-spin" /> &nbsp;loading…
         </div>
       {:else if err}
-        <div class="text-xs text-[var(--color-danger)]">{err}</div>
+        <div class="type-caption text-[var(--color-danger)]">{err}</div>
       {/if}
       <div bind:this={containerEl} class="rounded"></div>
     </div>
 
     {#if detail}
-      <div class="flex items-center gap-3 border-t hairline px-4 py-2 text-xs">
+      <div class="flex items-center gap-3 border-t hairline px-4 py-2 type-caption">
         {#if playing}
           <button
             class="rounded-md border hairline-strong px-2 py-1 hover:bg-[var(--color-surface-3)]"
@@ -215,7 +215,7 @@
         </button>
 
         <div class="flex flex-1 items-center gap-2">
-          <span class="font-mono text-[10px] text-[var(--color-text-3)]"
+          <span class="font-mono type-micro text-[var(--color-text-3)]"
             >{fmt(currentOffset)}</span
           >
           <input
@@ -228,7 +228,7 @@
             oninput={(e) =>
               seek(parseFloat((e.target as HTMLInputElement).value))}
           />
-          <span class="font-mono text-[10px] text-[var(--color-text-3)]"
+          <span class="font-mono type-micro text-[var(--color-text-3)]"
             >{fmt(totalDuration)}</span
           >
         </div>
@@ -237,9 +237,7 @@
           <Gauge size="11" class="text-[var(--color-text-3)]" />
           {#each SPEEDS as s (s)}
             <button
-              class="rounded px-1.5 py-0.5 text-[10px] {speed === s
-                ? 'bg-[var(--color-surface-3)] text-[var(--color-text-1)]'
-                : 'text-[var(--color-text-3)] hover:text-[var(--color-text-1)]'}"
+              class="rounded px-1.5 py-0.5 type-micro {speed === s ? 'bg-[var(--color-surface-3)] text-[var(--color-text-1)]' : 'text-[var(--color-text-3)] hover:text-[var(--color-text-1)]'}"
               onclick={() => (speed = s)}>{s}×</button
             >
           {/each}

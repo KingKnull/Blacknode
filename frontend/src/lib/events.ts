@@ -5,6 +5,8 @@ type EventMap = {
   'insert-into-active-terminal': string;
   'tile-active-hosts': void;
   'connect-terminal-to-host': { sessionID: string; hostID: string };
+  'connect-host': { hostID: string };
+  'new-host': void;
   'tab-label': { tabID: string; label: string };
 };
 

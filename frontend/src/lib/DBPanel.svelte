@@ -386,7 +386,7 @@
     {#snippet actions()}
       {#if conn}
         <button
-          class="flex items-center gap-1 rounded-md border hairline-strong px-2.5 py-1 text-[11px] hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)]"
+          class="flex items-center gap-1 rounded-md border hairline-strong px-2.5 py-1 type-caption hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)]"
           onclick={disconnect}
         >
           <Unplug size="11" /> disconnect
@@ -408,8 +408,8 @@
         <div class="rounded-xl border hairline surface-2 p-5">
           <div class="mb-3 flex items-center gap-2">
             <Bookmark size="14" class="text-[var(--color-accent)]" />
-            <h3 class="text-sm font-semibold">Saved connections</h3>
-            <span class="text-[10px] text-[var(--color-text-4)]">
+            <h3 class="type-body font-semibold">Saved connections</h3>
+            <span class="type-micro text-[var(--color-text-4)]">
               {saved.length}
             </span>
           </div>
@@ -418,12 +418,12 @@
               <div class="group flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-[var(--color-surface-3)]">
                 <Database size="11" class="text-[var(--color-accent)]" />
                 <button
-                  class="min-w-0 flex-1 text-left text-sm"
+                  class="min-w-0 flex-1 text-left type-body"
                   onclick={() => connectSaved(s)}
                   disabled={connecting}
                 >
                   <div class="truncate font-medium">{s.name}</div>
-                  <div class="flex items-center gap-1.5 truncate text-[10px] text-[var(--color-text-3)]">
+                  <div class="flex items-center gap-1.5 truncate type-micro text-[var(--color-text-3)]">
                     <Server size="9" /> {s.hostName || s.hostID.slice(0, 6)} · {s.kind}
                   </div>
                 </button>
@@ -441,23 +441,23 @@
         </div>
       {/if}
 
-      <div class="rounded-xl border hairline surface-2 p-5 text-sm">
+      <div class="rounded-xl border hairline surface-2 p-5 type-body">
         <div class="mb-3 flex items-center gap-2">
           <Plug size="14" class="text-[var(--color-accent)]" />
-          <h3 class="text-sm font-semibold">New connection</h3>
+          <h3 class="type-body font-semibold">New connection</h3>
         </div>
-        <p class="text-xs text-[var(--color-text-3)]">
+        <p class="type-caption text-[var(--color-text-3)]">
           Connection runs through {host.name}'s SSH tunnel. The DSN host can
           be <span class="font-mono">localhost</span> (database on the host
           itself) or any address that host can resolve.
         </p>
         <div class="mt-4 grid grid-cols-[140px_1fr] gap-2">
           <label class="block">
-            <span class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+            <span class="type-eyebrow text-[var(--color-text-3)]"
               >Kind</span
             >
             <select
-              class="mt-1 w-full rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 text-sm outline-none"
+              class="mt-1 w-full rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 type-body outline-none"
               bind:value={kind}
             >
               <option value="postgres">Postgres</option>
@@ -465,11 +465,11 @@
             </select>
           </label>
           <label class="block">
-            <span class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+            <span class="type-eyebrow text-[var(--color-text-3)]"
               >DSN</span
             >
             <input
-              class="mt-1 w-full rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-xs outline-none"
+              class="mt-1 w-full rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-caption outline-none"
               placeholder={SAMPLE_DSN[kind]}
               bind:value={dsn}
               onkeydown={(e) => e.key === "Enter" && connect()}
@@ -477,11 +477,11 @@
           </label>
         </div>
         {#if err}
-          <p class="mt-2 text-xs text-[var(--color-danger)]">{err}</p>
+          <p class="mt-2 type-caption text-[var(--color-danger)]">{err}</p>
         {/if}
         <div class="mt-3 flex items-center gap-2">
           <button
-            class="flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-2 text-sm font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
+            class="flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-2 type-body font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
             disabled={connecting || !dsn}
             onclick={connect}
           >
@@ -493,7 +493,7 @@
             Connect
           </button>
           <button
-            class="flex items-center gap-1.5 rounded-md border hairline-strong px-3 py-2 text-sm hover:bg-[var(--color-surface-3)] disabled:opacity-50"
+            class="flex items-center gap-1.5 rounded-md border hairline-strong px-3 py-2 type-body hover:bg-[var(--color-surface-3)] disabled:opacity-50"
             disabled={!dsn || !host}
             onclick={() => (saveDialogOpen = true)}
             title="Save this DSN as a one-click connection (vault-encrypted)"
@@ -502,7 +502,7 @@
             Save…
           </button>
         </div>
-        <p class="mt-3 text-[10px] text-[var(--color-text-4)]">
+        <p class="mt-3 type-micro text-[var(--color-text-4)]">
           Saved DSNs are encrypted with the vault before being written to
           disk. Plaintext never persists. Vault must be unlocked.
         </p>
@@ -513,10 +513,10 @@
     <div class="grid h-full grid-cols-[260px_1fr] divide-x divide-[var(--color-line)] overflow-hidden">
       <!-- Schema rail -->
       <div class="flex flex-col overflow-hidden surface-1">
-        <div class="flex items-center gap-2 border-b hairline px-3 py-1.5 text-[11px]">
+        <div class="flex items-center gap-2 border-b hairline px-3 py-1.5 type-caption">
           <TableIcon size="11" class="text-[var(--color-accent)]" />
           <span class="text-[var(--color-text-2)]">Schema</span>
-          <span class="font-mono text-[10px] text-[var(--color-text-4)]"
+          <span class="font-mono type-micro text-[var(--color-text-4)]"
             >{tables.length}</span
           >
           <button
@@ -533,7 +533,7 @@
         </div>
         <div class="border-b hairline px-2 py-1.5">
           <input
-            class="w-full rounded-md border hairline bg-[var(--color-surface-3)] px-2 py-1 text-[11px] outline-none placeholder:text-[var(--color-text-4)]"
+            class="w-full rounded-md border hairline bg-[var(--color-surface-3)] px-2 py-1 type-caption outline-none placeholder:text-[var(--color-text-4)]"
             placeholder="filter…"
             bind:value={tableFilter}
           />
@@ -546,7 +546,7 @@
             <!-- MySQL has no schema namespace; the group label is redundant there. -->
             {#if conn.kind !== "mysql"}
               <div
-                class="px-3 pt-2 pb-1 text-[9px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-4)]"
+                class="px-3 pt-2 pb-1 type-eyebrow text-[var(--color-text-4)]"
               >
                 {schema}
               </div>
@@ -556,7 +556,7 @@
               {@const isOpen = expanded.has(key)}
               <div>
                 <div
-                  class="group flex w-full cursor-pointer items-center gap-1.5 px-2 py-1 text-[11px] hover:bg-[var(--color-surface-3)]"
+                  class="group flex w-full cursor-pointer items-center gap-1.5 px-2 py-1 type-caption hover:bg-[var(--color-surface-3)]"
                   role="button"
                   tabindex="0"
                   onclick={() => toggleTable(t)}
@@ -574,12 +574,12 @@
                   {/if}
                   <span class="min-w-0 flex-1 truncate">{t.name}</span>
                   {#if t.rowEstimate > 0}
-                    <span class="font-mono text-[9px] text-[var(--color-text-4)]"
+                    <span class="font-mono type-nano text-[var(--color-text-4)]"
                       >{fmtRows(t.rowEstimate)}</span
                     >
                   {/if}
                   <button
-                    class="rounded px-1 text-[9px] text-[var(--color-text-3)] opacity-0 hover:bg-[var(--color-surface-4)] hover:text-[var(--color-accent)] group-hover:opacity-100"
+                    class="rounded px-1 type-nano text-[var(--color-text-3)] opacity-0 hover:bg-[var(--color-surface-4)] hover:text-[var(--color-accent)] group-hover:opacity-100"
                     onclick={(e) => {
                       e.stopPropagation();
                       selectFromTable(t);
@@ -592,14 +592,14 @@
                 {#if isOpen}
                   {#if loadingCols.has(key)}
                     <div
-                      class="ml-7 px-2 py-1 text-[10px] text-[var(--color-text-4)]"
+                      class="ml-7 px-2 py-1 type-micro text-[var(--color-text-4)]"
                     >
                       <Loader2 size="9" class="inline animate-spin" /> loading…
                     </div>
                   {:else if columnsByKey[key]}
                     {#each columnsByKey[key] as col (col.name)}
                       <div
-                        class="grid grid-cols-[1fr_auto] items-center gap-1 px-3 py-0.5 pl-7 text-[10px]"
+                        class="grid grid-cols-[1fr_auto] items-center gap-1 px-3 py-0.5 pl-7 type-micro"
                       >
                         <span class="flex items-center gap-1 truncate">
                           {#if col.isPrimary}
@@ -615,7 +615,7 @@
                           {/if}
                         </span>
                         <span
-                          class="font-mono text-[9px] text-[var(--color-text-4)]"
+                          class="font-mono type-nano text-[var(--color-text-4)]"
                           >{col.dataType}</span
                         >
                       </div>
@@ -634,18 +634,18 @@
       <!-- Editor + results -->
       <div class="grid grid-rows-[200px_1fr] divide-y divide-[var(--color-line)] overflow-hidden">
         <div class="flex flex-col">
-        <div class="flex items-center gap-2 border-b hairline surface-1 px-3 py-1.5 text-[11px]">
+        <div class="flex items-center gap-2 border-b hairline surface-1 px-3 py-1.5 type-caption">
           <Database size="11" class="text-[var(--color-accent)]" />
           <span class="font-mono text-[var(--color-text-2)]">{conn.database}</span>
           <span class="text-[var(--color-text-4)]">@</span>
           <span class="font-mono text-[var(--color-text-3)]">{conn.server}</span>
           <span class="ml-auto flex items-center gap-2">
             <kbd
-              class="rounded border hairline px-1 py-0.5 font-mono text-[9px] text-[var(--color-text-4)]"
+              class="rounded border hairline px-1 py-0.5 font-mono type-nano text-[var(--color-text-4)]"
               >⌘↵</kbd
             >
             <button
-              class="flex items-center gap-1 rounded-md bg-[var(--color-accent)] px-3 py-1 text-[11px] font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
+              class="flex items-center gap-1 rounded-md bg-[var(--color-accent)] px-3 py-1 type-caption font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
               disabled={busy}
               onclick={runQuery}
             >
@@ -662,21 +662,21 @@
       <div class="overflow-auto">
         {#if err}
           <div
-            class="m-3 rounded-md border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-3 font-mono text-[11px] whitespace-pre-wrap text-[var(--color-danger)]"
+            class="m-3 rounded-md border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-3 font-mono type-caption whitespace-pre-wrap text-[var(--color-danger)]"
           >
             <AlertTriangle size="12" class="mr-1 inline" /> {err}
           </div>
         {/if}
 
         {#if result}
-          <div class="flex flex-wrap items-center gap-3 border-b hairline surface-1 px-4 py-2 text-[11px]">
+          <div class="flex flex-wrap items-center gap-3 border-b hairline surface-1 px-4 py-2 type-caption">
             <span class="font-mono text-[var(--color-text-2)]">{result.commandTag || "OK"}</span>
             <span class="text-[var(--color-text-3)]">
               {result.rowCount} row{result.rowCount === 1 ? "" : "s"} · {result.durationMs}ms
             </span>
             {#if result.truncated}
               <span
-                class="inline-flex items-center gap-1 rounded border border-[var(--color-warn)]/40 bg-[var(--color-warn)]/10 px-1.5 py-0.5 text-[10px] text-[var(--color-warn)]"
+                class="inline-flex items-center gap-1 rounded border border-[var(--color-warn)]/40 bg-[var(--color-warn)]/10 px-1.5 py-0.5 type-micro text-[var(--color-warn)]"
               >
                 <AlertTriangle size="10" /> truncated at 1000 rows
               </span>
@@ -684,16 +684,16 @@
           </div>
 
           {#if result.columns.length > 0}
-            <table class="w-full text-xs">
+            <table class="w-full type-caption">
               <thead
-                class="sticky top-0 z-10 surface-1 text-[10px] uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+                class="sticky top-0 z-10 surface-1 type-eyebrow text-[var(--color-text-3)]"
               >
                 <tr>
                   <th class="px-3 py-2 text-right font-medium">#</th>
                   {#each result.columns as c (c.name)}
                     <th class="px-3 py-2 text-left font-medium">
                       {c.name}
-                      <span class="ml-1 font-mono normal-case text-[9px] text-[var(--color-text-4)]"
+                      <span class="ml-1 font-mono normal-case type-nano text-[var(--color-text-4)]"
                         >{c.type}</span
                       >
                     </th>
@@ -703,15 +703,12 @@
               <tbody>
                 {#each result.rows as row, i (i)}
                   <tr class="border-b hairline hover:bg-[var(--color-surface-2)]">
-                    <td class="px-3 py-1 text-right font-mono text-[10px] text-[var(--color-text-4)]"
+                    <td class="px-3 py-1 text-right font-mono type-micro text-[var(--color-text-4)]"
                       >{i + 1}</td
                     >
                     {#each row as cell, j (j)}
                       <td
-                        class="max-w-[300px] px-3 py-1 font-mono text-[11px] {cell ===
-                        'NULL'
-                          ? 'text-[var(--color-text-4)] italic'
-                          : 'text-[var(--color-text-1)]'}"
+                        class="max-w-[300px] px-3 py-1 font-mono type-caption {cell === 'NULL' ? 'text-[var(--color-text-4)] italic' : 'text-[var(--color-text-1)]'}"
                         title={cell}
                       >
                         <span class="flex items-center gap-1">
@@ -734,7 +731,7 @@
             </table>
           {/if}
         {:else if !err && !busy}
-          <div class="flex h-full items-center justify-center text-xs text-[var(--color-text-3)]">
+          <div class="flex h-full items-center justify-center type-caption text-[var(--color-text-3)]">
             Type a query and hit Run (⌘↵).
           </div>
         {/if}
@@ -757,15 +754,15 @@
     >
       <div class="flex items-center gap-2 border-b hairline px-5 py-3">
         <BookmarkPlus size="14" class="text-[var(--color-accent)]" />
-        <h3 class="text-sm font-semibold">Save connection</h3>
+        <h3 class="type-body font-semibold">Save connection</h3>
       </div>
-      <div class="space-y-3 p-5 text-sm">
-        <p class="text-xs text-[var(--color-text-3)]">
+      <div class="space-y-3 p-5 type-body">
+        <p class="type-caption text-[var(--color-text-3)]">
           Stores the DSN encrypted with the vault. Recall it from the saved
           list above.
         </p>
         <label class="block">
-          <span class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+          <span class="type-eyebrow text-[var(--color-text-3)]"
             >Name</span
           >
           <input
@@ -778,11 +775,11 @@
       </div>
       <div class="flex items-center justify-end gap-2 border-t hairline px-5 py-3">
         <button
-          class="rounded-md px-3 py-1.5 text-xs text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
+          class="rounded-md px-3 py-1.5 type-caption text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
           onclick={() => (saveDialogOpen = false)}>Cancel</button
         >
         <button
-          class="rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
+          class="rounded-md bg-[var(--color-accent)] px-3 py-1.5 type-caption font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
           disabled={savingBusy || !saveName.trim()}
           onclick={saveCurrent}>{savingBusy ? "saving…" : "Save"}</button
         >

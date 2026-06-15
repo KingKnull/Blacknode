@@ -104,7 +104,7 @@
   >
     {#snippet actions()}
       <button
-        class="flex items-center gap-1 rounded-md border hairline-strong px-2.5 py-1 text-[11px] text-[var(--color-text-3)] hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)]"
+        class="flex items-center gap-1 rounded-md border hairline-strong px-2.5 py-1 type-caption text-[var(--color-text-3)] hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)]"
         onclick={() => (confirmClear = true)}
       >
         <Trash2 size="11" /> clear all
@@ -121,14 +121,14 @@
         bind:value={query}
         onkeydown={(e) => e.key === "Enter" && runSearch()}
         placeholder="search command bodies (case-insensitive)…"
-        class="w-full bg-transparent py-2 pl-9 pr-3 text-sm outline-none placeholder:text-[var(--color-text-4)]"
+        class="w-full bg-transparent py-2 pl-9 pr-3 type-body outline-none placeholder:text-[var(--color-text-4)]"
       />
       {#if searching || loading}
         <Loader2 size="12" class="mr-3 animate-spin text-[var(--color-text-3)]" />
       {/if}
       {#if query}
         <button
-          class="mr-2 rounded px-2 py-0.5 text-[10px] text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
+          class="mr-2 rounded px-2 py-0.5 type-micro text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
           onclick={() => {
             query = "";
             void refresh();
@@ -138,7 +138,7 @@
         </button>
       {/if}
     </div>
-    <div class="flex flex-wrap items-center gap-2 text-[11px]">
+    <div class="flex flex-wrap items-center gap-2 type-caption">
       <span class="text-[var(--color-text-3)]">filters:</span>
       <select
         class="rounded-md border hairline bg-[var(--color-surface-3)] px-2 py-1 outline-none"
@@ -168,7 +168,7 @@
       <div class="flex h-full items-center justify-center">
         <div class="max-w-md text-center">
           <HistoryIcon size="22" class="mx-auto text-[var(--color-text-4)]" />
-          <p class="mt-2 text-xs text-[var(--color-text-3)]">
+          <p class="mt-2 type-caption text-[var(--color-text-3)]">
             No history yet. Commands appear here when you run via Multi-host,
             insert from the AI drawer, or apply a snippet.
           </p>
@@ -179,7 +179,7 @@
         {#each entries as e (e.id)}
           {@const Icon = sourceIcon(e.source)}
           <div class="px-4 py-2.5 transition-colors hover:bg-[var(--color-surface-2)]">
-            <div class="flex items-center gap-2 text-[10px] text-[var(--color-text-3)]">
+            <div class="flex items-center gap-2 type-micro text-[var(--color-text-3)]">
               <Icon size="11" />
               <span>{e.source}</span>
               {#if e.hostName}
@@ -203,7 +203,7 @@
             </div>
             <div class="mt-1 flex items-start gap-2">
               <pre
-                class="flex-1 overflow-x-auto whitespace-pre-wrap break-all font-mono text-[11px] text-[var(--color-text-1)]">{e.command}</pre>
+                class="flex-1 overflow-x-auto whitespace-pre-wrap break-all font-mono type-caption text-[var(--color-text-1)]">{e.command}</pre>
               <div class="shrink-0 opacity-60 hover:opacity-100">
                 <button
                   class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"

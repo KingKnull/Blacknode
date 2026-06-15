@@ -73,10 +73,10 @@
   <!-- Header -->
   <div class="flex items-center gap-2.5 border-b hairline px-4 py-3">
     <Shield size="14" class="text-[var(--color-accent)]" />
-    <span class="font-mono text-[11px] font-bold uppercase tracking-widest text-[var(--color-text-1)]">
+    <span class="font-mono type-eyebrow text-[var(--color-text-1)]">
       Vault Secrets
     </span>
-    <span class="ml-auto rounded border hairline px-1.5 py-0.5 font-mono text-[9px] text-[var(--color-text-4)]">
+    <span class="ml-auto rounded border hairline px-1.5 py-0.5 font-mono type-nano text-[var(--color-text-4)]">
       {hostsWithSecrets.length} HOST{hostsWithSecrets.length === 1 ? '' : 'S'}
     </span>
   </div>
@@ -85,7 +85,7 @@
   <div class="border-b hairline bg-[var(--color-surface-1)] px-4 py-2">
     <div class="flex items-center gap-2">
       <Lock size="10" class="text-[var(--color-accent)]/50" />
-      <span class="font-mono text-[9px] text-[var(--color-text-3)]">
+      <span class="font-mono type-nano text-[var(--color-text-3)]">
         All secrets are encrypted with your vault master key.
       </span>
     </div>
@@ -96,10 +96,10 @@
     {#if hostsWithSecrets.length === 0}
       <div class="flex flex-col items-center justify-center gap-3 py-16 text-center">
         <Shield size="28" class="text-[var(--color-text-4)]" />
-        <div class="font-mono text-[11px] text-[var(--color-text-3)]">
+        <div class="font-mono type-caption text-[var(--color-text-3)]">
           No saved secrets yet
         </div>
-        <div class="max-w-[240px] font-mono text-[9px] text-[var(--color-text-4)]">
+        <div class="max-w-[240px] font-mono type-nano text-[var(--color-text-4)]">
           When you save SSH or sudo passwords, they will appear here. Use the terminal to save passwords on first connect.
         </div>
       </div>
@@ -109,20 +109,20 @@
           <!-- Host header -->
           <div class="flex items-center gap-2 bg-[var(--color-surface-1)] px-4 py-2">
             <span class="h-1.5 w-1.5 rounded-full {app.connectedHosts.has(entry.host.id) ? 'bg-[var(--color-success)] shadow-[0_0_4px_var(--color-success)]' : 'bg-[var(--color-text-4)]'}"></span>
-            <span class="font-mono text-[11px] font-medium text-[var(--color-text-1)]">{entry.host.name}</span>
-            <span class="font-mono text-[9px] text-[var(--color-text-4)]">{entry.host.username}@{entry.host.host}</span>
+            <span class="font-mono type-caption font-medium text-[var(--color-text-1)]">{entry.host.name}</span>
+            <span class="font-mono type-nano text-[var(--color-text-4)]">{entry.host.username}@{entry.host.host}</span>
           </div>
 
           <!-- SSH Password -->
           {#if entry.sshPassword}
             <div class="flex items-center gap-2 px-4 py-2.5 hover:bg-[var(--color-surface-2)]/50 transition-colors">
               <Key size="11" class="shrink-0 text-[var(--color-accent)]/60" />
-              <span class="shrink-0 font-mono text-[9px] font-bold uppercase tracking-widest text-[var(--color-text-3)] w-16">SSH</span>
+              <span class="shrink-0 font-mono type-eyebrow text-[var(--color-text-3)] w-16">SSH</span>
 
               {#if editingSecret?.hostID === entry.host.id && editingSecret?.type === "ssh"}
                 <input
                   type="password"
-                  class="flex-1 border hairline bg-[var(--color-surface-3)] px-2 py-1 font-mono text-[10px] text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50"
+                  class="flex-1 border hairline bg-[var(--color-surface-3)] px-2 py-1 font-mono type-micro text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50"
                   bind:value={editingSecret.value}
                   onkeydown={(e) => e.key === "Enter" && saveEdit()}
                 />
@@ -133,7 +133,7 @@
                   <X size="12" />
                 </button>
               {:else}
-                <span class="flex-1 font-mono text-[10px] text-[var(--color-text-2)]">
+                <span class="flex-1 font-mono type-micro text-[var(--color-text-2)]">
                   {showPasswords[`${entry.host.id}:ssh`] ? entry.sshPassword : maskPassword(entry.sshPassword)}
                 </span>
                 <button class="p-1 text-[var(--color-text-4)] hover:text-[var(--color-text-2)] transition-colors" onclick={() => toggleVisibility(`${entry.host.id}:ssh`)} title="Toggle visibility">
@@ -157,12 +157,12 @@
           {#if entry.sudoPassword}
             <div class="flex items-center gap-2 px-4 py-2.5 hover:bg-[var(--color-surface-2)]/50 transition-colors">
               <Shield size="11" class="shrink-0 text-[var(--color-warn)]/60" />
-              <span class="shrink-0 font-mono text-[9px] font-bold uppercase tracking-widest text-[var(--color-text-3)] w-16">SUDO</span>
+              <span class="shrink-0 font-mono type-eyebrow text-[var(--color-text-3)] w-16">SUDO</span>
 
               {#if editingSecret?.hostID === entry.host.id && editingSecret?.type === "sudo"}
                 <input
                   type="password"
-                  class="flex-1 border hairline bg-[var(--color-surface-3)] px-2 py-1 font-mono text-[10px] text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50"
+                  class="flex-1 border hairline bg-[var(--color-surface-3)] px-2 py-1 font-mono type-micro text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50"
                   bind:value={editingSecret.value}
                   onkeydown={(e) => e.key === "Enter" && saveEdit()}
                 />
@@ -173,7 +173,7 @@
                   <X size="12" />
                 </button>
               {:else}
-                <span class="flex-1 font-mono text-[10px] text-[var(--color-text-2)]">
+                <span class="flex-1 font-mono type-micro text-[var(--color-text-2)]">
                   {showPasswords[`${entry.host.id}:sudo`] ? entry.sudoPassword : maskPassword(entry.sudoPassword)}
                 </span>
                 <button class="p-1 text-[var(--color-text-4)] hover:text-[var(--color-text-2)] transition-colors" onclick={() => toggleVisibility(`${entry.host.id}:sudo`)} title="Toggle visibility">

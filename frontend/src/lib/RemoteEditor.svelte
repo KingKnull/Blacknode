@@ -213,15 +213,15 @@
     <div class="flex items-center gap-2 border-b hairline px-4 py-2.5">
       <FileCode size="14" class="text-[var(--color-accent)]" />
       <div class="min-w-0">
-        <div class="truncate text-sm font-semibold">{filename}</div>
-        <div class="truncate font-mono text-[10px] text-[var(--color-text-3)]">
+        <div class="truncate type-body font-semibold">{filename}</div>
+        <div class="truncate font-mono type-micro text-[var(--color-text-3)]">
           {remotePath}
         </div>
       </div>
 
       {#if binaryWarning}
         <span
-          class="ml-2 inline-flex items-center gap-1 rounded-md border border-[var(--color-warn)]/40 bg-[var(--color-warn)]/10 px-2 py-0.5 text-[10px] text-[var(--color-warn)]"
+          class="ml-2 inline-flex items-center gap-1 rounded-md border border-[var(--color-warn)]/40 bg-[var(--color-warn)]/10 px-2 py-0.5 type-micro text-[var(--color-warn)]"
           title="High ratio of non-printable bytes — saving may corrupt this file"
         >
           <AlertTriangle size="10" /> binary?
@@ -229,19 +229,19 @@
       {/if}
 
       {#if dirty}
-        <span class="ml-2 text-[10px] text-[var(--color-warn)]">● modified</span>
+        <span class="ml-2 type-micro text-[var(--color-warn)]">● modified</span>
       {:else if savedAt}
-        <span class="ml-2 inline-flex items-center gap-1 text-[10px] text-[var(--color-accent)]">
+        <span class="ml-2 inline-flex items-center gap-1 type-micro text-[var(--color-accent)]">
           <Check size="10" /> saved
         </span>
       {/if}
 
       <div class="ml-auto flex items-center gap-2">
-        <kbd class="rounded border hairline px-1 py-0.5 font-mono text-[10px] text-[var(--color-text-4)]"
+        <kbd class="rounded border hairline px-1 py-0.5 font-mono type-micro text-[var(--color-text-4)]"
           >⌘S</kbd
         >
         <button
-          class="flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-[11px] font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
+          class="flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-1.5 type-caption font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
           disabled={!dirty || saving}
           onclick={save}
         >
@@ -262,14 +262,14 @@
     </div>
 
     {#if err}
-      <div class="m-3 rounded-md border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-3 text-xs text-[var(--color-danger)]">
+      <div class="m-3 rounded-md border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-3 type-caption text-[var(--color-danger)]">
         {err}
       </div>
     {/if}
 
     <div class="flex-1 overflow-hidden">
       {#if loading}
-        <div class="flex h-full items-center justify-center text-xs text-[var(--color-text-3)]">
+        <div class="flex h-full items-center justify-center type-caption text-[var(--color-text-3)]">
           <Loader2 size="14" class="animate-spin" /> &nbsp;loading…
         </div>
       {/if}

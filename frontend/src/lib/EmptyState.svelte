@@ -15,7 +15,7 @@
   <div class="max-w-xs text-center">
     {#if Icon}
       <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center border hairline text-[var(--color-text-4)]"
-        style="border-radius: var(--radius-sm); box-shadow: 0 0 20px rgba(0,255,136,0.04);">
+        style="border-radius: var(--radius-sm); box-shadow: 0 0 20px rgba(59, 130, 246,0.04);">
         <Icon size="20" class="glow-pulse" />
       </div>
     {/if}

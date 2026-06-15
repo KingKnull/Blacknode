@@ -164,7 +164,7 @@
   />
 
   <div class="border-b hairline surface-1 px-4 py-3">
-    <div class="mb-2 flex items-center gap-2 text-[11px] text-[var(--color-text-3)]">
+    <div class="mb-2 flex items-center gap-2 type-caption text-[var(--color-text-3)]">
       <span class="font-mono"
         >{selected.size} <span class="text-[var(--color-text-4)]">/</span>
         {app.hosts.length}</span
@@ -181,13 +181,13 @@
     </div>
     <div class="flex items-stretch gap-2">
       <input
-        class="flex-1 rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-sm outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(0,255,136,0.06)] transition-all"
+        class="flex-1 rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-body outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59, 130, 246,0.06)] transition-all"
         bind:value={command}
         placeholder="command to run on every selected host"
         onkeydown={(e) => e.key === "Enter" && run()}
       />
       <button
-        class="flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-[var(--color-surface-0)] hover:opacity-90 hover:shadow-[0_0_20px_rgba(0,255,136,0.15)] disabled:opacity-50 transition-all"
+        class="flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-4 py-2 type-body font-medium text-[var(--color-surface-0)] hover:opacity-90 hover:shadow-[0_0_20px_rgba(59, 130, 246,0.15)] disabled:opacity-50 transition-all"
         onclick={run}
         disabled={running || !command || selected.size === 0}
       >
@@ -199,9 +199,7 @@
       </button>
       {#if finishedResults.length >= 2}
         <button
-          class="flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm font-medium transition-all {compareMode
-            ? 'border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 text-[var(--color-accent)]'
-            : 'border-[var(--color-line)] text-[var(--color-text-3)] hover:border-[var(--color-accent)]/30 hover:text-[var(--color-accent)]'}"
+          class="flex items-center gap-1.5 rounded-md border px-3 py-2 type-body font-medium transition-all {compareMode ? 'border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 text-[var(--color-accent)]' : 'border-[var(--color-line)] text-[var(--color-text-3)] hover:border-[var(--color-accent)]/30 hover:text-[var(--color-accent)]'}"
           onclick={() => { compareMode = !compareMode; if (compareMode && !referenceHostID && finishedResults[0]?.host) referenceHostID = finishedResults[0].host.id; }}
           title="Compare output across hosts"
         >
@@ -216,7 +214,7 @@
       {#each app.hosts as h (h.id)}
         {@const env = envBadge(h.environment)}
         <label
-          class="flex cursor-pointer items-center gap-2.5 border-b hairline px-3 py-2 text-[11px] transition-colors hover:bg-[var(--color-surface-2)]"
+          class="flex cursor-pointer items-center gap-2.5 border-b hairline px-3 py-2 type-caption transition-colors hover:bg-[var(--color-surface-2)]"
         >
           <input
             type="checkbox"
@@ -230,7 +228,7 @@
               <span class="truncate">{h.name}</span>
               {#if env.label}
                 <span
-                  class="shrink-0 rounded-sm px-1 text-[8px] font-mono font-semibold"
+                  class="shrink-0 rounded-sm px-1 type-nano font-mono font-semibold"
                   style:color={env.color}
                   style:background={env.bg}
                   style:border="1px solid {env.border}"
@@ -238,14 +236,14 @@
                 >
               {/if}
             </div>
-            <div class="truncate text-[10px] text-[var(--color-text-3)]">
+            <div class="truncate type-micro text-[var(--color-text-3)]">
               {h.username}@{h.host}
             </div>
           </div>
         </label>
       {/each}
       {#if app.hosts.length === 0}
-        <div class="p-4 text-center text-[11px] text-[var(--color-text-3)]">
+        <div class="p-4 text-center type-caption text-[var(--color-text-3)]">
           No hosts to run on.
         </div>
       {/if}
@@ -254,10 +252,10 @@
     <div class="overflow-y-auto">
       {#if compareMode && finishedResults.length >= 2}
         <!-- Reference host picker -->
-        <div class="flex items-center gap-2 border-b hairline surface-1 px-4 py-2 text-[11px]">
+        <div class="flex items-center gap-2 border-b hairline surface-1 px-4 py-2 type-caption">
           <span class="text-[var(--color-text-3)]">Reference:</span>
           <select
-            class="rounded border hairline bg-[var(--color-surface-3)] px-2 py-1 font-mono text-[10px] text-[var(--color-text-1)] outline-none"
+            class="rounded border hairline bg-[var(--color-surface-3)] px-2 py-1 font-mono type-micro text-[var(--color-text-1)] outline-none"
             onchange={(e) => referenceHostID = (e.target as HTMLSelectElement).value}
           >
             {#each finishedResults as item}
@@ -273,11 +271,11 @@
           {#each finishedResults as item}
             {#if item.host && item.r}
               <div class="border-r hairline">
-                <div class="flex items-center gap-2 surface-1 px-3 py-1.5 text-[10px] font-mono border-b hairline">
+                <div class="flex items-center gap-2 surface-1 px-3 py-1.5 type-micro font-mono border-b hairline">
                   <Server size="10" class="text-[var(--color-text-3)]" />
                   <span class="text-[var(--color-text-1)] font-medium">{item.host.name}</span>
                   {#if item.host.id === referenceHostID}
-                    <span class="rounded border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/10 px-1 text-[8px] text-[var(--color-accent)]">REF</span>
+                    <span class="rounded border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/10 px-1 type-nano text-[var(--color-accent)]">REF</span>
                   {/if}
                   {#if item.r.exitCode === 0}
                     <Check size="10" class="ml-auto text-[var(--color-accent)]" />
@@ -285,7 +283,7 @@
                     <AlertTriangle size="10" class="ml-auto text-[var(--color-warn)]" />
                   {/if}
                 </div>
-                <pre class="overflow-x-auto px-3 py-2 font-mono text-[10px] leading-relaxed">{#if refResult && item.host.id !== referenceHostID}{#each diffLines(refResult.r?.stdout ?? '', item.r.stdout ?? '') as line}<span class="{line.same ? 'text-[var(--color-text-4)]' : 'text-[var(--color-text-1)] bg-[var(--color-accent)]/8'}">{line.text}
+                <pre class="overflow-x-auto px-3 py-2 font-mono type-micro leading-relaxed">{#if refResult && item.host.id !== referenceHostID}{#each diffLines(refResult.r?.stdout ?? '', item.r.stdout ?? '') as line}<span class="{line.same ? 'text-[var(--color-text-4)]' : 'text-[var(--color-text-1)] bg-[var(--color-accent)]/8'}">{line.text}
 </span>{/each}{:else}{item.r.stdout ?? ''}{/if}</pre>
               </div>
             {/if}
@@ -295,7 +293,7 @@
       {#each resultList as item (item.host?.id)}
         {#if item.host}
           <div class="border-b hairline">
-            <div class="flex items-center gap-2 surface-1 px-4 py-2 text-[11px]">
+            <div class="flex items-center gap-2 surface-1 px-4 py-2 type-caption">
               <Server size="11" class="text-[var(--color-text-3)]" />
               <span class="font-mono text-[var(--color-text-1)]"
                 >{item.host.name}</span
@@ -322,7 +320,7 @@
                     ? item.r.error
                     : item.r.stderr || item.r.stdout || ""}
                   <button
-                    class="flex items-center gap-1 rounded border hairline-strong px-1.5 py-0.5 text-[10px] text-[var(--color-text-2)] hover:bg-[var(--color-accent-soft)] hover:text-[var(--color-accent)]"
+                    class="flex items-center gap-1 rounded border hairline-strong px-1.5 py-0.5 type-micro text-[var(--color-text-2)] hover:bg-[var(--color-accent-soft)] hover:text-[var(--color-accent)]"
                     title="Hand this output to the AI assistant for an explanation"
                     onclick={() =>
                       app.prefillAI(
@@ -344,11 +342,11 @@
             {#if item.r}
               {#if item.r.stdout}
                 <pre
-                  class="overflow-x-auto bg-[var(--color-code-bg)] px-4 py-2 font-mono text-[11px] text-[var(--color-text-1)]">{item.r.stdout}</pre>
+                  class="overflow-x-auto bg-[var(--color-code-bg)] px-4 py-2 font-mono type-caption text-[var(--color-text-1)]">{item.r.stdout}</pre>
               {/if}
               {#if item.r.stderr}
                 <pre
-                  class="overflow-x-auto bg-[var(--color-danger)]/10 px-4 py-2 font-mono text-[11px] text-[var(--color-danger)]/90">{item.r.stderr}</pre>
+                  class="overflow-x-auto bg-[var(--color-danger)]/10 px-4 py-2 font-mono type-caption text-[var(--color-danger)]/90">{item.r.stderr}</pre>
               {/if}
             {/if}
           </div>
@@ -358,7 +356,7 @@
         <div class="flex h-full items-center justify-center">
           <div class="text-center">
             <Zap size="20" class="mx-auto text-[var(--color-text-4)]" />
-            <p class="mt-2 text-xs text-[var(--color-text-3)]">
+            <p class="mt-2 type-caption text-[var(--color-text-3)]">
               Pick hosts on the left, type a command, hit Run.
             </p>
           </div>

@@ -116,7 +116,7 @@
     {#if found}
       <iframe title={found.title} class="h-full w-full border-0 bg-transparent" sandbox="allow-scripts" srcdoc={found.html}></iframe>
     {:else}
-      <div class="flex h-full items-center justify-center text-xs text-[var(--color-text-3)]">Plugin panel not loaded.</div>
+      <div class="flex h-full items-center justify-center type-caption text-[var(--color-text-3)]">Plugin panel not loaded.</div>
     {/if}
   </div>
 {:else if app.view === 'keys'}

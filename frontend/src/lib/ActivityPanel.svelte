@@ -113,10 +113,10 @@
     subtitle="Unified feed across vault, exec, sync, plugins, and more."
   />
 
-  <div class="flex items-center gap-2 border-b hairline surface-1 px-4 py-2 text-[11px]">
+  <div class="flex items-center gap-2 border-b hairline surface-1 px-4 py-2 type-caption">
     <Filter size="11" class="text-[var(--color-text-3)]" />
     <select
-      class="rounded-md border hairline bg-[var(--color-surface-3)] px-2 py-1 text-[11px] outline-none"
+      class="rounded-md border hairline bg-[var(--color-surface-3)] px-2 py-1 type-caption outline-none"
       bind:value={levelFilter}
     >
       <option value="all">all levels</option>
@@ -126,16 +126,12 @@
     </select>
 
     {#if sources.length > 0}
-      <span class="ml-2 text-[10px] uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+      <span class="ml-2 type-eyebrow text-[var(--color-text-3)]"
         >sources</span
       >
       {#each sources as src (src)}
         <button
-          class="rounded border hairline px-1.5 py-0.5 text-[10px] transition-colors {selectedSources.has(
-            src,
-          )
-            ? 'border-[var(--color-accent)]/50 bg-[var(--color-accent-soft)] text-[var(--color-text-1)]'
-            : 'text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)]'}"
+          class="rounded border hairline px-1.5 py-0.5 type-micro transition-colors {selectedSources.has( src, ) ? 'border-[var(--color-accent)]/50 bg-[var(--color-accent-soft)] text-[var(--color-text-1)]' : 'text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)]'}"
           onclick={() => toggleSource(src)}
         >
           {src}
@@ -143,11 +139,11 @@
       {/each}
     {/if}
 
-    <span class="ml-auto text-[10px] text-[var(--color-text-4)]"
+    <span class="ml-auto type-micro text-[var(--color-text-4)]"
       >{entries.length} entries</span
     >
     <button
-      class="flex items-center gap-1 rounded-md border hairline-strong px-2 py-1 text-[10px] text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)] disabled:opacity-50"
+      class="flex items-center gap-1 rounded-md border hairline-strong px-2 py-1 type-micro text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)] disabled:opacity-50"
       disabled={purging}
       onclick={() => (confirmPurge = true)}
       title="Delete entries older than 30 days"
@@ -168,7 +164,7 @@
       <div class="flex h-full items-center justify-center">
         <div class="max-w-md text-center">
           <ActivityIcon size="22" class="mx-auto text-[var(--color-text-4)]" />
-          <p class="mt-2 text-xs text-[var(--color-text-3)]">
+          <p class="mt-2 type-caption text-[var(--color-text-3)]">
             No activity yet. Unlock the vault, run a command, or push a
             sync — entries will appear here as they happen.
           </p>
@@ -189,24 +185,24 @@
             </span>
             <div class="flex-1 min-w-0">
               <div class="flex items-baseline gap-2">
-                <span class="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--color-text-3)]"
+                <span class="font-mono type-eyebrow text-[var(--color-text-3)]"
                   >{a.source}</span
                 >
-                <span class="text-[12px] text-[var(--color-text-1)]"
+                <span class="type-body text-[var(--color-text-1)]"
                   >{a.title}</span
                 >
                 {#if a.hostName}
-                  <span class="font-mono text-[10px] text-[var(--color-text-4)]"
+                  <span class="font-mono type-micro text-[var(--color-text-4)]"
                     >· {a.hostName}</span
                   >
                 {/if}
                 <span
-                  class="ml-auto shrink-0 font-mono text-[10px] text-[var(--color-text-4)]"
+                  class="ml-auto shrink-0 font-mono type-micro text-[var(--color-text-4)]"
                   >{fmtTime(a.at)}</span
                 >
               </div>
               {#if a.body}
-                <p class="mt-0.5 truncate text-[11px] text-[var(--color-text-3)]">
+                <p class="mt-0.5 truncate type-caption text-[var(--color-text-3)]">
                   {a.body}
                 </p>
               {/if}

@@ -21,7 +21,7 @@
     >
     {#if showTagline}
       <span
-        class="mt-1 uppercase tracking-[0.2em] text-[var(--color-text-4)]"
+        class="type-eyebrow mt-1 text-[var(--color-text-4)]"
         style="font-size: {size * 0.32}px;"
         >remote ops platform</span
       >

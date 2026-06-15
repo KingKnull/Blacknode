@@ -203,7 +203,7 @@
   >
     {#snippet actions()}
       <label
-        class="flex items-center gap-1.5 rounded-md border hairline-strong px-2.5 py-1 text-[11px] text-[var(--color-text-2)]"
+        class="flex items-center gap-1.5 rounded-md border hairline-strong px-2.5 py-1 type-caption text-[var(--color-text-2)]"
         title="Run kill / systemctl with `sudo -n` (requires passwordless sudo)"
       >
         <input
@@ -214,7 +214,7 @@
         sudo
       </label>
       <button
-        class="flex items-center gap-1 rounded-md border hairline-strong px-2.5 py-1 text-[11px] hover:bg-[var(--color-surface-3)] disabled:opacity-50"
+        class="flex items-center gap-1 rounded-md border hairline-strong px-2.5 py-1 type-caption hover:bg-[var(--color-surface-3)] disabled:opacity-50"
         disabled={!host || loading}
         onclick={refresh}
       >
@@ -237,19 +237,13 @@
   {:else}
     <div class="flex items-center gap-1 border-b hairline surface-1 px-3 py-1.5">
       <button
-        class="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] {tab ===
-        'procs'
-          ? 'bg-[var(--color-surface-3)] text-[var(--color-text-1)]'
-          : 'text-[var(--color-text-3)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-1)]'}"
+        class="flex items-center gap-1.5 rounded-md px-2.5 py-1 type-caption {tab === 'procs' ? 'bg-[var(--color-surface-3)] text-[var(--color-text-1)]' : 'text-[var(--color-text-3)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-1)]'}"
         onclick={() => (tab = "procs")}
       >
         <Cpu size="11" /> Processes
       </button>
       <button
-        class="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] {tab ===
-        'services'
-          ? 'bg-[var(--color-surface-3)] text-[var(--color-text-1)]'
-          : 'text-[var(--color-text-3)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-1)]'}"
+        class="flex items-center gap-1.5 rounded-md px-2.5 py-1 type-caption {tab === 'services' ? 'bg-[var(--color-surface-3)] text-[var(--color-text-1)]' : 'text-[var(--color-text-3)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-1)]'}"
         onclick={() => (tab = "services")}
       >
         <Cog size="11" /> systemd services
@@ -261,12 +255,12 @@
         >
           <Search size="11" class="absolute left-2 text-[var(--color-text-4)]" />
           <input
-            class="w-56 bg-transparent py-1 pl-7 pr-2 text-xs outline-none placeholder:text-[var(--color-text-4)]"
+            class="w-56 bg-transparent py-1 pl-7 pr-2 type-caption outline-none placeholder:text-[var(--color-text-4)]"
             placeholder={tab === "procs" ? "filter cmd / user / pid…" : "filter unit / description…"}
             bind:value={filter}
           />
         </div>
-        <span class="flex items-center gap-1 text-[10px] text-[var(--color-text-3)]">
+        <span class="flex items-center gap-1 type-micro text-[var(--color-text-3)]">
           <Server size="10" />
           {host.name}
         </span>
@@ -275,7 +269,7 @@
 
     {#if err}
       <div
-        class="mx-4 mt-3 rounded-md border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-3 font-mono text-[11px] whitespace-pre-wrap text-[var(--color-danger)]"
+        class="mx-4 mt-3 rounded-md border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-3 font-mono type-caption whitespace-pre-wrap text-[var(--color-danger)]"
       >
         {err}
       </div>
@@ -304,9 +298,9 @@
             </button>
           </th>
         {/snippet}
-        <table class="w-full text-xs">
+        <table class="w-full type-caption">
           <thead
-            class="sticky top-0 z-10 surface-1 text-[10px] uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+            class="sticky top-0 z-10 surface-1 type-eyebrow text-[var(--color-text-3)]"
           >
             <tr>
               {@render sortTh("pid", "PID", "left")}
@@ -330,23 +324,21 @@
               >
                 <td class="px-3 py-1 font-mono">{p.pid}</td>
                 <td
-                  class="px-3 py-1 font-mono text-[10px] {p.user === 'root'
-                    ? 'text-[var(--color-danger)]'
-                    : 'text-[var(--color-text-3)]'}">{p.user}</td
+                  class="px-3 py-1 font-mono type-micro {p.user === 'root' ? 'text-[var(--color-danger)]' : 'text-[var(--color-text-3)]'}">{p.user}</td
                 >
                 <td class="px-3 py-1 text-right font-mono">{p.cpuPct.toFixed(1)}</td>
                 <td class="px-3 py-1 text-right font-mono">{p.memPct.toFixed(1)}</td>
                 <td
-                  class="px-3 py-1 text-right font-mono text-[10px] text-[var(--color-text-3)]"
+                  class="px-3 py-1 text-right font-mono type-micro text-[var(--color-text-3)]"
                   >{fmtRSS(p.rssKB)}</td
                 >
-                <td class="px-3 py-1 font-mono text-[10px] text-[var(--color-text-3)]"
+                <td class="px-3 py-1 font-mono type-micro text-[var(--color-text-3)]"
                   >{p.state}</td
                 >
-                <td class="px-3 py-1 font-mono text-[10px] text-[var(--color-text-3)]"
+                <td class="px-3 py-1 font-mono type-micro text-[var(--color-text-3)]"
                   >{p.startTime}</td
                 >
-                <td class="max-w-0 truncate px-3 py-1 font-mono text-[11px]"
+                <td class="max-w-0 truncate px-3 py-1 font-mono type-caption"
                   title={p.command}>{p.command}</td
                 >
                 <td class="px-2 py-1">
@@ -369,15 +361,15 @@
           </tbody>
         </table>
         {#if list.length === 0 && !loading}
-          <div class="p-6 text-center text-xs text-[var(--color-text-3)]">
+          <div class="p-6 text-center type-caption text-[var(--color-text-3)]">
             no processes match the filter
           </div>
         {/if}
       {:else}
         {@const list = visibleUnits()}
-        <table class="w-full text-xs">
+        <table class="w-full type-caption">
           <thead
-            class="sticky top-0 z-10 surface-1 text-[10px] uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+            class="sticky top-0 z-10 surface-1 type-eyebrow text-[var(--color-text-3)]"
           >
             <tr>
               <th class="px-3 py-2 text-left font-medium">Unit</th>
@@ -390,7 +382,7 @@
           <tbody>
             {#each list as u (u.name)}
               <tr class="border-b hairline hover:bg-[var(--color-surface-2)]">
-                <td class="px-3 py-1.5 font-mono text-[11px]">{u.name}</td>
+                <td class="px-3 py-1.5 font-mono type-caption">{u.name}</td>
                 <td class="px-3 py-1.5">
                   <span class="flex items-center gap-1 {activeColor(u.activeState)}">
                     {#if u.activeState === "active"}
@@ -403,10 +395,10 @@
                     {u.activeState}
                   </span>
                 </td>
-                <td class="px-3 py-1.5 font-mono text-[10px] text-[var(--color-text-3)]"
+                <td class="px-3 py-1.5 font-mono type-micro text-[var(--color-text-3)]"
                   >{u.subState}</td
                 >
-                <td class="max-w-0 truncate px-3 py-1.5 text-[11px]"
+                <td class="max-w-0 truncate px-3 py-1.5 type-caption"
                   title={u.description}>{u.description}</td
                 >
                 <td class="flex justify-end gap-0.5 px-2 py-1.5">
@@ -451,7 +443,7 @@
           </tbody>
         </table>
         {#if list.length === 0 && !loading}
-          <div class="p-6 text-center text-xs text-[var(--color-text-3)]">
+          <div class="p-6 text-center type-caption text-[var(--color-text-3)]">
             {units.length === 0
               ? "no systemd units found — host may not run systemd"
               : "no units match the filter"}
@@ -487,7 +479,7 @@
     {#snippet children()}
       <div class="flex items-center gap-2 border-b hairline px-4 py-2.5">
         <Cog size="14" class="text-[var(--color-accent)]" />
-        <span id="service-log-title" class="font-mono text-sm">{serviceLog?.unit}</span>
+        <span id="service-log-title" class="font-mono type-body">{serviceLog?.unit}</span>
         <button
           class="ml-auto rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
           onclick={() => (serviceLog = null)}
@@ -498,7 +490,7 @@
       </div>
       <div class="flex-1 overflow-auto bg-[var(--color-code-bg)] p-3">
         <pre
-          class="overflow-x-auto whitespace-pre-wrap font-mono text-[11px] text-[var(--color-text-1)]">{serviceLog?.body || "(no output)"}</pre>
+          class="overflow-x-auto whitespace-pre-wrap font-mono type-caption text-[var(--color-text-1)]">{serviceLog?.body || "(no output)"}</pre>
       </div>
     {/snippet}
   </Dialog>

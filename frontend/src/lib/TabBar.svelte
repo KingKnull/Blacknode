@@ -62,9 +62,7 @@
       tabindex="0"
       draggable="true"
       aria-selected={isActive}
-      class="group flex max-w-[180px] cursor-pointer items-center gap-1.5 border-r border-[var(--color-line)] px-3 py-1 text-xs select-none transition-colors {isActive
-        ? 'bg-[var(--color-surface-2)] text-[var(--color-text-1)] border-t border-t-[var(--color-accent)]/60'
-        : 'text-[var(--color-text-4)] hover:bg-[var(--color-surface-2)]/50 hover:text-[var(--color-text-3)]'}"
+      class="group flex max-w-[180px] cursor-pointer items-center gap-1.5 border-r border-[var(--color-line)] px-3 py-1 type-caption select-none transition-colors {isActive ? 'bg-[var(--color-surface-2)] text-[var(--color-text-1)] border-t border-t-[var(--color-accent)]/60' : 'text-[var(--color-text-4)] hover:bg-[var(--color-surface-2)]/50 hover:text-[var(--color-text-3)]'}"
       class:opacity-40={dragSourceID === t.id}
       class:outline={dragOverID === t.id && dragSourceID !== t.id}
       class:outline-[var(--color-accent)]={dragOverID === t.id && dragSourceID !== t.id}
@@ -81,7 +79,7 @@
       {:else}
         <span class="h-1 w-1 shrink-0 rounded-full bg-[var(--color-text-4)]"></span>
       {/if}
-      <span class="truncate font-mono text-[11px]">{label}</span>
+      <span class="truncate font-mono type-caption">{label}</span>
       <span
         role="button"
         tabindex="0"

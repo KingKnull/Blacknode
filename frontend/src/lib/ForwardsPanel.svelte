@@ -162,7 +162,7 @@
   >
     {#snippet actions()}
       <button
-        class="flex items-center gap-1 rounded-md bg-[var(--color-accent)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-surface-0)] hover:opacity-90"
+        class="flex items-center gap-1 rounded-md bg-[var(--color-accent)] px-2.5 py-1 type-caption font-medium text-[var(--color-surface-0)] hover:opacity-90"
         onclick={() => (creating = true)}
       >
         <Plus size="11" /> new forward
@@ -172,7 +172,7 @@
 
   {#if err}
     <div
-      class="m-4 rounded-md border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-3 text-xs text-[var(--color-danger)]"
+      class="m-4 rounded-md border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-3 type-caption text-[var(--color-danger)]"
       role="alert"
     >
       {err}
@@ -195,20 +195,20 @@
           ></span>
           <Icon size="14" class="text-[var(--color-text-3)]" />
           <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-2 text-sm">
+            <div class="flex items-center gap-2 type-body">
               <span class="font-medium">{f.name}</span>
               <span
-                class="rounded-sm border hairline px-1 text-[9px] uppercase tracking-wider text-[var(--color-text-3)]"
+                class="rounded-sm border hairline px-1 type-eyebrow text-[var(--color-text-3)]"
                 >{f.kind}</span
               >
             </div>
-            <div class="font-mono text-[10px] text-[var(--color-text-3)]">
+            <div class="font-mono type-micro text-[var(--color-text-3)]">
               {hostName(f.hostID)} · {kindLabel(f)}
             </div>
           </div>
           {#if f.active}
             <button
-              class="flex items-center gap-1 border hairline-strong px-2 py-1 text-[11px] hover:bg-[var(--color-surface-3)] disabled:opacity-50"
+              class="flex items-center gap-1 border hairline-strong px-2 py-1 type-caption hover:bg-[var(--color-surface-3)] disabled:opacity-50"
               disabled={busyID === f.id}
               onclick={() => stop(f)}
             >
@@ -219,7 +219,7 @@
             </button>
           {:else}
             <button
-              class="flex items-center gap-1 bg-[var(--color-accent)] px-2 py-1 text-[11px] font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
+              class="flex items-center gap-1 bg-[var(--color-accent)] px-2 py-1 type-caption font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
               disabled={busyID === f.id}
               onclick={() => start(f)}
             >
@@ -264,7 +264,7 @@
     >
       <div class="flex items-center gap-2 border-b hairline px-5 py-3">
         <Network size="14" class="text-[var(--color-accent)]" />
-        <h3 class="text-sm font-semibold">New port forward</h3>
+        <h3 class="type-body font-semibold">New port forward</h3>
         <button
           class="ml-auto rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
           onclick={() => (creating = false)}
@@ -273,8 +273,8 @@
         </button>
       </div>
 
-      <div class="space-y-3 p-5 text-sm">
-        <div class="flex flex-wrap items-center gap-1.5 text-[10px]">
+      <div class="space-y-3 p-5 type-body">
+        <div class="flex flex-wrap items-center gap-1.5 type-micro">
           <span class="text-[var(--color-text-3)]">presets:</span>
           {#each ["postgres", "mysql", "redis", "socks"] as p (p)}
             <button
@@ -286,7 +286,7 @@
 
         <label class="block">
           <span
-            class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+            class="type-eyebrow text-[var(--color-text-3)]"
             >Name</span
           >
           <input
@@ -298,7 +298,7 @@
         <div class="grid grid-cols-2 gap-2">
           <label class="block">
             <span
-              class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+              class="type-eyebrow text-[var(--color-text-3)]"
               >Host</span
             >
             <select
@@ -313,7 +313,7 @@
           </label>
           <label class="block">
             <span
-              class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+              class="type-eyebrow text-[var(--color-text-3)]"
               >Kind</span
             >
             <select
@@ -330,7 +330,7 @@
         <div class="grid grid-cols-[1fr_88px] gap-2">
           <label class="block">
             <span
-              class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+              class="type-eyebrow text-[var(--color-text-3)]"
               >Local bind</span
             >
             <input
@@ -341,7 +341,7 @@
           </label>
           <label class="block">
             <span
-              class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+              class="type-eyebrow text-[var(--color-text-3)]"
               >Port</span
             >
             <input
@@ -355,7 +355,7 @@
           <div class="grid grid-cols-[1fr_88px] gap-2">
             <label class="block">
               <span
-                class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+                class="type-eyebrow text-[var(--color-text-3)]"
                 >Remote target</span
               >
               <input
@@ -366,7 +366,7 @@
             </label>
             <label class="block">
               <span
-                class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+                class="type-eyebrow text-[var(--color-text-3)]"
                 >Port</span
               >
               <input
@@ -381,11 +381,11 @@
 
       <div class="flex items-center justify-end gap-2 border-t hairline px-5 py-3">
         <button
-          class="px-3 py-1.5 text-xs text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
+          class="px-3 py-1.5 type-caption text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
           onclick={() => (creating = false)}>Cancel</button
         >
         <button
-          class="flex items-center gap-1.5 bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
+          class="flex items-center gap-1.5 bg-[var(--color-accent)] px-3 py-1.5 type-caption font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
           disabled={saving || !cName || !cHostID}
           onclick={save}
         >

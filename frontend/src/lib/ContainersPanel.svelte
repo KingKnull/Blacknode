@@ -156,7 +156,7 @@
   >
     {#snippet actions()}
       <button
-        class="flex items-center gap-1 rounded-md border hairline-strong px-2.5 py-1 text-[11px] hover:bg-[var(--color-surface-3)] disabled:opacity-50"
+        class="flex items-center gap-1 rounded-md border hairline-strong px-2.5 py-1 type-caption hover:bg-[var(--color-surface-3)] disabled:opacity-50"
         disabled={!host || loading}
         onclick={() => (tab === "docker" ? loadContainers() : loadPods())}
       >
@@ -177,19 +177,13 @@
   {:else}
     <div class="flex items-center gap-1 border-b hairline surface-1 px-3 py-1.5">
       <button
-        class="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] {tab ===
-        'docker'
-          ? 'bg-[var(--color-surface-3)] text-[var(--color-text-1)]'
-          : 'text-[var(--color-text-3)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-1)]'}"
+        class="flex items-center gap-1.5 rounded-md px-2.5 py-1 type-caption {tab === 'docker' ? 'bg-[var(--color-surface-3)] text-[var(--color-text-1)]' : 'text-[var(--color-text-3)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-1)]'}"
         onclick={() => (tab = "docker")}
       >
         <ContainerIcon size="11" /> Docker
       </button>
       <button
-        class="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] {tab ===
-        'k8s'
-          ? 'bg-[var(--color-surface-3)] text-[var(--color-text-1)]'
-          : 'text-[var(--color-text-3)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-1)]'}"
+        class="flex items-center gap-1.5 rounded-md px-2.5 py-1 type-caption {tab === 'k8s' ? 'bg-[var(--color-surface-3)] text-[var(--color-text-1)]' : 'text-[var(--color-text-3)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-1)]'}"
         onclick={() => (tab = "k8s")}
       >
         <Boxes size="11" /> Kubernetes
@@ -197,7 +191,7 @@
 
       {#if tab === "docker"}
         <label
-          class="ml-auto flex items-center gap-1.5 text-[11px] text-[var(--color-text-3)]"
+          class="ml-auto flex items-center gap-1.5 type-caption text-[var(--color-text-3)]"
         >
           <input
             type="checkbox"
@@ -209,7 +203,7 @@
         </label>
       {:else if tab === "k8s"}
         <select
-          class="ml-auto rounded-md border hairline bg-[var(--color-surface-3)] px-2 py-1 text-[11px] outline-none"
+          class="ml-auto rounded-md border hairline bg-[var(--color-surface-3)] px-2 py-1 type-caption outline-none"
           bind:value={namespace}
           onchange={loadPods}
         >
@@ -224,7 +218,7 @@
     <div class="flex-1 overflow-y-auto">
       {#if err}
         <div
-          class="m-4 rounded-md border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-3 font-mono text-[11px] whitespace-pre-wrap text-[var(--color-danger)]"
+          class="m-4 rounded-md border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-3 font-mono type-caption whitespace-pre-wrap text-[var(--color-danger)]"
           role="alert"
         >
           {err}
@@ -242,9 +236,9 @@
             compact
           />
         {:else}
-          <table class="w-full text-xs">
+          <table class="w-full type-caption">
             <thead
-              class="sticky top-0 surface-1 text-[10px] uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+              class="sticky top-0 surface-1 type-eyebrow text-[var(--color-text-3)]"
             >
               <tr>
                 <th class="px-3 py-2 text-left font-medium">Name</th>
@@ -260,7 +254,7 @@
                 <tr class="border-b hairline hover:bg-[var(--color-surface-2)]">
                   <td class="truncate px-3 py-1.5">{c.name}</td>
                   <td
-                    class="truncate px-3 py-1.5 font-mono text-[10px] text-[var(--color-text-3)]"
+                    class="truncate px-3 py-1.5 font-mono type-micro text-[var(--color-text-3)]"
                     >{c.image}</td
                   >
                   <td class="px-3 py-1.5 {statusColor(c.state || c.status)}">
@@ -274,16 +268,16 @@
                     </span>
                   </td>
                   <td
-                    class="truncate px-3 py-1.5 font-mono text-[10px] text-[var(--color-text-3)]"
+                    class="truncate px-3 py-1.5 font-mono type-micro text-[var(--color-text-3)]"
                     >{c.ports}</td
                   >
                   <td
-                    class="px-3 py-1.5 font-mono text-[10px] text-[var(--color-text-4)]"
+                    class="px-3 py-1.5 font-mono type-micro text-[var(--color-text-4)]"
                     >{c.id}</td
                   >
                   <td class="px-2 py-1.5">
                     <button
-                      class="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
+                      class="flex items-center gap-1 rounded px-1.5 py-0.5 type-micro text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
                       onclick={() => showContainerLogs(c)}
                       title="View logs"
                       aria-label="View logs for {c.name}"
@@ -305,9 +299,9 @@
             compact
           />
         {:else}
-          <table class="w-full text-xs">
+          <table class="w-full type-caption">
             <thead
-              class="sticky top-0 surface-1 text-[10px] uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+              class="sticky top-0 surface-1 type-eyebrow text-[var(--color-text-3)]"
             >
               <tr>
                 <th class="px-3 py-2 text-left font-medium">Pod</th>
@@ -325,28 +319,25 @@
                 <tr class="border-b hairline hover:bg-[var(--color-surface-2)]">
                   <td class="truncate px-3 py-1.5">{p.name}</td>
                   <td
-                    class="px-3 py-1.5 font-mono text-[10px] text-[var(--color-text-3)]"
+                    class="px-3 py-1.5 font-mono type-micro text-[var(--color-text-3)]"
                     >{p.namespace}</td
                   >
-                  <td class="px-3 py-1.5 font-mono text-[10px]">{p.ready}</td>
+                  <td class="px-3 py-1.5 font-mono type-micro">{p.ready}</td>
                   <td class="px-3 py-1.5 {statusColor(p.status)}">{p.status}</td>
                   <td
-                    class="px-3 py-1.5 text-right font-mono text-[10px] {p.restarts >
-                    0
-                      ? 'text-[var(--color-warn)]'
-                      : 'text-[var(--color-text-3)]'}">{p.restarts}</td
+                    class="px-3 py-1.5 text-right font-mono type-micro {p.restarts > 0 ? 'text-[var(--color-warn)]' : 'text-[var(--color-text-3)]'}">{p.restarts}</td
                   >
                   <td
-                    class="px-3 py-1.5 font-mono text-[10px] text-[var(--color-text-3)]"
+                    class="px-3 py-1.5 font-mono type-micro text-[var(--color-text-3)]"
                     >{p.age}</td
                   >
                   <td
-                    class="truncate px-3 py-1.5 font-mono text-[10px] text-[var(--color-text-3)]"
+                    class="truncate px-3 py-1.5 font-mono type-micro text-[var(--color-text-3)]"
                     >{p.node}</td
                   >
                   <td class="px-2 py-1.5">
                     <button
-                      class="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
+                      class="flex items-center gap-1 rounded px-1.5 py-0.5 type-micro text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
                       onclick={() => showPodLogs(p)}
                       title="View logs"
                       aria-label="View logs for {p.namespace}/{p.name}"
@@ -374,8 +365,8 @@
     {#snippet children()}
       <div class="flex items-center gap-2 border-b hairline px-4 py-2.5">
         <ScrollText size="14" class="text-[var(--color-accent)]" />
-        <span id="container-logs-title" class="truncate text-sm font-semibold">{logs?.title}</span>
-        <span class="ml-2 text-[10px] text-[var(--color-text-3)]">last 500 lines</span>
+        <span id="container-logs-title" class="truncate type-body font-semibold">{logs?.title}</span>
+        <span class="ml-2 type-micro text-[var(--color-text-3)]">last 500 lines</span>
         <button
           class="ml-auto rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
           onclick={() => (logs = null)}
@@ -387,13 +378,13 @@
       <div class="flex-1 overflow-auto bg-[var(--color-code-bg)] p-3">
         {#if logs?.loading}
           <div
-            class="flex h-32 items-center justify-center gap-2 text-xs text-[var(--color-text-3)]"
+            class="flex h-32 items-center justify-center gap-2 type-caption text-[var(--color-text-3)]"
           >
             <Loader2 size="14" class="animate-spin" /> fetching logs…
           </div>
         {:else}
           <pre
-            class="overflow-x-auto whitespace-pre-wrap font-mono text-[11px] text-[var(--color-text-1)]">{logs?.body || "(no output)"}</pre>
+            class="overflow-x-auto whitespace-pre-wrap font-mono type-caption text-[var(--color-text-1)]">{logs?.body || "(no output)"}</pre>
         {/if}
       </div>
     {/snippet}

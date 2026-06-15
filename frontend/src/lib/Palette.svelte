@@ -4,8 +4,9 @@
   import {
     VaultService,
     SnippetService,
+    HostService,
   } from "../../bindings/github.com/blacknode/blacknode/internal/service";
-  import type { Snippet } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
+  import type { Snippet, Host } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { bus } from "./events";
   import {
     TerminalSquare,
@@ -30,6 +31,7 @@
     History as HistoryIcon,
     LayoutGrid,
     Radio,
+    Plug,
   } from "@lucide/svelte";
 
   type Action = {
@@ -107,13 +109,14 @@
     ...app.hosts.map(
       (h): Action => ({
         id: `host:${h.id}`,
-        label: `Select host: ${h.name}`,
+        label: `Connect: ${h.name}`,
         hint: `${h.username}@${h.host}:${h.port}`,
         icon: Server,
         category: "Hosts",
-        keywords: `${h.host} ${h.username} ${h.group}`,
+        keywords: `${h.host} ${h.username} ${h.group} ${(h.tags ?? []).join(" ")}`,
         run: () => {
           app.selectedHostID = h.id;
+          bus.emit("connect-host", { hostID: h.id });
         },
       }),
     ),
@@ -177,6 +180,65 @@
     ),
   ]);
 
+  // ── Quick Connect ───────────────────────────────────────────────
+  // Parse `user@host`, `user@host:port`, `ssh://user@host:port`, or a bare
+  // `host` (when it looks like a domain/IP or carries a port) into a target.
+  function parseConnect(raw: string): { user: string; host: string; port: number } | null {
+    let s = raw.trim().replace(/^ssh:\/\//i, "");
+    const m = s.match(/^(?:([^@\s]+)@)?([a-zA-Z0-9._-]+)(?::(\d+))?$/);
+    if (!m) return null;
+    const host = m[2];
+    // Avoid matching ordinary search words: require an explicit user@, a dotted
+    // host (domain/IP), or an explicit :port.
+    if (!m[1] && !host.includes(".") && !m[3]) return null;
+    return { user: m[1] || "root", host, port: m[3] ? parseInt(m[3], 10) : 22 };
+  }
+
+  async function quickConnect(p: { user: string; host: string; port: number }) {
+    app.paletteOpen = false;
+    // Reuse a matching saved host rather than creating duplicates.
+    let target = app.hosts.find(
+      (h) => h.host === p.host && h.username === p.user && h.port === p.port,
+    );
+    let id = target?.id;
+    if (!id) {
+      try {
+        const created = (await HostService.Create({
+          name: `${p.user}@${p.host}`,
+          host: p.host,
+          port: p.port,
+          username: p.user,
+          authMethod: "password",
+          keyID: "",
+          group: "Quick Connect",
+          environment: "",
+          proxyJump: "",
+          notes: "",
+          tags: ["quick"],
+        } as unknown as Host)) as Host;
+        id = created.id;
+        await app.refreshHosts();
+      } catch (e: any) {
+        app.toast("error", "Quick connect failed", String(e?.message ?? e));
+        return;
+      }
+    }
+    if (id) bus.emit("connect-host", { hostID: id });
+  }
+
+  let quickConnectAction = $derived.by<Action | null>(() => {
+    const p = parseConnect(input);
+    if (!p) return null;
+    return {
+      id: "quick:connect",
+      label: `Connect to ${p.user}@${p.host}:${p.port}`,
+      hint: "Quick Connect · saves the host",
+      icon: Plug,
+      category: "Quick Connect",
+      run: () => quickConnect(p),
+    };
+  });
+
   function score(a: Action, q: string): number {
     if (!q) return 1;
     const haystack = `${a.label} ${a.hint ?? ""} ${a.keywords ?? ""} ${a.category}`.toLowerCase();
@@ -191,13 +253,14 @@
     return 0;
   }
 
-  let filtered = $derived(
-    actions
+  let filtered = $derived([
+    ...(quickConnectAction ? [quickConnectAction] : []),
+    ...actions
       .map((a) => ({ a, s: score(a, input) }))
       .filter((x) => x.s > 0)
       .sort((x, y) => y.s - x.s)
       .map((x) => x.a),
-  );
+  ]);
 
   $effect(() => {
     if (app.paletteOpen) {
@@ -277,15 +340,15 @@
   >
     <div
       class="w-[580px] overflow-hidden border hairline-strong surface-2 shadow-2xl"
-      style="border-radius: var(--radius-md); box-shadow: 0 0 0 1px var(--color-line-strong), 0 0 60px rgba(0,255,136,0.05), 0 40px 80px rgba(0,0,0,0.6);"
+      style="border-radius: var(--radius-md); box-shadow: 0 0 0 1px var(--color-line-strong), 0 0 60px rgba(59, 130, 246,0.05), 0 40px 80px rgba(0,0,0,0.6);"
     >
       <!-- Search input -->
       <div class="flex items-center gap-3 border-b hairline px-4 py-3">
-        <span class="font-mono text-xs text-[var(--color-accent)]/60">&gt;_</span>
+        <span class="font-mono type-caption text-[var(--color-accent)]/60">&gt;_</span>
         <input
           bind:this={inputEl}
           bind:value={input}
-          class="flex-1 bg-transparent text-sm text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)]"
+          class="flex-1 bg-transparent type-body text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)]"
           placeholder="Type a command, host, or view..."
         />
         <kbd class="border border-[var(--color-line-strong)] px-1.5 py-0.5 font-mono type-micro text-[var(--color-text-4)]" style="border-radius: var(--radius-sm);">ESC</kbd>
@@ -294,15 +357,13 @@
       <!-- Results -->
       <div class="max-h-[400px] overflow-y-auto">
         {#each grouped() as group (group.name)}
-          <div class="px-4 pt-3 pb-1 type-micro font-semibold text-[var(--color-text-4)] uppercase tracking-wider">
+          <div class="type-eyebrow px-4 pt-3 pb-1 type-micro text-[var(--color-text-4)]">
             {group.name}
           </div>
           {#each group.items as a (a.id)}
             {@const idx = indexOf(a)}
             <button
-              class="flex w-full items-center gap-2.5 border-l-2 px-4 py-2 text-left text-sm transition-colors {idx === highlighted
-                ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/6 text-[var(--color-text-1)]'
-                : 'border-transparent text-[var(--color-text-2)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-1)]'}"
+              class="flex w-full items-center gap-2.5 border-l-2 px-4 py-2 text-left type-body transition-colors {idx === highlighted ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/6 text-[var(--color-text-1)]' : 'border-transparent text-[var(--color-text-2)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-1)]'}"
               onmouseenter={() => (highlighted = idx)}
               onclick={() => { void a.run(); app.paletteOpen = false; }}
             >
@@ -315,7 +376,7 @@
           {/each}
         {/each}
         {#if filtered.length === 0}
-          <div class="px-4 py-10 text-center text-sm text-[var(--color-text-4)]">
+          <div class="px-4 py-10 text-center type-body text-[var(--color-text-4)]">
             No matches
           </div>
         {/if}

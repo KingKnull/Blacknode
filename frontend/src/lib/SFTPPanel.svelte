@@ -177,7 +177,7 @@
         <ChevronUp size="14" />
       </button>
       <input
-        class="flex-1 rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-1.5 font-mono text-xs outline-none"
+        class="flex-1 rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-1.5 font-mono type-caption outline-none"
         bind:value={path}
         onkeydown={(e) => e.key === "Enter" && reload()}
         placeholder="(home)"
@@ -191,7 +191,7 @@
         <RefreshCw size="13" />
       </button>
       <label
-        class="flex cursor-pointer items-center gap-1 rounded-md border hairline-strong px-2.5 py-1.5 text-xs text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)]"
+        class="flex cursor-pointer items-center gap-1 rounded-md border hairline-strong px-2.5 py-1.5 type-caption text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)]"
       >
         <Upload size="12" /> upload
         <input
@@ -218,13 +218,13 @@
         <div class="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-[var(--color-surface-1)]/80 fade-up" style="backdrop-filter: blur(8px);">
           <div class="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-[var(--color-accent)]/50 bg-[var(--color-surface-2)] p-10 shadow-2xl">
             <Upload size="40" class="text-[var(--color-accent)] pulse-soft" />
-            <span class="font-mono text-sm font-bold uppercase tracking-widest text-[var(--color-text-1)]">Drop files to upload</span>
-            <span class="font-mono text-[10px] text-[var(--color-text-3)]">to {path || "(home)"}</span>
+            <span class="font-mono type-eyebrow text-[var(--color-text-1)]">Drop files to upload</span>
+            <span class="font-mono type-micro text-[var(--color-text-3)]">to {path || "(home)"}</span>
           </div>
         </div>
       {/if}
       {#if err}
-        <div class="m-4 rounded-md border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-3 text-xs text-[var(--color-danger)]" role="alert">
+        <div class="m-4 rounded-md border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-3 type-caption text-[var(--color-danger)]" role="alert">
           {err}
         </div>
       {/if}
@@ -234,7 +234,7 @@
       <div class="divide-y divide-[var(--color-line)]">
         {#each entries as e (e.name)}
           <div
-            class="grid grid-cols-[1fr_100px_120px_80px] items-center gap-2 px-4 py-1.5 text-xs transition-colors hover:bg-[var(--color-surface-2)]"
+            class="grid grid-cols-[1fr_100px_120px_80px] items-center gap-2 px-4 py-1.5 type-caption transition-colors hover:bg-[var(--color-surface-2)]"
           >
             <button
               class="flex min-w-0 items-center gap-2 truncate text-left"
@@ -248,10 +248,10 @@
               {/if}
               <span class="truncate">{e.name}</span>
             </button>
-            <span class="text-right font-mono text-[10px] text-[var(--color-text-3)]"
+            <span class="text-right font-mono type-micro text-[var(--color-text-3)]"
               >{e.isDir ? "" : fmtSize(e.size)}</span
             >
-            <span class="font-mono text-[10px] text-[var(--color-text-4)]"
+            <span class="font-mono type-micro text-[var(--color-text-4)]"
               >{e.mode}</span
             >
             <div class="flex justify-end gap-0.5">

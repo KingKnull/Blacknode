@@ -335,9 +335,7 @@
     <aside class="flex flex-col gap-px border-r hairline surface-1 py-4">
       {#each SECTIONS as s (s.id)}
         <button
-          class="flex items-center gap-3 px-6 py-2.5 text-left text-[11px] font-bold tracking-widest transition-all {activeSection === s.id
-            ? 'bg-[var(--color-accent)]/8 text-[var(--color-accent)]'
-            : 'text-[var(--color-text-4)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-2)]'}"
+          class="flex items-center gap-3 px-6 py-2.5 text-left type-caption font-bold tracking-widest transition-all {activeSection === s.id ? 'bg-[var(--color-accent)]/8 text-[var(--color-accent)]' : 'text-[var(--color-text-4)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-2)]'}"
           onclick={() => scrollTo(s.id)}
         >
           <s.Icon size="12" />
@@ -353,9 +351,9 @@
         <section id="section-ai" class="border hairline-strong surface-2 p-6 shadow-xl" style="backdrop-filter: blur(12px) saturate(1.2);">
           <div class="mb-4 flex items-center gap-2">
             <Sparkles size="14" class="text-[var(--color-accent)]" />
-            <h3 class="text-[11px] font-bold uppercase tracking-widest text-[var(--color-text-1)]">AI assistant</h3>
+            <h3 class="type-eyebrow text-[var(--color-text-1)]">AI assistant</h3>
           </div>
-          <p class="text-[11px] text-[var(--color-text-3)] leading-relaxed">
+          <p class="type-caption text-[var(--color-text-3)] leading-relaxed">
             Powers the side drawer (⌘I) and command-palette translations. Uses
             <span class="font-mono">claude-haiku-4-5</span> for low-latency
             suggestions and <span class="font-mono">claude-sonnet-4-6</span> for
@@ -365,12 +363,12 @@
 
           <div class="mt-4 space-y-2">
             <label class="block">
-              <span class="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--color-text-3)]">Anthropic API key</span>
+              <span class="type-eyebrow text-[var(--color-text-3)]">Anthropic API key</span>
               <div class="mt-1 flex items-center gap-2">
                 <div class="relative flex flex-1 items-center border hairline bg-[var(--color-surface-3)]">
                   <input
                     type={showKey ? "text" : "password"}
-                    class="flex-1 bg-transparent px-3 py-2 font-mono text-[11px] outline-none"
+                    class="flex-1 bg-transparent px-3 py-2 font-mono type-caption outline-none"
                     placeholder={app.settings.hasAnthropicKey ? "•••••• (saved)" : "sk-ant-…"}
                     bind:value={apiKeyInput}
                   />
@@ -383,7 +381,7 @@
                   </button>
                 </div>
                 <button
-                  class="flex items-center gap-1 border border-[var(--color-accent)]/60 bg-[var(--color-accent)] px-3 py-2 text-[11px] font-bold text-[var(--color-surface-0)] hover:opacity-90 hover:shadow-[0_0_20px_rgba(0,255,136,0.15)] transition-all disabled:opacity-50"
+                  class="flex items-center gap-1 border border-[var(--color-accent)]/60 bg-[var(--color-accent)] px-3 py-2 type-caption font-bold text-[var(--color-surface-0)] hover:opacity-90 hover:shadow-[0_0_20px_rgba(59, 130, 246,0.15)] transition-all disabled:opacity-50"
                   disabled={!apiKeyInput || savingKey}
                   onclick={saveAPIKey}
                 >
@@ -394,27 +392,27 @@
 
             <div class="flex flex-wrap items-center gap-2">
               {#if app.settings.hasAnthropicKey}
-                <span class="inline-flex items-center gap-1 border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/10 px-2 py-0.5 text-[10px] text-[var(--color-accent)]">
+                <span class="inline-flex items-center gap-1 border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/10 px-2 py-0.5 type-micro text-[var(--color-accent)]">
                   <CheckCircle2 size="10" /> KEY SAVED
                 </span>
                 <button
-                  class="border hairline px-2 py-1 text-[10px] text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)] transition-colors"
+                  class="border hairline px-2 py-1 type-micro text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)] transition-colors"
                   onclick={testKey}
                   disabled={savingKey}
                 >
                   TEST
                 </button>
                 <button
-                  class="border hairline px-2 py-1 text-[10px] text-[var(--color-text-3)] hover:border-[var(--color-danger)]/40 hover:text-[var(--color-danger)] transition-colors"
+                  class="border hairline px-2 py-1 type-micro text-[var(--color-text-3)] hover:border-[var(--color-danger)]/40 hover:text-[var(--color-danger)] transition-colors"
                   onclick={() => (confirmClearKey = true)}
                 >
                   REMOVE
                 </button>
               {/if}
               {#if testStatus === "ok"}
-                <span class="font-mono text-[10px] text-[var(--color-accent)]">{testMessage}</span>
+                <span class="font-mono type-micro text-[var(--color-accent)]">{testMessage}</span>
               {:else if testStatus === "fail"}
-                <span class="font-mono text-[10px] text-[var(--color-danger)]">{testMessage}</span>
+                <span class="font-mono type-micro text-[var(--color-danger)]">{testMessage}</span>
               {/if}
             </div>
           </div>
@@ -424,14 +422,14 @@
         <section id="section-security" class="border hairline-strong surface-2 p-6 shadow-xl" style="backdrop-filter: blur(12px) saturate(1.2);">
           <div class="mb-4 flex items-center gap-2">
             <Lock size="14" class="text-[var(--color-accent)]" />
-            <h3 class="text-[11px] font-bold uppercase tracking-widest text-[var(--color-text-1)]">Security</h3>
+            <h3 class="type-eyebrow text-[var(--color-text-1)]">Security</h3>
           </div>
           <label class="block">
             <div class="flex items-center justify-between">
-              <span class="text-[11px] font-bold text-[var(--color-text-1)]">Auto-lock vault after</span>
-              <span class="text-[10px] text-[var(--color-text-3)]">0 = never lock</span>
+              <span class="type-caption font-bold text-[var(--color-text-1)]">Auto-lock vault after</span>
+              <span class="type-micro text-[var(--color-text-3)]">0 = never lock</span>
             </div>
-            <p class="mt-0.5 text-[11px] text-[var(--color-text-3)] leading-relaxed">
+            <p class="mt-0.5 type-caption text-[var(--color-text-3)] leading-relaxed">
               Locks the vault when the app sees no keystroke or click for this many
               minutes. The master key is wiped from memory.
             </p>
@@ -439,12 +437,12 @@
               <input
                 type="number"
                 min="0"
-                class="w-24 border hairline bg-[var(--color-surface-3)] px-3 py-2 text-[11px] outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(0,255,136,0.06)] transition-all"
+                class="w-24 border hairline bg-[var(--color-surface-3)] px-3 py-2 type-caption outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59, 130, 246,0.06)] transition-all"
                 bind:value={autoLockMinutes}
               />
-              <span class="text-[11px] text-[var(--color-text-3)]">minutes</span>
+              <span class="type-caption text-[var(--color-text-3)]">minutes</span>
               <button
-                class="ml-auto flex items-center gap-1 border hairline-strong px-3 py-1.5 text-[11px] hover:bg-[var(--color-surface-3)] disabled:opacity-50 transition-colors"
+                class="ml-auto flex items-center gap-1 border hairline-strong px-3 py-1.5 type-caption hover:bg-[var(--color-surface-3)] disabled:opacity-50 transition-colors"
                 disabled={savingLock || autoLockMinutes === app.settings.autoLockMinutes}
                 onclick={saveAutoLock}
               >
@@ -458,31 +456,27 @@
         <section id="section-appearance" class="border hairline-strong surface-2 p-6 shadow-xl" style="backdrop-filter: blur(12px) saturate(1.2);">
           <div class="mb-4 flex items-center gap-2">
             <Palette size="14" class="text-[var(--color-accent)]" />
-            <h3 class="text-[11px] font-bold uppercase tracking-widest text-[var(--color-text-1)]">Appearance</h3>
+            <h3 class="type-eyebrow text-[var(--color-text-1)]">Appearance</h3>
           </div>
-          <p class="text-[11px] text-[var(--color-text-3)] leading-relaxed">
-            Switches every panel between the dark phosphor palette and a warm paper light variant.
+          <p class="type-caption text-[var(--color-text-3)] leading-relaxed">
+            Switches every panel between the dark navy palette and a clean light variant.
             Active terminals keep their theme until reopened.
           </p>
           <div class="mt-4 flex items-center gap-2">
             <button
-              class="flex flex-1 items-center justify-center gap-2 border px-4 py-3 text-[11px] transition-colors {app.settings.theme === 'dark'
-                ? 'border-[var(--color-accent)]/40 bg-[var(--color-accent-soft)] text-[var(--color-text-1)]'
-                : 'hairline text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)]'}"
+              class="flex flex-1 items-center justify-center gap-2 border px-4 py-3 type-caption transition-colors {app.settings.theme === 'dark' ? 'border-[var(--color-accent)]/40 bg-[var(--color-accent-soft)] text-[var(--color-text-1)]' : 'hairline text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)]'}"
               disabled={savingTheme}
               onclick={() => setTheme("dark")}
             >
-              <div class="h-3 w-6 border hairline-strong" style="background:#030405"></div>
+              <div class="h-3 w-6 border hairline-strong" style="background:#0b0e14"></div>
               DARK
             </button>
             <button
-              class="flex flex-1 items-center justify-center gap-2 border px-4 py-3 text-[11px] transition-colors {app.settings.theme === 'light'
-                ? 'border-[var(--color-accent)]/40 bg-[var(--color-accent-soft)] text-[var(--color-text-1)]'
-                : 'hairline text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)]'}"
+              class="flex flex-1 items-center justify-center gap-2 border px-4 py-3 type-caption transition-colors {app.settings.theme === 'light' ? 'border-[var(--color-accent)]/40 bg-[var(--color-accent-soft)] text-[var(--color-text-1)]' : 'hairline text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)]'}"
               disabled={savingTheme}
               onclick={() => setTheme("light")}
             >
-              <div class="h-3 w-6 border hairline-strong" style="background:#f5f2eb"></div>
+              <div class="h-3 w-6 border hairline-strong" style="background:#ffffff"></div>
               LIGHT
             </button>
           </div>
@@ -492,9 +486,9 @@
         <section id="section-notifications" class="border hairline-strong surface-2 p-6 shadow-xl" style="backdrop-filter: blur(12px) saturate(1.2);">
           <div class="mb-4 flex items-center gap-2">
             <Bell size="14" class="text-[var(--color-accent)]" />
-            <h3 class="text-[11px] font-bold uppercase tracking-widest text-[var(--color-text-1)]">Notifications</h3>
+            <h3 class="type-eyebrow text-[var(--color-text-1)]">Notifications</h3>
           </div>
-          <p class="text-[11px] text-[var(--color-text-3)] leading-relaxed">
+          <p class="type-caption text-[var(--color-text-3)] leading-relaxed">
             Fires on long-running multi-host completions and CPU/MEM/DISK over
             90% (debounced 5 minutes per host). Desktop notifications use your
             OS notification center; webhooks POST a JSON payload.
@@ -502,30 +496,30 @@
 
           <div class="mt-4 space-y-3">
             <label class="flex items-center justify-between">
-              <span class="text-[11px] font-bold text-[var(--color-text-1)]">Desktop notifications</span>
+              <span class="type-caption font-bold text-[var(--color-text-1)]">Desktop notifications</span>
               <input type="checkbox" class="accent-[var(--color-accent)]" bind:checked={notify.desktopEnabled} />
             </label>
 
             <label class="block">
-              <span class="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--color-text-3)]">Long-exec threshold (seconds)</span>
-              <p class="mt-0.5 text-[11px] text-[var(--color-text-3)] leading-relaxed">
+              <span class="type-eyebrow text-[var(--color-text-3)]">Long-exec threshold (seconds)</span>
+              <p class="mt-0.5 type-caption text-[var(--color-text-3)] leading-relaxed">
                 Multi-host runs that take longer than this fire a "finished" notification.
               </p>
               <input
                 type="number"
                 min="1"
-                class="mt-1 w-32 border hairline bg-[var(--color-surface-3)] px-3 py-2 text-[11px] outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(0,255,136,0.06)] transition-all"
+                class="mt-1 w-32 border hairline bg-[var(--color-surface-3)] px-3 py-2 type-caption outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59, 130, 246,0.06)] transition-all"
                 bind:value={notify.longExecSeconds}
               />
             </label>
 
             <label class="block">
-              <span class="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--color-text-3)]">Webhook URL</span>
-              <p class="mt-0.5 text-[11px] text-[var(--color-text-3)] leading-relaxed">
+              <span class="type-eyebrow text-[var(--color-text-3)]">Webhook URL</span>
+              <p class="mt-0.5 type-caption text-[var(--color-text-3)] leading-relaxed">
                 POSTs <span class="font-mono">{"{kind, title, body, source, hostName, timestamp}"}</span> on every notification.
               </p>
               <input
-                class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-[11px] outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(0,255,136,0.06)] transition-all"
+                class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-caption outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59, 130, 246,0.06)] transition-all"
                 placeholder="https://hooks.slack.com/services/…"
                 bind:value={notify.webhookURL}
               />
@@ -533,22 +527,22 @@
 
             <div class="flex flex-wrap items-center gap-2">
               <button
-                class="flex items-center gap-1.5 border border-[var(--color-accent)]/60 bg-[var(--color-accent)] px-3 py-1.5 text-[11px] font-bold text-[var(--color-surface-0)] hover:opacity-90 hover:shadow-[0_0_20px_rgba(0,255,136,0.15)] transition-all disabled:opacity-50"
+                class="flex items-center gap-1.5 border border-[var(--color-accent)]/60 bg-[var(--color-accent)] px-3 py-1.5 type-caption font-bold text-[var(--color-surface-0)] hover:opacity-90 hover:shadow-[0_0_20px_rgba(59, 130, 246,0.15)] transition-all disabled:opacity-50"
                 disabled={notifyBusy}
                 onclick={saveNotify}
               >
                 {#if notifyBusy}<Loader2 size="11" class="animate-spin" />{:else}SAVE{/if}
               </button>
               <button
-                class="flex items-center gap-1.5 border hairline-strong px-3 py-1.5 text-[11px] hover:bg-[var(--color-surface-3)] transition-colors"
+                class="flex items-center gap-1.5 border hairline-strong px-3 py-1.5 type-caption hover:bg-[var(--color-surface-3)] transition-colors"
                 onclick={testNotify}
               >
                 <Send size="11" /> SEND TEST
               </button>
               {#if notifyTested === "ok"}
-                <span class="text-[10px] text-[var(--color-accent)]">TEST FIRED</span>
+                <span class="type-micro text-[var(--color-accent)]">TEST FIRED</span>
               {:else if notifyTested === "fail"}
-                <span class="text-[10px] text-[var(--color-danger)]">TEST FAILED</span>
+                <span class="type-micro text-[var(--color-danger)]">TEST FAILED</span>
               {/if}
             </div>
           </div>
@@ -558,23 +552,23 @@
         <section id="section-shell" class="border hairline-strong surface-2 p-6 shadow-xl" style="backdrop-filter: blur(12px) saturate(1.2);">
           <div class="mb-4 flex items-center gap-2">
             <Activity size="14" class="text-[var(--color-accent)]" />
-            <h3 class="text-[11px] font-bold uppercase tracking-widest text-[var(--color-text-1)]">Local shell & metrics</h3>
+            <h3 class="type-eyebrow text-[var(--color-text-1)]">Local shell & metrics</h3>
           </div>
 
           <label class="block">
-            <span class="text-[11px] font-bold text-[var(--color-text-1)]">Default local shell</span>
-            <p class="mt-0.5 text-[11px] text-[var(--color-text-3)] leading-relaxed">
+            <span class="type-caption font-bold text-[var(--color-text-1)]">Default local shell</span>
+            <p class="mt-0.5 type-caption text-[var(--color-text-3)] leading-relaxed">
               Override the shell binary for new local tabs. Empty = auto-detect
               (<span class="font-mono">$SHELL</span> → bash → sh on Unix; pwsh → cmd on Windows).
             </p>
             <div class="mt-2 flex items-center gap-2">
               <input
-                class="flex-1 border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-[11px] outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(0,255,136,0.06)] transition-all"
+                class="flex-1 border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-caption outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59, 130, 246,0.06)] transition-all"
                 placeholder="auto"
                 bind:value={defaultShellPath}
               />
               <button
-                class="border hairline-strong px-3 py-1.5 text-[11px] hover:bg-[var(--color-surface-3)] disabled:opacity-50 transition-colors"
+                class="border hairline-strong px-3 py-1.5 type-caption hover:bg-[var(--color-surface-3)] disabled:opacity-50 transition-colors"
                 disabled={savingShell || defaultShellPath === app.settings.defaultShellPath}
                 onclick={saveShell}
               >
@@ -584,20 +578,20 @@
           </label>
 
           <label class="mt-4 block">
-            <span class="text-[11px] font-bold text-[var(--color-text-1)]">Metrics polling interval</span>
-            <p class="mt-0.5 text-[11px] text-[var(--color-text-3)] leading-relaxed">
+            <span class="type-caption font-bold text-[var(--color-text-1)]">Metrics polling interval</span>
+            <p class="mt-0.5 type-caption text-[var(--color-text-3)] leading-relaxed">
               Seconds between CPU/MEM/DISK polls per host (≥ 2).
             </p>
             <div class="mt-2 flex items-center gap-2">
               <input
                 type="number"
                 min="2"
-                class="w-24 border hairline bg-[var(--color-surface-3)] px-3 py-2 text-[11px] outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(0,255,136,0.06)] transition-all"
+                class="w-24 border hairline bg-[var(--color-surface-3)] px-3 py-2 type-caption outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59, 130, 246,0.06)] transition-all"
                 bind:value={metricsIntervalSeconds}
               />
-              <span class="text-[11px] text-[var(--color-text-3)]">seconds</span>
+              <span class="type-caption text-[var(--color-text-3)]">seconds</span>
               <button
-                class="ml-auto border hairline-strong px-3 py-1.5 text-[11px] hover:bg-[var(--color-surface-3)] disabled:opacity-50 transition-colors"
+                class="ml-auto border hairline-strong px-3 py-1.5 type-caption hover:bg-[var(--color-surface-3)] disabled:opacity-50 transition-colors"
                 disabled={savingMetrics || metricsIntervalSeconds === app.settings.metricsIntervalSeconds}
                 onclick={saveMetrics}
               >
@@ -611,9 +605,9 @@
         <section id="section-sync" class="border hairline-strong surface-2 p-6 shadow-xl" style="backdrop-filter: blur(12px) saturate(1.2);">
           <div class="mb-4 flex items-center gap-2">
             <Cloud size="14" class="text-[var(--color-accent)]" />
-            <h3 class="text-[11px] font-bold uppercase tracking-widest text-[var(--color-text-1)]">Cloud sync</h3>
+            <h3 class="type-eyebrow text-[var(--color-text-1)]">Cloud sync</h3>
           </div>
-          <p class="text-[11px] text-[var(--color-text-3)] leading-relaxed">
+          <p class="type-caption text-[var(--color-text-3)] leading-relaxed">
             Push hosts, snippets, and saved HTTP requests as a single AES-GCM-encrypted blob to any
             HTTP endpoint accepting PUT/GET on <span class="font-mono">/blacknode-sync.bin</span>.
             Private SSH keys are NOT synced.
@@ -621,33 +615,33 @@
 
           <div class="mt-4 grid grid-cols-1 gap-3">
             <label class="block">
-              <span class="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--color-text-3)]">Endpoint</span>
+              <span class="type-eyebrow text-[var(--color-text-3)]">Endpoint</span>
               <input
                 type="text"
-                class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-[11px] outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(0,255,136,0.06)] transition-all"
+                class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-caption outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59, 130, 246,0.06)] transition-all"
                 placeholder="https://sync.example.com/blacknode"
                 bind:value={syncEndpoint}
               />
             </label>
             <label class="block">
-              <span class="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--color-text-3)]">Bearer token (optional)</span>
+              <span class="type-eyebrow text-[var(--color-text-3)]">Bearer token (optional)</span>
               <input
                 type="password"
-                class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-[11px] outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(0,255,136,0.06)] transition-all"
+                class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-caption outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59, 130, 246,0.06)] transition-all"
                 placeholder="leave blank if endpoint is public"
                 bind:value={syncToken}
               />
             </label>
             <div class="flex items-center gap-2">
               <button
-                class="border hairline-strong px-3 py-1.5 text-[11px] hover:bg-[var(--color-surface-3)] disabled:opacity-50 transition-colors"
+                class="border hairline-strong px-3 py-1.5 type-caption hover:bg-[var(--color-surface-3)] disabled:opacity-50 transition-colors"
                 disabled={syncBusy}
                 onclick={saveSyncConfig}
               >
                 SAVE CONFIG
               </button>
               <button
-                class="ml-auto flex items-center gap-1.5 border border-[var(--color-accent)]/60 bg-[var(--color-accent)] px-3 py-1.5 text-[11px] font-bold text-[var(--color-surface-0)] hover:opacity-90 hover:shadow-[0_0_20px_rgba(0,255,136,0.15)] transition-all disabled:opacity-50"
+                class="ml-auto flex items-center gap-1.5 border border-[var(--color-accent)]/60 bg-[var(--color-accent)] px-3 py-1.5 type-caption font-bold text-[var(--color-surface-0)] hover:opacity-90 hover:shadow-[0_0_20px_rgba(59, 130, 246,0.15)] transition-all disabled:opacity-50"
                 disabled={syncBusy || !syncStatus?.configured}
                 onclick={syncPush}
                 title="Encrypt and upload current state"
@@ -656,7 +650,7 @@
                 PUSH
               </button>
               <button
-                class="flex items-center gap-1.5 border hairline-strong px-3 py-1.5 text-[11px] hover:bg-[var(--color-surface-3)] disabled:opacity-50 transition-colors"
+                class="flex items-center gap-1.5 border hairline-strong px-3 py-1.5 type-caption hover:bg-[var(--color-surface-3)] disabled:opacity-50 transition-colors"
                 disabled={syncBusy || !syncStatus?.configured}
                 onclick={syncPull}
                 title="Download and merge into local state"
@@ -666,7 +660,7 @@
             </div>
 
             {#if syncStatus}
-              <div class="space-y-1 border hairline surface-3 p-2 text-[11px] text-[var(--color-text-2)]">
+              <div class="space-y-1 border hairline surface-3 p-2 type-caption text-[var(--color-text-2)]">
                 <div class="flex justify-between">
                   <span class="text-[var(--color-text-3)]">Last push</span>
                   <span class="font-mono">{fmtTime(syncStatus.lastPushAt)}</span>
@@ -689,9 +683,9 @@
         <section id="section-team" class="border hairline-strong surface-2 p-6 shadow-xl" style="backdrop-filter: blur(12px) saturate(1.2);">
           <div class="mb-4 flex items-center gap-2">
             <Users size="14" class="text-[var(--color-accent)]" />
-            <h3 class="text-[11px] font-bold uppercase tracking-widest text-[var(--color-text-1)]">Team</h3>
+            <h3 class="type-eyebrow text-[var(--color-text-1)]">Team</h3>
           </div>
-          <p class="text-[11px] text-[var(--color-text-3)] leading-relaxed">
+          <p class="type-caption text-[var(--color-text-3)] leading-relaxed">
             Publishes a curated snapshot to a shared blob
             (<span class="font-mono">/blacknode-team.bin</span>) on the same endpoint as Cloud sync.
             Notes are stripped; password-auth hosts are excluded. Subscribers merge with last-write-wins.
@@ -699,17 +693,17 @@
 
           <div class="mt-4 grid grid-cols-1 gap-3">
             <label class="block">
-              <span class="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--color-text-3)]">Display name (for activity log)</span>
+              <span class="type-eyebrow text-[var(--color-text-3)]">Display name (for activity log)</span>
               <input
                 type="text"
-                class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 text-[11px] outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(0,255,136,0.06)] transition-all"
+                class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 type-caption outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59, 130, 246,0.06)] transition-all"
                 placeholder="e.g. alice"
                 bind:value={teamActor}
               />
             </label>
             <div class="flex items-center gap-2">
               <button
-                class="ml-auto flex items-center gap-1.5 border border-[var(--color-accent)]/60 bg-[var(--color-accent)] px-3 py-1.5 text-[11px] font-bold text-[var(--color-surface-0)] hover:opacity-90 hover:shadow-[0_0_20px_rgba(0,255,136,0.15)] transition-all disabled:opacity-50"
+                class="ml-auto flex items-center gap-1.5 border border-[var(--color-accent)]/60 bg-[var(--color-accent)] px-3 py-1.5 type-caption font-bold text-[var(--color-surface-0)] hover:opacity-90 hover:shadow-[0_0_20px_rgba(59, 130, 246,0.15)] transition-all disabled:opacity-50"
                 disabled={teamBusy || !syncStatus?.configured}
                 onclick={teamPublish}
                 title="Push a curated snapshot to the team blob"
@@ -718,7 +712,7 @@
                 PUBLISH
               </button>
               <button
-                class="flex items-center gap-1.5 border hairline-strong px-3 py-1.5 text-[11px] hover:bg-[var(--color-surface-3)] disabled:opacity-50 transition-colors"
+                class="flex items-center gap-1.5 border hairline-strong px-3 py-1.5 type-caption hover:bg-[var(--color-surface-3)] disabled:opacity-50 transition-colors"
                 disabled={teamBusy || !syncStatus?.configured}
                 onclick={teamSubscribe}
                 title="Pull and merge the team snapshot"
@@ -729,19 +723,19 @@
 
             {#if teamActivity.length > 0}
               <div class="border hairline surface-3 p-2">
-                <h4 class="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--color-text-3)]">
+                <h4 class="mb-2 type-eyebrow text-[var(--color-text-3)]">
                   Activity ({teamActivity.length})
                 </h4>
-                <ul class="max-h-48 space-y-1 overflow-y-auto text-[11px]">
+                <ul class="max-h-48 space-y-1 overflow-y-auto type-caption">
                   {#each teamActivity as a (a.id)}
                     <li class="flex items-baseline gap-2 text-[var(--color-text-2)]">
                       <span
-                        class="font-mono text-[10px] {a.kind === 'publish' ? 'text-[var(--color-accent)]' : 'text-[var(--color-info)]'}"
+                        class="font-mono type-micro {a.kind === 'publish' ? 'text-[var(--color-accent)]' : 'text-[var(--color-info)]'}"
                         style="min-width:54px"
                       >{a.kind}</span>
-                      <span class="font-mono text-[10px] text-[var(--color-text-4)]">{a.actor}</span>
+                      <span class="font-mono type-micro text-[var(--color-text-4)]">{a.actor}</span>
                       <span class="flex-1 truncate">{a.summary}</span>
-                      <span class="text-[10px] text-[var(--color-text-4)]">{fmtTime(a.at)}</span>
+                      <span class="type-micro text-[var(--color-text-4)]">{fmtTime(a.at)}</span>
                     </li>
                   {/each}
                 </ul>
@@ -754,9 +748,9 @@
         <section id="section-about" class="border hairline-strong surface-2 p-6 shadow-xl" style="backdrop-filter: blur(12px) saturate(1.2);">
           <div class="mb-4 flex items-center gap-2">
             <Info size="14" class="text-[var(--color-accent)]" />
-            <h3 class="text-[11px] font-bold uppercase tracking-widest text-[var(--color-text-1)]">About</h3>
+            <h3 class="type-eyebrow text-[var(--color-text-1)]">About</h3>
           </div>
-          <div class="space-y-3 text-[11px] text-[var(--color-text-2)]">
+          <div class="space-y-3 type-caption text-[var(--color-text-2)]">
             <div class="flex items-center justify-between">
               <span class="text-[var(--color-text-3)]">Version</span>
               <span class="font-mono">{currentVersion || "—"}</span>
@@ -764,7 +758,7 @@
             <div class="flex items-center justify-between gap-3">
               <span class="text-[var(--color-text-3)]">Updates</span>
               <button
-                class="flex items-center gap-1.5 border hairline-strong px-3 py-1.5 text-[11px] hover:bg-[var(--color-surface-3)] disabled:opacity-50 transition-colors"
+                class="flex items-center gap-1.5 border hairline-strong px-3 py-1.5 type-caption hover:bg-[var(--color-surface-3)] disabled:opacity-50 transition-colors"
                 disabled={checkingUpdate}
                 onclick={checkForUpdates}
               >
@@ -775,26 +769,26 @@
 
             {#if updateInfo}
               {#if updateInfo.error}
-                <p class="border border-[var(--color-warn)]/30 bg-[var(--color-warn)]/10 p-2 text-[11px] text-[var(--color-warn)]">
+                <p class="border border-[var(--color-warn)]/30 bg-[var(--color-warn)]/10 p-2 type-caption text-[var(--color-warn)]">
                   {updateInfo.error}
                 </p>
               {:else if updateInfo.updateAvailable}
                 <div class="border border-[var(--color-accent)]/40 bg-[var(--color-accent-soft)] p-3">
-                  <div class="flex items-center gap-2 text-[11px] font-bold text-[var(--color-text-1)]">
+                  <div class="flex items-center gap-2 type-caption font-bold text-[var(--color-text-1)]">
                     <Download size="12" /> v{updateInfo.latest} is available
                   </div>
                   {#if updateInfo.notes}
-                    <pre class="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap text-[11px] text-[var(--color-text-2)]">{updateInfo.notes}</pre>
+                    <pre class="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap type-caption text-[var(--color-text-2)]">{updateInfo.notes}</pre>
                   {/if}
                   <button
-                    class="mt-3 border border-[var(--color-accent)]/60 bg-[var(--color-accent)] px-3 py-1.5 text-[11px] font-bold text-[var(--color-surface-0)] hover:opacity-90 hover:shadow-[0_0_20px_rgba(0,255,136,0.15)] transition-all"
+                    class="mt-3 border border-[var(--color-accent)]/60 bg-[var(--color-accent)] px-3 py-1.5 type-caption font-bold text-[var(--color-surface-0)] hover:opacity-90 hover:shadow-[0_0_20px_rgba(59, 130, 246,0.15)] transition-all"
                     onclick={openReleasePage}
                   >
                     OPEN RELEASE PAGE
                   </button>
                 </div>
               {:else}
-                <p class="text-[11px] text-[var(--color-text-3)]">You're on the latest version.</p>
+                <p class="type-caption text-[var(--color-text-3)]">You're on the latest version.</p>
               {/if}
             {/if}
           </div>

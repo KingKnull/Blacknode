@@ -130,8 +130,8 @@
         <div class="flex items-center gap-2 border-b hairline px-4 py-2.5">
           <Server size="13" class="text-[var(--color-text-3)]" />
           <div class="min-w-0 flex-1">
-            <div class="truncate text-sm font-medium">{h.name}</div>
-            <div class="truncate text-[10px] text-[var(--color-text-3)]">
+            <div class="truncate type-body font-medium">{h.name}</div>
+            <div class="truncate type-micro text-[var(--color-text-3)]">
               {h.username}@{h.host}
             </div>
           </div>
@@ -140,14 +140,14 @@
               class="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)] pulse-soft"
             ></span>
             <button
-              class="flex items-center gap-1 border hairline-strong px-2 py-1 text-[11px] text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)]"
+              class="flex items-center gap-1 border hairline-strong px-2 py-1 type-caption text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)]"
               onclick={() => stop(h.id)}
             >
               <Square size="10" />stop
             </button>
           {:else}
             <button
-              class="flex items-center gap-1 bg-[var(--color-accent)] px-2 py-1 text-[11px] font-medium text-[var(--color-surface-0)] hover:opacity-90"
+              class="flex items-center gap-1 bg-[var(--color-accent)] px-2 py-1 type-caption font-medium text-[var(--color-surface-0)] hover:opacity-90"
               onclick={() => start(h.id)}
             >
               <Play size="10" />start
@@ -156,15 +156,15 @@
         </div>
 
         {#if m?.error}
-          <div class="px-4 py-3 text-xs text-[var(--color-danger)]">{m.error}</div>
+          <div class="px-4 py-3 type-caption text-[var(--color-danger)]">{m.error}</div>
         {:else if m}
           <div class="grid grid-cols-4 divide-x divide-[var(--color-line)]">
             <div class="p-3">
-              <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-[var(--color-text-3)]">
+              <div class="flex items-center gap-1.5 type-eyebrow text-[var(--color-text-3)]">
                 <Cpu size="10" /> CPU
               </div>
-              <div class="mt-0.5 font-mono text-base text-[var(--color-accent)]">
-                {m.cpuPercent.toFixed(1)}<span class="text-xs">%</span>
+              <div class="mt-0.5 font-mono type-title text-[var(--color-accent)]">
+                {m.cpuPercent.toFixed(1)}<span class="type-caption">%</span>
               </div>
               {#if s}
                 <svg viewBox="0 0 220 36" class="mt-1 h-9 w-full text-[var(--color-accent)]">
@@ -174,11 +174,11 @@
               {/if}
             </div>
             <div class="p-3">
-              <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-[var(--color-text-3)]">
+              <div class="flex items-center gap-1.5 type-eyebrow text-[var(--color-text-3)]">
                 <MemoryStick size="10" /> MEM
               </div>
-              <div class="mt-0.5 font-mono text-base text-[var(--color-info)]">
-                {m.memPercent.toFixed(1)}<span class="text-xs">%</span>
+              <div class="mt-0.5 font-mono type-title text-[var(--color-info)]">
+                {m.memPercent.toFixed(1)}<span class="type-caption">%</span>
               </div>
               {#if s}
                 <svg viewBox="0 0 220 36" class="mt-1 h-9 w-full text-[var(--color-info)]">
@@ -188,11 +188,11 @@
               {/if}
             </div>
             <div class="p-3">
-              <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-[var(--color-text-3)]">
+              <div class="flex items-center gap-1.5 type-eyebrow text-[var(--color-text-3)]">
                 <HardDrive size="10" /> DISK
               </div>
-              <div class="mt-0.5 font-mono text-base text-[var(--color-warn)]">
-                {m.diskPercent.toFixed(1)}<span class="text-xs">%</span>
+              <div class="mt-0.5 font-mono type-title text-[var(--color-warn)]">
+                {m.diskPercent.toFixed(1)}<span class="type-caption">%</span>
               </div>
               {#if s}
                 <svg viewBox="0 0 220 36" class="mt-1 h-9 w-full text-[var(--color-warn)]">
@@ -202,10 +202,10 @@
               {/if}
             </div>
             <div class="p-3">
-              <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-[var(--color-text-3)]">
+              <div class="flex items-center gap-1.5 type-eyebrow text-[var(--color-text-3)]">
                 <Network size="10" /> NET
               </div>
-              <div class="mt-0.5 flex flex-col font-mono text-[11px] text-[var(--color-text-1)]">
+              <div class="mt-0.5 flex flex-col font-mono type-caption text-[var(--color-text-1)]">
                 <span title="Receive rate">
                   <span class="text-[var(--color-accent)]">↓</span>
                   {fmtBytes(m.rxBytesPerSec ?? 0)}
@@ -232,12 +232,12 @@
               {/if}
             </div>
           </div>
-          <div class="border-t hairline px-4 py-1.5 text-[10px] text-[var(--color-text-3)]">
+          <div class="border-t hairline px-4 py-1.5 type-micro text-[var(--color-text-3)]">
             load1 <span class="font-mono">{m.loadAvg1.toFixed(2)}</span>
             <span class="ml-3">{new Date(m.timestamp * 1000).toLocaleTimeString()}</span>
           </div>
         {:else}
-          <div class="px-4 py-6 text-center text-xs text-[var(--color-text-3)]">
+          <div class="px-4 py-6 text-center type-caption text-[var(--color-text-3)]">
             Click <span class="font-medium text-[var(--color-text-2)]">start</span> to poll.
           </div>
         {/if}
@@ -247,7 +247,7 @@
       <div class="col-span-2 flex h-full items-center justify-center">
         <div class="text-center">
           <Activity size="22" class="mx-auto text-[var(--color-text-4)]" />
-          <p class="mt-2 text-xs text-[var(--color-text-3)]">
+          <p class="mt-2 type-caption text-[var(--color-text-3)]">
             Add a host to see metrics.
           </p>
         </div>

@@ -93,11 +93,11 @@
         <Icon size="12" class="mt-px shrink-0 {k.accent}" />
         <div class="min-w-0 flex-1">
           <div class="flex items-start gap-2">
-            <span class="flex-1 font-mono type-micro font-bold uppercase tracking-wider text-[var(--color-text-1)] leading-snug">
+            <span class="type-eyebrow flex-1 font-mono type-micro text-[var(--color-text-1)] leading-snug">
               {t.title}
             </span>
             {#if t.source}
-              <span class="mt-px shrink-0 border border-[var(--color-line-strong)] px-1 font-mono text-[8px] uppercase tracking-widest text-[var(--color-text-4)]" style="border-radius: var(--radius-sm);">{t.source}</span>
+              <span class="mt-px shrink-0 border border-[var(--color-line-strong)] px-1 font-mono type-eyebrow text-[var(--color-text-4)]" style="border-radius: var(--radius-sm);">{t.source}</span>
             {/if}
             <button
               class="-mr-0.5 -mt-0.5 p-0.5 text-[var(--color-text-4)] hover:text-[var(--color-danger)] transition-colors"

@@ -205,51 +205,51 @@
   function termTheme() {
     if (app.settings.theme === "light") {
       return {
-        background: "#f5f2eb",
-        foreground: "#1a1208",
-        cursor: "#059669",
-        cursorAccent: "#f5f2eb",
-        selectionBackground: "rgba(5, 150, 105, 0.18)",
-        black: "#2a2010",
-        brightBlack: "#6b5e42",
-        red: "#9b1c1c",
-        brightRed: "#7f1d1d",
-        green: "#15803d",
-        brightGreen: "#166534",
-        yellow: "#92400e",
-        brightYellow: "#78350f",
-        blue: "#1e3a8a",
-        brightBlue: "#1e40af",
-        magenta: "#6b21a8",
-        brightMagenta: "#581c87",
-        cyan: "#0e7490",
-        brightCyan: "#0891b2",
-        white: "#6b5e42",
-        brightWhite: "#1a1208",
+        background: "#ffffff",
+        foreground: "#1f2733",
+        cursor: "#2563eb",
+        cursorAccent: "#ffffff",
+        selectionBackground: "rgba(37, 99, 235, 0.18)",
+        black: "#1f2733",
+        brightBlack: "#6b7383",
+        red: "#dc2626",
+        brightRed: "#ef4444",
+        green: "#16a34a",
+        brightGreen: "#22c55e",
+        yellow: "#d97706",
+        brightYellow: "#f59e0b",
+        blue: "#2563eb",
+        brightBlue: "#3b82f6",
+        magenta: "#7c3aed",
+        brightMagenta: "#a78bfa",
+        cyan: "#0891b2",
+        brightCyan: "#38bdf8",
+        white: "#6b7383",
+        brightWhite: "#1f2733",
       };
     }
     return {
-      background: "#020304",
-      foreground: "#c8ffe8",
-      cursor: "#00ff88",
-      cursorAccent: "#020304",
-      selectionBackground: "rgba(0, 255, 136, 0.18)",
-      black: "#020304",
-      brightBlack: "#1f4035",
-      red: "#ff3c3c",
-      brightRed: "#ff6b6b",
-      green: "#00ff88",
-      brightGreen: "#4dffa8",
-      yellow: "#ffaa00",
-      brightYellow: "#ffcc44",
-      blue: "#00aaff",
-      brightBlue: "#44ccff",
-      magenta: "#cc44ff",
-      brightMagenta: "#dd88ff",
-      cyan: "#00ffcc",
-      brightCyan: "#44ffee",
-      white: "#6bbf99",
-      brightWhite: "#c8ffe8",
+      background: "#0b0e14",
+      foreground: "#e6e9ef",
+      cursor: "#3b82f6",
+      cursorAccent: "#0b0e14",
+      selectionBackground: "rgba(59, 130, 246, 0.22)",
+      black: "#0b0e14",
+      brightBlack: "#545d6b",
+      red: "#ef4444",
+      brightRed: "#f87171",
+      green: "#22c55e",
+      brightGreen: "#4ade80",
+      yellow: "#f59e0b",
+      brightYellow: "#fbbf24",
+      blue: "#3b82f6",
+      brightBlue: "#60a5fa",
+      magenta: "#a78bfa",
+      brightMagenta: "#c4b5fd",
+      cyan: "#38bdf8",
+      brightCyan: "#7dd3fc",
+      white: "#9aa4b2",
+      brightWhite: "#e6e9ef",
     };
   }
 
@@ -579,7 +579,7 @@
 <div class="relative flex h-full w-full flex-col bg-[var(--color-surface-0)]">
   {#if connectedEnv.isProd && status === "connected"}
     <div
-      class="flex items-center justify-center gap-1.5 border-b py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em]"
+      class="flex items-center justify-center gap-1.5 border-b py-0.5 type-eyebrow"
       style:background={connectedEnv.bg}
       style:color={connectedEnv.color}
       style:border-color={connectedEnv.border}
@@ -590,12 +590,12 @@
     </div>
   {/if}
   <div
-    class="flex items-center gap-2 border-b hairline px-3 py-1.5 text-xs surface-1"
+    class="flex items-center gap-2 border-b hairline px-3 py-1.5 type-caption surface-1"
   >
     {#if mode === "local"}
       <TerminalIcon size="14" class="text-[var(--color-text-3)]" />
-      <span class="font-mono text-[13px] font-bold tracking-wide text-[var(--color-text-1)]">local</span>
-      <span class="font-mono text-[10px] text-[var(--color-text-4)]"
+      <span class="font-mono type-body font-bold tracking-wide text-[var(--color-text-1)]">local</span>
+      <span class="font-mono type-micro text-[var(--color-text-4)]"
         >· {sessionID.slice(0, 6)}</span
       >
       {#if status === "starting"}
@@ -609,10 +609,10 @@
     {:else}
       <Plug size="14" class="text-[var(--color-accent)]" />
       {#if connectedHost}
-        <span class="font-mono text-[13px] font-bold tracking-wide text-[var(--color-text-1)]"
+        <span class="font-mono type-body font-bold tracking-wide text-[var(--color-text-1)]"
           >{connectedHost.username}@{connectedHost.host}</span
         >
-        <span class="font-mono text-[10px] text-[var(--color-text-4)]"
+        <span class="font-mono type-micro text-[var(--color-text-4)]"
           >:{connectedHost.port}</span
         >
         <span
@@ -626,7 +626,7 @@
                 ? "text-[var(--color-warn)]"
                 : "text-[var(--color-danger)]"}
           <span
-            class="ml-1 inline-flex items-center gap-0.5 rounded border hairline px-1.5 py-0.5 font-mono text-[10px] {tone}"
+            class="ml-1 inline-flex items-center gap-0.5 rounded border hairline px-1.5 py-0.5 font-mono type-micro {tone}"
             title="Round-trip time to the SSH server"
           >
             <Activity size="9" />
@@ -638,7 +638,7 @@
         <span class="text-[var(--color-text-3)]">connecting…</span>
       {/if}
       {#if reconnecting}
-        <span class="ml-1 flex items-center gap-1 font-mono text-[10px] text-[var(--color-warn)]">
+        <span class="ml-1 flex items-center gap-1 font-mono type-micro text-[var(--color-warn)]">
           <Loader2 size="10" class="animate-spin" />
           reconnecting ({reconnectAttempt}/{MAX_RECONNECT_ATTEMPTS})
         </span>
@@ -647,14 +647,14 @@
 
     <div class="ml-auto flex items-center gap-2 opacity-50 hover:opacity-100 transition-opacity">
       {#if errorMsg}
-        <span class="truncate font-mono text-[9px] text-[var(--color-danger)]" title={errorMsg}>
+        <span class="truncate font-mono type-nano text-[var(--color-danger)]" title={errorMsg}>
           ERR: {errorMsg}
         </span>
       {/if}
 
       {#if app.recordingsEnabled && (status === "running" || status === "connected")}
         <span
-          class="flex items-center gap-1 border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/8 px-1.5 py-px font-mono text-[9px] font-bold uppercase tracking-widest text-[var(--color-danger)]"
+          class="flex items-center gap-1 border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/8 px-1.5 py-px font-mono type-eyebrow text-[var(--color-danger)]"
           title="This session is being recorded"
         >
           <Circle size="6" class="fill-[var(--color-danger)] text-[var(--color-danger)] pulse-soft" />
@@ -663,11 +663,7 @@
       {/if}
 
       <button
-        class="flex items-center gap-1 border px-1.5 py-px font-mono text-[9px] uppercase tracking-wider transition-all {inBroadcast
-          ? broadcastActive
-            ? 'border-[var(--color-warn)]/40 bg-[var(--color-warn)]/8 text-[var(--color-warn)]'
-            : 'border-[var(--color-line-strong)] text-[var(--color-text-2)]'
-          : 'border-[var(--color-line)] text-[var(--color-text-4)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-2)]'}"
+        class="flex items-center gap-1 border px-1.5 py-px font-mono type-eyebrow transition-all {inBroadcast ? broadcastActive ? 'border-[var(--color-warn)]/40 bg-[var(--color-warn)]/8 text-[var(--color-warn)]' : 'border-[var(--color-line-strong)] text-[var(--color-text-2)]' : 'border-[var(--color-line)] text-[var(--color-text-4)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-2)]'}"
         onclick={toggleBroadcastMember}
         title={inBroadcast ? "Remove this pane from the broadcast group" : "Add this pane to the broadcast group"}
       >
@@ -677,7 +673,7 @@
 
       <div class="relative">
         <button
-          class="flex items-center gap-1 border border-[var(--color-line)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--color-text-3)] transition-all hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-2)]"
+          class="flex items-center gap-1 border border-[var(--color-line)] px-2 py-0.5 font-mono type-eyebrow text-[var(--color-text-3)] transition-all hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-2)]"
           onclick={() => { showSnippets = !showSnippets; if (showSnippets) loadSnippets(); }}
           title="Insert Snippet"
         >
@@ -687,12 +683,12 @@
 
       {#if showSnippets}
         <div class="absolute right-0 top-full z-50 mt-1 w-64 border hairline-strong surface-2 shadow-2xl fade-up" style="backdrop-filter: blur(12px) saturate(1.2); box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
-          <div class="border-b hairline px-3 py-2 font-mono text-[10px] font-bold text-[var(--color-text-2)] uppercase tracking-widest">
+          <div class="border-b hairline px-3 py-2 font-mono type-eyebrow text-[var(--color-text-2)]">
             Saved Snippets
           </div>
           <div class="max-h-60 overflow-y-auto p-1">
             {#if snippets.length === 0}
-              <div class="px-3 py-4 text-center font-mono text-[10px] text-[var(--color-text-4)]">
+              <div class="px-3 py-4 text-center font-mono type-micro text-[var(--color-text-4)]">
                 No snippets found.
               </div>
             {/if}
@@ -701,8 +697,8 @@
                 class="flex w-full flex-col gap-1 rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-[var(--color-surface-3)]"
                 onclick={() => { applyingSnippet = s; showSnippets = false; }}
               >
-                <span class="font-mono text-[11px] font-bold text-[var(--color-text-1)] truncate">{s.name}</span>
-                <span class="font-mono text-[9px] text-[var(--color-text-3)] truncate">{s.body}</span>
+                <span class="font-mono type-caption font-bold text-[var(--color-text-1)] truncate">{s.name}</span>
+                <span class="font-mono type-nano text-[var(--color-text-3)] truncate">{s.body}</span>
               </button>
             {/each}
           </div>
@@ -713,7 +709,7 @@
       {#if mode === "local"}
         <div class="relative ml-2">
           <button
-            class="flex items-center gap-1.5 border border-[var(--color-line)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--color-text-3)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)] transition-all"
+            class="flex items-center gap-1.5 border border-[var(--color-line)] px-2 py-0.5 font-mono type-eyebrow text-[var(--color-text-3)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)] transition-all"
             onclick={() => (showHostPicker = !showHostPicker)}
           >
             <Server size="10" />
@@ -723,14 +719,14 @@
             <div
               class="absolute right-0 top-full z-30 mt-1 w-72 overflow-hidden border hairline-strong surface-2 shadow-2xl"
             >
-              <div class="border-b hairline px-3 py-2 font-mono text-[10px] font-bold text-[var(--color-text-2)] uppercase tracking-widest">
+              <div class="border-b hairline px-3 py-2 font-mono type-eyebrow text-[var(--color-text-2)]">
                 Saved hosts
               </div>
               <div class="max-h-64 overflow-y-auto">
                 {#each app.hosts as h (h.id)}
                   {@const hasSavedPw = !!(app.hostPasswords[h.id])}
                   <button
-                    class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs hover:bg-[var(--color-surface-3)] transition-colors"
+                    class="flex w-full items-center gap-2.5 px-3 py-2 text-left type-caption hover:bg-[var(--color-surface-3)] transition-colors"
                     onclick={() => switchToRemote(h.id)}
                   >
                     <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
@@ -740,12 +736,12 @@
                       <div class="flex items-center gap-1.5 truncate">
                         <span class="truncate font-medium text-[var(--color-text-1)]">{h.name}</span>
                         {#if h.environment === 'production'}
-                          <span class="shrink-0 rounded px-1 py-px text-[8px] font-semibold uppercase" style="color:#ef4444;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25)">prod</span>
+                          <span class="shrink-0 rounded px-1 py-px type-eyebrow" style="color:#ef4444;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25)">prod</span>
                         {:else if h.environment === 'staging'}
-                          <span class="shrink-0 rounded px-1 py-px text-[8px] font-semibold uppercase" style="color:#f59e0b;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.25)">stage</span>
+                          <span class="shrink-0 rounded px-1 py-px type-eyebrow" style="color:#f59e0b;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.25)">stage</span>
                         {/if}
                       </div>
-                      <div class="flex items-center gap-1 truncate text-[10px] text-[var(--color-text-3)] font-mono">
+                      <div class="flex items-center gap-1 truncate type-micro text-[var(--color-text-3)] font-mono">
                         {h.username}@{h.host}:{h.port}
                         {#if hasSavedPw}
                           <span class="text-[var(--color-accent)] opacity-70" title="Password saved">&#x2022;</span>
@@ -755,7 +751,7 @@
                   </button>
                 {/each}
                 {#if app.hosts.length === 0}
-                  <div class="px-3 py-5 text-center font-mono text-[10px] text-[var(--color-text-3)]">
+                  <div class="px-3 py-5 text-center font-mono type-micro text-[var(--color-text-3)]">
                     No saved hosts yet.
                   </div>
                 {/if}
@@ -765,7 +761,7 @@
         </div>
       {:else}
         <button
-          class="ml-2 flex items-center gap-1.5 border border-[var(--color-danger)]/30 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 transition-all"
+          class="ml-2 flex items-center gap-1.5 border border-[var(--color-danger)]/30 px-2 py-0.5 font-mono type-eyebrow text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 transition-all"
           onclick={disconnectRemote}
         >
           <Unplug size="10" />
@@ -781,7 +777,7 @@
       <div class="absolute right-4 top-2 z-30 flex items-center gap-2 border hairline-strong surface-2 p-1.5 shadow-xl fade-up" style="backdrop-filter: blur(8px);">
         <Search size="12" class="ml-1 text-[var(--color-text-4)]" />
         <input
-          class="w-40 bg-transparent px-1 font-mono text-xs outline-none placeholder:text-[var(--color-text-4)]"
+          class="w-40 bg-transparent px-1 font-mono type-caption outline-none placeholder:text-[var(--color-text-4)]"
           placeholder="Find..."
           bind:value={searchQuery}
           use:focus
@@ -796,7 +792,7 @@
             }
           }}
         />
-        <span class="px-1 font-mono text-[10px] text-[var(--color-text-4)]">
+        <span class="px-1 font-mono type-micro text-[var(--color-text-4)]">
           {searchResults.resultCount > 0 ? `${searchResults.resultIndex + 1}/${searchResults.resultCount}` : '0/0'}
         </span>
         <button class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]" onclick={() => searchAddon?.findPrevious(searchQuery)}>
@@ -818,7 +814,7 @@
         <div class="pointer-events-auto border hairline-strong surface-2 p-5 shadow-2xl min-w-[320px]">
           <div class="mb-4 flex items-center gap-2">
             <TerminalIcon size="14" class="text-[var(--color-accent)]" />
-            <span class="font-mono text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-1)]">
+            <span class="font-mono type-eyebrow text-[var(--color-text-1)]">
               {#if mode === "remote"}
                 Connected to {connectedHost?.name ?? connectedHostID}
               {:else}
@@ -828,11 +824,11 @@
           </div>
           
           <div class="space-y-3">
-            <div class="font-mono text-[9px] uppercase tracking-widest text-[var(--color-text-4)]">Quick Commands</div>
+            <div class="font-mono type-eyebrow text-[var(--color-text-4)]">Quick Commands</div>
             <div class="flex flex-wrap gap-2">
               {#each ['htop', 'df -h', 'docker ps -a', 'uptime'] as cmd}
                 <button
-                  class="rounded-sm border hairline bg-[var(--color-surface-3)] px-2.5 py-1.5 font-mono text-[10px] text-[var(--color-text-2)] hover:border-[var(--color-accent)]/50 hover:text-[var(--color-accent)] hover:bg-[var(--color-accent)]/5 transition-all"
+                  class="rounded-sm border hairline bg-[var(--color-surface-3)] px-2.5 py-1.5 font-mono type-micro text-[var(--color-text-2)] hover:border-[var(--color-accent)]/50 hover:text-[var(--color-accent)] hover:bg-[var(--color-accent)]/5 transition-all"
                   onclick={() => { term?.paste(cmd); term?.focus(); }}
                   title="Paste '{cmd}'"
                 >
@@ -843,22 +839,22 @@
 
             {#if snippets.length > 0}
               <div class="mt-4 border-t hairline pt-3">
-                <div class="mb-2 font-mono text-[9px] uppercase tracking-widest text-[var(--color-text-4)]">Recent Snippets</div>
+                <div class="mb-2 font-mono type-eyebrow text-[var(--color-text-4)]">Recent Snippets</div>
                 <div class="space-y-1.5">
                   {#each snippets.slice(0, 2) as s}
                     <button
                       class="flex w-full items-center justify-between rounded-sm border hairline border-transparent bg-[var(--color-surface-3)]/50 px-2.5 py-1.5 hover:border-[var(--color-line-strong)] hover:bg-[var(--color-surface-3)] transition-all"
                       onclick={() => { applyingSnippet = s; }}
                     >
-                      <span class="font-mono text-[10px] text-[var(--color-text-1)]">{s.name}</span>
-                      <span class="font-mono text-[9px] text-[var(--color-text-4)] truncate max-w-[120px]">{s.body}</span>
+                      <span class="font-mono type-micro text-[var(--color-text-1)]">{s.name}</span>
+                      <span class="font-mono type-nano text-[var(--color-text-4)] truncate max-w-[120px]">{s.body}</span>
                     </button>
                   {/each}
                 </div>
               </div>
             {/if}
           </div>
-          <div class="mt-5 text-center font-mono text-[9px] text-[var(--color-text-4)]">
+          <div class="mt-5 text-center font-mono type-nano text-[var(--color-text-4)]">
             Start typing to dismiss
           </div>
         </div>
@@ -873,31 +869,31 @@
         <div class="w-80 overflow-hidden border hairline-strong surface-2 shadow-2xl shadow-black/80">
           <div class="flex items-center gap-2 border-b hairline px-4 py-2.5">
             <Lock size="11" class="text-[var(--color-accent)]" />
-            <span class="font-mono text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-1)]">AUTH REQUIRED</span>
+            <span class="font-mono type-eyebrow text-[var(--color-text-1)]">AUTH REQUIRED</span>
           </div>
           <div class="p-4">
-            <div class="mb-3 font-mono text-[10px] text-[var(--color-text-3)]">
+            <div class="mb-3 font-mono type-micro text-[var(--color-text-3)]">
               Password for <span class="text-[var(--color-accent)]">{host.username}@{host.host}</span>
             </div>
             <input
               type="password"
-              class="w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-[11px] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50"
+              class="w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-caption outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50"
               bind:value={runtimePassword}
               placeholder="•••••••••"
               use:focus
               onkeydown={(e) => e.key === "Enter" && submitPassword()}
             />
-            <p class="mt-2 font-mono text-[9px] text-[var(--color-text-4)] uppercase tracking-widest">
+            <p class="mt-2 font-mono type-eyebrow text-[var(--color-text-4)]">
               TIP: Set permanently in Edit Host → Password
             </p>
           </div>
           <div class="flex items-center justify-end gap-2 border-t hairline px-4 py-2.5">
             <button
-              class="border border-[var(--color-line)] px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest text-[var(--color-text-3)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)] transition-all"
+              class="border border-[var(--color-line)] px-3 py-1.5 font-mono type-eyebrow text-[var(--color-text-3)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)] transition-all"
               onclick={() => { promptingPassword = false; void openLocal(); }}>CANCEL</button
             >
             <button
-              class="border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest text-[var(--color-accent)] hover:bg-[var(--color-accent)]/15 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              class="border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 px-3 py-1.5 font-mono type-eyebrow text-[var(--color-accent)] hover:bg-[var(--color-accent)]/15 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
               disabled={!runtimePassword}
               onclick={submitPassword}>CONNECT</button
             >
@@ -912,27 +908,27 @@
       <div class="w-96 overflow-hidden border border-[var(--color-warn)] surface-2 shadow-2xl shadow-black/80">
         <div class="flex items-center gap-2 border-b hairline px-4 py-2.5 bg-[var(--color-warn)]/10">
           <AlertTriangle size="11" class="text-[var(--color-warn)]" />
-          <span class="font-mono text-[10px] font-bold uppercase tracking-widest text-[var(--color-warn)]">UNKNOWN HOST KEY</span>
+          <span class="font-mono type-eyebrow text-[var(--color-warn)]">UNKNOWN HOST KEY</span>
         </div>
         <div class="p-4 font-mono">
-          <p class="mb-3 text-[11px] text-[var(--color-text-2)] leading-relaxed">
+          <p class="mb-3 type-caption text-[var(--color-text-2)] leading-relaxed">
             The authenticity of host <span class="text-[var(--color-accent)]">{tofuPayload.host}</span> can't be established.
           </p>
-          <div class="mb-4 bg-[var(--color-surface-3)] p-3 border hairline text-[10px] space-y-1.5">
+          <div class="mb-4 bg-[var(--color-surface-3)] p-3 border hairline type-micro space-y-1.5">
             <div class="text-[var(--color-text-4)]">Key Type</div>
             <div class="text-[var(--color-text-1)]">{tofuPayload.keyType}</div>
             <div class="text-[var(--color-text-4)] mt-2">Fingerprint</div>
             <div class="text-[var(--color-text-1)] break-all">{tofuPayload.presentedFp}</div>
           </div>
-          <p class="text-[10px] text-[var(--color-text-3)]">Are you sure you want to continue connecting?</p>
+          <p class="type-micro text-[var(--color-text-3)]">Are you sure you want to continue connecting?</p>
         </div>
         <div class="flex items-center justify-end gap-2 border-t hairline px-4 py-2.5">
           <button
-            class="border border-[var(--color-line)] px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest text-[var(--color-text-3)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)] transition-all"
+            class="border border-[var(--color-line)] px-3 py-1.5 font-mono type-eyebrow text-[var(--color-text-3)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)] transition-all"
             onclick={() => { promptingTofu = false; void openLocal(); }}>CANCEL</button
           >
           <button
-            class="border border-[var(--color-warn)]/50 bg-[var(--color-warn)]/10 px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest text-[var(--color-warn)] hover:bg-[var(--color-warn)]/15 transition-all"
+            class="border border-[var(--color-warn)]/50 bg-[var(--color-warn)]/10 px-3 py-1.5 font-mono type-eyebrow text-[var(--color-warn)] hover:bg-[var(--color-warn)]/15 transition-all"
             onclick={approveTofu}>TRUST & CONNECT</button
           >
         </div>
@@ -953,19 +949,19 @@
           <!-- Inline password entry when no stored password exists -->
           <input
             type="password"
-            class="w-44 border hairline bg-[var(--color-surface-3)] px-2 py-1 font-mono text-[11px] text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-warn)]/50"
+            class="w-44 border hairline bg-[var(--color-surface-3)] px-2 py-1 font-mono type-caption text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-warn)]/50"
             bind:value={sudoInlinePassword}
             placeholder="sudo password"
             use:focus
             onkeydown={(e) => e.key === "Enter" && sendInlineSudoPassword()}
           />
           <button
-            class="border border-[var(--color-warn)]/50 bg-[var(--color-warn)]/10 px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-[var(--color-warn)] hover:bg-[var(--color-warn)]/20 disabled:opacity-30 transition-all"
+            class="border border-[var(--color-warn)]/50 bg-[var(--color-warn)]/10 px-2 py-1 font-mono type-eyebrow text-[var(--color-warn)] hover:bg-[var(--color-warn)]/20 disabled:opacity-30 transition-all"
             disabled={!sudoInlinePassword}
             onclick={sendInlineSudoPassword}
           >SEND</button>
         {:else}
-          <span class="font-mono text-[10px] text-[var(--color-text-2)]">
+          <span class="font-mono type-micro text-[var(--color-text-2)]">
             {#if hasPw}
               sudo password ready
             {:else}
@@ -973,7 +969,7 @@
             {/if}
           </span>
           <button
-            class="flex items-center gap-1.5 border border-[var(--color-warn)]/50 bg-[var(--color-warn)]/10 px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-[var(--color-warn)] hover:bg-[var(--color-warn)]/20 transition-all"
+            class="flex items-center gap-1.5 border border-[var(--color-warn)]/50 bg-[var(--color-warn)]/10 px-2.5 py-1 font-mono type-eyebrow text-[var(--color-warn)] hover:bg-[var(--color-warn)]/20 transition-all"
             onclick={sendSudoPassword}
           >
             {#if hasPw}
@@ -984,14 +980,14 @@
           </button>
           {#if hasPw}
             <button
-              class="flex items-center gap-1.5 border border-[var(--color-warn)]/50 bg-transparent px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-[var(--color-warn)] hover:bg-[var(--color-warn)]/20 transition-all"
+              class="flex items-center gap-1.5 border border-[var(--color-warn)]/50 bg-transparent px-2 py-1 font-mono type-eyebrow text-[var(--color-warn)] hover:bg-[var(--color-warn)]/20 transition-all"
               onclick={() => sudoInlineInput = true}
               title="Edit saved sudo password"
             >
               EDIT
             </button>
           {/if}
-          <span class="font-mono text-[8px] text-[var(--color-text-4)] tracking-wider">CTRL+SHIFT+S</span>
+          <span class="font-mono type-nano text-[var(--color-text-4)] tracking-wider">CTRL+SHIFT+S</span>
         {/if}
         <button
           class="ml-1 text-[var(--color-text-4)] hover:text-[var(--color-text-2)] transition-colors"

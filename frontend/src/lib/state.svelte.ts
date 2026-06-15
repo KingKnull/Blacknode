@@ -54,6 +54,7 @@ class AppState {
     hasAnthropicKey: false,
   });
   selectedHostID = $state<string | null>(null);
+  hostDetailOpen = $state(false);
   hostPasswords = $state<Record<string, string>>({});
   hostSudoPasswords = $state<Record<string, string>>({});
   loading = $state(false);

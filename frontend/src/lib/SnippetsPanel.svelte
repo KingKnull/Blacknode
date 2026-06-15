@@ -147,7 +147,7 @@
   >
     {#snippet actions()}
       <button
-        class="flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-surface-0)] hover:opacity-90"
+        class="flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-2.5 py-1 type-caption font-medium text-[var(--color-surface-0)] hover:opacity-90"
         onclick={startCreate}
       >
         <Plus size="11" /> new
@@ -163,7 +163,7 @@
       <input
         bind:value={filter}
         placeholder="filter by name, body, tag…"
-        class="w-full bg-transparent py-2 pl-9 pr-3 text-sm outline-none placeholder:text-[var(--color-text-4)]"
+        class="w-full bg-transparent py-2 pl-9 pr-3 type-body outline-none placeholder:text-[var(--color-text-4)]"
       />
     </div>
   </div>
@@ -173,7 +173,7 @@
       <div class="flex h-full items-center justify-center">
         <div class="max-w-md text-center">
           <BookmarkIcon size="22" class="mx-auto text-[var(--color-text-4)]" />
-          <p class="mt-2 text-xs text-[var(--color-text-3)]">
+          <p class="mt-2 type-caption text-[var(--color-text-3)]">
             {#if filter}
               no snippets match "{filter}"
             {:else}
@@ -190,10 +190,10 @@
         {#each visible as s (s.id)}
           <div class="px-4 py-3 transition-colors hover:bg-[var(--color-surface-2)]">
             <div class="flex items-center gap-2">
-              <span class="text-sm font-medium">{s.name}</span>
+              <span class="type-body font-medium">{s.name}</span>
               {#each s.tags as t (t)}
                 <span
-                  class="inline-flex items-center gap-1 rounded-sm border hairline bg-[var(--color-surface-3)] px-1.5 py-0.5 text-[9px] font-mono text-[var(--color-text-3)]"
+                  class="inline-flex items-center gap-1 rounded-sm border hairline bg-[var(--color-surface-3)] px-1.5 py-0.5 type-nano font-mono text-[var(--color-text-3)]"
                 >
                   <TagIcon size="9" />
                   {t}
@@ -201,7 +201,7 @@
               {/each}
               <div class="ml-auto flex items-center gap-1">
                 <button
-                  class="flex items-center gap-1 rounded-md bg-[var(--color-accent)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-surface-0)] hover:opacity-90"
+                  class="flex items-center gap-1 rounded-md bg-[var(--color-accent)] px-2 py-0.5 type-micro font-medium text-[var(--color-surface-0)] hover:opacity-90"
                   onclick={() => (applying = s)}
                 >
                   <Wand size="10" /> apply
@@ -224,12 +224,12 @@
               </div>
             </div>
             {#if s.description}
-              <p class="mt-1 text-[11px] text-[var(--color-text-3)]">
+              <p class="mt-1 type-caption text-[var(--color-text-3)]">
                 {s.description}
               </p>
             {/if}
             <pre
-              class="mt-2 overflow-x-auto rounded bg-[var(--color-code-bg)] px-3 py-2 font-mono text-[11px] text-[var(--color-text-2)]">{preview(s.body)}</pre>
+              class="mt-2 overflow-x-auto rounded bg-[var(--color-code-bg)] px-3 py-2 font-mono type-caption text-[var(--color-text-2)]">{preview(s.body)}</pre>
           </div>
         {/each}
       </div>
@@ -247,7 +247,7 @@
     {#snippet children()}
       <div class="flex items-center gap-2 border-b hairline px-5 py-3">
         <BookmarkIcon size="14" class="text-[var(--color-accent)]" />
-        <h3 id="snippet-editor-title" class="text-sm font-semibold">{editing ? "Edit snippet" : "New snippet"}</h3>
+        <h3 id="snippet-editor-title" class="type-body font-semibold">{editing ? "Edit snippet" : "New snippet"}</h3>
         <button
           class="ml-auto rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
           onclick={closeForm}
@@ -256,9 +256,9 @@
         </button>
       </div>
 
-      <div class="space-y-3 p-5 text-sm">
+      <div class="space-y-3 p-5 type-body">
         <label class="block">
-          <span class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+          <span class="type-eyebrow text-[var(--color-text-3)]"
             >Name</span
           >
           <input
@@ -269,7 +269,7 @@
           />
         </label>
         <label class="block">
-          <span class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+          <span class="type-eyebrow text-[var(--color-text-3)]"
             >Description</span
           >
           <input
@@ -279,17 +279,17 @@
           />
         </label>
         <label class="block">
-          <span class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+          <span class="type-eyebrow text-[var(--color-text-3)]"
             >Body — use &#123;&#123;name&#125;&#125; for variables</span
           >
           <textarea
-            class="mt-1 h-40 w-full rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono text-xs outline-none"
+            class="mt-1 h-40 w-full rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-caption outline-none"
             bind:value={f_body}
             placeholder={"sudo systemctl restart {{service|nginx}}"}
           ></textarea>
         </label>
         <label class="block">
-          <span class="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]"
+          <span class="type-eyebrow text-[var(--color-text-3)]"
             >Tags (comma-separated)</span
           >
           <input
@@ -299,17 +299,17 @@
           />
         </label>
         {#if f_err}
-          <p class="text-xs text-[var(--color-danger)]" role="alert">{f_err}</p>
+          <p class="type-caption text-[var(--color-danger)]" role="alert">{f_err}</p>
         {/if}
       </div>
 
       <div class="flex items-center justify-end gap-2 border-t hairline px-5 py-3">
         <button
-          class="rounded-md px-3 py-1.5 text-xs text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
+          class="rounded-md px-3 py-1.5 type-caption text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
           onclick={closeForm}>Cancel</button
         >
         <button
-          class="flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
+          class="flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-1.5 type-caption font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
           disabled={f_busy}
           onclick={save}
         >

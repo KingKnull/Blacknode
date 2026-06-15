@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "skills": {
+    "clean-code-guard": {
+      "source": "amElnagdy/guard-skills",
+      "sourceType": "github",
+      "skillPath": "skills/clean-code-guard/SKILL.md",
+      "computedHash": "0418cdf1d9b88eb04ae8e90a49989e3023212c60690e216e1f773ac46e9a8850"
+    },
+    "docs-guard": {
+      "source": "amElnagdy/guard-skills",
+      "sourceType": "github",
+      "skillPath": "skills/docs-guard/SKILL.md",
+      "computedHash": "606871a78cb8dbc6bde5219c670b76d42bba358483d024206dfffc205f61add0"
+    },
+    "test-guard": {
+      "source": "amElnagdy/guard-skills",
+      "sourceType": "github",
+      "skillPath": "skills/test-guard/SKILL.md",
+      "computedHash": "acd22a565bf083f4b63e27ad455e9992664d9a5aae9db67170cbde70aa999657"
+    },
+    "woo-guard": {
+      "source": "amElnagdy/guard-skills",
+      "sourceType": "github",
+      "skillPath": "skills/woo-guard/SKILL.md",
+      "computedHash": "98af33a4f49574eca30dbf8c569af0fa2a9c5672695d65a49b37d5dea347f51f"
+    },
+    "wp-guard": {
+      "source": "amElnagdy/guard-skills",
+      "sourceType": "github",
+      "skillPath": "skills/wp-guard/SKILL.md",
+      "computedHash": "7572560bf6ddefe3bcb9863e86da92dcb00f18768e6c477052d11ca14eda8537"
+    }
+  }
+}

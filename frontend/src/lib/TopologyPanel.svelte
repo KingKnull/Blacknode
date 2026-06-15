@@ -275,7 +275,7 @@
         <div class="flex h-full items-center justify-center">
           <div class="text-center">
             <Network size="22" class="mx-auto text-[var(--color-text-4)]" />
-            <p class="mt-2 text-xs text-[var(--color-text-3)]">
+            <p class="mt-2 type-caption text-[var(--color-text-3)]">
               No hosts saved. Add some, then come back here to see the graph.
             </p>
           </div>
@@ -293,7 +293,7 @@
           "></div>
           <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
             <div class="h-[800px] w-[800px] rounded-full"
-              style="background: radial-gradient(circle, rgba(0,255,136,0.03) 0%, transparent 65%);"></div>
+              style="background: radial-gradient(circle, rgba(59, 130, 246,0.03) 0%, transparent 65%);"></div>
           </div>
 
           <svg
@@ -395,8 +395,8 @@
       {/if}
     </div>
 
-    <aside class="w-60 shrink-0 border-l hairline surface-2 p-3 text-[11px]">
-      <h4 class="mb-2 text-[10px] uppercase tracking-[0.14em] text-[var(--color-text-3)]">
+    <aside class="w-60 shrink-0 border-l hairline surface-2 p-3 type-caption">
+      <h4 class="mb-2 type-eyebrow text-[var(--color-text-3)]">
         Legend
       </h4>
       <ul class="space-y-2 text-[var(--color-text-2)]">
@@ -437,7 +437,7 @@
         </li>
       </ul>
 
-      <h4 class="mt-4 mb-2 text-[10px] uppercase tracking-[0.14em] text-[var(--color-text-3)]">
+      <h4 class="mt-4 mb-2 type-eyebrow text-[var(--color-text-3)]">
         Stats
       </h4>
       <ul class="space-y-1 text-[var(--color-text-2)]">
@@ -446,7 +446,7 @@
         <li>{renderNodes.filter((n) => n.isBastion).length} bastions</li>
       </ul>
 
-      <p class="mt-4 text-[10px] text-[var(--color-text-4)]">
+      <p class="mt-4 type-micro text-[var(--color-text-4)]">
         Click a node to select that host in the sidebar. Drag to pin position.
       </p>
     </aside>

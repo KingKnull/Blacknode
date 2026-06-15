@@ -11,6 +11,8 @@
   import OnboardingCard from "./OnboardingCard.svelte";
   import Palette from "./Palette.svelte";
   import NavRail from "./NavRail.svelte";
+  import SectionTabs from "./SectionTabs.svelte";
+  import HostDetail from "./HostDetail.svelte";
   import TabBar from "./TabBar.svelte";
   import PanelRouter from "./PanelRouter.svelte";
   import StatusBar from "./StatusBar.svelte";
@@ -202,6 +204,10 @@
     // Tile active hosts — build a grid of all connected hosts in one tab.
     const offTile = bus.on('tile-active-hosts', () => tileActiveHosts());
 
+    // Connect a host from the detail panel / palette — open a fresh terminal
+    // tab and route it to the chosen host once the Terminal has mounted.
+    const offConnect = bus.on('connect-host', ({ hostID }) => connectHost(hostID));
+
     return () => {
       window.removeEventListener("keydown", onActivity, true);
       window.removeEventListener("mousedown", onActivity, true);
@@ -209,8 +215,41 @@
       offInsert();
       window.removeEventListener("message", onPluginMessage);
       offTile();
+      offConnect();
     };
   });
+
+  // "+ New" dropdown actions from the section tab bar.
+  function onNew(what: "host" | "terminal" | "shell" | "database" | "http") {
+    switch (what) {
+      case "host":
+        bus.emit("new-host");
+        break;
+      case "terminal":
+      case "shell":
+        app.view = "terminals";
+        newTab();
+        break;
+      case "database":
+        app.view = "database";
+        break;
+      case "http":
+        app.view = "http";
+        break;
+    }
+  }
+
+  // Open a fresh terminal tab and connect it to the given host.
+  function connectHost(hostID: string) {
+    app.view = "terminals";
+    const t = makeTab();
+    tabs.push(t);
+    activeTabID = t.id;
+    const sid = leaves(t.root)[0]?.sessionID;
+    if (!sid) return;
+    // Let the Terminal component mount before routing the connection to it.
+    setTimeout(() => bus.emit("connect-terminal-to-host", { sessionID: sid, hostID }), 200);
+  }
 
   onDestroy(() => vaultLockOff?.());
 
@@ -378,28 +417,80 @@
     Settings as SettingsIcon,
   } from "@lucide/svelte";
 
-  const VIEWS: { id: View; label: string; Icon: any }[] = [
-    { id: "terminals", label: "Terminals", Icon: TerminalSquare },
-    { id: "exec", label: "Multi-host", Icon: Zap },
-    { id: "files", label: "Files", Icon: Folder },
-    { id: "metrics", label: "Metrics", Icon: Activity },
-    { id: "logs", label: "Logs", Icon: ScrollText },
-    { id: "forwards", label: "Forwards", Icon: NetworkIcon },
-    { id: "recordings", label: "Recordings", Icon: Film },
-    { id: "containers", label: "Containers", Icon: Boxes },
-    { id: "network", label: "Network", Icon: Radar },
-    { id: "processes", label: "Processes", Icon: Cpu },
-    { id: "http", label: "HTTP", Icon: Globe2 },
-    { id: "database", label: "Database", Icon: Database },
-    { id: "snippets", label: "Snippets", Icon: Bookmark },
-    { id: "history", label: "History", Icon: HistoryIcon },
-    { id: "activity", label: "Activity", Icon: ActivityIcon },
-    { id: "topology", label: "Topology", Icon: Share2 },
-    { id: "plugins", label: "Plugins", Icon: Puzzle },
-    { id: "vault", label: "Vault", Icon: Shield },
-    { id: "keys", label: "Keys", Icon: KeyRound },
-    { id: "settings", label: "Settings", Icon: SettingsIcon },
+  type ViewDef = { id: View; label: string; Icon: any };
+  type Section = { id: string; label: string; Icon: any; views: ViewDef[] };
+
+  // Hybrid nav: a slim vertical rail of SECTIONS, each opening a horizontal
+  // tab bar of its views. Keeps Blacknode's wide surface organised without a
+  // 20-icon rail.
+  const SECTIONS: Section[] = [
+    { id: "sessions", label: "Sessions", Icon: TerminalSquare, views: [
+      { id: "terminals", label: "Terminals", Icon: TerminalSquare },
+      { id: "exec", label: "Multi-host", Icon: Zap },
+      { id: "files", label: "Files", Icon: Folder },
+      { id: "snippets", label: "Snippets", Icon: Bookmark },
+      { id: "recordings", label: "Recordings", Icon: Film },
+      { id: "history", label: "History", Icon: HistoryIcon },
+    ] },
+    { id: "monitor", label: "Monitor", Icon: ActivityIcon, views: [
+      { id: "metrics", label: "Metrics", Icon: Activity },
+      { id: "logs", label: "Logs", Icon: ScrollText },
+      { id: "processes", label: "Processes", Icon: Cpu },
+      { id: "activity", label: "Activity", Icon: ActivityIcon },
+    ] },
+    { id: "network", label: "Network", Icon: NetworkIcon, views: [
+      { id: "forwards", label: "Forwards", Icon: NetworkIcon },
+      { id: "network", label: "Scan", Icon: Radar },
+      { id: "topology", label: "Topology", Icon: Share2 },
+    ] },
+    { id: "workloads", label: "Workloads", Icon: Boxes, views: [
+      { id: "containers", label: "Containers", Icon: Boxes },
+      { id: "database", label: "Database", Icon: Database },
+      { id: "http", label: "HTTP", Icon: Globe2 },
+    ] },
+    { id: "vault", label: "Vault", Icon: Shield, views: [
+      { id: "vault", label: "Vault", Icon: Shield },
+      { id: "keys", label: "Keys", Icon: KeyRound },
+    ] },
+    { id: "plugins", label: "Plugins", Icon: Puzzle, views: [
+      { id: "plugins", label: "Plugins", Icon: Puzzle },
+    ] },
+    { id: "settings", label: "Settings", Icon: SettingsIcon, views: [
+      { id: "settings", label: "Settings", Icon: SettingsIcon },
+    ] },
   ];
+
+  // Remember the last view visited within each section so returning to a
+  // section restores where you were.
+  let lastViewPerSection = $state<Record<string, View>>({});
+
+  function sectionOf(view: View): Section {
+    if (typeof view === "string" && view.startsWith("plugin:")) {
+      return SECTIONS.find((s) => s.id === "plugins")!;
+    }
+    return SECTIONS.find((s) => s.views.some((v) => v.id === view)) ?? SECTIONS[0];
+  }
+
+  let activeSection = $derived(sectionOf(app.view));
+
+  // Plugin panels become extra tabs under the Plugins section.
+  let sectionViews = $derived.by<ViewDef[]>(() => {
+    if (activeSection.id !== "plugins") return activeSection.views;
+    const pluginTabs: ViewDef[] = app.pluginPanels.map((p) => ({
+      id: `plugin:${p.pluginId}:${p.id}` as View,
+      label: p.title,
+      Icon: Puzzle,
+    }));
+    return [...activeSection.views, ...pluginTabs];
+  });
+
+  function selectSection(s: Section) {
+    app.view = lastViewPerSection[s.id] ?? s.views[0].id;
+  }
+
+  $effect(() => {
+    lastViewPerSection[activeSection.id] = app.view;
+  });
 
   let activeTab = $derived(tabs.find((t) => t.id === activeTabID));
   let activeLeafCount = $derived(activeTab ? leaves(activeTab.root).length : 0);
@@ -432,7 +523,7 @@
 
   function onMouseMove(e: MouseEvent) {
     if (!isResizing) return;
-    sidebarWidth = Math.max(160, Math.min(600, e.clientX - 44));
+    sidebarWidth = Math.max(160, Math.min(600, e.clientX - 60));
   }
 
   function onMouseUp() {
@@ -449,20 +540,19 @@
   class="flex h-full w-full flex-col bg-[var(--color-surface-0)] text-[var(--color-text-1)]"
 >
   <!-- ── TOP BAR ─────────────────────────────────────────────────────── -->
-  <header class="relative flex h-9 shrink-0 items-center gap-3 border-b hairline surface-1 px-3" style="backdrop-filter: blur(12px);">
-    <div class="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[var(--color-accent)]/40 to-transparent"></div>
+  <header class="relative flex h-10 shrink-0 items-center gap-3 border-b hairline surface-1 px-3">
     <div class="flex items-center gap-1.5 select-none">
       <Logo size={16} />
     </div>
 
     <div class="h-4 w-px bg-[var(--color-line-strong)]"></div>
 
-    <!-- Breadcrumb — Inter, normal case, readable size -->
-    <span class="text-xs text-[var(--color-text-4)] tracking-wide">
-      /{app.view}
+    <!-- Breadcrumb -->
+    <span class="type-caption font-medium capitalize text-[var(--color-text-2)]">
+      {app.view}
     </span>
 
-    <div class="ml-auto flex items-center gap-1 text-xs">
+    <div class="ml-auto flex items-center gap-1 type-caption">
       <!-- Broadcast -->
       <button
         class="flex items-center gap-1.5 border px-2 py-0.5 rounded-sm transition-all {app.broadcastEnabled
@@ -479,7 +569,7 @@
         <Radio size="11" class={app.broadcastEnabled ? 'pulse-soft' : ''} />
         <span>Cast</span>
         {#if app.broadcastEnabled}
-          <span class="font-mono border border-[var(--color-warn)]/30 bg-[var(--color-warn)]/15 px-1 text-[10px]">{app.broadcastSet.size}</span>
+          <span class="font-mono border border-[var(--color-warn)]/30 bg-[var(--color-warn)]/15 px-1 type-micro">{app.broadcastSet.size}</span>
         {/if}
       </button>
 
@@ -503,7 +593,7 @@
       >
         <Command size="11" />
         <span>Palette</span>
-        <kbd class="font-mono border border-[var(--color-line-strong)] px-1 text-[10px] opacity-50">⌘K</kbd>
+        <kbd class="font-mono border border-[var(--color-line-strong)] px-1 type-micro opacity-50">⌘K</kbd>
       </button>
 
       <div class="mx-1 h-3 w-px bg-[var(--color-line-strong)]"></div>
@@ -521,9 +611,9 @@
   </header>
 
   <!-- ── BODY ─────────────────────────────────────────────────────────── -->
-  <div class="grid flex-1 grid-cols-[44px_1fr_1fr] overflow-hidden" style="grid-template-columns: 44px {sidebarWidth}px 1fr">
-    <!-- ── ICON NAV RAIL ─────────────────────────────── -->
-    <NavRail views={VIEWS} pluginPanels={app.pluginPanels} />
+  <div class="grid flex-1 overflow-hidden" style="grid-template-columns: 60px {sidebarWidth}px 1fr">
+    <!-- ── SECTION RAIL ─────────────────────────────── -->
+    <NavRail sections={SECTIONS} activeSectionId={activeSection.id} onSelect={(id) => selectSection(SECTIONS.find((s) => s.id === id)!)} />
 
     <!-- ── SIDEBAR ─────────────────────────────────────── -->
     <aside class="relative overflow-hidden border-r hairline group/sidebar">
@@ -545,7 +635,14 @@
       class="grid overflow-hidden transition-[grid-template-columns] duration-200"
       style:grid-template-columns={app.aiOpen ? 'minmax(400px, 1fr) 360px' : '1fr'}
     >
-      <main class="flex flex-col overflow-hidden">
+      <main class="relative flex flex-col overflow-hidden">
+        <SectionTabs
+          views={sectionViews}
+          activeView={app.view}
+          onSelect={(id) => (app.view = id)}
+          onNew={onNew}
+        />
+        <HostDetail />
         <PanelRouter>
           <!-- terminals view: tab bar + pane grid -->
           <div class="relative flex h-full flex-col">

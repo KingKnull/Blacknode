@@ -44,14 +44,14 @@
       <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-danger)]/10">
         <AlertTriangle size="22" class="text-[var(--color-danger)]" />
       </div>
-      <h3 class="mt-3 text-sm font-semibold text-[var(--color-text-1)]">
+      <h3 class="mt-3 type-body font-semibold text-[var(--color-text-1)]">
         {name} crashed
       </h3>
-      <p class="mt-1 font-mono text-[11px] text-[var(--color-text-3)] break-all">
+      <p class="mt-1 font-mono type-caption text-[var(--color-text-3)] break-all">
         {error}
       </p>
       <button
-        class="mt-4 inline-flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-[var(--color-surface-0)] hover:opacity-90 transition-opacity"
+        class="mt-4 inline-flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-1.5 type-caption font-medium text-[var(--color-surface-0)] hover:opacity-90 transition-opacity"
         onclick={retry}
       >
         <RotateCcw size="11" />

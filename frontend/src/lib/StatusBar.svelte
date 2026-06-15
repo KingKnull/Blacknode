@@ -14,23 +14,22 @@
   let { tabCount, activeLeafCount }: Props = $props();
 </script>
 
-<footer class="flex h-5 shrink-0 items-center gap-5 border-t hairline px-3 font-mono type-micro text-[var(--color-text-4)] select-none">
+<footer class="flex h-6 shrink-0 items-center gap-4 border-t hairline surface-1 px-3 type-micro text-[var(--color-text-4)] select-none">
   <span class="flex items-center gap-1.5">
-    <span class="text-[var(--color-accent)]/50">//</span>
-    <Server size="8" /> {app.hosts.length} HOST{app.hosts.length === 1 ? '' : 'S'}
+    <Server size="11" /> <span class="tabular">{app.hosts.length}</span> {app.hosts.length === 1 ? 'host' : 'hosts'}
   </span>
   <span class="flex items-center gap-1.5">
-    <TerminalSquare size="8" /> {tabCount} TAB{tabCount === 1 ? '' : 'S'}{activeLeafCount > 1 ? ` · ${activeLeafCount} PANES` : ''}
+    <TerminalSquare size="11" /> <span class="tabular">{tabCount}</span> {tabCount === 1 ? 'tab' : 'tabs'}{activeLeafCount > 1 ? ` · ${activeLeafCount} panes` : ''}
   </span>
   {#if app.settings.hasAnthropicKey}
-    <span class="flex items-center gap-1.5 text-[var(--color-accent)]/50">
-      <Sparkles size="8" /> AI_READY
+    <span class="flex items-center gap-1.5 text-[var(--color-accent)]">
+      <Sparkles size="11" /> AI ready
     </span>
   {/if}
   {#if app.broadcastEnabled}
     <span class="flex items-center gap-1.5 text-[var(--color-warn)]">
-      <Radio size="8" class="pulse-soft" /> BROADCASTING
+      <Radio size="11" class="pulse-soft" /> Broadcasting
     </span>
   {/if}
-  <span class="ml-auto text-[var(--color-text-4)]/60">v0.1-alpha</span>
+  <span class="ml-auto text-[var(--color-text-4)]">v0.1-alpha</span>
 </footer>
