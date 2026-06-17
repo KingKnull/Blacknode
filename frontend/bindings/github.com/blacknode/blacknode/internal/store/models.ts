@@ -308,6 +308,7 @@ export class Host {
     "proxyJump"?: string;
     "tags": string[];
     "notes"?: string;
+    "favorite": boolean;
     "createdAt": number;
     "updatedAt": number;
     "lastConnectedAt": number;
@@ -334,6 +335,9 @@ export class Host {
         }
         if (!("tags" in $$source)) {
             this["tags"] = [];
+        }
+        if (!("favorite" in $$source)) {
+            this["favorite"] = false;
         }
         if (!("createdAt" in $$source)) {
             this["createdAt"] = 0;

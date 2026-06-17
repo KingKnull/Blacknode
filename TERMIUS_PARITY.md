@@ -254,14 +254,26 @@ Two external reviews converged on three corrections to the locked plan; all acce
   `ssh://…`), and a **`+ New` dropdown** (Host / Terminal / Local Shell / DB / HTTP) instead
   of Termius's SSH-only "NEW HOST / TERMINAL / SERIAL". Keep **AI first-class** (⌘I drawer).
 
-**Waves:**
-1. **Reskin** — `app.css` navy/blue, kill CRT/neon, recolor glows, terminal palette. *(done)*
-2. **De-neon + host row redesign** — Inter for chrome, host row = name · address · tag chips,
-   status dot, protocol badge; group headers with **counts**.
-3. **List features** — ★ Favorites + ⏱ Recent sections (model: add `favorite?: boolean`).
-4. **Host detail panel** — click host → rich object + big **Connect** + quick actions
-   (Connect / SFTP / Edit / Duplicate / Delete).
-5. **Hybrid nav shell** — section rail + in-section horizontal tabs (`Workspace`, `NavRail`).
-6. **Quick Connect + `+ New` dropdown** — palette parses `user@host` / `ssh://…`.
-7. **Polish** — empty states, onboarding hero, micro-interactions.
+**Waves & status:**
+1. ✅ **Reskin** — `app.css` navy/blue, killed CRT/neon, recolored all glows, terminal palette.
+2. ✅ **De-neon + host row redesign** — Inter for chrome, host row = status dot · name · env
+   badge · auth icon / `user@host:port` (mono) / **tag chips** / metric bars; group headers
+   with **counts**; tag-aware search; calm StatusBar + top bar.
+3. ✅ **List features** — ⏱ **Recent** section (from `lastConnectedAt`) + ★ **Favorites**
+   section. Backend: `favorite bool` on Go `Host` (`store/hosts.go`), idempotent DB migration
+   (`db.go`), `SetFavorite` store + service methods, TS bindings regenerated (`wails3 generate
+   bindings -ts`). UI: ★ toggle in the host action menu and the detail-panel header; pinned
+   Favorites section atop the host list. Host store tests pass.
+4. ✅ **Host detail panel** (`HostDetail.svelte`) — click host → rich object + big **Connect**
+   + quick actions (Connect / SFTP / Edit / Duplicate / Delete). New `connect-host` bus event;
+   Workspace opens a fresh tab and routes the session.
+5. ✅ **Hybrid nav shell** — `NavRail` is now a slim **section rail** (Sessions / Monitor /
+   Network / Workloads · Vault / Plugins / Settings); new `SectionTabs.svelte` = in-section
+   horizontal tabs + **`+ New` dropdown** (Host / Terminal / Local shell / DB / HTTP). Plugin
+   panels appear as tabs under the Plugins section. Per-section last-view memory.
+6. ✅ **Quick Connect** (`Palette`) — parses `user@host[:port]` / `ssh://…`; reuses or creates
+   a saved host then connects. Palette host entries now **connect** (not just select).
+7. ⏳ **Polish** — empty states, onboarding hero, remaining per-panel mono/uppercase cleanup.
 8. *(deferred)* nested groups, group inheritance, multi-vault.
+
+All shipped waves pass `svelte-check` (0 errors) and `vite build`. Nothing committed.

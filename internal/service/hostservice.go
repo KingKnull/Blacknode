@@ -35,6 +35,11 @@ func (s *HostService) Create(ctx context.Context, h store.Host) (store.Host, err
 func (s *HostService) Update(ctx context.Context, h store.Host) error { return s.hosts.Update(h) }
 func (s *HostService) Delete(ctx context.Context, id string) error    { return s.hosts.Delete(id) }
 
+// SetFavorite toggles a host's favorite flag.
+func (s *HostService) SetFavorite(ctx context.Context, id string, favorite bool) error {
+	return s.hosts.SetFavorite(id, favorite)
+}
+
 // ApproveHostKey permanently trusts a host's SSH key fingerprint.
 func (s *HostService) ApproveHostKey(ctx context.Context, host string, port int, keyType, pubKeyBase64, fingerprint string) error {
 	return s.knownHosts.Approve(host, port, keyType, pubKeyBase64, fingerprint)

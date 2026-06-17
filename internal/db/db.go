@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS hosts (
     proxy_jump TEXT NOT NULL DEFAULT '',
     tags TEXT NOT NULL DEFAULT '[]',
     notes TEXT NOT NULL DEFAULT '',
+    favorite INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
     last_connected_at INTEGER NOT NULL DEFAULT 0
@@ -204,6 +205,7 @@ func OpenPath(dbPath string) (*DB, error) {
 	for _, mig := range []string{
 		`ALTER TABLE hosts ADD COLUMN environment TEXT NOT NULL DEFAULT ''`,
 		`ALTER TABLE hosts ADD COLUMN proxy_jump TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE hosts ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0`,
 	} {
 		_, _ = conn.Exec(mig)
 	}

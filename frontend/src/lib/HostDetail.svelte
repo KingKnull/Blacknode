@@ -7,7 +7,7 @@
   import HostEditor from "./HostEditor.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
   import {
-    X, Plug, FolderOpen, Pencil, Copy, Trash2,
+    X, Plug, FolderOpen, Pencil, Copy, Trash2, Star,
     Server, KeyRound, Lock, Terminal as TerminalIcon, Network, Tag, FileText, Clock,
   } from "@lucide/svelte";
 
@@ -31,6 +31,16 @@
     if (!host) return;
     bus.emit("connect-host", { hostID: host.id });
     close();
+  }
+
+  async function toggleFavorite() {
+    if (!host) return;
+    try {
+      await HostService.SetFavorite(host.id, !host.favorite);
+      await app.refreshHosts();
+    } catch (e: any) {
+      app.toast("error", "Couldn't update favorite", String(e?.message ?? e));
+    }
   }
 
   function openSFTP() {
@@ -105,6 +115,14 @@
           {connected ? "Connected" : "Not connected"}
         </div>
       </div>
+      <button
+        class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-[var(--color-surface-3)] {host.favorite ? 'text-[var(--color-warn)]' : 'text-[var(--color-text-4)] hover:text-[var(--color-text-2)]'}"
+        onclick={toggleFavorite}
+        aria-label={host.favorite ? "Remove favorite" : "Add favorite"}
+        title={host.favorite ? "Unfavorite" : "Favorite"}
+      >
+        <Star size="15" class={host.favorite ? "fill-current" : ""} />
+      </button>
       <button
         class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[var(--color-text-4)] transition-colors hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-2)]"
         onclick={close}

@@ -110,6 +110,13 @@ export function ScanSSHConfig(): $CancellablePromise<$models.SSHConfigCandidate[
 }
 
 /**
+ * SetFavorite toggles a host's favorite flag.
+ */
+export function SetFavorite(id: string, favorite: boolean): $CancellablePromise<void> {
+    return $Call.ByID(2969729054, id, favorite);
+}
+
+/**
  * SetPassword encrypts and persists the SSH password for a host in the vault.
  * The plaintext password is never stored; only AES-256-GCM ciphertext.
  */

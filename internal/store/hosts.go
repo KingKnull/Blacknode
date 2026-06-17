@@ -24,6 +24,7 @@ type Host struct {
 	ProxyJump string   `json:"proxyJump,omitempty"`
 	Tags      []string `json:"tags"`
 	Notes     string   `json:"notes,omitempty"`
+	Favorite  bool     `json:"favorite"`
 	CreatedAt       int64    `json:"createdAt"`
 	UpdatedAt       int64    `json:"updatedAt"`
 	LastConnectedAt int64    `json:"lastConnectedAt"`
@@ -51,9 +52,9 @@ func (s *Hosts) Create(h Host) (Host, error) {
 
 	tags, _ := json.Marshal(h.Tags)
 	_, err := s.db.Exec(
-		`INSERT INTO hosts (id, name, host, port, username, auth_method, key_id, group_name, environment, proxy_jump, tags, notes, created_at, updated_at, last_connected_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
-		h.ID, h.Name, h.Host, h.Port, h.Username, h.AuthMethod, h.KeyID, h.Group, h.Environment, h.ProxyJump, string(tags), h.Notes, h.CreatedAt, h.UpdatedAt,
+		`INSERT INTO hosts (id, name, host, port, username, auth_method, key_id, group_name, environment, proxy_jump, tags, notes, favorite, created_at, updated_at, last_connected_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+		h.ID, h.Name, h.Host, h.Port, h.Username, h.AuthMethod, h.KeyID, h.Group, h.Environment, h.ProxyJump, string(tags), h.Notes, boolToInt(h.Favorite), h.CreatedAt, h.UpdatedAt,
 	)
 	return h, err
 }
@@ -65,9 +66,18 @@ func (s *Hosts) Update(h Host) error {
 	h.UpdatedAt = time.Now().Unix()
 	tags, _ := json.Marshal(h.Tags)
 	_, err := s.db.Exec(
-		`UPDATE hosts SET name=?, host=?, port=?, username=?, auth_method=?, key_id=?, group_name=?, environment=?, proxy_jump=?, tags=?, notes=?, updated_at=? WHERE id=?`,
-		h.Name, h.Host, h.Port, h.Username, h.AuthMethod, h.KeyID, h.Group, h.Environment, h.ProxyJump, string(tags), h.Notes, h.UpdatedAt, h.ID,
+		`UPDATE hosts SET name=?, host=?, port=?, username=?, auth_method=?, key_id=?, group_name=?, environment=?, proxy_jump=?, tags=?, notes=?, favorite=?, updated_at=? WHERE id=?`,
+		h.Name, h.Host, h.Port, h.Username, h.AuthMethod, h.KeyID, h.Group, h.Environment, h.ProxyJump, string(tags), h.Notes, boolToInt(h.Favorite), h.UpdatedAt, h.ID,
 	)
+	return err
+}
+
+// SetFavorite toggles the favorite flag without rewriting the whole record.
+func (s *Hosts) SetFavorite(id string, favorite bool) error {
+	if id == "" {
+		return errors.New("id required")
+	}
+	_, err := s.db.Exec(`UPDATE hosts SET favorite=?, updated_at=? WHERE id=?`, boolToInt(favorite), time.Now().Unix(), id)
 	return err
 }
 
@@ -77,7 +87,7 @@ func (s *Hosts) Delete(id string) error {
 }
 
 func (s *Hosts) Get(id string) (Host, error) {
-	row := s.db.QueryRow(`SELECT id, name, host, port, username, auth_method, key_id, group_name, environment, proxy_jump, tags, notes, created_at, updated_at, last_connected_at FROM hosts WHERE id = ?`, id)
+	row := s.db.QueryRow(`SELECT id, name, host, port, username, auth_method, key_id, group_name, environment, proxy_jump, tags, notes, favorite, created_at, updated_at, last_connected_at FROM hosts WHERE id = ?`, id)
 	return scanHost(row)
 }
 
@@ -85,12 +95,12 @@ func (s *Hosts) Get(id string) (Host, error) {
 // dialer to resolve ProxyJump references — saved hosts identify each other
 // by name, not ID.
 func (s *Hosts) GetByName(name string) (Host, error) {
-	row := s.db.QueryRow(`SELECT id, name, host, port, username, auth_method, key_id, group_name, environment, proxy_jump, tags, notes, created_at, updated_at, last_connected_at FROM hosts WHERE name = ?`, name)
+	row := s.db.QueryRow(`SELECT id, name, host, port, username, auth_method, key_id, group_name, environment, proxy_jump, tags, notes, favorite, created_at, updated_at, last_connected_at FROM hosts WHERE name = ?`, name)
 	return scanHost(row)
 }
 
 func (s *Hosts) List() ([]Host, error) {
-	rows, err := s.db.Query(`SELECT id, name, host, port, username, auth_method, key_id, group_name, environment, proxy_jump, tags, notes, created_at, updated_at, last_connected_at FROM hosts ORDER BY name COLLATE NOCASE`)
+	rows, err := s.db.Query(`SELECT id, name, host, port, username, auth_method, key_id, group_name, environment, proxy_jump, tags, notes, favorite, created_at, updated_at, last_connected_at FROM hosts ORDER BY name COLLATE NOCASE`)
 	if err != nil {
 		return nil, err
 	}
@@ -119,11 +129,13 @@ func scanHost(r rowScanner) (Host, error) {
 		h        Host
 		keyID    sql.NullString
 		tagsJSON string
+		favorite int
 	)
-	err := r.Scan(&h.ID, &h.Name, &h.Host, &h.Port, &h.Username, &h.AuthMethod, &keyID, &h.Group, &h.Environment, &h.ProxyJump, &tagsJSON, &h.Notes, &h.CreatedAt, &h.UpdatedAt, &h.LastConnectedAt)
+	err := r.Scan(&h.ID, &h.Name, &h.Host, &h.Port, &h.Username, &h.AuthMethod, &keyID, &h.Group, &h.Environment, &h.ProxyJump, &tagsJSON, &h.Notes, &favorite, &h.CreatedAt, &h.UpdatedAt, &h.LastConnectedAt)
 	if err != nil {
 		return Host{}, err
 	}
+	h.Favorite = favorite != 0
 	if keyID.Valid {
 		h.KeyID = keyID.String
 	}

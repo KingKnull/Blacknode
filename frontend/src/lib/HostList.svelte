@@ -18,6 +18,8 @@
     Lock,
     FileText,
     MoreVertical,
+    Clock,
+    Star,
   } from "@lucide/svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
 
@@ -61,6 +63,12 @@
     }, {}),
   );
 
+  // Favorites — pinned hosts, always shown at the very top (respecting the
+  // active filter so search still narrows them).
+  let favoriteHosts = $derived(
+    visible.filter((h) => h.favorite).sort((a, b) => a.name.localeCompare(b.name)),
+  );
+
   // Recently connected — derived purely from the existing lastConnectedAt
   // timestamp. Only shown when not actively filtering, so it stays a
   // shortcut rather than clutter.
@@ -72,6 +80,15 @@
           .sort((a, b) => b.lastConnectedAt - a.lastConnectedAt)
           .slice(0, 5),
   );
+
+  async function toggleFavorite(h: Host) {
+    try {
+      await HostService.SetFavorite(h.id, !h.favorite);
+      await app.refreshHosts();
+    } catch (e: any) {
+      app.toast("error", "Couldn't update favorite", String(e?.message ?? e));
+    }
+  }
 
   let hostToDelete = $state<Host | null>(null);
 
@@ -148,92 +165,116 @@
     </div>
   </div>
 
+  <!-- Reusable host row — shared by Recent and grouped lists. -->
+  {#snippet hostRow(h: Host)}
+    {@const Icon = authIcon(h.authMethod)}
+    {@const env = envBadge(h.environment)}
+    <div
+      class="group relative mx-2 my-px flex items-center gap-2 overflow-hidden border px-2 py-2 transition-colors duration-150 {app.connectedHosts.has(h.id)
+        ? 'border-[var(--color-accent)]/30 bg-[var(--color-accent-soft)] text-[var(--color-text-1)]'
+        : app.selectedHostID === h.id
+        ? 'border-[var(--color-accent)]/40 bg-[var(--color-accent-soft)] text-[var(--color-text-1)]'
+        : 'border-transparent text-[var(--color-text-2)] hover:bg-[var(--color-surface-2)]'}"
+      style="border-radius: var(--radius-md);"
+    >
+      <!-- Env stripe -->
+      {#if env.label}
+        <span class="absolute inset-y-1 left-0 w-[3px] rounded-full" style:background={env.color}></span>
+      {/if}
+
+      <button
+        class="flex min-w-0 flex-1 items-start gap-2.5 text-left"
+        onclick={() => { app.selectedHostID = h.id; app.hostDetailOpen = true; }}
+      >
+        <!-- Status dot -->
+        <span class="mt-1.5 shrink-0">
+          {#if app.connectedHosts.has(h.id)}
+            <span class="block h-2 w-2 rounded-full bg-[var(--color-success)] pulse-soft"></span>
+          {:else if app.selectedHostID === h.id}
+            <span class="block h-2 w-2 rounded-full bg-[var(--color-accent)]"></span>
+          {:else}
+            <span class="block h-2 w-2 rounded-full border border-[var(--color-line-strong)]"></span>
+          {/if}
+        </span>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-1.5">
+            <span class="truncate type-body font-medium leading-tight text-[var(--color-text-1)]">{h.name}</span>
+            {#if env.label}
+              <span
+                class="shrink-0 rounded px-1 type-micro font-semibold"
+                style:color={env.color}
+                style:background={env.bg}
+              >{env.label}</span>
+            {/if}
+            <Icon size="10" class="shrink-0 text-[var(--color-text-4)]" />
+          </div>
+          <div class="clamp-1 font-mono type-caption text-[var(--color-text-3)]">
+            {h.username}@{h.host}<span class="text-[var(--color-text-4)]">:{h.port}</span>
+          </div>
+          {#if h.tags && h.tags.length > 0}
+            <div class="mt-1 flex flex-wrap gap-1">
+              {#each h.tags.slice(0, 4) as tag (tag)}
+                <span class="rounded bg-[var(--color-surface-3)] px-1.5 py-px type-micro text-[var(--color-text-3)]">{tag}</span>
+              {/each}
+            </div>
+          {/if}
+          {#if app.hostMetrics[h.id]}
+            {@const m = app.hostMetrics[h.id]}
+            <div class="mt-1 flex items-center gap-2 type-micro text-[var(--color-text-4)]">
+              {#each [['C', m.cpuPercent], ['M', m.memPercent], ['D', m.diskPercent]] as [label, pct] (label)}
+                <span class="flex items-center gap-1">
+                  <span class="font-semibold">{label}</span>
+                  <span class="inline-block h-[3px] w-[22px] overflow-hidden rounded-full bg-[var(--color-surface-3)]">
+                    <span class="block h-full rounded-full transition-all duration-500" style:width="{Math.min(pct as number, 100)}%" style:background={metricColor(pct as number)}></span>
+                  </span>
+                </span>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      </button>
+
+      <!-- ⋯ action button — always visible, tappable on any device -->
+      <button
+        class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-transparent text-[var(--color-text-4)] transition-colors hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-2)] focus-visible:border-[var(--color-accent)]/50"
+        onclick={(e) => openMenu(e, h)}
+        title="Actions"
+        aria-label="Host actions"
+      >
+        <MoreVertical size="13" />
+      </button>
+    </div>
+  {/snippet}
+
+  {#snippet sectionHeader(label: string, count: number, Icon?: any)}
+    <div class="flex items-center gap-2 px-3 pt-3 pb-1">
+      {#if Icon}<Icon size="11" class="text-[var(--color-text-4)]" />{/if}
+      <span class="type-eyebrow text-[var(--color-text-4)]">{label}</span>
+      <span class="rounded-full bg-[var(--color-surface-3)] px-1.5 type-micro tabular text-[var(--color-text-4)]">{count}</span>
+      <span class="h-px flex-1 bg-[var(--color-line)]"></span>
+    </div>
+  {/snippet}
+
   <!-- Host list -->
   <div class="flex-1 overflow-y-auto pb-2">
+    {#if favoriteHosts.length > 0}
+      {@render sectionHeader("Favorites", favoriteHosts.length, Star)}
+      {#each favoriteHosts as h (h.id)}
+        {@render hostRow(h)}
+      {/each}
+    {/if}
+
+    {#if recentHosts.length > 0}
+      {@render sectionHeader("Recent", recentHosts.length, Clock)}
+      {#each recentHosts as h (h.id)}
+        {@render hostRow(h)}
+      {/each}
+    {/if}
+
     {#each Object.entries(groups) as [name, list] (name)}
-      <div class="flex items-center gap-2 px-3 pt-3 pb-1">
-        <span class="type-eyebrow text-[var(--color-text-4)]">{name}</span>
-        <span class="rounded-full bg-[var(--color-surface-3)] px-1.5 type-micro tabular text-[var(--color-text-4)]">{list.length}</span>
-        <span class="h-px flex-1 bg-[var(--color-line)]"></span>
-      </div>
+      {@render sectionHeader(name, list.length)}
       {#each list as h (h.id)}
-        {@const Icon = authIcon(h.authMethod)}
-        {@const env = envBadge(h.environment)}
-        <div
-          class="group relative mx-2 my-px flex items-center gap-2 overflow-hidden border px-2 py-2 transition-colors duration-150 {app.connectedHosts.has(h.id)
-            ? 'border-[var(--color-accent)]/30 bg-[var(--color-accent-soft)] text-[var(--color-text-1)]'
-            : app.selectedHostID === h.id
-            ? 'border-[var(--color-accent)]/40 bg-[var(--color-accent-soft)] text-[var(--color-text-1)]'
-            : 'border-transparent text-[var(--color-text-2)] hover:bg-[var(--color-surface-2)]'}"
-          style="border-radius: var(--radius-md);"
-        >
-          <!-- Env stripe -->
-          {#if env.label}
-            <span class="absolute inset-y-1 left-0 w-[3px] rounded-full" style:background={env.color}></span>
-          {/if}
-
-          <button
-            class="flex min-w-0 flex-1 items-start gap-2.5 text-left"
-            onclick={() => { app.selectedHostID = h.id; app.hostDetailOpen = true; }}
-          >
-            <!-- Status dot -->
-            <span class="mt-1.5 shrink-0">
-              {#if app.connectedHosts.has(h.id)}
-                <span class="block h-2 w-2 rounded-full bg-[var(--color-success)] pulse-soft"></span>
-              {:else if app.selectedHostID === h.id}
-                <span class="block h-2 w-2 rounded-full bg-[var(--color-accent)]"></span>
-              {:else}
-                <span class="block h-2 w-2 rounded-full border border-[var(--color-line-strong)]"></span>
-              {/if}
-            </span>
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-1.5">
-                <span class="truncate type-body font-medium leading-tight text-[var(--color-text-1)]">{h.name}</span>
-                {#if env.label}
-                  <span
-                    class="shrink-0 rounded px-1 type-micro font-semibold"
-                    style:color={env.color}
-                    style:background={env.bg}
-                  >{env.label}</span>
-                {/if}
-                <Icon size="10" class="shrink-0 text-[var(--color-text-4)]" />
-              </div>
-              <div class="clamp-1 font-mono type-caption text-[var(--color-text-3)]">
-                {h.username}@{h.host}<span class="text-[var(--color-text-4)]">:{h.port}</span>
-              </div>
-              {#if h.tags && h.tags.length > 0}
-                <div class="mt-1 flex flex-wrap gap-1">
-                  {#each h.tags.slice(0, 4) as tag (tag)}
-                    <span class="rounded bg-[var(--color-surface-3)] px-1.5 py-px type-micro text-[var(--color-text-3)]">{tag}</span>
-                  {/each}
-                </div>
-              {/if}
-              {#if app.hostMetrics[h.id]}
-                {@const m = app.hostMetrics[h.id]}
-                <div class="mt-1 flex items-center gap-2 type-micro text-[var(--color-text-4)]">
-                  {#each [['C', m.cpuPercent], ['M', m.memPercent], ['D', m.diskPercent]] as [label, pct] (label)}
-                    <span class="flex items-center gap-1">
-                      <span class="font-semibold">{label}</span>
-                      <span class="inline-block h-[3px] w-[22px] overflow-hidden rounded-full bg-[var(--color-surface-3)]">
-                        <span class="block h-full rounded-full transition-all duration-500" style:width="{Math.min(pct as number, 100)}%" style:background={metricColor(pct as number)}></span>
-                      </span>
-                    </span>
-                  {/each}
-                </div>
-              {/if}
-            </div>
-          </button>
-
-          <!-- ⋯ action button — always visible, tappable on any device -->
-          <button
-            class="flex h-6 w-6 shrink-0 items-center justify-center border border-transparent text-[var(--color-text-4)] transition-all hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-2)] focus-visible:border-[var(--color-accent)]/50"
-            onclick={(e) => openMenu(e, h)}
-            title="Actions"
-            aria-label="Host actions"
-          >
-            <MoreVertical size="11" />
-          </button>
-        </div>
+        {@render hostRow(h)}
       {/each}
     {/each}
 
@@ -266,6 +307,16 @@
     class="fade-up fixed z-50 min-w-[150px] overflow-hidden border hairline-strong surface-2 py-1 type-caption shadow-xl shadow-black/40"
     style="left: {menuPos.x}px; top: {menuPos.y}px; border-radius: var(--radius-md);"
   >
+    <button
+      class="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[var(--color-text-2)] transition-colors hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
+      onclick={() => {
+        if (menuHost) void toggleFavorite(menuHost);
+        closeMenu();
+      }}
+    >
+      <Star size="13" class={menuHost?.favorite ? "fill-[var(--color-warn)] text-[var(--color-warn)]" : ""} />
+      {menuHost?.favorite ? "Unfavorite" : "Favorite"}
+    </button>
     <button
       class="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[var(--color-text-2)] transition-colors hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
       onclick={() => {
