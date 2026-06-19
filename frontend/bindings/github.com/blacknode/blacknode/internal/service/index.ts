@@ -4,6 +4,7 @@
 import * as AIService from "./aiservice.js";
 import * as ActivityService from "./activityservice.js";
 import * as AutoLockService from "./autolockservice.js";
+import * as AutocompleteService from "./autocompleteservice.js";
 import * as ContainerService from "./containerservice.js";
 import * as DBService from "./dbservice.js";
 import * as ExecService from "./execservice.js";
@@ -14,6 +15,7 @@ import * as KeyService from "./keyservice.js";
 import * as LocalShellService from "./localshellservice.js";
 import * as LogsService from "./logsservice.js";
 import * as MetricsService from "./metricsservice.js";
+import * as MoshService from "./moshservice.js";
 import * as NetworkService from "./networkservice.js";
 import * as NotificationService from "./notificationservice.js";
 import * as PluginService from "./pluginservice.js";
@@ -31,6 +33,7 @@ export {
     AIService,
     ActivityService,
     AutoLockService,
+    AutocompleteService,
     ContainerService,
     DBService,
     ExecService,
@@ -41,6 +44,7 @@ export {
     LocalShellService,
     LogsService,
     MetricsService,
+    MoshService,
     NetworkService,
     NotificationService,
     PluginService,
@@ -60,8 +64,10 @@ export {
     AIChunk,
     ActiveForward,
     AppSettings,
+    AutoSyncConfig,
     CastEvent,
     CertInfo,
+    ConflictItem,
     Container,
     DBColumn,
     DBConnectionInfo,
@@ -95,6 +101,7 @@ export {
     SearchHit,
     SnippetValidation,
     SnippetVariable,
+    Suggestion,
     SyncSettings,
     SyncStatus,
     SystemdUnit,

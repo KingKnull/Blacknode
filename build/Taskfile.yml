@@ -96,6 +96,12 @@ tasks:
       - frontend/bindings/**/*
     cmds:
       - wails3 generate bindings -f '{{.BUILD_FLAGS}}' -clean=true -ts
+      # Workaround: Wails marks SyncService as both a service and a model,
+      # producing a duplicate export in index.ts. Remove only the model re-export
+      # (the second export block), keeping the service namespace export.
+      - |
+        INDEX="frontend/bindings/github.com/blacknode/blacknode/internal/service/index.ts"
+        awk 'BEGIN{n=0} /^export \{/{n++} n==2 && /^    SyncService,/{next} {print}' "$INDEX" > "$INDEX.tmp" && mv "$INDEX.tmp" "$INDEX"
 
   generate:icons:
     summary: Generates Windows `.ico` and Mac `.icns` from an image; on macOS, `-iconcomposerinput appicon.icon -macassetdir darwin` also produces `Assets.car` from a `.icon` file (skipped on other platforms).

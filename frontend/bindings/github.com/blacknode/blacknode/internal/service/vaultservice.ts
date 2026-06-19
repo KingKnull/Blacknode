@@ -20,6 +20,15 @@ export function Lock(): $CancellablePromise<void> {
     return $Call.ByID(2499084893);
 }
 
+/**
+ * SetSyncService wires the sync service after construction, avoiding a
+ * circular dependency at initialization time (SyncService doesn't need
+ * VaultService, so this one-way late-bind keeps main.go simple).
+ */
+export function SetSyncService(sync: $models.SyncService | null): $CancellablePromise<void> {
+    return $Call.ByID(3865152328, sync);
+}
+
 export function Setup(passphrase: string): $CancellablePromise<void> {
     return $Call.ByID(1804077983, passphrase);
 }

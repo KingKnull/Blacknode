@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { Events } from "@wailsio/runtime";
-  import { HostService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
+  import { HostService, MoshService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { Host } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { app } from "./state.svelte";
   import { bus } from "./events";
@@ -20,6 +20,7 @@
     MoreVertical,
     Clock,
     Star,
+    Wifi,
   } from "@lucide/svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
 
@@ -27,6 +28,12 @@
   let creating = $state(false);
   let importing = $state(false);
   let filter = $state("");
+
+  // Mosh availability — checked once, gates the context-menu entry.
+  let moshAvailable = $state(false);
+  onMount(async () => {
+    try { moshAvailable = await MoshService.Available(); } catch { moshAvailable = false; }
+  });
 
   // Per-host action menu
   let menuHostID = $state<string | null>(null);
@@ -307,6 +314,26 @@
     class="fade-up fixed z-50 min-w-[150px] overflow-hidden border hairline-strong surface-2 py-1 type-caption shadow-xl shadow-black/40"
     style="left: {menuPos.x}px; top: {menuPos.y}px; border-radius: var(--radius-md);"
   >
+    <button
+      class="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[var(--color-text-2)] transition-colors hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
+      onclick={() => {
+        if (menuHost) bus.emit("connect-host", { hostID: menuHost.id });
+        closeMenu();
+      }}
+    >
+      <Server size="13" /> Connect
+    </button>
+    {#if moshAvailable}
+      <button
+        class="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[var(--color-success)] transition-colors hover:bg-[var(--color-success)]/10"
+        onclick={() => {
+          if (menuHost) bus.emit("connect-host-mosh", { hostID: menuHost.id });
+          closeMenu();
+        }}
+      >
+        <Wifi size="13" /> Connect via Mosh
+      </button>
+    {/if}
     <button
       class="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[var(--color-text-2)] transition-colors hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
       onclick={() => {

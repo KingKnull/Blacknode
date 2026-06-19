@@ -17,10 +17,18 @@ type VaultService struct {
 	vault    *vault.Vault
 	db       *sql.DB
 	activity *activityRecorder
+	sync     *SyncService // optional — nil-checked; wired for sync-on-unlock / stop-on-lock
 }
 
 func NewVaultService(v *vault.Vault, db *sql.DB, activity *activityRecorder) *VaultService {
 	return &VaultService{vault: v, db: db, activity: activity}
+}
+
+// SetSyncService wires the sync service after construction, avoiding a
+// circular dependency at initialization time (SyncService doesn't need
+// VaultService, so this one-way late-bind keeps main.go simple).
+func (s *VaultService) SetSyncService(sync *SyncService) {
+	s.sync = sync
 }
 
 type VaultStatus struct {
@@ -64,6 +72,9 @@ func (s *VaultService) Unlock(ctx context.Context, passphrase string) error {
 		Kind:   "vault.unlock",
 		Title:  "Vault unlocked",
 	})
+	if s.sync != nil {
+		s.sync.SyncOnUnlockIfEnabled(ctx)
+	}
 	return nil
 }
 
@@ -82,6 +93,9 @@ func (s *VaultService) UnlockAndRemember(ctx context.Context, passphrase string,
 
 func (s *VaultService) Lock(ctx context.Context) error {
 	s.vault.Lock()
+	if s.sync != nil {
+		s.sync.StopAutoSync()
+	}
 	s.activity.Record(store.Activity{
 		Source: "vault",
 		Kind:   "vault.lock",
@@ -187,4 +201,3 @@ func decryptRemember(key, ciphertext, nonce []byte) ([]byte, error) {
 	}
 	return gcm.Open(nil, nonce, ciphertext, nil)
 }
-

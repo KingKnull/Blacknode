@@ -69,13 +69,16 @@ func main() {
 	pfSvc := service.NewPortForwardService(pool, hosts, forwards)
 	notifySvc := service.NewNotificationService(settings)
 	activityRec := service.NewActivityRecorder(activities)
+	syncSvc := service.NewSyncService(settings, hosts, snippets, httpRequests, teamActivity, v, activityRec)
+	vaultSvc := service.NewVaultService(v, conn.DB, activityRec)
+	vaultSvc.SetSyncService(syncSvc)
 
 	app := application.New(application.Options{
 		Name:        "blacknode",
 		Description: "Remote infrastructure command platform",
 		Icon:        iconData,
 		Services: []application.Service{
-			application.NewService(service.NewVaultService(v, conn.DB, activityRec)),
+			application.NewService(vaultSvc),
 			application.NewService(settingsSvc),
 			application.NewService(service.NewKeyService(keys, v)),
 			application.NewService(service.NewHostService(hosts, knownHosts, v, conn.DB)),
@@ -99,8 +102,12 @@ func main() {
 			application.NewService(notifySvc),
 			application.NewService(service.NewUpdateService()),
 			application.NewService(service.NewPluginService(notifySvc, activityRec)),
-			application.NewService(service.NewSyncService(settings, hosts, snippets, httpRequests, teamActivity, v, activityRec)),
+			application.NewService(syncSvc),
 			application.NewService(service.NewActivityService(activities)),
+			// New services — Feature 1: Autocomplete
+			application.NewService(service.NewAutocompleteService(history, snippets)),
+			// New services — Feature 2: Mosh
+			application.NewService(service.NewMoshService(hosts)),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -137,6 +144,7 @@ func main() {
 	}
 
 	pfSvc.StopAll(context.Background())
+	syncSvc.StopAutoSync()
 	pool.Close()
 	close(autoLock.StopChan)
 	log.Printf("=== blacknode stop ===")

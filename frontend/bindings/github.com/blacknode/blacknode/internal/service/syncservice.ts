@@ -23,8 +23,39 @@ import * as store$0 from "../store/models.js";
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
+/**
+ * AutoSync performs a push followed by a pull (full bidirectional sync)
+ * and returns the resulting status. Called both manually and by the
+ * background goroutine.
+ */
+export function AutoSync(): $CancellablePromise<$models.SyncStatus> {
+    return $Call.ByID(3236348223).then(($result: any) => {
+        return $$createType0($result);
+    });
+}
+
 export function Configure(cfg: $models.SyncSettings): $CancellablePromise<void> {
     return $Call.ByID(3423375457, cfg);
+}
+
+/**
+ * ConflictPreview does a dry-run pull: downloads the remote snapshot,
+ * decrypts it, and returns the list of records that differ from the local
+ * store. Does NOT write anything locally.
+ */
+export function ConflictPreview(): $CancellablePromise<$models.ConflictItem[]> {
+    return $Call.ByID(3759462239).then(($result: any) => {
+        return $$createType2($result);
+    });
+}
+
+/**
+ * GetAutoSyncConfig returns the current auto-sync configuration.
+ */
+export function GetAutoSyncConfig(): $CancellablePromise<$models.AutoSyncConfig> {
+    return $Call.ByID(2099698475).then(($result: any) => {
+        return $$createType3($result);
+    });
 }
 
 /**
@@ -67,10 +98,26 @@ export function Push(): $CancellablePromise<$models.SyncStatus> {
     });
 }
 
+/**
+ * SetAutoSyncConfig persists the auto-sync config and restarts the background
+ * goroutine if enabled (or stops it if disabled).
+ */
+export function SetAutoSyncConfig(cfg: $models.AutoSyncConfig): $CancellablePromise<void> {
+    return $Call.ByID(3752120455, cfg);
+}
+
 export function Status(): $CancellablePromise<$models.SyncStatus> {
     return $Call.ByID(1401200345).then(($result: any) => {
         return $$createType0($result);
     });
+}
+
+/**
+ * StopAutoSync shuts down the background sync goroutine. Called on vault lock
+ * or app shutdown.
+ */
+export function StopAutoSync(): $CancellablePromise<void> {
+    return $Call.ByID(1741697719);
 }
 
 /**
@@ -85,13 +132,25 @@ export function SubscribeTeam(actor: string): $CancellablePromise<$models.SyncSt
     });
 }
 
+/**
+ * SyncOnUnlockIfEnabled is called by the vault service after a successful
+ * unlock. It reads the stored config and triggers a bidirectional sync if
+ * syncOnUnlock is enabled.
+ */
+export function SyncOnUnlockIfEnabled(): $CancellablePromise<void> {
+    return $Call.ByID(3402501735);
+}
+
 export function TeamActivity(limit: number): $CancellablePromise<store$0.TeamActivity[]> {
     return $Call.ByID(785517331, limit).then(($result: any) => {
-        return $$createType2($result);
+        return $$createType5($result);
     });
 }
 
 // Private type creation functions
 const $$createType0 = $models.SyncStatus.createFrom;
-const $$createType1 = store$0.TeamActivity.createFrom;
+const $$createType1 = $models.ConflictItem.createFrom;
 const $$createType2 = $Create.Array($$createType1);
+const $$createType3 = $models.AutoSyncConfig.createFrom;
+const $$createType4 = store$0.TeamActivity.createFrom;
+const $$createType5 = $Create.Array($$createType4);

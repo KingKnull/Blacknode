@@ -146,6 +146,42 @@ export class AppSettings {
 }
 
 /**
+ * AutoSyncConfig is persisted to the settings KV store.
+ */
+export class AutoSyncConfig {
+    "enabled": boolean;
+
+    /**
+     * 0 = disabled
+     */
+    "intervalMinutes": number;
+    "syncOnUnlock": boolean;
+
+    /** Creates a new AutoSyncConfig instance. */
+    constructor($$source: Partial<AutoSyncConfig> = {}) {
+        if (!("enabled" in $$source)) {
+            this["enabled"] = false;
+        }
+        if (!("intervalMinutes" in $$source)) {
+            this["intervalMinutes"] = 0;
+        }
+        if (!("syncOnUnlock" in $$source)) {
+            this["syncOnUnlock"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new AutoSyncConfig instance from a string or object.
+     */
+    static createFrom($$source: any = {}): AutoSyncConfig {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new AutoSyncConfig($$parsedSource as Partial<AutoSyncConfig>);
+    }
+}
+
+/**
  * CastEvent is the over-the-wire shape of a single playback event. The cast
  * internal type uses a custom MarshalJSON for asciinema compatibility, which
  * the Wails binding generator can't introspect — this struct is the "wire"
@@ -242,6 +278,57 @@ export class CertInfo {
             $$parsedSource["chain"] = $$createField8_0($$parsedSource["chain"]);
         }
         return new CertInfo($$parsedSource as Partial<CertInfo>);
+    }
+}
+
+/**
+ * ConflictItem describes one record that would be overwritten by a pull.
+ */
+export class ConflictItem {
+    /**
+     * "host" | "snippet"
+     */
+    "kind": string;
+    "id": string;
+    "name": string;
+    "localTime": number;
+    "remoteTime": number;
+
+    /**
+     * remote is newer
+     */
+    "wouldChange": boolean;
+
+    /** Creates a new ConflictItem instance. */
+    constructor($$source: Partial<ConflictItem> = {}) {
+        if (!("kind" in $$source)) {
+            this["kind"] = "";
+        }
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("localTime" in $$source)) {
+            this["localTime"] = 0;
+        }
+        if (!("remoteTime" in $$source)) {
+            this["remoteTime"] = 0;
+        }
+        if (!("wouldChange" in $$source)) {
+            this["wouldChange"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ConflictItem instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ConflictItem {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ConflictItem($$parsedSource as Partial<ConflictItem>);
     }
 }
 
@@ -1659,6 +1746,75 @@ export class SnippetVariable {
     static createFrom($$source: any = {}): SnippetVariable {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new SnippetVariable($$parsedSource as Partial<SnippetVariable>);
+    }
+}
+
+/**
+ * Suggestion is a single autocomplete candidate returned to the frontend.
+ */
+export class Suggestion {
+    "text": string;
+
+    /**
+     * "history" | "snippet" | "builtin" | "ai"
+     */
+    "source": string;
+
+    /**
+     * snippet name, host name, or empty
+     */
+    "description": string;
+    "score": number;
+
+    /** Creates a new Suggestion instance. */
+    constructor($$source: Partial<Suggestion> = {}) {
+        if (!("text" in $$source)) {
+            this["text"] = "";
+        }
+        if (!("source" in $$source)) {
+            this["source"] = "";
+        }
+        if (!("description" in $$source)) {
+            this["description"] = "";
+        }
+        if (!("score" in $$source)) {
+            this["score"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Suggestion instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Suggestion {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Suggestion($$parsedSource as Partial<Suggestion>);
+    }
+}
+
+/**
+ * SyncService bridges local state and remote encrypted storage. The
+ * remote is any HTTP endpoint that accepts PUT/GET/DELETE on
+ * `<endpoint>/<syncBlobName>` with optional bearer auth — this works with
+ * Cloudflare R2 signed URLs, a custom backend, or any S3-compatible
+ * service fronted by signed URLs. Skipping the AWS SDK keeps the binary
+ * small and the API surface narrow.
+ */
+export class SyncService {
+
+    /** Creates a new SyncService instance. */
+    constructor($$source: Partial<SyncService> = {}) {
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SyncService instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SyncService {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SyncService($$parsedSource as Partial<SyncService>);
     }
 }
 

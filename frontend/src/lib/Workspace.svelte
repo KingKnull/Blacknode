@@ -208,6 +208,10 @@
     // tab and route it to the chosen host once the Terminal has mounted.
     const offConnect = bus.on('connect-host', ({ hostID }) => connectHost(hostID));
 
+    // Same flow, but via Mosh — opens a fresh tab and tells the Terminal to
+    // switch into Mosh mode once mounted.
+    const offConnectMosh = bus.on('connect-host-mosh', ({ hostID }) => connectHostMosh(hostID));
+
     return () => {
       window.removeEventListener("keydown", onActivity, true);
       window.removeEventListener("mousedown", onActivity, true);
@@ -216,6 +220,7 @@
       window.removeEventListener("message", onPluginMessage);
       offTile();
       offConnect();
+      offConnectMosh();
     };
   });
 
@@ -249,6 +254,17 @@
     if (!sid) return;
     // Let the Terminal component mount before routing the connection to it.
     setTimeout(() => bus.emit("connect-terminal-to-host", { sessionID: sid, hostID }), 200);
+  }
+
+  // Same as connectHost but routes through Mosh instead of plain SSH.
+  function connectHostMosh(hostID: string) {
+    app.view = "terminals";
+    const t = makeTab();
+    tabs.push(t);
+    activeTabID = t.id;
+    const sid = leaves(t.root)[0]?.sessionID;
+    if (!sid) return;
+    setTimeout(() => bus.emit("connect-terminal-to-host-mosh", { sessionID: sid, hostID }), 200);
   }
 
   onDestroy(() => vaultLockOff?.());
@@ -619,15 +635,21 @@
     <aside class="relative overflow-hidden border-r hairline group/sidebar">
       <HostList />
       <!-- Resize handle — a separator is the correct role for a drag-to-resize
-           divider, and pointer-drag is its native interaction. -->
+           divider, and pointer-drag is its native interaction. A small grip
+           indicator fades in on hover/drag so the affordance is discoverable
+           without being visible all the time. -->
       <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
       <div
         role="separator"
         aria-orientation="vertical"
         tabindex="-1"
-        class="absolute inset-y-0 -right-1 z-10 w-2 cursor-col-resize hover:bg-[var(--color-accent)]/20 active:bg-[var(--color-accent)]/40 transition-colors"
+        class="absolute inset-y-0 -right-1 z-10 flex w-2 cursor-col-resize items-center justify-center transition-colors {isResizing ? 'bg-[var(--color-accent)]/40' : 'hover:bg-[var(--color-accent)]/20'}"
         onmousedown={startResize}
-      ></div>
+      >
+        <span
+          class="h-8 w-[3px] rounded-full bg-[var(--color-line-strong)] opacity-0 transition-opacity duration-150 group-hover/sidebar:opacity-100 {isResizing ? 'opacity-100 bg-[var(--color-accent)]' : ''}"
+        ></span>
+      </div>
     </aside>
 
     <!-- Main + AI drawer -->

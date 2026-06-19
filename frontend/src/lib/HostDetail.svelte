@@ -1,14 +1,15 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { app } from "./state.svelte";
   import { bus } from "./events";
   import { envBadge } from "./envColor";
-  import { HostService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
+  import { HostService, MoshService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { Host } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import HostEditor from "./HostEditor.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
   import {
     X, Plug, FolderOpen, Pencil, Copy, Trash2, Star,
-    Server, KeyRound, Lock, Terminal as TerminalIcon, Network, Tag, FileText, Clock,
+    Server, KeyRound, Lock, Terminal as TerminalIcon, Network, Tag, FileText, Clock, Wifi,
   } from "@lucide/svelte";
 
   let host = $derived(
@@ -23,6 +24,16 @@
   let editing = $state(false);
   let confirmingDelete = $state(false);
 
+  // Mosh availability — checked once on mount, cached for the session.
+  let moshAvailable = $state(false);
+  onMount(async () => {
+    try {
+      moshAvailable = await MoshService.Available();
+    } catch {
+      moshAvailable = false;
+    }
+  });
+
   function close() {
     app.hostDetailOpen = false;
   }
@@ -30,6 +41,12 @@
   function connect() {
     if (!host) return;
     bus.emit("connect-host", { hostID: host.id });
+    close();
+  }
+
+  function connectViaMosh() {
+    if (!host) return;
+    bus.emit("connect-host-mosh", { hostID: host.id });
     close();
   }
 
@@ -141,6 +158,17 @@
       >
         <Plug size="15" /> {connected ? "Open another session" : "Connect"}
       </button>
+
+      <!-- Connect via Mosh — only shown when mosh-client is available -->
+      {#if moshAvailable}
+        <button
+          class="mt-2 flex w-full items-center justify-center gap-2 rounded-md border border-[var(--color-success)]/40 bg-[var(--color-success)]/8 py-2 type-caption font-semibold text-[var(--color-success)] transition-colors hover:bg-[var(--color-success)]/15"
+          onclick={connectViaMosh}
+          title="Connect using Mosh — robust over flaky networks, no port forwarding or SFTP"
+        >
+          <Wifi size="14" /> Connect via Mosh
+        </button>
+      {/if}
 
       <!-- Quick actions -->
       <div class="mt-2 grid grid-cols-2 gap-2">

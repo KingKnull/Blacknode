@@ -11,6 +11,8 @@
     NotifyConfig,
     UpdateInfo,
     SyncStatus,
+    AutoSyncConfig,
+    ConflictItem,
   } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import type { TeamActivity } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { app } from "./state.svelte";
@@ -70,6 +72,46 @@
   let syncToken = $state("");
   let syncStatus = $state<SyncStatus | null>(null);
   let syncBusy = $state(false);
+
+  // Auto-sync config
+  let autoSyncCfg = $state<AutoSyncConfig>({ enabled: false, intervalMinutes: 15, syncOnUnlock: false });
+  let autoSyncBusy = $state(false);
+  const AUTOSYNC_INTERVALS = [5, 15, 30, 60];
+
+  // Conflict preview
+  let conflictItems = $state<ConflictItem[]>([]);
+  let conflictBusy = $state(false);
+  let showConflicts = $state(false);
+
+  async function loadAutoSyncConfig() {
+    try {
+      autoSyncCfg = (await SyncService.GetAutoSyncConfig()) as AutoSyncConfig;
+    } catch {
+      // ignore — defaults stand
+    }
+  }
+
+  async function saveAutoSyncConfig() {
+    autoSyncBusy = true;
+    try {
+      await SyncService.SetAutoSyncConfig(autoSyncCfg);
+    } finally {
+      autoSyncBusy = false;
+    }
+  }
+
+  async function previewConflicts() {
+    conflictBusy = true;
+    showConflicts = true;
+    try {
+      conflictItems = ((await SyncService.ConflictPreview()) ?? []) as ConflictItem[];
+    } catch (e: any) {
+      conflictItems = [];
+      syncStatus = { ...(syncStatus ?? ({} as SyncStatus)), lastError: String(e?.message ?? e) };
+    } finally {
+      conflictBusy = false;
+    }
+  }
 
   async function loadSyncStatus() {
     try {
@@ -194,6 +236,7 @@
       // ignore
     }
     await loadSyncStatus();
+    await loadAutoSyncConfig();
     await refreshTeamActivity();
   });
 
@@ -673,6 +716,94 @@
                   <p class="mt-1 border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-1.5 text-[var(--color-danger)]">
                     {syncStatus.lastError}
                   </p>
+                {/if}
+              </div>
+            {/if}
+          </div>
+        </section>
+
+        <!-- Auto-sync -->
+        <section id="section-autosync" class="border hairline-strong surface-2 p-6 shadow-xl" style="backdrop-filter: blur(12px) saturate(1.2);">
+          <div class="mb-4 flex items-center gap-2">
+            <RefreshCw size="14" class="text-[var(--color-accent)]" />
+            <h3 class="type-eyebrow text-[var(--color-text-1)]">Auto-sync</h3>
+          </div>
+          <p class="type-caption text-[var(--color-text-3)] leading-relaxed">
+            Automatically push and pull on a schedule, or whenever the vault unlocks.
+            Requires Cloud sync to be configured above.
+          </p>
+
+          <div class="mt-4 space-y-3">
+            <label class="flex items-center justify-between">
+              <span class="type-caption font-bold text-[var(--color-text-1)]">Sync on vault unlock</span>
+              <input type="checkbox" class="accent-[var(--color-accent)]" bind:checked={autoSyncCfg.syncOnUnlock} />
+            </label>
+
+            <label class="flex items-center justify-between">
+              <span class="type-caption font-bold text-[var(--color-text-1)]">Sync on a timer</span>
+              <input type="checkbox" class="accent-[var(--color-accent)]" bind:checked={autoSyncCfg.enabled} />
+            </label>
+
+            {#if autoSyncCfg.enabled}
+              <div class="flex items-center gap-2 pl-1">
+                <span class="type-eyebrow text-[var(--color-text-3)]">Every</span>
+                {#each AUTOSYNC_INTERVALS as mins (mins)}
+                  <button
+                    class="border px-2.5 py-1 type-caption transition-colors {autoSyncCfg.intervalMinutes === mins ? 'border-[var(--color-accent)]/50 bg-[var(--color-accent-soft)] text-[var(--color-text-1)]' : 'hairline text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)]'}"
+                    onclick={() => (autoSyncCfg.intervalMinutes = mins)}
+                  >{mins}m</button>
+                {/each}
+              </div>
+            {/if}
+
+            <div class="flex items-center gap-2">
+              <button
+                class="flex items-center gap-1.5 border border-[var(--color-accent)]/60 bg-[var(--color-accent)] px-3 py-1.5 type-caption font-bold text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50 transition-all"
+                disabled={autoSyncBusy || !syncStatus?.configured}
+                onclick={saveAutoSyncConfig}
+              >
+                {#if autoSyncBusy}<Loader2 size="11" class="animate-spin" />{:else}SAVE{/if}
+              </button>
+              {#if !syncStatus?.configured}
+                <span class="type-micro text-[var(--color-text-4)]">Configure Cloud sync above first</span>
+              {/if}
+            </div>
+          </div>
+
+          <!-- Conflict preview -->
+          <div class="mt-5 border-t hairline pt-4">
+            <div class="flex items-center justify-between">
+              <span class="type-caption font-bold text-[var(--color-text-1)]">Preview conflicts</span>
+              <button
+                class="flex items-center gap-1.5 border hairline-strong px-3 py-1.5 type-caption hover:bg-[var(--color-surface-3)] disabled:opacity-50 transition-colors"
+                disabled={conflictBusy || !syncStatus?.configured}
+                onclick={previewConflicts}
+              >
+                {#if conflictBusy}<Loader2 size="11" class="animate-spin" />{:else}PREVIEW PULL{/if}
+              </button>
+            </div>
+            <p class="mt-0.5 type-caption text-[var(--color-text-3)] leading-relaxed">
+              Dry-run: shows which local records would be overwritten by a pull, without changing anything.
+            </p>
+
+            {#if showConflicts}
+              <div class="mt-3 border hairline surface-3 p-2">
+                {#if conflictItems.length === 0}
+                  <p class="type-caption text-[var(--color-text-3)] py-2 text-center">No remote changes — local state is up to date.</p>
+                {:else}
+                  <ul class="max-h-56 space-y-1 overflow-y-auto type-caption">
+                    {#each conflictItems as c (c.kind + c.id)}
+                      <li class="flex items-center gap-2 {c.wouldChange ? 'text-[var(--color-warn)]' : 'text-[var(--color-text-3)]'}">
+                        <span class="font-mono type-micro uppercase" style="min-width:50px">{c.kind}</span>
+                        <span class="flex-1 truncate">{c.name}</span>
+                        {#if c.wouldChange}
+                          <span class="rounded border border-[var(--color-warn)]/30 bg-[var(--color-warn)]/10 px-1.5 py-px type-micro">would change</span>
+                        {:else}
+                          <span class="type-micro">unchanged</span>
+                        {/if}
+                      </li>
+                    {/each}
+                  </ul>
                 {/if}
               </div>
             {/if}
