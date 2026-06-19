@@ -82,9 +82,9 @@ func newFakeServer(t *testing.T) *fakeServer {
 	return fs
 }
 
-// newTestKnownHosts wires an in-memory KnownHosts that auto-trusts on
-// first use — production uses a strict callback but for tests we want
-// the connection to succeed without prompting.
+// newTestKnownHosts wires an in-memory KnownHosts so the Dialer has a
+// non-nil store. Connections succeed because dialerFor sets HostKeyOverride;
+// the strict TOFU callback itself is covered in store/knownhosts_test.go.
 func newTestKnownHosts(t *testing.T) *store.KnownHosts {
 	t.Helper()
 	db, err := sql.Open("sqlite", ":memory:")
@@ -108,10 +108,14 @@ func newTestKnownHosts(t *testing.T) *store.KnownHosts {
 
 // dialerFor builds a Dialer wired to in-memory stores. Vault + Keys are
 // not used by password-auth tests, so they're nil — Dialer.authFor only
-// dereferences them on the AuthKey path.
+// dereferences them on the AuthKey path. The host-key check is overridden to
+// accept the ephemeral fake server's key, which can't be pre-trusted; the
+// strict TOFU callback is exercised by knownhosts_test.go.
 func dialerFor(t *testing.T) *Dialer {
 	t.Helper()
-	return New(nil, nil, newTestKnownHosts(t))
+	d := New(nil, nil, newTestKnownHosts(t))
+	d.HostKeyOverride = ssh.InsecureIgnoreHostKey()
+	return d
 }
 
 func target(host string, port int) Target {
