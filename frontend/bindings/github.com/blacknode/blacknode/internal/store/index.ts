@@ -9,6 +9,7 @@ export {
     HTTPRequest,
     HistoryEntry,
     Host,
+    KnownHost,
     LogQuery,
     Recording,
     Snippet,

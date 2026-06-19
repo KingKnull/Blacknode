@@ -37,6 +37,9 @@ exist. The Wails v3 framework itself is alpha, so expect churn there too. See
 ### Terminal & connectivity
 - **SSH** — password, public key, and `ssh-agent` auth; TOFU `known_hosts`
   verification; pooled clients shared across services.
+- **Mosh** — roaming UDP sessions via the system `mosh-client`, bootstrapped
+  over SSH and piped through the same PTY layer as everything else (auto-
+  hidden when `mosh-client` isn't installed).
 - **Local PTY** by default — every new tab/pane opens a real local shell
   (PowerShell on Windows, `$SHELL` on Unix); switch any pane to remote
   with one click.
@@ -101,6 +104,11 @@ exist. The Wails v3 framework itself is alpha, so expect churn there too. See
   one-shot) and pasted output / log explanation (Claude Sonnet 4.6,
   streaming). Prompt caching on system prompts. API key encrypted at
   rest with the vault.
+- **Inline autocomplete** — ranked command completions drawn from your
+  command history, saved snippets, and a built-in command list. Purely
+  local; no shell integration or remote agent required.
+- **Terminal side panel** — command history, snippets, and themes in one
+  dockable panel beside the active session.
 - **Snippets** — saved command templates with `{{name}}` and
   `{{name|default}}` variable substitution. Apply dialog with live
   preview. Snippets are searchable in the command palette.
@@ -231,9 +239,12 @@ entry in `Workspace.svelte`. Every existing panel is a working template.
 
 The honest list — features either intentionally narrow or straight-up unfinished.
 
-- **Host-key TOFU is silent on first connect.** Defends against passive
-  eavesdropping, not against an active MITM during the first-ever
-  connect to a host. Worth adding a confirmation dialog before v1.
+- **Host-key TOFU prompts on first connect** and saves the trusted key;
+  a key mismatch on later connects is refused. Trusted keys are
+  manageable (view / forget to re-verify) under **Settings → Known
+  hosts**. The first-connect prompt still trusts whatever key is
+  presented, so it doesn't defend against an active MITM on that initial
+  exchange.
 - **Metrics command is Linux-only** (`/proc` + `df`). macOS, BSD, and
   Windows hosts will fail.
 - **Session recording is output-only by design.** Stdin (passwords typed
@@ -273,9 +284,13 @@ Done from the original product spec:
 - Phase 14 — notifications (desktop, in-app, webhook)
 - Phase 16 — release engineering (Windows packaging)
 
+- Phase 12 — cloud sync (endpoint-based push/pull, auto-sync, conflict
+  preview, sync-on-unlock)
+
 Plus: session recording, port forwards, container management, network
 diagnostics, process manager, command history, multi-cursor broadcast,
-custom branded icon.
+Mosh sessions, inline command autocomplete, terminal side panel,
+known-hosts management UI, light theme, custom branded icon.
 
 Not done (with reasons):
 
@@ -283,12 +298,10 @@ Not done (with reasons):
   decision pending.
 - **Phase 11 — plugin system (sandbox, SDK)** — needs an architectural
   call on isolation model (WASM? subprocess + capability tokens?).
-- **Phase 12 — cloud sync** — needs a sync server. Out of scope for a
-  local-only app.
 - **Phase 13 — team features (RBAC, shared vault)** — needs a backend
-  service.
+  service. (A `team_activity` store exists but there's no RBAC or shared
+  vault yet.)
 - **Phase 15 — comprehensive testing** — sparse today.
-- **Light theme** — design pass needed.
 - **Auto-update** — needs a release server.
 - **Network stats in metrics** — `rx/tx` bytes, not yet collected.
 - **macOS metrics** — would need a `vm_stat` / `iostat` collector.

@@ -111,3 +111,43 @@ func (s *KnownHosts) Approve(host string, port int, keyType, pubKeyBase64, finge
 	)
 	return err
 }
+
+// KnownHost is one trusted host-key entry, shaped for the UI.
+type KnownHost struct {
+	Host        string `json:"host"`
+	Port        int    `json:"port"`
+	KeyType     string `json:"keyType"`
+	Fingerprint string `json:"fingerprint"`
+	AddedAt     int64  `json:"addedAt"`
+}
+
+// List returns every trusted host key, newest first.
+func (s *KnownHosts) List() ([]KnownHost, error) {
+	rows, err := s.db.Query(
+		`SELECT host, port, key_type, fingerprint, added_at FROM known_hosts ORDER BY added_at DESC`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := []KnownHost{}
+	for rows.Next() {
+		var k KnownHost
+		if err := rows.Scan(&k.Host, &k.Port, &k.KeyType, &k.Fingerprint, &k.AddedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, k)
+	}
+	return out, rows.Err()
+}
+
+// Delete removes a single trusted host key. The next connection to that host
+// re-triggers the TOFU prompt.
+func (s *KnownHosts) Delete(host string, port int, keyType string) error {
+	_, err := s.db.Exec(
+		`DELETE FROM known_hosts WHERE host = ? AND port = ? AND key_type = ?`,
+		host, port, keyType,
+	)
+	return err
+}

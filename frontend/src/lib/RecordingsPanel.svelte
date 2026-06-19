@@ -4,6 +4,7 @@
   import type { Recording } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import type { SearchHit } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import PageHeader from "./PageHeader.svelte";
+  import EmptyState from "./EmptyState.svelte";
   import RecordingPlayer from "./RecordingPlayer.svelte";
   import {
     Film,
@@ -232,25 +233,13 @@
         {/each}
       </div>
     {:else}
-      <div class="flex h-full items-center justify-center">
-        <div class="max-w-md text-center">
-          <Film size="22" class="mx-auto text-[var(--color-text-4)]" />
-          <p class="mt-2 type-caption text-[var(--color-text-3)]">
-            {#if recordingEnabled}
-              No recordings yet. Open a terminal and they'll appear here when
-              you close it.
-            {:else}
-              Recording is off. Toggle it on to capture every new terminal
-              session in asciinema cast format. Existing sessions aren't
-              affected.
-            {/if}
-          </p>
-          <p class="mt-2 type-micro text-[var(--color-text-4)]">
-            Output is captured; keystrokes are not — passwords typed at sudo
-            prompts never hit disk.
-          </p>
-        </div>
-      </div>
+      <EmptyState
+        icon={Film}
+        title={recordingEnabled ? "No recordings yet" : "Recording is off"}
+        description={recordingEnabled
+          ? "Open a terminal and recordings appear here when you close it. Output is captured; keystrokes are not — passwords typed at sudo prompts never hit disk."
+          : "Toggle it on to capture every new terminal session in asciinema cast format. Output is captured; keystrokes are not — passwords typed at sudo prompts never hit disk."}
+      />
     {/if}
   </div>
 

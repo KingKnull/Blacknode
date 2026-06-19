@@ -4,6 +4,7 @@
   import type { HTTPRequest as SavedRequest } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
+  import EmptyState from "./EmptyState.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
   import { parseCurl, toCurl, substituteVars } from "./httpCurl";
   import {
@@ -448,9 +449,11 @@
 
       <div class="flex-1 overflow-y-auto py-1">
         {#if saved.length === 0}
-          <p class="px-3 py-2 type-micro text-[var(--color-text-4)]">
-            No saved requests yet. Compose one and hit Save.
-          </p>
+          <EmptyState
+            compact
+            title="No saved requests"
+            description="Compose one and hit Save."
+          />
         {/if}
         {#each grouped as [folder, items] (folder)}
           {@const collapsed = collapsedFolders[folder]}

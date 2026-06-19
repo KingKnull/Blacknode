@@ -45,6 +45,16 @@ func (s *HostService) ApproveHostKey(ctx context.Context, host string, port int,
 	return s.knownHosts.Approve(host, port, keyType, pubKeyBase64, fingerprint)
 }
 
+// ListKnownHosts returns every trusted host key for display in Settings.
+func (s *HostService) ListKnownHosts(ctx context.Context) ([]store.KnownHost, error) {
+	return s.knownHosts.List()
+}
+
+// RemoveKnownHost forgets a trusted host key; the next connection re-prompts (TOFU).
+func (s *HostService) RemoveKnownHost(ctx context.Context, host string, port int, keyType string) error {
+	return s.knownHosts.Delete(host, port, keyType)
+}
+
 // SetPassword encrypts and persists the SSH password for a host in the vault.
 // The plaintext password is never stored; only AES-256-GCM ciphertext.
 func (s *HostService) SetPassword(ctx context.Context, hostID, password string) error {

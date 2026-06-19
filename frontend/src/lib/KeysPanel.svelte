@@ -2,6 +2,7 @@
   import { KeyService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
+  import EmptyState from "./EmptyState.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
   import {
     KeyRound,
@@ -244,14 +245,11 @@
       {/each}
     </div>
     {#if app.keys.length === 0 && !creating && !importing}
-      <div class="flex h-full items-center justify-center">
-        <div class="text-center">
-          <KeyRound size="22" class="mx-auto text-[var(--color-text-4)]" />
-          <p class="mt-2 type-caption text-[var(--color-text-3)]">
-            No keys yet. Generate one or import an existing PEM.
-          </p>
-        </div>
-      </div>
+      <EmptyState
+        icon={KeyRound}
+        title="No keys yet"
+        description="Generate one or import an existing PEM."
+      />
     {/if}
   </div>
 </div>

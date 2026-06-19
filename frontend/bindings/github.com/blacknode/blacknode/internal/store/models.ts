@@ -366,6 +366,46 @@ export class Host {
 }
 
 /**
+ * KnownHost is one trusted host-key entry, shaped for the UI.
+ */
+export class KnownHost {
+    "host": string;
+    "port": number;
+    "keyType": string;
+    "fingerprint": string;
+    "addedAt": number;
+
+    /** Creates a new KnownHost instance. */
+    constructor($$source: Partial<KnownHost> = {}) {
+        if (!("host" in $$source)) {
+            this["host"] = "";
+        }
+        if (!("port" in $$source)) {
+            this["port"] = 0;
+        }
+        if (!("keyType" in $$source)) {
+            this["keyType"] = "";
+        }
+        if (!("fingerprint" in $$source)) {
+            this["fingerprint"] = "";
+        }
+        if (!("addedAt" in $$source)) {
+            this["addedAt"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new KnownHost instance from a string or object.
+     */
+    static createFrom($$source: any = {}): KnownHost {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new KnownHost($$parsedSource as Partial<KnownHost>);
+    }
+}
+
+/**
  * LogQuery is a saved combination of (command, host set, filter) for the
  * LogsPanel — bookmarked tail invocations the user can recall in one click.
  */

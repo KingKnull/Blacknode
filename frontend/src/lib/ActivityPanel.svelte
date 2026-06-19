@@ -4,6 +4,7 @@
   import { ActivityService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { Activity } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import PageHeader from "./PageHeader.svelte";
+  import EmptyState from "./EmptyState.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
   import Skeleton from "./Skeleton.svelte";
   import {
@@ -161,15 +162,11 @@
     {#if busy && entries.length === 0}
       <Skeleton rows={10} rowClass="h-8" />
     {:else if entries.length === 0}
-      <div class="flex h-full items-center justify-center">
-        <div class="max-w-md text-center">
-          <ActivityIcon size="22" class="mx-auto text-[var(--color-text-4)]" />
-          <p class="mt-2 type-caption text-[var(--color-text-3)]">
-            No activity yet. Unlock the vault, run a command, or push a
-            sync — entries will appear here as they happen.
-          </p>
-        </div>
-      </div>
+      <EmptyState
+        icon={ActivityIcon}
+        title="No activity yet"
+        description="Unlock the vault, run a command, or push a sync — entries appear here as they happen."
+      />
     {:else}
       <ul class="divide-y hairline">
         {#each entries as a (a.id)}
