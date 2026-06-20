@@ -1,8 +1,21 @@
 <script lang="ts">
   import { Plus, X } from "@lucide/svelte";
   import { leaves, type PaneNode } from "./panes";
+  import { app } from "./state.svelte";
 
   type Tab = { id: string; root: PaneNode; activeLeafID: string };
+
+  // Aggregate the status of all panes in a tab into one indicator, picking
+  // the most urgent: error > needs-input > unread > idle.
+  function tabStatus(t: Tab): "idle" | "unread" | "needs-input" | "error" {
+    let best: "idle" | "unread" | "needs-input" | "error" = "idle";
+    const rank = { idle: 0, unread: 1, "needs-input": 2, error: 3 } as const;
+    for (const leaf of leaves(t.root)) {
+      const s = app.sessionStatus[leaf.sessionID] ?? "idle";
+      if (rank[s] > rank[best]) best = s;
+    }
+    return best;
+  }
 
   type Props = {
     tabs: Tab[];
@@ -57,6 +70,7 @@
   {#each tabs as t (t.id)}
     {@const label = tabLabel(t)}
     {@const isActive = activeTabID === t.id}
+    {@const st = tabStatus(t)}
     <div
       role="tab"
       tabindex="0"
@@ -74,8 +88,14 @@
       ondragend={tabDragEnd}
       ondrop={(e) => e.preventDefault()}
     >
-      {#if isActive}
-        <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-accent)] phosphor-flicker shadow-[0_0_4px_var(--color-accent)]"></span>
+      {#if st === "error"}
+        <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-danger)]" title="Session error"></span>
+      {:else if st === "needs-input"}
+        <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-warn)]" title="Waiting for input"></span>
+      {:else if st === "unread"}
+        <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-success)]" title="Unread output"></span>
+      {:else if isActive}
+        <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-accent)]"></span>
       {:else}
         <span class="h-1 w-1 shrink-0 rounded-full bg-[var(--color-text-4)]"></span>
       {/if}

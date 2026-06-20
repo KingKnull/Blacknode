@@ -65,6 +65,36 @@ class AppState {
   // Live metrics per host — populated by metrics:update events.
   hostMetrics = $state<Record<string, { cpuPercent: number; memPercent: number; diskPercent: number }>>({});
 
+  // Per-session activity status, surfaced as colored dots on terminal tabs.
+  //   unread      → output arrived while the pane was unfocused (green)
+  //   needs-input → a prompt (e.g. sudo password) is waiting (amber)
+  //   error       → the session failed / errored (red)
+  // Cleared back to idle when the pane regains focus.
+  sessionStatus = $state<Record<string, "idle" | "unread" | "needs-input" | "error">>({});
+
+  setSessionStatus(sessionID: string, s: "idle" | "unread" | "needs-input" | "error") {
+    if (this.sessionStatus[sessionID] === s) return;
+    this.sessionStatus = { ...this.sessionStatus, [sessionID]: s };
+  }
+  // Mark unread without clobbering a more urgent state.
+  markSessionUnread(sessionID: string) {
+    const cur = this.sessionStatus[sessionID];
+    if (cur === "error" || cur === "needs-input") return;
+    this.setSessionStatus(sessionID, "unread");
+  }
+  clearSessionStatus(sessionID: string) {
+    if (this.sessionStatus[sessionID] && this.sessionStatus[sessionID] !== "idle") {
+      this.setSessionStatus(sessionID, "idle");
+    }
+  }
+  forgetSession(sessionID: string) {
+    if (sessionID in this.sessionStatus) {
+      const next = { ...this.sessionStatus };
+      delete next[sessionID];
+      this.sessionStatus = next;
+    }
+  }
+
   // Track which hosts have active terminal sessions connected
   connectedHosts = $state<Set<string>>(new Set());
 
