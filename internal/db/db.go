@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS keys (
     encrypted_private_key BLOB NOT NULL,
     nonce BLOB NOT NULL,
     fingerprint TEXT NOT NULL,
+    certificate TEXT NOT NULL DEFAULT '',
     created_at INTEGER NOT NULL
 );
 
@@ -208,6 +209,7 @@ func OpenPath(dbPath string) (*DB, error) {
 		`ALTER TABLE hosts ADD COLUMN proxy_jump TEXT NOT NULL DEFAULT ''`,
 		`ALTER TABLE hosts ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0`,
 		`ALTER TABLE hosts ADD COLUMN startup_snippet_id TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE keys ADD COLUMN certificate TEXT NOT NULL DEFAULT ''`,
 	} {
 		_, _ = conn.Exec(mig)
 	}

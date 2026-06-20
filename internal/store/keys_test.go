@@ -17,6 +17,7 @@ CREATE TABLE keys (
     encrypted_private_key BLOB NOT NULL,
     nonce BLOB NOT NULL,
     fingerprint TEXT NOT NULL,
+    certificate TEXT NOT NULL DEFAULT '',
     created_at INTEGER NOT NULL
 );`
 

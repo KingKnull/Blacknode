@@ -12,6 +12,7 @@
     Trash2,
     Loader2,
     X,
+    BadgeCheck,
   } from "@lucide/svelte";
 
   let creating = $state(false);
@@ -86,6 +87,44 @@
   function copyPub(text: string) {
     void navigator.clipboard.writeText(text);
     app.toast('ok', 'COPIED', 'Public key copied to clipboard.');
+  }
+
+  // ── Certificate attach / detach ──────────────────────────────────────
+  let certTarget = $state<{ id: string; name: string } | null>(null);
+  let certText = $state("");
+  let certBusy = $state(false);
+  let certErr = $state("");
+
+  function openCert(id: string, name: string) {
+    certTarget = { id, name };
+    certText = "";
+    certErr = "";
+  }
+
+  async function attachCert() {
+    if (!certTarget) return;
+    certBusy = true;
+    certErr = "";
+    try {
+      await KeyService.AttachCertificate(certTarget.id, certText);
+      await app.refreshKeys();
+      certTarget = null;
+      app.toast('ok', 'CERTIFICATE ATTACHED', 'The key will authenticate with its certificate.');
+    } catch (e: any) {
+      certErr = String(e?.message ?? e);
+    } finally {
+      certBusy = false;
+    }
+  }
+
+  async function detachCert(id: string) {
+    try {
+      await KeyService.AttachCertificate(id, "");
+      await app.refreshKeys();
+      app.toast('ok', 'CERTIFICATE REMOVED', '');
+    } catch (e: any) {
+      app.toast('error', 'REMOVE FAILED', String(e?.message ?? e));
+    }
   }
 </script>
 
@@ -222,6 +261,15 @@
             >
               {k.fingerprint}
             </span>
+            {#if k.hasCertificate}
+              <button
+                class="flex items-center gap-1 rounded border border-[var(--color-success)]/40 px-1.5 py-0.5 type-micro text-[var(--color-success)] hover:bg-[var(--color-success)]/10"
+                title="{k.certificateInfo} · click to remove certificate"
+                onclick={() => detachCert(k.id)}
+              >
+                <BadgeCheck size="10" /> CERT
+              </button>
+            {/if}
             <button
               class="ml-auto flex items-center gap-1 rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
               onclick={() => copyPub(k.publicKey)}
@@ -229,6 +277,14 @@
               aria-label="Copy public key for {k.name}"
             >
               <Copy size="11" />
+            </button>
+            <button
+              class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-accent)]"
+              onclick={() => openCert(k.id, k.name)}
+              title={k.hasCertificate ? "Replace certificate" : "Attach certificate"}
+              aria-label="Attach certificate to {k.name}"
+            >
+              <BadgeCheck size="11" />
             </button>
             <button
               class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)]"
@@ -263,4 +319,45 @@
     onCancel={() => (keyToDelete = null)}
     onConfirm={del}
   />
+{/if}
+
+{#if certTarget}
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="presentation" onclick={() => (certTarget = null)}>
+    <div
+      class="w-full max-w-lg border hairline-strong surface-1 p-4 shadow-2xl"
+      style="border-radius: var(--radius-md);"
+      role="dialog"
+      tabindex="-1"
+      onclick={(e) => e.stopPropagation()}
+      onkeydown={() => {}}
+    >
+      <div class="mb-3 flex items-center gap-2">
+        <BadgeCheck size="14" class="text-[var(--color-accent)]" />
+        <span class="type-body font-medium text-[var(--color-text-1)]">Attach certificate to {certTarget.name}</span>
+        <button class="ml-auto text-[var(--color-text-4)] hover:text-[var(--color-text-1)]" onclick={() => (certTarget = null)} aria-label="Close"><X size="14" /></button>
+      </div>
+      <p class="mb-2 type-caption text-[var(--color-text-4)]">
+        Paste the OpenSSH certificate (the <span class="font-mono">*-cert.pub</span> the CA issued for this key). It must have been signed for this key's public half.
+      </p>
+      <textarea
+        class="h-28 w-full resize-none border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-micro text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50"
+        bind:value={certText}
+        placeholder="ssh-ed25519-cert-v01@openssh.com AAAA…"
+      ></textarea>
+      {#if certErr}
+        <p class="mt-2 type-caption text-[var(--color-danger)]">{certErr}</p>
+      {/if}
+      <div class="mt-3 flex justify-end gap-2">
+        <button class="border hairline px-3 py-1.5 type-caption text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)]" onclick={() => (certTarget = null)}>Cancel</button>
+        <button
+          class="flex items-center gap-1.5 border border-[var(--color-accent)]/40 bg-[var(--color-accent)]/10 px-3 py-1.5 type-caption text-[var(--color-accent)] hover:bg-[var(--color-accent)]/20 disabled:opacity-40"
+          disabled={certBusy || !certText.trim()}
+          onclick={attachCert}
+        >
+          {#if certBusy}<Loader2 size="12" class="animate-spin" />{/if}
+          Attach
+        </button>
+      </div>
+    </div>
+  </div>
 {/if}

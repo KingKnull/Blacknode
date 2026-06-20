@@ -126,6 +126,23 @@ func (d *Dialer) authFor(t Target) ([]ssh.AuthMethod, error) {
 		if err != nil {
 			return nil, fmt.Errorf("parse key: %w", err)
 		}
+		// If a certificate is attached, authenticate with the cert + key rather
+		// than the bare public key.
+		if k.Certificate != "" {
+			certPub, _, _, _, err := ssh.ParseAuthorizedKey([]byte(k.Certificate))
+			if err != nil {
+				return nil, fmt.Errorf("parse certificate: %w", err)
+			}
+			cert, ok := certPub.(*ssh.Certificate)
+			if !ok {
+				return nil, errors.New("attached certificate is not an SSH certificate")
+			}
+			certSigner, err := ssh.NewCertSigner(cert, signer)
+			if err != nil {
+				return nil, fmt.Errorf("certificate signer: %w", err)
+			}
+			return []ssh.AuthMethod{ssh.PublicKeys(certSigner)}, nil
+		}
 		return []ssh.AuthMethod{ssh.PublicKeys(signer)}, nil
 
 	case AuthAgent:
