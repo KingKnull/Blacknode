@@ -24,9 +24,11 @@ import * as ProcessService from "./processservice.js";
 import * as RecordingService from "./recordingservice.js";
 import * as SFTPService from "./sftpservice.js";
 import * as SSHService from "./sshservice.js";
+import * as SerialService from "./serialservice.js";
 import * as SettingsService from "./settingsservice.js";
 import * as SnippetService from "./snippetservice.js";
 import * as SyncService from "./syncservice.js";
+import * as TelnetService from "./telnetservice.js";
 import * as UpdateService from "./updateservice.js";
 import * as VaultService from "./vaultservice.js";
 export {
@@ -53,9 +55,11 @@ export {
     RecordingService,
     SFTPService,
     SSHService,
+    SerialService,
     SettingsService,
     SnippetService,
     SyncService,
+    TelnetService,
     UpdateService,
     VaultService
 };

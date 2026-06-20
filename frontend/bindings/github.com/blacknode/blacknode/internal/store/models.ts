@@ -315,6 +315,14 @@ export class Host {
      * an interactive session to this host finishes connecting.
      */
     "startupSnippetID"?: string;
+
+    /**
+     * Protocol selects the connection transport: "ssh" (default), "telnet", or
+     * "serial". Serial uses SerialDevice + SerialBaud and ignores Host/Port.
+     */
+    "protocol"?: string;
+    "serialDevice"?: string;
+    "serialBaud"?: number;
     "createdAt": number;
     "updatedAt": number;
     "lastConnectedAt": number;

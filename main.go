@@ -108,6 +108,9 @@ func main() {
 			application.NewService(service.NewAutocompleteService(history, snippets)),
 			// New services — Feature 2: Mosh
 			application.NewService(service.NewMoshService(hosts)),
+			// Legacy console protocols: Telnet + Serial
+			application.NewService(service.NewTelnetService(hosts)),
+			application.NewService(service.NewSerialService(hosts)),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
