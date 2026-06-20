@@ -25,7 +25,8 @@ CREATE TABLE hosts (
     favorite INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
-    last_connected_at INTEGER NOT NULL DEFAULT 0
+    last_connected_at INTEGER NOT NULL DEFAULT 0,
+    startup_snippet_id TEXT NOT NULL DEFAULT ''
 );`
 
 func newHostsDB(t *testing.T) *sql.DB {

@@ -1756,7 +1756,7 @@ export class Suggestion {
     "text": string;
 
     /**
-     * "history" | "snippet" | "builtin" | "ai"
+     * "history" | "snippet" | "builtin" | "ai" | "sudo"
      */
     "source": string;
 

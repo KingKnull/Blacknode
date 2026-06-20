@@ -26,7 +26,8 @@ CREATE TABLE IF NOT EXISTS hosts (
     favorite INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
-    last_connected_at INTEGER NOT NULL DEFAULT 0
+    last_connected_at INTEGER NOT NULL DEFAULT 0,
+    startup_snippet_id TEXT NOT NULL DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_hosts_group ON hosts(group_name);
@@ -206,6 +207,7 @@ func OpenPath(dbPath string) (*DB, error) {
 		`ALTER TABLE hosts ADD COLUMN environment TEXT NOT NULL DEFAULT ''`,
 		`ALTER TABLE hosts ADD COLUMN proxy_jump TEXT NOT NULL DEFAULT ''`,
 		`ALTER TABLE hosts ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0`,
+		`ALTER TABLE hosts ADD COLUMN startup_snippet_id TEXT NOT NULL DEFAULT ''`,
 	} {
 		_, _ = conn.Exec(mig)
 	}

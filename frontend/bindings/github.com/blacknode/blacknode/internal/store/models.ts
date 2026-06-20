@@ -309,6 +309,12 @@ export class Host {
     "tags": string[];
     "notes"?: string;
     "favorite": boolean;
+
+    /**
+     * StartupSnippetID, if set, names a snippet that is run automatically once
+     * an interactive session to this host finishes connecting.
+     */
+    "startupSnippetID"?: string;
     "createdAt": number;
     "updatedAt": number;
     "lastConnectedAt": number;

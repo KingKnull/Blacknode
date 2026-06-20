@@ -433,6 +433,20 @@
     else if (mode === "mosh" && status === "connected") void MoshService.Write(sessionID, d);
   }
 
+  // If the host defines a startup snippet, render it (using variable defaults)
+  // and send it once the shell is up. A short delay lets the remote prompt
+  // settle before we type into it.
+  function runStartupSnippet(hostID: string) {
+    const host = app.hosts.find((h) => h.id === hostID);
+    if (!host?.startupSnippetID) return;
+    setTimeout(async () => {
+      try {
+        const rendered = await SnippetService.Apply(host.startupSnippetID!, {}, hostID, host.name, false);
+        if (rendered) writeLocal(rendered.endsWith("\n") ? rendered : rendered + "\n");
+      } catch { /* snippet may have been deleted — ignore */ }
+    }, 400);
+  }
+
   function toggleBroadcastMember() { app.toggleBroadcastMember(sessionID); }
 
   let inBroadcast = $derived(app.broadcastSet.has(sessionID));
@@ -482,6 +496,7 @@
       status = "connected";
       connectedHostID = hostID;
       term?.focus();
+      runStartupSnippet(hostID);
     } catch (e: any) {
       status = "error";
       errorMsg = String(e?.message ?? e);
@@ -503,6 +518,7 @@
       await SSHService.ConnectByHost(sessionID, hostID, runtimePassword, term?.cols ?? 80, term?.rows ?? 24);
       status = "connected"; connectedHostID = hostID; term?.focus();
       startLatencyPolling();
+      runStartupSnippet(hostID);
     } catch (e: any) {
       let msg = String(e?.message ?? e);
       if (msg.trimStart().startsWith("{")) {
