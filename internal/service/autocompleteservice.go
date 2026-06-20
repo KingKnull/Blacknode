@@ -13,7 +13,7 @@ import (
 // Suggestion is a single autocomplete candidate returned to the frontend.
 type Suggestion struct {
 	Text        string  `json:"text"`
-	Source      string  `json:"source"`      // "history" | "snippet" | "builtin" | "ai"
+	Source      string  `json:"source"`      // "history" | "snippet" | "builtin" | "ai" | "sudo"
 	Description string  `json:"description"` // snippet name, host name, or empty
 	Score       float64 `json:"score"`
 }
