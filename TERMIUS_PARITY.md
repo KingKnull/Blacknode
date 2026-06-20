@@ -118,7 +118,8 @@ updateservice, localshellservice`.
 | Split panes / tiling | ⚠️ | ✅ (recursive + tile-all) | Blacknode ahead |
 | SFTP / file transfer | ✅ | ✅ (Files + RemoteEditor) | — |
 | Port forwarding | ✅ | ✅ (Forwards) | — |
-| Snippets | ✅ | ✅ | — |
+| Snippets | ✅ (+ startup snippets, packages, magic-wand AI gen) | ✅ (+ var substitution) | ≈ parity; no startup/packaged snippets |
+| Cloud host import (AWS / DigitalOcean / Azure) | ✅ per-group | ❌ | gap — account/cloud infra, deferred |
 | Command history | ✅ | ✅ (History) | — |
 | AI in terminal (NL→cmd) | ✅ | ✅ (AI drawer, ⌘I) | Blacknode ahead (also explains output) |
 | Inline autocomplete / IntelliSense | ✅ (history/path/snippet/sudo) | ✅ (`autocompleteservice` + `AutocompletePopup`) | ≈ parity (no sudo-pw source) |
@@ -128,8 +129,9 @@ updateservice, localshellservice`.
 | Jump host / chaining | ✅ | ✅ (`proxyJump`) | UI is single field |
 | Mosh | ✅ | ✅ (`moshservice`, wraps mosh-client) | ≈ parity |
 | Client certificates (SSH) | ✅ | ⚠️ (key/password/agent only) | minor |
-| Workspaces / focus / split / broadcast | ✅ | ✅ (tabs + recursive splits + multi-cursor) | ≈ parity |
-| Workspace templates (reusable) | ✅ | ❌ | gap — no saved layouts |
+| Workspaces / focus / split / broadcast | ✅ (split caps at 16 terms) | ✅ (tabs + recursive splits + multi-cursor) | ≈ parity |
+| Per-tab session status (🟢 unread / 🟡 needs-input / 🔴 error) | ✅ | ⚠️ host-row dots only | gap — no terminal-tab indicator |
+| Workspace templates (reusable) | ✅ (saves cwd + running cmds) | ❌ | gap — no saved layouts |
 | Unified terminal side panel (themes+history+snippets) | ✅ | ✅ (`TerminalSidePanel`) | ≈ parity |
 | Session logs (synced, team-shared, bookmarks) | ✅ | ✅ recordings (local only) | local parity; no sharing |
 | Auto/background sync | ✅ | ✅ (`syncservice_autosync`, conflict preview, sync-on-unlock) | ≈ parity |
@@ -147,8 +149,9 @@ updateservice, localshellservice`.
 | Plugins | ❌ | ✅ | **Blacknode ahead** |
 | Metrics / processes | ⚠️ | ✅ | **Blacknode ahead** |
 
-**Conclusion (verified against HEAD `a85f525`, 2026-06-19):** after the latest commit (Mosh,
-autocomplete, background sync), the terminal-UX gap is essentially **closed** — inline
+**Conclusion (verified against HEAD `4b1dea9`, 2026-06-20):** after the recent commits (Mosh,
+autocomplete, background sync, Known Hosts UI, empty-state polish), the terminal-UX gap is
+essentially **closed** — inline
 autocomplete, Mosh, the unified side panel, and auto-sync all ship. Remaining gaps are almost
 entirely **account/collaboration infrastructure**: multi-vault hierarchy, nested groups with
 inherited settings, real team sharing (only a `team_activity` store stub exists today), and
@@ -294,22 +297,29 @@ Two external reviews converged on three corrections to the locked plan; all acce
    panels appear as tabs under the Plugins section. Per-section last-view memory.
 6. ✅ **Quick Connect** (`Palette`) — parses `user@host[:port]` / `ssh://…`; reuses or creates
    a saved host then connects. Palette host entries now **connect** (not just select).
-7. 🟡 **Polish — partial** (audited 2026-06-19 against HEAD `a85f525`):
-   - ✅ Uppercase cleanup — done; only 1 stray badge remains (`SettingsPanel.svelte:797`, a
+7. ✅ **Polish** (re-audited 2026-06-20 against HEAD `4b1dea9`):
+   - ✅ Uppercase cleanup — done; only 1 stray badge remains (`SettingsPanel.svelte`, a
      `{c.kind}` connection-type chip — arguably intentional).
-   - ✅ Onboarding hero — wired (`OnboardingCard` rendered at `Workspace.svelte:671`).
-   - 🟡 **Empty states — 5 / 14 panels.** Have them: Containers, DB, Forwards, Processes, SFTP.
-     **Missing:** History, Recordings, Snippets, Keys, Logs, Network, Activity, HTTP, Metrics.
-   - 🟡 Mono sweep — `font-mono` still heavy in Settings (20), Processes/DB (13 each); much is
-     legitimate (IPs, ports, hashes, paths) but data-table chrome could be reviewed.
-8. *(deferred)* nested groups, group inheritance, multi-vault.
+   - ✅ Onboarding hero — wired (`OnboardingCard` rendered in `Workspace.svelte`).
+   - ✅ **Empty states — 14 / 14 panels.** All panels now use `EmptyState` (Activity,
+     Containers, DB, Forwards, History, HTTP, Keys, Logs, Metrics, Network, Processes,
+     Recordings, SFTP, Snippets). Closed in commit `4ae8e21`.
+   - ✅ **Known Hosts management UI** — surfaced in `SettingsPanel.svelte` (`4ae8e21`).
+   - 🟡 Mono sweep — `font-mono` still heavy in Settings/Processes/DB; much is legitimate
+     (IPs, ports, hashes, paths) but data-table chrome could be reviewed. Cosmetic only.
+8. *(deferred)* nested groups, group inheritance, multi-vault, cloud host import.
 
-Wave 7 is the only open UI work, and it's **empty-state coverage** plus a light mono review —
-no structural risk. All shipped waves pass `svelte-check` (0 errors) and `vite build`.
+All Termius-parity UI waves are now shipped. The only remaining items are the deferred
+account/cloud-backend features (§9) and a cosmetic mono review. All shipped waves pass
+`svelte-check` (0 errors) and `vite build`.
 
 ---
 
-## 9. Missing features — verified against code (HEAD `a85f525`, 2026-06-19)
+## 9. Missing features — verified against code (HEAD `4b1dea9`, 2026-06-20)
+
+> Re-verified against the authoritative Termius docs corpus (`docs.termius.com/llms-full.txt`
+> + sitemap, 33 doc pages) and HEAD `4b1dea9`. Two prior "open" items now ship (Known Hosts
+> UI, empty-state wave); five Termius specifics added/sharpened below.
 
 Everything Termius documents that Blacknode does **not** have, with the real status in code:
 
@@ -322,9 +332,12 @@ Everything Termius documents that Blacknode does **not** have, with the real sta
 | **Identities** (named credential bundles) | Keys only; no Identity abstraction (the `IdentityFile` refs are SSH-config import) | Minor |
 | **Serial / Telnet protocols** | Absent (the `Serial` refs are SSL-cert serial numbers) | Minor / out of scope |
 | **SSH client certificates** | key / password / agent auth only | Minor |
-| **Workspace templates** (reusable saved layouts) | Tabs + splits exist; not persistable as templates | Minor |
-| **Known Hosts management UI** | Data lives in `store/knownhosts`; no settings surface | Minor — quick win |
+| **Workspace templates** (reusable saved layouts) | Tabs + splits exist; not persistable as templates (Termius templates also save cwd + running cmds) | Minor |
+| **Per-tab session status indicators** (🟢 unread / 🟡 needs-input / 🔴 error) | Host-row status dots only; no per-terminal-tab indicator | Minor |
+| **Startup snippets / snippet packages** | Snippets exist with var substitution; no startup-on-connect or package grouping | Minor |
+| **Cloud host import** (AWS / DigitalOcean / Azure per-group) | Absent | Account/cloud infra — deferred |
 | **Sudo-password autocomplete source** | Autocomplete pulls history/snippets/builtins only | Trivial |
+| ~~**Known Hosts management UI**~~ | ✅ **SHIPPED** (`SettingsPanel.svelte`, commit `4ae8e21`) | Done |
 
 **Two buckets:** (a) **account/collaboration infrastructure** — multi-vault, nested groups,
 team sharing, synced logs — all need a sync-server/account backend and are correctly deferred;
