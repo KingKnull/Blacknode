@@ -323,6 +323,23 @@ export class Host {
     "protocol"?: string;
     "serialDevice"?: string;
     "serialBaud"?: number;
+
+    /**
+     * Serial line settings. Defaults applied at connect time when unset:
+     * SerialDataBits 8, SerialParity "none", SerialStopBits "1". (Flow control
+     * is not configurable — the serial library hard-disables RTS/CTS.)
+     */
+    "serialDataBits"?: number;
+
+    /**
+     * "none" | "odd" | "even"
+     */
+    "serialParity"?: string;
+
+    /**
+     * "1" | "1.5" | "2"
+     */
+    "serialStopBits"?: string;
     "createdAt": number;
     "updatedAt": number;
     "lastConnectedAt": number;

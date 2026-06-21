@@ -74,9 +74,9 @@ func (s *SerialService) Connect(ctx context.Context, sessionID, hostID string) e
 
 	port, err := serial.Open(device, &serial.Mode{
 		BaudRate: baud,
-		DataBits: 8,
-		Parity:   serial.NoParity,
-		StopBits: serial.OneStopBit,
+		DataBits: serialDataBits(h.SerialDataBits),
+		Parity:   serialParity(h.SerialParity),
+		StopBits: serialStopBits(h.SerialStopBits),
 	})
 	if err != nil {
 		return fmt.Errorf("open %s: %w", device, err)
@@ -160,5 +160,41 @@ func (s *SerialService) emitData(id, chunk string) {
 func (s *SerialService) emitExit(id, reason string) {
 	if a := application.Get(); a != nil {
 		a.Event.Emit("terminal:exit", TerminalExit{SessionID: id, Reason: reason})
+	}
+}
+
+// serialDataBits maps a stored data-bits value to a valid character size,
+// defaulting to 8 when unset or out of range.
+func serialDataBits(b int) int {
+	switch b {
+	case 5, 6, 7, 8:
+		return b
+	default:
+		return 8
+	}
+}
+
+// serialParity maps the stored parity name to a serial.Parity, defaulting to
+// none. (go.bug.st/serial only supports none/odd/even on POSIX.)
+func serialParity(p string) serial.Parity {
+	switch p {
+	case "odd":
+		return serial.OddParity
+	case "even":
+		return serial.EvenParity
+	default:
+		return serial.NoParity
+	}
+}
+
+// serialStopBits maps the stored stop-bits value, defaulting to one.
+func serialStopBits(s string) serial.StopBits {
+	switch s {
+	case "2":
+		return serial.TwoStopBits
+	case "1.5":
+		return serial.OnePointFiveStopBits
+	default:
+		return serial.OneStopBit
 	}
 }

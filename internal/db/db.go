@@ -30,7 +30,10 @@ CREATE TABLE IF NOT EXISTS hosts (
     startup_snippet_id TEXT NOT NULL DEFAULT '',
     protocol TEXT NOT NULL DEFAULT 'ssh',
     serial_device TEXT NOT NULL DEFAULT '',
-    serial_baud INTEGER NOT NULL DEFAULT 0
+    serial_baud INTEGER NOT NULL DEFAULT 0,
+    serial_data_bits INTEGER NOT NULL DEFAULT 0,
+    serial_parity TEXT NOT NULL DEFAULT '',
+    serial_stop_bits TEXT NOT NULL DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_hosts_group ON hosts(group_name);
@@ -216,6 +219,9 @@ func OpenPath(dbPath string) (*DB, error) {
 		`ALTER TABLE hosts ADD COLUMN protocol TEXT NOT NULL DEFAULT 'ssh'`,
 		`ALTER TABLE hosts ADD COLUMN serial_device TEXT NOT NULL DEFAULT ''`,
 		`ALTER TABLE hosts ADD COLUMN serial_baud INTEGER NOT NULL DEFAULT 0`,
+		`ALTER TABLE hosts ADD COLUMN serial_data_bits INTEGER NOT NULL DEFAULT 0`,
+		`ALTER TABLE hosts ADD COLUMN serial_parity TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE hosts ADD COLUMN serial_stop_bits TEXT NOT NULL DEFAULT ''`,
 	} {
 		_, _ = conn.Exec(mig)
 	}

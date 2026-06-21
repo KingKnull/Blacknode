@@ -10,6 +10,8 @@
     LocalShellService,
     SSHService,
     MoshService,
+    TelnetService,
+    SerialService,
     HostService,
     SnippetService,
   } from "../../bindings/github.com/blacknode/blacknode/internal/service";
@@ -39,13 +41,14 @@
     X,
     BookmarkIcon,
     Wifi,
+    Cable,
     PanelRight,
   } from "@lucide/svelte";
 
   type Props = { sessionID: string };
   let { sessionID }: Props = $props();
 
-  type Mode = "local" | "remote" | "mosh";
+  type Mode = "local" | "remote" | "mosh" | "telnet" | "serial";
   type Status = "starting" | "running" | "connecting" | "connected" | "idle" | "error";
 
   let mode: Mode = $state("local");
@@ -227,6 +230,8 @@
     if (mode === "local" && status === "running") void LocalShellService.Write(sessionID, p.text);
     else if (mode === "remote" && status === "connected") void SSHService.Write(sessionID, p.text);
     else if (mode === "mosh" && status === "connected") void MoshService.Write(sessionID, p.text);
+    else if (mode === "telnet" && status === "connected") void TelnetService.Write(sessionID, p.text);
+    else if (mode === "serial" && status === "connected") void SerialService.Write(sessionID, p.text);
     app.pendingTerminalInsert = null;
   });
 
@@ -238,7 +243,7 @@
 
   // Keep connected-hosts set in sync
   $effect(() => {
-    if ((mode === "remote" || mode === "mosh") && connectedHostID) {
+    if (mode !== "local" && connectedHostID) {
       if (status === "connected") app.addConnectedHost(connectedHostID);
       else app.removeConnectedHost(connectedHostID);
     }
@@ -328,6 +333,8 @@
       if (mode === "local" && status === "running") void LocalShellService.Resize(sessionID, cols, rows);
       if (mode === "remote" && status === "connected") void SSHService.Resize(sessionID, cols, rows);
       if (mode === "mosh" && status === "connected") void MoshService.Resize(sessionID, cols, rows);
+      if (mode === "telnet" && status === "connected") void TelnetService.Resize(sessionID, cols, rows);
+      if (mode === "serial" && status === "connected") void SerialService.Resize(sessionID, cols, rows);
     });
 
     resizeObs = new ResizeObserver(() => {
@@ -383,8 +390,8 @@
           reconnectAttempt = 0;
           status = "idle";
         }
-      } else if (mode === "mosh") {
-        // Mosh handles its own reconnects — just update UI state
+      } else if (mode === "mosh" || mode === "telnet" || mode === "serial") {
+        // Mosh handles its own reconnects; telnet/serial have no auto-reconnect.
         connectedHostID = null;
         status = "idle";
       } else {
@@ -425,12 +432,16 @@
     if (mode === "local" && status === "running") void LocalShellService.Close(sessionID);
     if (mode === "remote" && status === "connected") void SSHService.Disconnect(sessionID);
     if (mode === "mosh" && status === "connected") void MoshService.Disconnect(sessionID);
+    if (mode === "telnet" && status === "connected") void TelnetService.Disconnect(sessionID);
+    if (mode === "serial" && status === "connected") void SerialService.Disconnect(sessionID);
   });
 
   function writeLocal(d: string) {
     if (mode === "local" && status === "running") void LocalShellService.Write(sessionID, d);
     else if (mode === "remote" && status === "connected") void SSHService.Write(sessionID, d);
     else if (mode === "mosh" && status === "connected") void MoshService.Write(sessionID, d);
+    else if (mode === "telnet" && status === "connected") void TelnetService.Write(sessionID, d);
+    else if (mode === "serial" && status === "connected") void SerialService.Write(sessionID, d);
   }
 
   // If the host defines a startup snippet, render it (using variable defaults)
@@ -468,6 +479,13 @@
       const ok = confirm(`⚠️ ${host.name} is tagged PRODUCTION.\n\nConnect anyway?`);
       if (!ok) return;
     }
+    // Telnet and serial are plaintext transports with no SSH auth — route them
+    // straight to their own services instead of the SSH connect path.
+    const proto = host.protocol || "ssh";
+    if (proto === "telnet" || proto === "serial") {
+      await connectAltProtocol(host.id, proto);
+      return;
+    }
     if (mode === "local" && status === "running") await LocalShellService.Close(sessionID);
     app.selectedHostID = hostID;
     mode = "remote";
@@ -501,6 +519,35 @@
       status = "error";
       errorMsg = String(e?.message ?? e);
       // Fall back to local shell on Mosh failure
+      await openLocal();
+    }
+  }
+
+  // Connect a telnet or serial host. These transports have no SSH credentials,
+  // TOFU, latency probe, or auto-reconnect — they pipe bytes through the same
+  // terminal:data / terminal:exit events as every other session type.
+  async function connectAltProtocol(hostID: string, proto: "telnet" | "serial") {
+    showHostPicker = false;
+    if (mode === "local" && status === "running") await LocalShellService.Close(sessionID);
+    if (mode === "remote" && status === "connected") await SSHService.Disconnect(sessionID);
+    app.selectedHostID = hostID;
+    mode = proto;
+    status = "connecting";
+    errorMsg = "";
+    try {
+      if (proto === "telnet") {
+        await TelnetService.Connect(sessionID, hostID, term?.cols ?? 80, term?.rows ?? 24);
+      } else {
+        await SerialService.Connect(sessionID, hostID);
+      }
+      status = "connected";
+      connectedHostID = hostID;
+      term?.focus();
+      runStartupSnippet(hostID);
+    } catch (e: any) {
+      status = "error";
+      errorMsg = String(e?.message ?? e);
+      // Fall back to local shell on connect failure, like Mosh does.
       await openLocal();
     }
   }
@@ -563,6 +610,8 @@
   async function disconnectRemote() {
     try {
       if (mode === "mosh") await MoshService.Disconnect(sessionID);
+      else if (mode === "telnet") await TelnetService.Disconnect(sessionID);
+      else if (mode === "serial") await SerialService.Disconnect(sessionID);
       else await SSHService.Disconnect(sessionID);
     } finally {
       connectedHostID = null; status = "idle";
@@ -600,14 +649,28 @@
       {#if mode === "mosh"}
         <Wifi size="14" class="text-[var(--color-success)]" />
         <span class="rounded border border-[var(--color-success)]/40 bg-[var(--color-success)]/10 px-1.5 py-px font-mono type-micro font-bold text-[var(--color-success)]">MOSH</span>
+      {:else if mode === "telnet"}
+        <Plug size="14" class="text-[var(--color-warn)]" />
+        <span class="rounded border border-[var(--color-warn)]/40 bg-[var(--color-warn)]/10 px-1.5 py-px font-mono type-micro font-bold text-[var(--color-warn)]" title="Telnet is unencrypted">TELNET</span>
+      {:else if mode === "serial"}
+        <Cable size="14" class="text-[var(--color-accent)]" />
+        <span class="rounded border border-[var(--color-accent)]/40 bg-[var(--color-accent)]/10 px-1.5 py-px font-mono type-micro font-bold text-[var(--color-accent)]">SERIAL</span>
       {:else}
         <Plug size="14" class="text-[var(--color-accent)]" />
       {/if}
-      {#if connectedHost}
+      {#if connectedHost && mode === "serial"}
+        <span class="font-mono type-body font-bold tracking-wide text-[var(--color-text-1)]">{connectedHost.serialDevice || "serial"}</span>
+        {#if connectedHost.serialBaud}<span class="font-mono type-micro text-[var(--color-text-4)]">@{connectedHost.serialBaud}</span>{/if}
+        <span class="ml-1 h-1.5 w-1.5 rounded-full bg-[var(--color-accent)] pulse-soft"></span>
+      {:else if connectedHost && mode === "telnet"}
+        <span class="font-mono type-body font-bold tracking-wide text-[var(--color-text-1)]">{connectedHost.host}</span>
+        <span class="font-mono type-micro text-[var(--color-text-4)]">:{connectedHost.port || 23}</span>
+        <span class="ml-1 h-1.5 w-1.5 rounded-full bg-[var(--color-accent)] pulse-soft"></span>
+      {:else if connectedHost}
         <span class="font-mono type-body font-bold tracking-wide text-[var(--color-text-1)]">{connectedHost.username}@{connectedHost.host}</span>
         <span class="font-mono type-micro text-[var(--color-text-4)]">:{connectedHost.port}</span>
         <span class="ml-1 h-1.5 w-1.5 rounded-full bg-[var(--color-accent)] pulse-soft"></span>
-        {#if latencyMs !== null && mode !== "mosh"}
+        {#if latencyMs !== null && mode === "remote"}
           {@const tone = latencyMs < 50 ? "text-[var(--color-accent)]" : latencyMs < 200 ? "text-[var(--color-warn)]" : "text-[var(--color-danger)]"}
           <span class="ml-1 inline-flex items-center gap-0.5 rounded border hairline px-1.5 py-0.5 font-mono type-micro {tone}" title="Round-trip time">
             <Activity size="9" />{latencyMs}ms
@@ -790,7 +853,7 @@
               {:else}
                 <TerminalIcon size="14" class="text-[var(--color-accent)]" />
                 <span class="font-mono type-eyebrow text-[var(--color-text-1)]">
-                  {mode === "remote" ? `Connected to ${connectedHost?.name ?? connectedHostID}` : "Local Shell Ready"}
+                  {mode === "local" ? "Local Shell Ready" : `Connected to ${connectedHost?.name ?? connectedHostID}`}
                 </span>
               {/if}
             </div>
