@@ -5,7 +5,9 @@
 >
 > Reference: <https://termius.com/> · 2025 desktop redesign: <https://termius.com/blog/termius-x>
 >
-> Status: **DRAFT for review** — no code changed yet. Created 2026-06-14.
+> Status: **Living doc** — most parity waves have shipped (see §8). The look/IA framing in
+> §0–§2 describes the *pre-reskin* baseline; the navy/blue reskin in §8 has since replaced
+> Phosphor Noir. Created 2026-06-14; last refreshed 2026-06-21.
 
 ---
 
@@ -118,19 +120,19 @@ updateservice, localshellservice`.
 | Split panes / tiling | ⚠️ | ✅ (recursive + tile-all) | Blacknode ahead |
 | SFTP / file transfer | ✅ | ✅ (Files + RemoteEditor) | — |
 | Port forwarding | ✅ | ✅ (Forwards) | — |
-| Snippets | ✅ (+ startup snippets, packages, magic-wand AI gen) | ✅ (+ var substitution) | ≈ parity; no startup/packaged snippets |
+| Snippets | ✅ (+ startup snippets, packages, magic-wand AI gen) | ✅ (+ var substitution, startup snippets) | ≈ parity; no snippet packages/folders |
 | Cloud host import (AWS / DigitalOcean / Azure) | ✅ per-group | ❌ | gap — account/cloud infra, deferred |
 | Command history | ✅ | ✅ (History) | — |
 | AI in terminal (NL→cmd) | ✅ | ✅ (AI drawer, ⌘I) | Blacknode ahead (also explains output) |
-| Inline autocomplete / IntelliSense | ✅ (history/path/snippet/sudo) | ✅ (`autocompleteservice` + `AutocompletePopup`) | ≈ parity (no sudo-pw source) |
+| Inline autocomplete / IntelliSense | ✅ (history/path/snippet/sudo) | ✅ (`autocompleteservice` + `AutocompletePopup`, incl. sudo-pw) | — |
 | Keychain / SSH keys | ✅ | ✅ (Keys) | — |
 | Identities (named credential bundles) | ✅ | ❌ (keys only) | minor; no Identity abstraction |
-| Known hosts | ✅ | ✅ (`store/knownhosts`) | not surfaced in UI |
+| Known hosts | ✅ | ✅ (`store/knownhosts` + Settings UI) | — |
 | Jump host / chaining | ✅ | ✅ (`proxyJump`) | UI is single field |
 | Mosh | ✅ | ✅ (`moshservice`, wraps mosh-client) | ≈ parity |
-| Client certificates (SSH) | ✅ | ⚠️ (key/password/agent only) | minor |
+| Client certificates (SSH) | ✅ | ✅ (key/password/agent/cert) | — |
 | Workspaces / focus / split / broadcast | ✅ (split caps at 16 terms) | ✅ (tabs + recursive splits + multi-cursor) | ≈ parity |
-| Per-tab session status (🟢 unread / 🟡 needs-input / 🔴 error) | ✅ | ⚠️ host-row dots only | gap — no terminal-tab indicator |
+| Per-tab session status (🟢 unread / 🟡 needs-input / 🔴 error) | ✅ | ✅ (per-tab indicators) | — |
 | Workspace templates (reusable) | ✅ (saves cwd + running cmds) | ❌ | gap — no saved layouts |
 | Unified terminal side panel (themes+history+snippets) | ✅ | ✅ (`TerminalSidePanel`) | ≈ parity |
 | Session logs (synced, team-shared, bookmarks) | ✅ | ✅ recordings (local only) | local parity; no sharing |
@@ -139,7 +141,7 @@ updateservice, localshellservice`.
 | Groups | ✅ nested | ⚠️ flat string | **nesting + counts + inherited settings** |
 | Tags / labels | ✅ chips | ⚠️ model only | **not rendered/filterable** |
 | Sync across devices | ✅ | ✅ (`syncservice`) | — |
-| Serial / Telnet | ✅ | ❌ | minor; out of scope for v1 |
+| Serial / Telnet | ✅ | ✅ (`serialservice` + `telnetservice`, full host editor + terminal routing) | ≈ parity (no serial flow control — lib limitation) |
 | Teams / multiplayer | ✅ | ❌ | out of scope (local-first app) |
 | Containers / k8s | ❌ | ✅ | **Blacknode ahead** |
 | DB client | ❌ | ✅ | **Blacknode ahead** |
@@ -156,7 +158,8 @@ autocomplete, Mosh, the unified side panel, and auto-sync all ship. Remaining ga
 entirely **account/collaboration infrastructure**: multi-vault hierarchy, nested groups with
 inherited settings, real team sharing (only a `team_activity` store stub exists today), and
 synced/shared session logs — all of which need a sync-server/account backend and are deferred.
-Smaller leftovers: Identities abstraction, workspace templates, SSH client certs, Serial/Telnet.
+Smaller leftovers: Identities abstraction, workspace templates. (SSH client certs and
+Serial/Telnet have since shipped.)
 Everywhere else Blacknode is a **superset**. The real remaining gap is **visual identity + IA
 polish**, not capability.
 
@@ -225,7 +228,8 @@ The rest of this plan assumes **Option A** unless decided otherwise.
 ### Phase 5 — Polish
 - Terminal side panel parity: themes + history + snippets in one place.
 - Empty states, onboarding hero, micro-interactions tuned to Termius's calmer feel.
-- Optional: Serial connection support (new `sshservice` sibling) — only if desired.
+- ✅ Serial **and** Telnet connection support shipped (`serialservice` / `telnetservice`
+  siblings, protocol selector in `HostEditor`, mode routing in `Terminal.svelte`).
 
 ---
 
@@ -320,6 +324,14 @@ account/cloud-backend features (§9) and a cosmetic mono review. All shipped wav
 > Re-verified against the authoritative Termius docs corpus (`docs.termius.com/llms-full.txt`
 > + sitemap, 33 doc pages) and HEAD `4b1dea9`. Two prior "open" items now ship (Known Hosts
 > UI, empty-state wave); five Termius specifics added/sharpened below.
+>
+> **Refreshed 2026-06-21:** since the audit above, six more items shipped — per-tab session
+> status (`e432064`), sudo-password autocomplete (`5c6a087`), startup snippets (`aa27d1e`),
+> SSH client certificates (`3c4dd70`), and Serial/Telnet (`aef8e41` backend + the current
+> frontend-wiring & serial line-settings work). Also confirmed already-present: **SSH config
+> import** (`hostservice.ScanSSHConfig` + `SSHConfigImport.svelte`). The table below reflects
+> these. Remaining actionable quick wins: **Identities**, **workspace templates**, **snippet
+> packages**, **session-log bookmarks**, **host env vars**, **HTTP/SOCKS proxy per host**.
 
 Everything Termius documents that Blacknode does **not** have, with the real status in code:
 
@@ -330,17 +342,19 @@ Everything Termius documents that Blacknode does **not** have, with the real sta
 | **Team sharing / RBAC / shared vault** | Only a `team_activity` store stub (`Record`/`Recent`); no UI, no RBAC | Account infra — deferred |
 | **Synced / team-shared session logs + bookmarks** | Recordings are local-only | Account infra — deferred |
 | **Identities** (named credential bundles) | Keys only; no Identity abstraction (the `IdentityFile` refs are SSH-config import) | Minor |
-| **Serial / Telnet protocols** | Absent (the `Serial` refs are SSL-cert serial numbers) | Minor / out of scope |
-| **SSH client certificates** | key / password / agent auth only | Minor |
+| ~~**Serial / Telnet protocols**~~ | ✅ **SHIPPED** — `serialservice.go` / `telnetservice.go`, protocol selector in `HostEditor`, mode routing in `Terminal.svelte`. Serial supports device/baud/data-bits/parity/stop-bits (flow control unsupported by `go.bug.st/serial`) | Done |
+| ~~**SSH client certificates**~~ | ✅ **SHIPPED** (commit `3c4dd70`) | Done |
 | **Workspace templates** (reusable saved layouts) | Tabs + splits exist; not persistable as templates (Termius templates also save cwd + running cmds) | Minor |
-| **Per-tab session status indicators** (🟢 unread / 🟡 needs-input / 🔴 error) | Host-row status dots only; no per-terminal-tab indicator | Minor |
-| **Startup snippets / snippet packages** | Snippets exist with var substitution; no startup-on-connect or package grouping | Minor |
+| ~~**Per-tab session status indicators**~~ (🟢 unread / 🟡 needs-input / 🔴 error) | ✅ **SHIPPED** (commit `e432064`) | Done |
+| **Snippet packages / folders** | Startup-on-connect snippets ✅ shipped (commit `aa27d1e`); package/folder grouping still absent | Minor |
 | **Cloud host import** (AWS / DigitalOcean / Azure per-group) | Absent | Account/cloud infra — deferred |
-| **Sudo-password autocomplete source** | Autocomplete pulls history/snippets/builtins only | Trivial |
+| ~~**Sudo-password autocomplete source**~~ | ✅ **SHIPPED** (commit `5c6a087`) | Done |
 | ~~**Known Hosts management UI**~~ | ✅ **SHIPPED** (`SettingsPanel.svelte`, commit `4ae8e21`) | Done |
 
 **Two buckets:** (a) **account/collaboration infrastructure** — multi-vault, nested groups,
 team sharing, synced logs — all need a sync-server/account backend and are correctly deferred;
-(b) **minor/quick wins** — Identities, Serial/Telnet, client certs, workspace templates, and
-surfacing Known Hosts in Settings (the data already exists). Nothing here is core SSH-client
-capability; Blacknode remains a superset everywhere else.
+(b) **minor/quick wins** — remaining: Identities, workspace templates, snippet packages,
+session-log bookmarks, host env vars, HTTP/SOCKS proxy per host. (Serial/Telnet, SSH client
+certs, per-tab status, sudo-pw autocomplete, startup snippets, and Known Hosts in Settings
+have all since shipped.) Nothing here is core SSH-client capability; Blacknode remains a
+superset everywhere else.
