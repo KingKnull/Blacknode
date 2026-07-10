@@ -98,6 +98,22 @@ export function List(): $CancellablePromise<store$0.Host[]> {
 }
 
 /**
+ * ListKnownHosts returns every trusted host key for display in Settings.
+ */
+export function ListKnownHosts(): $CancellablePromise<store$0.KnownHost[]> {
+    return $Call.ByID(1388369876).then(($result: any) => {
+        return $$createType4($result);
+    });
+}
+
+/**
+ * RemoveKnownHost forgets a trusted host key; the next connection re-prompts (TOFU).
+ */
+export function RemoveKnownHost(host: string, port: number, keyType: string): $CancellablePromise<void> {
+    return $Call.ByID(2853227303, host, port, keyType);
+}
+
+/**
  * ScanSSHConfig reads ~/.ssh/config (or %USERPROFILE%\.ssh\config on Windows)
  * and returns importable Host entries. Wildcard patterns (`*`, `?`, `!`) and
  * the catch-all `*` block are skipped — they're behavioral defaults, not
@@ -105,7 +121,7 @@ export function List(): $CancellablePromise<store$0.Host[]> {
  */
 export function ScanSSHConfig(): $CancellablePromise<$models.SSHConfigCandidate[]> {
     return $Call.ByID(2959866637).then(($result: any) => {
-        return $$createType4($result);
+        return $$createType6($result);
     });
 }
 
@@ -142,5 +158,7 @@ export function Update(h: store$0.Host): $CancellablePromise<void> {
 const $$createType0 = store$0.Host.createFrom;
 const $$createType1 = $Create.Map($Create.Any, $Create.Any);
 const $$createType2 = $Create.Array($$createType0);
-const $$createType3 = $models.SSHConfigCandidate.createFrom;
+const $$createType3 = store$0.KnownHost.createFrom;
 const $$createType4 = $Create.Array($$createType3);
+const $$createType5 = $models.SSHConfigCandidate.createFrom;
+const $$createType6 = $Create.Array($$createType5);

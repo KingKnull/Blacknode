@@ -309,6 +309,20 @@ export class Host {
     "tags": string[];
     "notes"?: string;
     "favorite": boolean;
+
+    /**
+     * StartupSnippetID, if set, names a snippet that is run automatically once
+     * an interactive session to this host finishes connecting.
+     */
+    "startupSnippetID"?: string;
+
+    /**
+     * Protocol selects the connection transport: "ssh" (default), "telnet", or
+     * "serial". Serial uses SerialDevice + SerialBaud and ignores Host/Port.
+     */
+    "protocol"?: string;
+    "serialDevice"?: string;
+    "serialBaud"?: number;
     "createdAt": number;
     "updatedAt": number;
     "lastConnectedAt": number;
@@ -362,6 +376,46 @@ export class Host {
             $$parsedSource["tags"] = $$createField10_0($$parsedSource["tags"]);
         }
         return new Host($$parsedSource as Partial<Host>);
+    }
+}
+
+/**
+ * KnownHost is one trusted host-key entry, shaped for the UI.
+ */
+export class KnownHost {
+    "host": string;
+    "port": number;
+    "keyType": string;
+    "fingerprint": string;
+    "addedAt": number;
+
+    /** Creates a new KnownHost instance. */
+    constructor($$source: Partial<KnownHost> = {}) {
+        if (!("host" in $$source)) {
+            this["host"] = "";
+        }
+        if (!("port" in $$source)) {
+            this["port"] = 0;
+        }
+        if (!("keyType" in $$source)) {
+            this["keyType"] = "";
+        }
+        if (!("fingerprint" in $$source)) {
+            this["fingerprint"] = "";
+        }
+        if (!("addedAt" in $$source)) {
+            this["addedAt"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new KnownHost instance from a string or object.
+     */
+    static createFrom($$source: any = {}): KnownHost {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new KnownHost($$parsedSource as Partial<KnownHost>);
     }
 }
 

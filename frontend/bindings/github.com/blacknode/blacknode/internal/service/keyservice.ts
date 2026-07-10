@@ -9,6 +9,17 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
+/**
+ * AttachCertificate validates an OpenSSH certificate, verifies it was issued
+ * for this key (its embedded public key must match), and stores it. Passing an
+ * empty certText detaches any existing certificate.
+ */
+export function AttachCertificate(id: string, certText: string): $CancellablePromise<$models.PublicKeyView> {
+    return $Call.ByID(329099791, id, certText).then(($result: any) => {
+        return $$createType0($result);
+    });
+}
+
 export function Delete(id: string): $CancellablePromise<void> {
     return $Call.ByID(2648564158, id);
 }

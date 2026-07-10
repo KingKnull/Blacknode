@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { HostService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
-  import type { Host } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
+  import { HostService, SnippetService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
+  import type { Host, Snippet } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { app } from "./state.svelte";
+  import { onMount } from "svelte";
   import { Server, X, Loader2, Eye, EyeOff, ShieldCheck } from "@lucide/svelte";
   import Dialog from "./Dialog.svelte";
 
@@ -32,6 +33,14 @@
   let proxyJump = $state(host?.proxyJump ?? "");
   // svelte-ignore state_referenced_locally
   let notes = $state(host?.notes ?? "");
+  // svelte-ignore state_referenced_locally
+  let startupSnippetID = $state(host?.startupSnippetID ?? "");
+
+  // Snippets for the "run on connect" picker.
+  let snippets = $state<Snippet[]>([]);
+  onMount(async () => {
+    try { snippets = ((await SnippetService.List()) ?? []) as Snippet[]; } catch { /* ignore */ }
+  });
   // Password: pre-fill from the in-memory cache if editing an existing host.
   // svelte-ignore state_referenced_locally
   let password = $state(host?.id ? (app.hostPasswords[host.id] ?? "") : "");
@@ -66,8 +75,9 @@
           environment,
           proxyJump,
           notes,
+          startupSnippetID,
         } as Host);
-        savedHost = { ...host, name, host: hostName, port, username, authMethod, keyID, group, environment, proxyJump, notes } as Host;
+        savedHost = { ...host, name, host: hostName, port, username, authMethod, keyID, group, environment, proxyJump, notes, startupSnippetID } as Host;
       } else {
         savedHost = (await HostService.Create({
           name,
@@ -80,6 +90,7 @@
           environment,
           proxyJump,
           notes,
+          startupSnippetID,
           tags: [],
         } as unknown as Host)) as Host;
       }
@@ -277,6 +288,21 @@
           {/each}
         </select>
         <p class="mt-1 type-caption text-[var(--color-text-4)]">Tunnels through selected bastion · cycles detected at connect</p>
+      </label>
+
+      <!-- Startup snippet -->
+      <label class="block">
+        <span class="type-caption text-[var(--color-text-4)]">Startup snippet (run on connect)</span>
+        <select
+          class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 type-body text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50 transition-colors"
+          bind:value={startupSnippetID}
+        >
+          <option value="">— None —</option>
+          {#each snippets as sn (sn.id)}
+            <option value={sn.id}>{sn.name}</option>
+          {/each}
+        </select>
+        <p class="mt-1 type-caption text-[var(--color-text-4)]">Sent automatically once the session connects · variable defaults are used</p>
       </label>
 
       <!-- Sudo password -->

@@ -46,10 +46,24 @@ type Dialer struct {
 	Vault      *vault.Vault
 	Keys       *store.Keys
 	KnownHosts *store.KnownHosts
+
+	// HostKeyOverride, when set, replaces the KnownHosts TOFU callback. It
+	// exists for tests that connect to ephemeral fake servers whose keys
+	// can't be pre-trusted; production always leaves it nil.
+	HostKeyOverride ssh.HostKeyCallback
 }
 
 func New(v *vault.Vault, k *store.Keys, kh *store.KnownHosts) *Dialer {
 	return &Dialer{Vault: v, Keys: k, KnownHosts: kh}
+}
+
+// hostKeyCallback returns the configured TOFU callback, or the test override
+// when one is set.
+func (d *Dialer) hostKeyCallback() ssh.HostKeyCallback {
+	if d.HostKeyOverride != nil {
+		return d.HostKeyOverride
+	}
+	return d.KnownHosts.Callback()
 }
 
 func (d *Dialer) Dial(t Target) (*ssh.Client, error) {
@@ -66,7 +80,7 @@ func (d *Dialer) Dial(t Target) (*ssh.Client, error) {
 	cfg := &ssh.ClientConfig{
 		User:            t.User,
 		Auth:            auth,
-		HostKeyCallback: d.KnownHosts.Callback(),
+		HostKeyCallback: d.hostKeyCallback(),
 		Timeout:         10 * time.Second,
 	}
 	addr := net.JoinHostPort(t.Host, strconv.Itoa(t.Port))
@@ -111,6 +125,23 @@ func (d *Dialer) authFor(t Target) ([]ssh.AuthMethod, error) {
 		signer, err := ssh.ParsePrivateKey(plain)
 		if err != nil {
 			return nil, fmt.Errorf("parse key: %w", err)
+		}
+		// If a certificate is attached, authenticate with the cert + key rather
+		// than the bare public key.
+		if k.Certificate != "" {
+			certPub, _, _, _, err := ssh.ParseAuthorizedKey([]byte(k.Certificate))
+			if err != nil {
+				return nil, fmt.Errorf("parse certificate: %w", err)
+			}
+			cert, ok := certPub.(*ssh.Certificate)
+			if !ok {
+				return nil, errors.New("attached certificate is not an SSH certificate")
+			}
+			certSigner, err := ssh.NewCertSigner(cert, signer)
+			if err != nil {
+				return nil, fmt.Errorf("certificate signer: %w", err)
+			}
+			return []ssh.AuthMethod{ssh.PublicKeys(certSigner)}, nil
 		}
 		return []ssh.AuthMethod{ssh.PublicKeys(signer)}, nil
 
@@ -168,7 +199,7 @@ func (d *Dialer) HandshakeOver(raw net.Conn, t Target) (*ssh.Client, error) {
 	cfg := &ssh.ClientConfig{
 		User:            t.User,
 		Auth:            auth,
-		HostKeyCallback: d.KnownHosts.Callback(),
+		HostKeyCallback: d.hostKeyCallback(),
 		Timeout:         15 * time.Second,
 	}
 	addr := net.JoinHostPort(t.Host, strconv.Itoa(t.Port))

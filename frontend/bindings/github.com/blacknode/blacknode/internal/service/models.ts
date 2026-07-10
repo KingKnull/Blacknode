@@ -1245,6 +1245,13 @@ export class PublicKeyView {
     "publicKey": string;
     "fingerprint": string;
     "createdAt": number;
+    "hasCertificate": boolean;
+
+    /**
+     * CertificateInfo is a short human summary (principals + validity) when a
+     * certificate is attached, otherwise empty.
+     */
+    "certificateInfo"?: string;
 
     /** Creates a new PublicKeyView instance. */
     constructor($$source: Partial<PublicKeyView> = {}) {
@@ -1265,6 +1272,9 @@ export class PublicKeyView {
         }
         if (!("createdAt" in $$source)) {
             this["createdAt"] = 0;
+        }
+        if (!("hasCertificate" in $$source)) {
+            this["hasCertificate"] = false;
         }
 
         Object.assign(this, $$source);
@@ -1756,7 +1766,7 @@ export class Suggestion {
     "text": string;
 
     /**
-     * "history" | "snippet" | "builtin" | "ai"
+     * "history" | "snippet" | "builtin" | "ai" | "sudo"
      */
     "source": string;
 

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -9,6 +10,8 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/blacknode/blacknode/internal/store"
 	"github.com/blacknode/blacknode/internal/vault"
@@ -27,19 +30,49 @@ func NewKeyService(k *store.Keys, v *vault.Vault) *KeyService {
 // PublicKeyView is the safe shape returned to the frontend — never the
 // private material.
 type PublicKeyView struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	KeyType     string `json:"keyType"`
-	PublicKey   string `json:"publicKey"`
-	Fingerprint string `json:"fingerprint"`
-	CreatedAt   int64  `json:"createdAt"`
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	KeyType        string `json:"keyType"`
+	PublicKey      string `json:"publicKey"`
+	Fingerprint    string `json:"fingerprint"`
+	CreatedAt      int64  `json:"createdAt"`
+	HasCertificate bool   `json:"hasCertificate"`
+	// CertificateInfo is a short human summary (principals + validity) when a
+	// certificate is attached, otherwise empty.
+	CertificateInfo string `json:"certificateInfo,omitempty"`
 }
 
 func toView(k store.Key) PublicKeyView {
-	return PublicKeyView{
+	v := PublicKeyView{
 		ID: k.ID, Name: k.Name, KeyType: k.KeyType,
 		PublicKey: k.PublicKey, Fingerprint: k.Fingerprint, CreatedAt: k.CreatedAt,
 	}
+	if k.Certificate != "" {
+		v.HasCertificate = true
+		v.CertificateInfo = certSummary(k.Certificate)
+	}
+	return v
+}
+
+// certSummary renders a one-line description of an OpenSSH certificate.
+func certSummary(certText string) string {
+	pub, _, _, _, err := ssh.ParseAuthorizedKey([]byte(certText))
+	if err != nil {
+		return "invalid certificate"
+	}
+	cert, ok := pub.(*ssh.Certificate)
+	if !ok {
+		return "not a certificate"
+	}
+	principals := "any"
+	if len(cert.ValidPrincipals) > 0 {
+		principals = strings.Join(cert.ValidPrincipals, ", ")
+	}
+	if cert.ValidBefore == ssh.CertTimeInfinity {
+		return fmt.Sprintf("principals: %s · no expiry", principals)
+	}
+	return fmt.Sprintf("principals: %s · valid until %s", principals,
+		time.Unix(int64(cert.ValidBefore), 0).UTC().Format("2006-01-02"))
 }
 
 func (s *KeyService) List(ctx context.Context) ([]PublicKeyView, error) {
@@ -55,6 +88,50 @@ func (s *KeyService) List(ctx context.Context) ([]PublicKeyView, error) {
 }
 
 func (s *KeyService) Delete(ctx context.Context, id string) error { return s.keys.Delete(id) }
+
+// AttachCertificate validates an OpenSSH certificate, verifies it was issued
+// for this key (its embedded public key must match), and stores it. Passing an
+// empty certText detaches any existing certificate.
+func (s *KeyService) AttachCertificate(ctx context.Context, id, certText string) (PublicKeyView, error) {
+	certText = strings.TrimSpace(certText)
+	if certText == "" {
+		if err := s.keys.SetCertificate(id, ""); err != nil {
+			return PublicKeyView{}, err
+		}
+		k, err := s.keys.Get(id)
+		if err != nil {
+			return PublicKeyView{}, err
+		}
+		return toView(k), nil
+	}
+
+	pub, _, _, _, err := ssh.ParseAuthorizedKey([]byte(certText))
+	if err != nil {
+		return PublicKeyView{}, fmt.Errorf("parse certificate: %w", err)
+	}
+	cert, ok := pub.(*ssh.Certificate)
+	if !ok {
+		return PublicKeyView{}, errors.New("that is a public key, not a certificate")
+	}
+
+	k, err := s.keys.Get(id)
+	if err != nil {
+		return PublicKeyView{}, err
+	}
+	keyPub, _, _, _, err := ssh.ParseAuthorizedKey([]byte(k.PublicKey))
+	if err != nil {
+		return PublicKeyView{}, fmt.Errorf("parse stored public key: %w", err)
+	}
+	if !bytes.Equal(cert.Key.Marshal(), keyPub.Marshal()) {
+		return PublicKeyView{}, errors.New("certificate was not issued for this key")
+	}
+
+	if err := s.keys.SetCertificate(id, certText); err != nil {
+		return PublicKeyView{}, err
+	}
+	k.Certificate = certText
+	return toView(k), nil
+}
 
 // Generate creates a new keypair, encrypts the private half with the unlocked
 // vault master key, and stores both halves.

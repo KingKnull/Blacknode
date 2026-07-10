@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from "svelte";
   import { AutocompleteService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { Suggestion } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
+  import { app } from "./state.svelte";
 
   type Props = {
     prefix: string;
@@ -29,6 +30,7 @@
     snippet: "SNIP",
     builtin: "CMD",
     ai: "AI",
+    sudo: "SUDO",
   };
 
   const SOURCE_COLORS: Record<string, string> = {
@@ -36,7 +38,20 @@
     snippet: "var(--color-accent-3)",
     builtin: "var(--color-text-4)",
     ai: "var(--color-warn)",
+    sudo: "var(--color-success)",
   };
+
+  // The stored sudo password is a privileged completion source: when the user
+  // begins typing it (e.g. at a `[sudo] password for…` prompt) we offer to
+  // fill the rest. The value is masked in the list and only the real string is
+  // inserted on accept. It already lives decrypted in app state, so no new
+  // secret crosses the backend boundary.
+  function sudoSuggestion(clean: string): Suggestion | null {
+    const pw = app.hostSudoPasswords[hostID] || app.hostSudoPasswords["local"];
+    if (!pw || pw.length < 2) return null;
+    if (clean.length >= pw.length || !pw.startsWith(clean)) return null;
+    return { text: pw, source: "sudo", description: "sudo password", score: 100 } as Suggestion;
+  }
 
   // Re-fetch whenever prefix changes.
   $effect(() => {
@@ -45,14 +60,16 @@
       suggestions = [];
       return;
     }
+    const sudo = sudoSuggestion(clean);
     loading = true;
     AutocompleteService.Suggest(clean, hostID, 8)
       .then((res) => {
-        suggestions = (res ?? []) as Suggestion[];
+        const base = (res ?? []) as Suggestion[];
+        suggestions = sudo ? [sudo, ...base] : base;
         activeIndex = 0;
       })
       .catch(() => {
-        suggestions = [];
+        suggestions = sudo ? [sudo] : [];
       })
       .finally(() => {
         loading = false;
@@ -120,9 +137,9 @@
         >
           {SOURCE_LABELS[s.source] ?? s.source.toUpperCase()}
         </span>
-        <!-- Command text -->
+        <!-- Command text (sudo password is masked; real value still inserted) -->
         <span class="flex-1 truncate font-mono type-caption text-[var(--color-text-1)]">
-          {s.text}
+          {s.source === "sudo" ? "•".repeat(Math.min(s.text.length, 12)) : s.text}
         </span>
         <!-- Description (snippet name / host name) -->
         {#if s.description}

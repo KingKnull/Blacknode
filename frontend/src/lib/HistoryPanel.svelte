@@ -5,6 +5,7 @@
   import { app } from "./state.svelte";
   import { bus } from "./events";
   import PageHeader from "./PageHeader.svelte";
+  import EmptyState from "./EmptyState.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
   import Skeleton from "./Skeleton.svelte";
   import {
@@ -165,15 +166,11 @@
     {#if loading && entries.length === 0}
       <Skeleton rows={10} rowClass="h-10" />
     {:else if entries.length === 0}
-      <div class="flex h-full items-center justify-center">
-        <div class="max-w-md text-center">
-          <HistoryIcon size="22" class="mx-auto text-[var(--color-text-4)]" />
-          <p class="mt-2 type-caption text-[var(--color-text-3)]">
-            No history yet. Commands appear here when you run via Multi-host,
-            insert from the AI drawer, or apply a snippet.
-          </p>
-        </div>
-      </div>
+      <EmptyState
+        icon={HistoryIcon}
+        title="No history yet"
+        description="Commands appear here when you run via Multi-host, insert from the AI drawer, or apply a snippet."
+      />
     {:else}
       <div class="divide-y divide-[var(--color-line)]">
         {#each entries as e (e.id)}

@@ -6,6 +6,7 @@
     NotificationService,
     UpdateService,
     SyncService,
+    HostService,
   } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type {
     NotifyConfig,
@@ -14,7 +15,7 @@
     AutoSyncConfig,
     ConflictItem,
   } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
-  import type { TeamActivity } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
+  import type { TeamActivity, KnownHost } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
@@ -37,6 +38,8 @@
     CloudUpload,
     CloudDownload,
     Users,
+    ShieldCheck,
+    Trash2,
   } from "@lucide/svelte";
 
   let apiKeyInput = $state("");
@@ -158,6 +161,28 @@
     return new Date(unix * 1000).toLocaleString();
   }
 
+  // ── Known Hosts (TOFU host keys) ──────────────────────────────────
+  let knownHosts = $state<KnownHost[]>([]);
+  let knownHostsBusy = $state(false);
+  let confirmForget = $state<KnownHost | null>(null);
+
+  async function loadKnownHosts() {
+    knownHostsBusy = true;
+    try {
+      knownHosts = await HostService.ListKnownHosts();
+    } catch {
+      // ignore
+    } finally {
+      knownHostsBusy = false;
+    }
+  }
+
+  async function forgetKnownHost(k: KnownHost) {
+    await HostService.RemoveKnownHost(k.host, k.port, k.keyType);
+    confirmForget = null;
+    await loadKnownHosts();
+  }
+
   let teamActor = $state<string>(
     localStorage.getItem("blacknode.team.actor") ?? "",
   );
@@ -238,6 +263,7 @@
     await loadSyncStatus();
     await loadAutoSyncConfig();
     await refreshTeamActivity();
+    await loadKnownHosts();
   });
 
   async function saveNotify() {
@@ -351,6 +377,7 @@
   const SECTIONS = [
     { id: "ai", label: "AI ASSISTANT", Icon: Sparkles },
     { id: "security", label: "SECURITY", Icon: Lock },
+    { id: "knownhosts", label: "KNOWN HOSTS", Icon: ShieldCheck },
     { id: "appearance", label: "APPEARANCE", Icon: Palette },
     { id: "notifications", label: "NOTIFICATIONS", Icon: Bell },
     { id: "shell", label: "LOCAL SHELL", Icon: Activity },
@@ -493,6 +520,52 @@
               </button>
             </div>
           </label>
+        </section>
+
+        <!-- Known Hosts -->
+        <section id="section-knownhosts" class="border hairline-strong surface-2 p-6 shadow-xl" style="backdrop-filter: blur(12px) saturate(1.2);">
+          <div class="mb-4 flex items-center gap-2">
+            <ShieldCheck size="14" class="text-[var(--color-accent)]" />
+            <h3 class="type-eyebrow text-[var(--color-text-1)]">Known hosts</h3>
+            <span class="ml-auto type-micro text-[var(--color-text-4)]">{knownHosts.length} trusted</span>
+          </div>
+          <p class="mb-3 type-caption text-[var(--color-text-3)] leading-relaxed">
+            SSH host keys you've trusted (TOFU). Forget one to re-trigger the
+            verification prompt on the next connection — do this after a host is
+            rebuilt or its key legitimately rotates.
+          </p>
+          {#if knownHostsBusy && knownHosts.length === 0}
+            <p class="type-caption text-[var(--color-text-4)]">Loading…</p>
+          {:else if knownHosts.length === 0}
+            <p class="type-caption text-[var(--color-text-4)]">
+              No trusted host keys yet. They're added the first time you connect to a host.
+            </p>
+          {:else}
+            <div class="divide-y divide-[var(--color-line)] border hairline">
+              {#each knownHosts as k (k.host + ":" + k.port + ":" + k.keyType)}
+                <div class="flex items-center gap-3 px-3 py-2">
+                  <div class="min-w-0 flex-1">
+                    <div class="truncate font-mono type-caption text-[var(--color-text-1)]">
+                      {k.host}:{k.port}
+                      <span class="ml-1 type-micro text-[var(--color-text-4)]">{k.keyType}</span>
+                    </div>
+                    <div class="truncate font-mono type-micro text-[var(--color-text-3)]" title={k.fingerprint}>
+                      {k.fingerprint}
+                    </div>
+                  </div>
+                  <span class="shrink-0 type-micro text-[var(--color-text-4)]">{fmtTime(k.addedAt)}</span>
+                  <button
+                    class="shrink-0 border hairline-strong p-1.5 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-danger)] transition-colors"
+                    title="Forget this host key"
+                    aria-label="Forget host key for {k.host}:{k.port}"
+                    onclick={() => (confirmForget = k)}
+                  >
+                    <Trash2 size="12" />
+                  </button>
+                </div>
+              {/each}
+            </div>
+          {/if}
         </section>
 
         <!-- Appearance -->
@@ -939,5 +1012,17 @@
     productionHosts={[]}
     onCancel={() => (confirmClearKey = false)}
     onConfirm={clearAPIKey}
+  />
+{/if}
+
+<!-- ConfirmDanger for forgetting a known host key -->
+{#if confirmForget}
+  <ConfirmDanger
+    title="FORGET HOST KEY"
+    body={`Blacknode will forget the trusted key for ${confirmForget.host}:${confirmForget.port}. The next connection re-triggers host-key verification (TOFU). Only do this if the host was rebuilt or its key legitimately rotated.`}
+    severity="warn"
+    productionHosts={[]}
+    onCancel={() => (confirmForget = null)}
+    onConfirm={() => forgetKnownHost(confirmForget!)}
   />
 {/if}

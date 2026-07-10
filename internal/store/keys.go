@@ -15,11 +15,16 @@ import (
 // material never leaves the vault except transiently when an SSH connection
 // is being established.
 type Key struct {
-	ID                  string `json:"id"`
-	Name                string `json:"name"`
-	KeyType             string `json:"keyType"`
-	PublicKey           string `json:"publicKey"`
-	Fingerprint         string `json:"fingerprint"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	KeyType     string `json:"keyType"`
+	PublicKey   string `json:"publicKey"`
+	Fingerprint string `json:"fingerprint"`
+	// Certificate, if present, is an OpenSSH-format signed public key
+	// (e.g. "ssh-ed25519-cert-v01@openssh.com AAAA…") issued by a CA for this
+	// key. When set, the dialer authenticates with the certificate rather than
+	// the bare public key. Not secret — safe to list.
+	Certificate         string `json:"certificate,omitempty"`
 	CreatedAt           int64  `json:"createdAt"`
 	EncryptedPrivateKey []byte `json:"-"`
 	Nonce               []byte `json:"-"`
@@ -38,10 +43,20 @@ func (s *Keys) Create(k Key) (Key, error) {
 	}
 	k.CreatedAt = time.Now().Unix()
 	_, err := s.db.Exec(
-		`INSERT INTO keys (id, name, key_type, public_key, encrypted_private_key, nonce, fingerprint, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		k.ID, k.Name, k.KeyType, k.PublicKey, k.EncryptedPrivateKey, k.Nonce, k.Fingerprint, k.CreatedAt,
+		`INSERT INTO keys (id, name, key_type, public_key, encrypted_private_key, nonce, fingerprint, certificate, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		k.ID, k.Name, k.KeyType, k.PublicKey, k.EncryptedPrivateKey, k.Nonce, k.Fingerprint, k.Certificate, k.CreatedAt,
 	)
 	return k, err
+}
+
+// SetCertificate attaches (or clears, when cert is empty) an OpenSSH
+// certificate for a key. The cert text is validated by the caller.
+func (s *Keys) SetCertificate(id, cert string) error {
+	if id == "" {
+		return errors.New("id required")
+	}
+	_, err := s.db.Exec(`UPDATE keys SET certificate=? WHERE id=?`, cert, id)
+	return err
 }
 
 func (s *Keys) Delete(id string) error {
@@ -50,14 +65,14 @@ func (s *Keys) Delete(id string) error {
 }
 
 func (s *Keys) Get(id string) (Key, error) {
-	row := s.db.QueryRow(`SELECT id, name, key_type, public_key, encrypted_private_key, nonce, fingerprint, created_at FROM keys WHERE id = ?`, id)
+	row := s.db.QueryRow(`SELECT id, name, key_type, public_key, encrypted_private_key, nonce, fingerprint, certificate, created_at FROM keys WHERE id = ?`, id)
 	var k Key
-	err := row.Scan(&k.ID, &k.Name, &k.KeyType, &k.PublicKey, &k.EncryptedPrivateKey, &k.Nonce, &k.Fingerprint, &k.CreatedAt)
+	err := row.Scan(&k.ID, &k.Name, &k.KeyType, &k.PublicKey, &k.EncryptedPrivateKey, &k.Nonce, &k.Fingerprint, &k.Certificate, &k.CreatedAt)
 	return k, err
 }
 
 func (s *Keys) List() ([]Key, error) {
-	rows, err := s.db.Query(`SELECT id, name, key_type, public_key, fingerprint, created_at FROM keys ORDER BY name COLLATE NOCASE`)
+	rows, err := s.db.Query(`SELECT id, name, key_type, public_key, fingerprint, certificate, created_at FROM keys ORDER BY name COLLATE NOCASE`)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +80,7 @@ func (s *Keys) List() ([]Key, error) {
 	out := []Key{}
 	for rows.Next() {
 		var k Key
-		if err := rows.Scan(&k.ID, &k.Name, &k.KeyType, &k.PublicKey, &k.Fingerprint, &k.CreatedAt); err != nil {
+		if err := rows.Scan(&k.ID, &k.Name, &k.KeyType, &k.PublicKey, &k.Fingerprint, &k.Certificate, &k.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, k)

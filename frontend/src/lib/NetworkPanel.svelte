@@ -8,6 +8,7 @@
   } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
+  import EmptyState from "./EmptyState.svelte";
   import {
     Radar,
     Globe,
@@ -152,13 +153,11 @@
 
   {#if !host}
     <div class="flex flex-1 items-center justify-center">
-      <div class="text-center">
-        <Radar size="22" class="mx-auto text-[var(--color-text-4)]" />
-        <p class="mt-2 type-caption text-[var(--color-text-3)]">
-          Select a host on the left. Ping/DNS/port-scan/SSL all run *through*
-          that host, so you can probe internal services from a bastion.
-        </p>
-      </div>
+      <EmptyState
+        icon={Radar}
+        title="Select a host"
+        description="Ping, DNS, port-scan and SSL checks all run through the selected host, so you can probe internal services from a bastion."
+      />
     </div>
   {:else}
     <div class="flex items-center gap-1 border-b hairline surface-1 px-3 py-1.5">

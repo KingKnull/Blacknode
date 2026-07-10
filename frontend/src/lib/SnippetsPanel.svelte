@@ -4,6 +4,7 @@
   import type { Snippet } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
+  import EmptyState from "./EmptyState.svelte";
   import SnippetApplyDialog from "./SnippetApplyDialog.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
   import {
@@ -170,21 +171,13 @@
 
   <div class="flex-1 overflow-y-auto">
     {#if visible.length === 0 && !creating && !editing}
-      <div class="flex h-full items-center justify-center">
-        <div class="max-w-md text-center">
-          <BookmarkIcon size="22" class="mx-auto text-[var(--color-text-4)]" />
-          <p class="mt-2 type-caption text-[var(--color-text-3)]">
-            {#if filter}
-              no snippets match "{filter}"
-            {:else}
-              No snippets yet. Click "new" to add one. Use <span
-                class="font-mono">&#123;&#123;name&#125;&#125;</span
-              > or <span class="font-mono">&#123;&#123;name|default&#125;&#125;</span>
-              for variables.
-            {/if}
-          </p>
-        </div>
-      </div>
+      <EmptyState
+        icon={BookmarkIcon}
+        title={filter ? "No matching snippets" : "No snippets yet"}
+        description={filter
+          ? `Nothing matches "${filter}".`
+          : 'Click "new" to add one. Use {{name}} or {{name|default}} for variables.'}
+      />
     {:else}
       <div class="divide-y divide-[var(--color-line)]">
         {#each visible as s (s.id)}

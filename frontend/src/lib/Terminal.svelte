@@ -62,6 +62,10 @@
   // Splash screen tracking
   let hasTyped = $state(false);
 
+  // Whether this pane currently holds keyboard focus — drives the tab
+  // "unread output" indicator (output that arrives while unfocused is unread).
+  let isFocused = false;
+
   // Auto-reconnect state (SSH only — Mosh handles reconnects itself)
   let reconnecting = $state(false);
   let reconnectAttempt = $state(0);
@@ -175,6 +179,7 @@
   function triggerSudoPill() {
     if (sudoPillTimer) clearTimeout(sudoPillTimer);
     showSudoPill = true;
+    if (!isFocused) app.setSessionStatus(sessionID, "needs-input");
     sudoPillTimer = setTimeout(() => {
       showSudoPill = false;
       sudoInlineInput = false;
@@ -185,6 +190,7 @@
     if (sudoPillTimer) clearTimeout(sudoPillTimer);
     showSudoPill = false;
     sudoInlineInput = false;
+    if (app.sessionStatus[sessionID] === "needs-input") app.clearSessionStatus(sessionID);
   }
 
   function getSudoPassword(): string | null {
@@ -222,6 +228,12 @@
     else if (mode === "remote" && status === "connected") void SSHService.Write(sessionID, p.text);
     else if (mode === "mosh" && status === "connected") void MoshService.Write(sessionID, p.text);
     app.pendingTerminalInsert = null;
+  });
+
+  // Reflect an errored session onto its tab dot (and clear it once recovered).
+  $effect(() => {
+    if (status === "error") app.setSessionStatus(sessionID, "error");
+    else if (app.sessionStatus[sessionID] === "error") app.clearSessionStatus(sessionID);
   });
 
   // Keep connected-hosts set in sync
@@ -324,11 +336,20 @@
     });
     resizeObs.observe(containerEl!);
 
+    // Focus tracking — focusin/focusout bubble up from xterm's helper textarea.
+    containerEl?.addEventListener("focusin", () => {
+      isFocused = true;
+      app.clearSessionStatus(sessionID);
+    });
+    containerEl?.addEventListener("focusout", () => { isFocused = false; });
+
     dataOff = Events.On("terminal:data", (e: any) => {
       const p = e?.data;
       if (!p || p.sessionID !== sessionID) return;
       term?.write(p.data);
       checkForSudoPrompt(p.data);
+      // Output landing on an unfocused pane → flag the tab as having unread output.
+      if (!isFocused) app.markSessionUnread(sessionID);
     });
 
     exitOff = Events.On("terminal:exit", (e: any) => {
@@ -399,6 +420,7 @@
     if (reconnectTimer) clearTimeout(reconnectTimer);
     clearTimeout(resizeDebounce);
     app.unregisterBroadcastSink(sessionID);
+    app.forgetSession(sessionID);
     term?.dispose();
     if (mode === "local" && status === "running") void LocalShellService.Close(sessionID);
     if (mode === "remote" && status === "connected") void SSHService.Disconnect(sessionID);
@@ -409,6 +431,20 @@
     if (mode === "local" && status === "running") void LocalShellService.Write(sessionID, d);
     else if (mode === "remote" && status === "connected") void SSHService.Write(sessionID, d);
     else if (mode === "mosh" && status === "connected") void MoshService.Write(sessionID, d);
+  }
+
+  // If the host defines a startup snippet, render it (using variable defaults)
+  // and send it once the shell is up. A short delay lets the remote prompt
+  // settle before we type into it.
+  function runStartupSnippet(hostID: string) {
+    const host = app.hosts.find((h) => h.id === hostID);
+    if (!host?.startupSnippetID) return;
+    setTimeout(async () => {
+      try {
+        const rendered = await SnippetService.Apply(host.startupSnippetID!, {}, hostID, host.name, false);
+        if (rendered) writeLocal(rendered.endsWith("\n") ? rendered : rendered + "\n");
+      } catch { /* snippet may have been deleted — ignore */ }
+    }, 400);
   }
 
   function toggleBroadcastMember() { app.toggleBroadcastMember(sessionID); }
@@ -460,6 +496,7 @@
       status = "connected";
       connectedHostID = hostID;
       term?.focus();
+      runStartupSnippet(hostID);
     } catch (e: any) {
       status = "error";
       errorMsg = String(e?.message ?? e);
@@ -481,6 +518,7 @@
       await SSHService.ConnectByHost(sessionID, hostID, runtimePassword, term?.cols ?? 80, term?.rows ?? 24);
       status = "connected"; connectedHostID = hostID; term?.focus();
       startLatencyPolling();
+      runStartupSnippet(hostID);
     } catch (e: any) {
       let msg = String(e?.message ?? e);
       if (msg.trimStart().startsWith("{")) {

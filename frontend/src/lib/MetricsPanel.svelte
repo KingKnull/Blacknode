@@ -5,6 +5,7 @@
   import type { HostMetrics } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
+  import EmptyState from "./EmptyState.svelte";
   import {
     Activity,
     Server,
@@ -244,13 +245,12 @@
       </div>
     {/each}
     {#if app.hosts.length === 0}
-      <div class="col-span-2 flex h-full items-center justify-center">
-        <div class="text-center">
-          <Activity size="22" class="mx-auto text-[var(--color-text-4)]" />
-          <p class="mt-2 type-caption text-[var(--color-text-3)]">
-            Add a host to see metrics.
-          </p>
-        </div>
+      <div class="col-span-2 h-full">
+        <EmptyState
+          icon={Activity}
+          title="No hosts yet"
+          description="Add a host to see CPU, memory and disk metrics."
+        />
       </div>
     {/if}
   </div>

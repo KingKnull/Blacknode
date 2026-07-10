@@ -6,6 +6,7 @@
   import type { LogQuery } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
+  import EmptyState from "./EmptyState.svelte";
   import {
     ScrollText,
     Play,
@@ -346,18 +347,13 @@
         </div>
       {/each}
       {#if filtered().length === 0}
-        <div class="flex h-full items-center justify-center">
-          <div class="text-center">
-            <ScrollText size="22" class="mx-auto text-[var(--color-text-4)]" />
-            <p class="mt-2 type-caption text-[var(--color-text-3)]">
-              {#if running}
-                Listening… nothing matches the current filter.
-              {:else}
-                Pick hosts on the left and hit start.
-              {/if}
-            </p>
-          </div>
-        </div>
+        <EmptyState
+          icon={ScrollText}
+          title={running ? "No matching output" : "Not streaming"}
+          description={running
+            ? "Listening… nothing matches the current filter."
+            : "Pick hosts on the left and hit start."}
+        />
       {/if}
     </div>
   </div>
