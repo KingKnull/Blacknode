@@ -17,11 +17,15 @@ type VaultService struct {
 	vault    *vault.Vault
 	db       *sql.DB
 	activity *activityRecorder
-	sync     *SyncService // optional — nil-checked; wired for sync-on-unlock / stop-on-lock
+	sync     *SyncService     // optional — nil-checked; wired for sync-on-unlock / stop-on-lock
+	autoLock *AutoLockService // optional — nil-checked; idle timer reset on unlock
 }
 
-func NewVaultService(v *vault.Vault, db *sql.DB, activity *activityRecorder) *VaultService {
-	return &VaultService{vault: v, db: db, activity: activity}
+// NewVaultService constructs the vault service. autoLock may be nil (tests);
+// when set, successful unlocks reset its idle timer — otherwise a stale timer
+// can re-lock the vault on the next tick even though the user just unlocked.
+func NewVaultService(v *vault.Vault, db *sql.DB, activity *activityRecorder, autoLock *AutoLockService) *VaultService {
+	return &VaultService{vault: v, db: db, activity: activity, autoLock: autoLock}
 }
 
 // SetSyncService wires the sync service after construction, avoiding a
@@ -53,6 +57,9 @@ func (s *VaultService) Setup(ctx context.Context, passphrase string) error {
 		Kind:   "vault.setup",
 		Title:  "Vault initialized",
 	})
+	if s.autoLock != nil {
+		s.autoLock.Touch(ctx)
+	}
 	return nil
 }
 
@@ -72,6 +79,9 @@ func (s *VaultService) Unlock(ctx context.Context, passphrase string) error {
 		Kind:   "vault.unlock",
 		Title:  "Vault unlocked",
 	})
+	if s.autoLock != nil {
+		s.autoLock.Touch(ctx)
+	}
 	if s.sync != nil {
 		s.sync.SyncOnUnlockIfEnabled(ctx)
 	}
@@ -141,6 +151,9 @@ func (s *VaultService) TryAutoUnlock(ctx context.Context) (bool, error) {
 		// Passphrase no longer valid (vault re-initialized?) — clean up.
 		_, _ = s.db.Exec(`DELETE FROM vault_remember WHERE id = 1`)
 		return false, nil
+	}
+	if s.autoLock != nil {
+		s.autoLock.Touch(ctx)
 	}
 	return true, nil
 }

@@ -5,6 +5,7 @@
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
+  import Dialog from "./Dialog.svelte";
   import EmptyState from "./EmptyState.svelte";
   import {
     Network,
@@ -245,29 +246,33 @@
       <EmptyState
         icon={Network}
         title="No port forwards yet"
-        description={'Click "new forward" to create a local, remote, or SOCKS5 tunnel.'}
-      />
+        description="Tunnel a local port through SSH, expose one remotely, or run a SOCKS5 proxy."
+      >
+        {#snippet action()}
+          <button
+            class="flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-1.5 type-caption font-medium text-[var(--color-surface-0)] hover:opacity-90 transition-opacity"
+            onclick={() => (creating = true)}
+          >+ New forward</button>
+        {/snippet}
+      </EmptyState>
     {/if}
   </div>
 </div>
 
 {#if creating}
-  <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-    role="presentation"
-    onclick={(e) => {
-      if (e.target === e.currentTarget) creating = false;
-    }}
+  <Dialog
+    onclose={() => (creating = false)}
+    labelledby="new-forward-title"
+    backdropClass="bg-black/70 backdrop-blur-sm"
+    panelClass="w-[560px] overflow-hidden border hairline-strong surface-2 shadow-2xl shadow-black/50"
   >
-    <div
-      class="w-[560px] overflow-hidden border hairline-strong surface-2 shadow-2xl shadow-black/50"
-    >
       <div class="flex items-center gap-2 border-b hairline px-5 py-3">
         <Network size="14" class="text-[var(--color-accent)]" />
-        <h3 class="type-body font-semibold">New port forward</h3>
+        <h3 id="new-forward-title" class="type-body font-semibold">New port forward</h3>
         <button
           class="ml-auto rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
           onclick={() => (creating = false)}
+          aria-label="Close"
         >
           <X size="14" />
         </button>
@@ -290,9 +295,10 @@
             >Name</span
           >
           <input
-            class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 outline-none"
+            class="mt-1 w-full rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 outline-none"
             bind:value={cName}
             placeholder="prod-db-tunnel"
+            data-autofocus
           />
         </label>
         <div class="grid grid-cols-2 gap-2">
@@ -302,7 +308,7 @@
               >Host</span
             >
             <select
-              class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 outline-none"
+              class="mt-1 w-full rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 outline-none"
               bind:value={cHostID}
             >
               <option value="">— select —</option>
@@ -317,7 +323,7 @@
               >Kind</span
             >
             <select
-              class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 outline-none"
+              class="mt-1 w-full rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 outline-none"
               bind:value={cKind}
             >
               <option value="local">local — bind here, dial through SSH</option>
@@ -334,7 +340,7 @@
               >Local bind</span
             >
             <input
-              class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono outline-none"
+              class="mt-1 w-full rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono outline-none"
               bind:value={cLocalAddr}
               placeholder="127.0.0.1"
             />
@@ -392,8 +398,7 @@
           {#if saving}<Loader2 size="11" class="animate-spin" />{:else}Save{/if}
         </button>
       </div>
-    </div>
-  </div>
+  </Dialog>
 {/if}
 
 {#if forwardToDelete}

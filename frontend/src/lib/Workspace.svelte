@@ -164,6 +164,9 @@
     window.addEventListener("keydown", onShortcut);
 
     vaultLockOff = Events.On("vault:locked", () => {
+      // Idle lock must stick: without this flag refreshVault would auto-unlock
+      // via the remember-me token and the vault would never stay locked.
+      app.suppressAutoUnlock = true;
       void app.refreshVault();
       app.aiOpen = false;
     });
@@ -328,6 +331,7 @@
   }
 
   async function lockVault() {
+    app.suppressAutoUnlock = true;
     await VaultService.Lock();
     await app.refreshAll();
   }
@@ -518,7 +522,13 @@
     const off = bus.on('tab-label', (detail) => {
       if (detail.tabID) tabLabels[detail.tabID] = detail.label;
     });
-    return () => off();
+    // Terminals only know their sessionID — resolve which tab owns the
+    // session so a connected tab shows the host name instead of local-N.
+    const offSession = bus.on('session-label', (detail) => {
+      const tab = tabs.find((t) => leaves(t.root).some((l) => l.sessionID === detail.sessionID));
+      if (tab) tabLabels[tab.id] = detail.label;
+    });
+    return () => { off(); offSession(); };
   });
 
   function tabLabel(t: Tab): string {

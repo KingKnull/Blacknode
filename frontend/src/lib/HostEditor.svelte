@@ -178,7 +178,7 @@
   labelledby="host-editor-title"
   backdropClass="bg-black/[0.82] backdrop-blur-[4px]"
   panelClass="w-[520px] max-h-[85vh] overflow-y-auto overflow-x-hidden border hairline-strong surface-2 shadow-2xl fade-up"
-  panelStyle="box-shadow: 0 0 0 1px var(--color-line-strong), 0 0 60px rgba(59, 130, 246,0.04), 0 40px 80px rgba(0,0,0,0.6);"
+  panelStyle="box-shadow: 0 0 0 1px var(--color-line-strong), 0 0 60px rgba(59,130,246,0.04), 0 40px 80px rgba(0,0,0,0.6);"
 >
   {#snippet children()}
     <!-- Header -->
@@ -371,7 +371,7 @@
               type={showPassword ? 'text' : 'password'}
               class="w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 pr-9 font-mono type-body text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
               bind:value={password}
-              placeholder="leave blank to keep current"
+              placeholder={host ? "leave blank to keep current" : "SSH password"}
               autocomplete="new-password"
             />
             <button
@@ -397,7 +397,7 @@
           <input
             class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-body text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
             bind:value={group}
-            placeholder="web · db · cache"
+            placeholder="e.g. web-fleet"
           />
         </label>
         <label class="block">
@@ -502,7 +502,7 @@
         class="border border-[var(--color-line)] px-3 py-1.5 type-body text-[var(--color-text-3)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)] transition-all"
         onclick={onclose}>Cancel</button>
       <button
-        class="flex items-center gap-1.5 border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 px-3 py-1.5 type-body font-semibold text-[var(--color-accent)] hover:bg-[var(--color-accent)]/18 hover:shadow-[0_0_16px_rgba(59, 130, 246,0.08)] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+        class="flex items-center gap-1.5 border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 px-3 py-1.5 type-body font-semibold text-[var(--color-accent)] hover:bg-[var(--color-accent)]/18 hover:shadow-[0_0_16px_rgba(59,130,246,0.08)] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
         disabled={busy}
         onclick={save}
       >

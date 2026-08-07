@@ -6,6 +6,7 @@ import {
   AIService,
   RecordingService,
   PluginService,
+  AutoLockService,
 } from "../../bindings/github.com/blacknode/blacknode/internal/service";
 import type { Host } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
 import { Events } from "@wailsio/runtime";
@@ -185,9 +186,16 @@ class AppState {
     };
   }
 
+  // Set when the vault locks mid-session (idle timeout or the Lock button).
+  // While true, refreshVault will NOT use the remember-me token to
+  // auto-unlock — otherwise locking and remember-me cancel each other out and
+  // the vault never stays locked. Cleared when the user unlocks with their
+  // passphrase (VaultGate). Remember-me still auto-unlocks on app launch.
+  suppressAutoUnlock = $state(false);
+
   async refreshVault() {
     this.vault = (await VaultService.Status()) as VaultStatus;
-    if (this.vault.initialized && !this.vault.unlocked) {
+    if (this.vault.initialized && !this.vault.unlocked && !this.suppressAutoUnlock) {
       try {
         const ok = await VaultService.TryAutoUnlock();
         if (ok) {
@@ -276,6 +284,7 @@ class AppState {
 
   // Cheap debounce for auto-lock activity pings — many DOM events fire fast.
   #lastTouch = 0;
+  #touchWarned = false;
   touchActivity() {
     const now = Date.now();
     if (now - this.#lastTouch < 5_000) return;
@@ -286,12 +295,19 @@ class AppState {
 
   async #callTouch() {
     try {
-      const { AutoLockService } = await import(
-        "../../bindings/github.com/blacknode/blacknode/internal/service"
-      );
       await AutoLockService.Touch();
+      this.#touchWarned = false;
     } catch {
-      // service unavailable — ignore
+      // If activity pings can't reach the backend, auto-lock will fire while
+      // the user is actively working. Warn once instead of failing silently.
+      if (!this.#touchWarned && this.settings.autoLockMinutes > 0) {
+        this.#touchWarned = true;
+        this.toast(
+          "warn",
+          "Activity tracking unavailable",
+          "The vault may auto-lock while you're still working.",
+        );
+      }
     }
   }
 

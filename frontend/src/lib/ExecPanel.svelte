@@ -4,6 +4,7 @@
   import { ExecService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { ExecResult } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import { app } from "./state.svelte";
+  import { bus } from "./events";
   import PageHeader from "./PageHeader.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
   import { checkCommand, anyProduction } from "./danger";
@@ -181,13 +182,13 @@
     </div>
     <div class="flex items-stretch gap-2">
       <input
-        class="flex-1 rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-body outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59, 130, 246,0.06)] transition-all"
+        class="flex-1 rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-body outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59,130,246,0.06)] transition-all"
         bind:value={command}
         placeholder="command to run on every selected host"
         onkeydown={(e) => e.key === "Enter" && run()}
       />
       <button
-        class="flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-4 py-2 type-body font-medium text-[var(--color-surface-0)] hover:opacity-90 hover:shadow-[0_0_20px_rgba(59, 130, 246,0.15)] disabled:opacity-50 transition-all"
+        class="flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-4 py-2 type-body font-medium text-[var(--color-surface-0)] hover:opacity-90 hover:shadow-[0_0_20px_rgba(59,130,246,0.15)] disabled:opacity-50 transition-all"
         onclick={run}
         disabled={running || !command || selected.size === 0}
       >
@@ -243,8 +244,12 @@
         </label>
       {/each}
       {#if app.hosts.length === 0}
-        <div class="p-4 text-center type-caption text-[var(--color-text-3)]">
-          No hosts to run on.
+        <div class="space-y-2 p-4 text-center type-caption text-[var(--color-text-3)]">
+          <p>No hosts to run on.</p>
+          <button
+            class="rounded-md bg-[var(--color-accent)] px-3 py-1.5 type-caption font-medium text-[var(--color-surface-0)] hover:opacity-90 transition-opacity"
+            onclick={() => bus.emit("new-host")}
+          >+ Add a host</button>
         </div>
       {/if}
     </div>
@@ -357,7 +362,9 @@
           <div class="text-center">
             <Zap size="20" class="mx-auto text-[var(--color-text-4)]" />
             <p class="mt-2 type-caption text-[var(--color-text-3)]">
-              Pick hosts on the left, type a command, hit Run.
+              {app.hosts.length === 0
+                ? "Add a host first — then pick hosts here, type a command, and hit Run."
+                : "Pick hosts on the left, type a command, hit Run."}
             </p>
           </div>
         </div>

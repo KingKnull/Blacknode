@@ -50,7 +50,7 @@
   label="Keyboard shortcuts"
   backdropClass="bg-black/60 backdrop-blur-[3px]"
   panelClass="fade-up w-[480px] max-h-[80vh] overflow-y-auto border hairline-strong surface-2 shadow-2xl shadow-black/60"
-  panelStyle="box-shadow: 0 0 40px rgba(59, 130, 246,0.04), 0 20px 60px rgba(0,0,0,0.6);"
+  panelStyle="box-shadow: 0 0 40px rgba(59,130,246,0.04), 0 20px 60px rgba(0,0,0,0.6);"
 >
   {#snippet children()}
 

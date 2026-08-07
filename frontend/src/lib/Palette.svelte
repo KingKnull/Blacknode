@@ -32,6 +32,8 @@
     LayoutGrid,
     Radio,
     Plug,
+    Share2,
+    Puzzle,
   } from "@lucide/svelte";
 
   type Action = {
@@ -51,6 +53,14 @@
 
   let input = $state("");
   let highlighted = $state(0);
+
+  // Keep the keyboard-highlighted row visible inside the scrolling list.
+  async function scrollHighlightedIntoView() {
+    await tick();
+    document
+      .querySelector(`[data-palette-idx="${highlighted}"]`)
+      ?.scrollIntoView({ block: "nearest" });
+  }
   let inputEl: HTMLInputElement | undefined = $state();
   let snippets = $state<Snippet[]>([]);
 
@@ -69,6 +79,9 @@
     { id: "database", label: "Go to Database", icon: Database },
     { id: "snippets", label: "Go to Snippets", icon: Bookmark },
     { id: "history", label: "Go to History", icon: HistoryIcon },
+    { id: "activity", label: "Go to Activity", icon: Activity },
+    { id: "topology", label: "Go to Topology", icon: Share2 },
+    { id: "plugins", label: "Go to Plugins", icon: Puzzle },
     { id: "keys", label: "Go to Keys", icon: KeyRound },
     { id: "vault", label: "Go to Vault", icon: Lock },
     { id: "settings", label: "Go to Settings", icon: SettingsIcon },
@@ -127,6 +140,7 @@
       icon: Lock,
       category: "System",
       run: async () => {
+        app.suppressAutoUnlock = true;
         await VaultService.Lock();
         await app.refreshAll();
       },
@@ -294,9 +308,11 @@
       } else if (e.key === "ArrowDown") {
         e.preventDefault();
         highlighted = Math.min(highlighted + 1, filtered.length - 1);
+        scrollHighlightedIntoView();
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         highlighted = Math.max(highlighted - 1, 0);
+        scrollHighlightedIntoView();
       } else if (e.key === "Enter") {
         e.preventDefault();
         const a = filtered[highlighted];
@@ -340,7 +356,7 @@
   >
     <div
       class="w-[580px] overflow-hidden border hairline-strong surface-2 shadow-2xl"
-      style="border-radius: var(--radius-md); box-shadow: 0 0 0 1px var(--color-line-strong), 0 0 60px rgba(59, 130, 246,0.05), 0 40px 80px rgba(0,0,0,0.6);"
+      style="border-radius: var(--radius-md); box-shadow: 0 0 0 1px var(--color-line-strong), 0 0 60px rgba(59,130,246,0.05), 0 40px 80px rgba(0,0,0,0.6);"
     >
       <!-- Search input -->
       <div class="flex items-center gap-3 border-b hairline px-4 py-3">
@@ -363,6 +379,7 @@
           {#each group.items as a (a.id)}
             {@const idx = indexOf(a)}
             <button
+              data-palette-idx={idx}
               class="flex w-full items-center gap-2.5 border-l-2 px-4 py-2 text-left type-body transition-colors {idx === highlighted ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/6 text-[var(--color-text-1)]' : 'border-transparent text-[var(--color-text-2)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-1)]'}"
               onmouseenter={() => (highlighted = idx)}
               onclick={() => { void a.run(); app.paletteOpen = false; }}

@@ -192,6 +192,7 @@
       <button
         class="flex min-w-0 flex-1 items-start gap-2.5 text-left"
         onclick={() => { app.selectedHostID = h.id; app.hostDetailOpen = true; }}
+        aria-label="{h.name} — {h.username}@{h.host}:{h.port}"
       >
         <!-- Status dot -->
         <span class="mt-1.5 shrink-0">

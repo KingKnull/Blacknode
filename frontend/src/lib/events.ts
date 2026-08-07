@@ -10,6 +10,9 @@ type EventMap = {
   'connect-host-mosh': { hostID: string };
   'new-host': void;
   'tab-label': { tabID: string; label: string };
+  // Emitted by Terminal when a session connects/disconnects; Workspace maps
+  // the session to its tab and renames it (empty label = back to local-N).
+  'session-label': { sessionID: string; label: string };
 };
 
 type Listener<T> = (data: T) => void;

@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { Snippet } from "svelte";
-  import { VaultService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
+  import { onMount, type Snippet } from "svelte";
+  import { VaultService, UpdateService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import { app } from "./state.svelte";
   import { Key, Loader2 } from "@lucide/svelte";
   import LogoIcon from "./logo/LogoIcon.svelte";
@@ -13,6 +13,19 @@
   let busy = $state(false);
   let err = $state("");
   let rememberMe = $state(true);
+
+  // The gate has exactly one job — take a passphrase. Focus it immediately so
+  // keystrokes aren't silently swallowed by <body>.
+  function focusOnMount(el: HTMLElement) {
+    el.focus();
+  }
+
+  let version = $state("v0.1");
+  onMount(() => {
+    UpdateService.CurrentVersion()
+      .then((v) => { if (v) version = `v${v}`; })
+      .catch(() => {});
+  });
 
   async function setup() {
     err = "";
@@ -37,6 +50,7 @@
       } else {
         await VaultService.Unlock(passphrase);
       }
+      app.suppressAutoUnlock = false;
       await app.refreshAll();
       passphrase = "";
     } catch (e: any) {
@@ -55,7 +69,7 @@
     <!-- Glow bloom -->
     <div class="pointer-events-none absolute inset-0">
       <div class="absolute left-1/2 top-1/3 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full"
-        style="background: radial-gradient(circle, rgba(59, 130, 246,0.08) 0%, rgba(59, 130, 246,0.02) 40%, transparent 65%);"></div>
+        style="background: radial-gradient(circle, rgba(59,130,246,0.08) 0%, rgba(59,130,246,0.02) 40%, transparent 65%);"></div>
     </div>
 
     <div class="relative w-[400px]">
@@ -70,7 +84,7 @@
 
       <!-- Card -->
       <div class="overflow-hidden border hairline-strong surface-2 shadow-2xl"
-        style="border-radius: var(--radius-md); backdrop-filter: blur(16px) saturate(1.3); box-shadow: 0 0 0 1px var(--color-line-strong), 0 0 60px rgba(59, 130, 246,0.06), 0 40px 80px rgba(0,0,0,0.6);">
+        style="border-radius: var(--radius-md); backdrop-filter: blur(16px) saturate(1.3); box-shadow: 0 0 0 1px var(--color-line-strong), 0 0 60px rgba(59,130,246,0.06), 0 40px 80px rgba(0,0,0,0.6);">
 
         {#if !app.vault.initialized}
           <!-- SETUP -->
@@ -86,7 +100,7 @@
               <input type="password"
                 class="w-full border hairline bg-[var(--color-surface-3)] px-3 py-2.5 font-mono type-body text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
                 style="border-radius: var(--radius-sm);"
-                placeholder="Passphrase" bind:value={passphrase} />
+                placeholder="Passphrase" bind:value={passphrase} use:focusOnMount />
               <input type="password"
                 class="w-full border hairline bg-[var(--color-surface-3)] px-3 py-2.5 font-mono type-body text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
                 style="border-radius: var(--radius-sm);"
@@ -95,7 +109,7 @@
             </div>
             {#if err}<p class="type-caption text-[var(--color-danger)]">{err}</p>{/if}
             <button onclick={setup} disabled={busy}
-              class="flex w-full items-center justify-center gap-2 border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 py-2.5 type-body font-semibold text-[var(--color-accent)] hover:bg-[var(--color-accent)]/18 hover:shadow-[0_0_20px_rgba(59, 130, 246,0.1)] disabled:opacity-30 transition-all"
+              class="flex w-full items-center justify-center gap-2 border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 py-2.5 type-body font-semibold text-[var(--color-accent)] hover:bg-[var(--color-accent)]/18 hover:shadow-[0_0_20px_rgba(59,130,246,0.1)] disabled:opacity-30 transition-all"
               style="border-radius: var(--radius-sm);">
               {#if busy}<Loader2 size="14" class="animate-spin" /> Initializing...{:else}Create vault{/if}
             </button>
@@ -114,7 +128,7 @@
             <input type="password"
               class="w-full border hairline bg-[var(--color-surface-3)] px-3 py-2.5 font-mono type-body text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
               style="border-radius: var(--radius-sm);"
-              placeholder="Passphrase" bind:value={passphrase}
+              placeholder="Passphrase" bind:value={passphrase} use:focusOnMount
               onkeydown={(e) => e.key === "Enter" && unlock()} />
             <div class="flex items-center gap-2 px-1">
               <input id="rememberMe" type="checkbox" bind:checked={rememberMe}
@@ -125,7 +139,7 @@
             </div>
             {#if err}<p class="type-caption text-[var(--color-danger)]">{err}</p>{/if}
             <button onclick={unlock} disabled={busy || !passphrase}
-              class="flex w-full items-center justify-center gap-2 border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 py-2.5 type-body font-semibold text-[var(--color-accent)] hover:bg-[var(--color-accent)]/18 hover:shadow-[0_0_20px_rgba(59, 130, 246,0.1)] disabled:opacity-30 transition-all"
+              class="flex w-full items-center justify-center gap-2 border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 py-2.5 type-body font-semibold text-[var(--color-accent)] hover:bg-[var(--color-accent)]/18 hover:shadow-[0_0_20px_rgba(59,130,246,0.1)] disabled:opacity-30 transition-all"
               style="border-radius: var(--radius-sm);">
               {#if busy}<Loader2 size="14" class="animate-spin" /> Unlocking...{:else}Unlock{/if}
             </button>
@@ -133,7 +147,7 @@
         {/if}
       </div>
 
-      <div class="mt-4 text-center font-mono type-micro text-[var(--color-text-4)]/50">v0.1-alpha</div>
+      <div class="mt-4 text-center font-mono type-micro text-[var(--color-text-4)]/50">{version}</div>
     </div>
   </div>
 {:else}

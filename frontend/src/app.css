@@ -39,11 +39,13 @@
   --color-line: #232a36;
   --color-line-strong: #323b4a;
 
-  /* Text — neutral slate ramp */
+  /* Text — neutral slate ramp.
+     text-3/text-4 are used at 10-11px (eyebrows, status bar, rail labels), so
+     both must clear WCAG AA 4.5:1 against surface-0. Keep text-3 > text-4. */
   --color-text-1: #e6e9ef;
   --color-text-2: #9aa4b2;
-  --color-text-3: #6b7585;
-  --color-text-4: #545d6b;
+  --color-text-3: #7a8494; /* ~5.1:1 on surface-0 */
+  --color-text-4: #737d8d; /* ~4.6:1 on surface-0 */
 
   --color-accent: #3b82f6;
   --color-accent-soft: rgba(59, 130, 246, 0.10);
@@ -71,8 +73,8 @@
 
   --color-text-1: #0f1722;
   --color-text-2: #4a5568;
-  --color-text-3: #6b7383;
-  --color-text-4: #8a93a3;
+  --color-text-3: #5b6474; /* ~5.9:1 on white */
+  --color-text-4: #6d7686; /* ~4.7:1 on white */
 
   --color-accent: #2563eb;
   --color-accent-soft: rgba(37, 99, 235, 0.08);

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { app } from "./state.svelte";
-  import { SyncService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
+  import { SyncService, UpdateService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { SyncStatus } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import {
     TerminalSquare,
@@ -82,9 +82,15 @@
     return `${Math.floor(secs / 86400)}d ago`;
   }
 
+  // Single source of truth for the version — the hardcoded fallback only
+  // shows if the backend call fails.
+  let version = $state("v0.1");
   onMount(() => {
     refreshSyncStatus();
     pollTimer = setInterval(refreshSyncStatus, 60_000);
+    UpdateService.CurrentVersion()
+      .then((v) => { if (v) version = `v${v}`; })
+      .catch(() => {});
   });
   onDestroy(() => {
     if (pollTimer) clearInterval(pollTimer);
@@ -142,5 +148,5 @@
     </button>
   {/if}
 
-  <span class="ml-auto text-[var(--color-text-4)]">v0.1-alpha</span>
+  <span class="ml-auto text-[var(--color-text-4)]">{version}</span>
 </footer>

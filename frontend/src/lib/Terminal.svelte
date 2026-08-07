@@ -272,7 +272,7 @@
     }
     return {
       background: "#0b0e14", foreground: "#e6e9ef", cursor: "#3b82f6", cursorAccent: "#0b0e14",
-      selectionBackground: "rgba(59, 130, 246, 0.22)",
+      selectionBackground: "rgba(59,130,246, 0.22)",
       black: "#0b0e14", brightBlack: "#545d6b", red: "#ef4444", brightRed: "#f87171",
       green: "#22c55e", brightGreen: "#4ade80", yellow: "#f59e0b", brightYellow: "#fbbf24",
       blue: "#3b82f6", brightBlue: "#60a5fa", magenta: "#a78bfa", brightMagenta: "#c4b5fd",
@@ -428,7 +428,10 @@
     clearTimeout(resizeDebounce);
     app.unregisterBroadcastSink(sessionID);
     app.forgetSession(sessionID);
-    term?.dispose();
+    // xterm can throw here if the WebGL addon already disposed itself after a
+    // context loss (hidden/minimized webview) — a throw during onDestroy would
+    // abort Svelte's whole unmount and blank the app, so never let it escape.
+    try { term?.dispose(); } catch { /* already disposed */ }
     if (mode === "local" && status === "running") void LocalShellService.Close(sessionID);
     if (mode === "remote" && status === "connected") void SSHService.Disconnect(sessionID);
     if (mode === "mosh" && status === "connected") void MoshService.Disconnect(sessionID);
@@ -468,6 +471,7 @@
     try {
       await LocalShellService.Open(sessionID, term?.cols ?? 80, term?.rows ?? 24);
       mode = "local"; status = "running"; term?.focus();
+      bus.emit('session-label', { sessionID, label: "" });
     } catch (e: any) { status = "error"; errorMsg = String(e?.message ?? e); }
   }
 
@@ -514,6 +518,7 @@
       status = "connected";
       connectedHostID = hostID;
       term?.focus();
+      bus.emit('session-label', { sessionID, label: app.hosts.find((h) => h.id === hostID)?.name ?? "" });
       runStartupSnippet(hostID);
     } catch (e: any) {
       status = "error";
@@ -543,6 +548,7 @@
       status = "connected";
       connectedHostID = hostID;
       term?.focus();
+      bus.emit('session-label', { sessionID, label: app.hosts.find((h) => h.id === hostID)?.name ?? "" });
       runStartupSnippet(hostID);
     } catch (e: any) {
       status = "error";
@@ -564,6 +570,7 @@
     try {
       await SSHService.ConnectByHost(sessionID, hostID, runtimePassword, term?.cols ?? 80, term?.rows ?? 24);
       status = "connected"; connectedHostID = hostID; term?.focus();
+      bus.emit('session-label', { sessionID, label: app.hosts.find((h) => h.id === hostID)?.name ?? "" });
       startLatencyPolling();
       runStartupSnippet(hostID);
     } catch (e: any) {

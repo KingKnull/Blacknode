@@ -92,7 +92,7 @@
   >
     <div
       class="pointer-events-auto w-full max-w-md overflow-hidden border hairline-strong surface-2 shadow-2xl shadow-black/60"
-      style="box-shadow: 0 0 0 1px var(--color-line-strong), 0 0 40px rgba(59, 130, 246,0.05), 0 32px 64px rgba(0,0,0,0.5);"
+      style="box-shadow: 0 0 0 1px var(--color-line-strong), 0 0 40px rgba(59,130,246,0.05), 0 32px 64px rgba(0,0,0,0.5);"
     >
       <!-- Header -->
       <div class="flex items-center gap-2 border-b hairline px-4 py-2.5">

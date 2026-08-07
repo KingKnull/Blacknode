@@ -141,7 +141,7 @@
     {/if}
 
     <span class="ml-auto type-micro text-[var(--color-text-4)]"
-      >{entries.length} entries</span
+      >{entries.length} {entries.length === 1 ? "entry" : "entries"}</span
     >
     <button
       class="flex items-center gap-1 rounded-md border hairline-strong px-2 py-1 type-micro text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)] disabled:opacity-50"

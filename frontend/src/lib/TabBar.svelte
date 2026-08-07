@@ -76,6 +76,7 @@
       tabindex="0"
       draggable="true"
       aria-selected={isActive}
+      aria-label={label}
       class="group flex max-w-[180px] cursor-pointer items-center gap-1.5 border-r border-[var(--color-line)] px-3 py-1 type-caption select-none transition-colors {isActive ? 'bg-[var(--color-surface-2)] text-[var(--color-text-1)] border-t border-t-[var(--color-accent)]/60' : 'text-[var(--color-text-4)] hover:bg-[var(--color-surface-2)]/50 hover:text-[var(--color-text-3)]'}"
       class:opacity-40={dragSourceID === t.id}
       class:outline={dragOverID === t.id && dragSourceID !== t.id}
@@ -103,9 +104,10 @@
       <span
         role="button"
         tabindex="0"
+        aria-label="Close {label}"
         class="ml-auto shrink-0 p-0.5 opacity-0 group-hover:opacity-40 hover:!opacity-100 hover:text-[var(--color-danger)]"
         onclick={(e) => { e.stopPropagation(); onCloseTab(t.id); }}
-        onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); onCloseTab(t.id); } }}
+        onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); onCloseTab(t.id); } }}
       ><X size="9" /></span>
     </div>
   {/each}

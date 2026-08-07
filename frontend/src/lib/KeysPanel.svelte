@@ -4,6 +4,7 @@
   import PageHeader from "./PageHeader.svelte";
   import EmptyState from "./EmptyState.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
+  import Dialog from "./Dialog.svelte";
   import {
     KeyRound,
     Plus,
@@ -166,6 +167,7 @@
         </h3>
         <button
           class="ml-auto rounded p-0.5 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)]"
+          aria-label="Close generate form"
           onclick={() => (creating = false)}><X size="12" /></button
         >
       </div>
@@ -204,6 +206,7 @@
         </h3>
         <button
           class="ml-auto rounded p-0.5 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)]"
+          aria-label="Close import form"
           onclick={() => (importing = false)}><X size="12" /></button
         >
       </div>
@@ -322,18 +325,16 @@
 {/if}
 
 {#if certTarget}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="presentation" onclick={() => (certTarget = null)}>
-    <div
-      class="w-full max-w-lg border hairline-strong surface-1 p-4 shadow-2xl"
-      style="border-radius: var(--radius-md);"
-      role="dialog"
-      tabindex="-1"
-      onclick={(e) => e.stopPropagation()}
-      onkeydown={() => {}}
-    >
+  <Dialog
+    onclose={() => (certTarget = null)}
+    labelledby="attach-cert-title"
+    backdropClass="bg-black/50 p-4"
+    panelClass="w-full max-w-lg border hairline-strong surface-1 p-4 shadow-2xl"
+    panelStyle="border-radius: var(--radius-md);"
+  >
       <div class="mb-3 flex items-center gap-2">
         <BadgeCheck size="14" class="text-[var(--color-accent)]" />
-        <span class="type-body font-medium text-[var(--color-text-1)]">Attach certificate to {certTarget.name}</span>
+        <span id="attach-cert-title" class="type-body font-medium text-[var(--color-text-1)]">Attach certificate to {certTarget.name}</span>
         <button class="ml-auto text-[var(--color-text-4)] hover:text-[var(--color-text-1)]" onclick={() => (certTarget = null)} aria-label="Close"><X size="14" /></button>
       </div>
       <p class="mb-2 type-caption text-[var(--color-text-4)]">
@@ -343,6 +344,7 @@
         class="h-28 w-full resize-none border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-micro text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50"
         bind:value={certText}
         placeholder="ssh-ed25519-cert-v01@openssh.com AAAA…"
+        data-autofocus
       ></textarea>
       {#if certErr}
         <p class="mt-2 type-caption text-[var(--color-danger)]">{certErr}</p>
@@ -358,6 +360,5 @@
           Attach
         </button>
       </div>
-    </div>
-  </div>
+  </Dialog>
 {/if}
