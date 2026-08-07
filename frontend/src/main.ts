@@ -22,6 +22,12 @@ function fitRoot() {
 }
 fitRoot();
 window.addEventListener("resize", fitRoot);
+window.addEventListener("focus", fitRoot);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    fitRoot();
+  }
+});
 
 const app = mount(App, {
   target: document.getElementById("app")!,

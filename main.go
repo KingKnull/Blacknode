@@ -26,6 +26,10 @@ var assets embed.FS
 var iconData []byte
 
 func init() {
+	if os.Getenv("WEBKIT_DISABLE_DMABUF_RENDERER") == "" {
+		_ = os.Setenv("WEBKIT_DISABLE_DMABUF_RENDERER", "1")
+	}
+
 	application.RegisterEvent[service.TerminalData]("terminal:data")
 	application.RegisterEvent[service.TerminalExit]("terminal:exit")
 	application.RegisterEvent[service.ExecProgress]("exec:progress")
