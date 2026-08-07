@@ -2,6 +2,7 @@ package sshconn
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -28,6 +29,7 @@ type Pool struct {
 	entries map[string]*pooled
 	idleTTL time.Duration
 	maxSize int
+	done    chan struct{} // closed by Close() to stop the reaper goroutine
 }
 
 type pooled struct {
@@ -44,6 +46,7 @@ func NewPool(d *Dialer, hosts *store.Hosts) *Pool {
 		entries: make(map[string]*pooled),
 		idleTTL: 5 * time.Minute,
 		maxSize: 20,
+		done:    make(chan struct{}),
 	}
 	go p.reaper()
 	return p
@@ -60,9 +63,8 @@ func keyFor(t Target) string {
 	h.Write([]byte(t.Password))
 	h.Write([]byte{0})
 	h.Write([]byte(t.KeyID))
-	var port [4]byte
-	port[0] = byte(t.Port)
-	port[1] = byte(t.Port >> 8)
+	var port [2]byte
+	binary.LittleEndian.PutUint16(port[:], uint16(t.Port))
 	h.Write(port[:])
 	return hex.EncodeToString(h.Sum(nil))
 }
@@ -180,7 +182,12 @@ func (p *Pool) discardLocked(key string, entry *pooled) {
 func (p *Pool) reaper() {
 	t := time.NewTicker(60 * time.Second)
 	defer t.Stop()
-	for range t.C {
+	for {
+		select {
+		case <-p.done:
+			return
+		case <-t.C:
+		}
 		now := time.Now()
 		var toClose []*pooled
 		p.mu.Lock()
@@ -260,8 +267,9 @@ func (p *Pool) getThroughProxy(t Target, chain map[string]bool) (*ssh.Client, fu
 	return client, release, nil
 }
 
-// Close drops every pooled client; call on app shutdown.
+// Close drops every pooled client and stops the reaper goroutine; call on app shutdown.
 func (p *Pool) Close() {
+	close(p.done)
 	p.mu.Lock()
 	entries := p.entries
 	p.entries = make(map[string]*pooled)

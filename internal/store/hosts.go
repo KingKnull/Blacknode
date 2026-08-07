@@ -101,6 +101,9 @@ func (s *Hosts) Update(h Host) error {
 	if h.ID == "" {
 		return errors.New("id required")
 	}
+	if err := validateHost(h); err != nil {
+		return err
+	}
 	h.UpdatedAt = time.Now().Unix()
 	tags, _ := json.Marshal(h.Tags)
 	_, err := s.db.Exec(

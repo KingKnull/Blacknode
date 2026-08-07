@@ -78,12 +78,27 @@ func (s *PortForwardService) Delete(ctx context.Context, id string) error {
 // pool, and begins accepting connections in the background. password is the
 // runtime SSH password for password-auth hosts (transient).
 func (s *PortForwardService) Start(forwardID, password string) error {
+	// Place a nil sentinel under the lock so concurrent callers with the same
+	// ID bail out immediately rather than racing through the long dial below.
 	s.mu.Lock()
 	if _, ok := s.active[forwardID]; ok {
 		s.mu.Unlock()
 		return errors.New("forward already running")
 	}
+	s.active[forwardID] = nil
 	s.mu.Unlock()
+
+	// Remove the sentinel if anything below fails.
+	removeSentinel := true
+	defer func() {
+		if removeSentinel {
+			s.mu.Lock()
+			if s.active[forwardID] == nil {
+				delete(s.active, forwardID)
+			}
+			s.mu.Unlock()
+		}
+	}()
 
 	f, err := s.forwards.Get(forwardID)
 	if err != nil {
@@ -118,6 +133,7 @@ func (s *PortForwardService) Start(forwardID, password string) error {
 	s.mu.Lock()
 	s.active[forwardID] = state
 	s.mu.Unlock()
+	removeSentinel = false
 	return nil
 }
 

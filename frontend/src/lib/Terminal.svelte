@@ -509,6 +509,8 @@
     if (!host) return;
     if (mode === "local" && status === "running") await LocalShellService.Close(sessionID);
     if (mode === "remote" && status === "connected") await SSHService.Disconnect(sessionID);
+    if (mode === "telnet" && status === "connected") await TelnetService.Disconnect(sessionID);
+    if (mode === "serial" && status === "connected") await SerialService.Disconnect(sessionID);
     app.selectedHostID = hostID;
     mode = "mosh";
     status = "connecting";
@@ -535,6 +537,8 @@
     showHostPicker = false;
     if (mode === "local" && status === "running") await LocalShellService.Close(sessionID);
     if (mode === "remote" && status === "connected") await SSHService.Disconnect(sessionID);
+    if (mode === "telnet" && status === "connected") await TelnetService.Disconnect(sessionID);
+    if (mode === "serial" && status === "connected") await SerialService.Disconnect(sessionID);
     app.selectedHostID = hostID;
     mode = proto;
     status = "connecting";
@@ -615,6 +619,10 @@
   }
 
   async function disconnectRemote() {
+    // Cancel any pending auto-reconnect before tearing down.
+    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = undefined; }
+    reconnecting = false;
+    reconnectAttempt = 0;
     try {
       if (mode === "mosh") await MoshService.Disconnect(sessionID);
       else if (mode === "telnet") await TelnetService.Disconnect(sessionID);

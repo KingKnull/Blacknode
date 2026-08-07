@@ -7,6 +7,8 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"errors"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/blacknode/blacknode/internal/store"
@@ -16,6 +18,7 @@ import (
 type VaultService struct {
 	vault    *vault.Vault
 	db       *sql.DB
+	dataDir  string           // directory where the remember-me key file is written
 	activity *activityRecorder
 	sync     *SyncService     // optional — nil-checked; wired for sync-on-unlock / stop-on-lock
 	autoLock *AutoLockService // optional — nil-checked; idle timer reset on unlock
@@ -24,8 +27,10 @@ type VaultService struct {
 // NewVaultService constructs the vault service. autoLock may be nil (tests);
 // when set, successful unlocks reset its idle timer — otherwise a stale timer
 // can re-lock the vault on the next tick even though the user just unlocked.
-func NewVaultService(v *vault.Vault, db *sql.DB, activity *activityRecorder, autoLock *AutoLockService) *VaultService {
-	return &VaultService{vault: v, db: db, activity: activity, autoLock: autoLock}
+// dataDir is the app data directory; the remember-me key file is written there
+// so it is separate from the database (see rememberPassphrase).
+func NewVaultService(v *vault.Vault, db *sql.DB, dataDir string, activity *activityRecorder, autoLock *AutoLockService) *VaultService {
+	return &VaultService{vault: v, db: db, dataDir: dataDir, activity: activity, autoLock: autoLock}
 }
 
 // SetSyncService wires the sync service after construction, avoiding a
@@ -114,6 +119,13 @@ func (s *VaultService) Lock(ctx context.Context) error {
 	return nil
 }
 
+// rememberKeyFile returns the path of the file that holds the machine key used
+// to encrypt the remember-me passphrase. Keeping it outside the database means
+// that a copy of the DB file alone is not sufficient to recover the passphrase.
+func (s *VaultService) rememberKeyFile() string {
+	return filepath.Join(s.dataDir, "remember.key")
+}
+
 // TryAutoUnlock checks for a stored remember-me token. If one exists and hasn't
 // expired, it decrypts the passphrase and unlocks the vault silently. Returns
 // true when the vault was successfully auto-unlocked.
@@ -124,12 +136,12 @@ func (s *VaultService) TryAutoUnlock(ctx context.Context) (bool, error) {
 	var (
 		ciphertext []byte
 		nonce      []byte
-		machineKey []byte
+		dbKey      []byte // non-empty only for tokens written by an older build
 		expiresAt  int64
 	)
 	err := s.db.QueryRow(
 		`SELECT encrypted_passphrase, nonce, machine_key, expires_at FROM vault_remember WHERE id = 1`,
-	).Scan(&ciphertext, &nonce, &machineKey, &expiresAt)
+	).Scan(&ciphertext, &nonce, &dbKey, &expiresAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
 	}
@@ -137,19 +149,34 @@ func (s *VaultService) TryAutoUnlock(ctx context.Context) (bool, error) {
 		return false, nil
 	}
 	if time.Now().Unix() > expiresAt {
-		// Token expired — clean up.
-		_, _ = s.db.Exec(`DELETE FROM vault_remember WHERE id = 1`)
+		s.cleanupRemember()
 		return false, nil
 	}
+
+	// Resolve the machine key: prefer the key file (new records); fall back to
+	// the DB column (records written by an older build that stored the key in
+	// the database). If neither is available the token is unrecoverable.
+	var machineKey []byte
+	if s.dataDir != "" {
+		if data, ferr := os.ReadFile(s.rememberKeyFile()); ferr == nil {
+			machineKey = data
+		}
+	}
+	if len(machineKey) == 0 && len(dbKey) > 0 {
+		machineKey = dbKey // backward compat for pre-fix installs
+	}
+	if len(machineKey) == 0 {
+		s.cleanupRemember()
+		return false, nil
+	}
+
 	plaintext, err := decryptRemember(machineKey, ciphertext, nonce)
 	if err != nil {
-		// Corrupted token — clean up.
-		_, _ = s.db.Exec(`DELETE FROM vault_remember WHERE id = 1`)
+		s.cleanupRemember()
 		return false, nil
 	}
 	if err := s.vault.Unlock(string(plaintext)); err != nil {
-		// Passphrase no longer valid (vault re-initialized?) — clean up.
-		_, _ = s.db.Exec(`DELETE FROM vault_remember WHERE id = 1`)
+		s.cleanupRemember()
 		return false, nil
 	}
 	if s.autoLock != nil {
@@ -158,16 +185,32 @@ func (s *VaultService) TryAutoUnlock(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-// ForgetPassphrase removes the stored remember-me token.
+// cleanupRemember removes the DB row and the key file together.
+func (s *VaultService) cleanupRemember() {
+	_, _ = s.db.Exec(`DELETE FROM vault_remember WHERE id = 1`)
+	if s.dataDir != "" {
+		_ = os.Remove(s.rememberKeyFile())
+	}
+}
+
+// ForgetPassphrase removes the stored remember-me token and its key file.
 func (s *VaultService) ForgetPassphrase(ctx context.Context) error {
-	_, err := s.db.Exec(`DELETE FROM vault_remember WHERE id = 1`)
-	return err
+	s.cleanupRemember()
+	return nil
 }
 
 func (s *VaultService) rememberPassphrase(passphrase string, days int) error {
 	machineKey := make([]byte, 32)
 	if _, err := rand.Read(machineKey); err != nil {
 		return err
+	}
+	// Write the key to a separate file so that copying the DB alone is not
+	// enough to recover the passphrase. The machine_key column in the DB is
+	// zeroed for new records; it is only populated by older builds.
+	if s.dataDir != "" {
+		if err := os.WriteFile(s.rememberKeyFile(), machineKey, 0o600); err != nil {
+			return err
+		}
 	}
 	ciphertext, nonce, err := encryptRemember(machineKey, []byte(passphrase))
 	if err != nil {
@@ -176,13 +219,13 @@ func (s *VaultService) rememberPassphrase(passphrase string, days int) error {
 	expiresAt := time.Now().Add(time.Duration(days) * 24 * time.Hour).Unix()
 	_, err = s.db.Exec(
 		`INSERT INTO vault_remember (id, encrypted_passphrase, nonce, machine_key, expires_at)
-		 VALUES (1, ?, ?, ?, ?)
+		 VALUES (1, ?, ?, '', ?)
 		 ON CONFLICT(id) DO UPDATE SET
 		   encrypted_passphrase = excluded.encrypted_passphrase,
 		   nonce = excluded.nonce,
-		   machine_key = excluded.machine_key,
+		   machine_key = '',
 		   expires_at = excluded.expires_at`,
-		ciphertext, nonce, machineKey, expiresAt,
+		ciphertext, nonce, expiresAt,
 	)
 	return err
 }

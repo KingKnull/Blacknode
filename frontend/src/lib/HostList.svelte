@@ -101,10 +101,14 @@
 
   async function deleteHost() {
     if (!hostToDelete) return;
-    await HostService.Delete(hostToDelete.id);
-    if (app.selectedHostID === hostToDelete.id) app.selectedHostID = null;
-    await app.refreshHosts();
-    hostToDelete = null;
+    try {
+      await HostService.Delete(hostToDelete.id);
+      if (app.selectedHostID === hostToDelete.id) app.selectedHostID = null;
+      await app.refreshHosts();
+      hostToDelete = null;
+    } catch (e: any) {
+      app.toast("error", "Couldn't delete host", String(e?.message ?? e));
+    }
   }
 
   const authIcon = (m: string) => {

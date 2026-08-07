@@ -74,7 +74,8 @@ func main() {
 	notifySvc := service.NewNotificationService(settings)
 	activityRec := service.NewActivityRecorder(activities)
 	syncSvc := service.NewSyncService(settings, hosts, snippets, httpRequests, teamActivity, v, activityRec)
-	vaultSvc := service.NewVaultService(v, conn.DB, activityRec, autoLock)
+	dataDir := filepath.Join(xdg.DataHome, "blacknode")
+	vaultSvc := service.NewVaultService(v, conn.DB, dataDir, activityRec, autoLock)
 	vaultSvc.SetSyncService(syncSvc)
 
 	app := application.New(application.Options{

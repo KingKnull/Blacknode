@@ -298,7 +298,7 @@ func (s *SSHService) Write(ctx context.Context, sessionID string, data string) e
 	s.mu.Lock()
 	state, ok := s.sessions[sessionID]
 	s.mu.Unlock()
-	if !ok {
+	if !ok || state == nil {
 		return fmt.Errorf("session %s not found", sessionID)
 	}
 	_, err := state.stdin.Write([]byte(data))
@@ -309,7 +309,7 @@ func (s *SSHService) Resize(ctx context.Context, sessionID string, cols, rows in
 	s.mu.Lock()
 	state, ok := s.sessions[sessionID]
 	s.mu.Unlock()
-	if !ok {
+	if !ok || state == nil {
 		return fmt.Errorf("session %s not found", sessionID)
 	}
 	return state.session.WindowChange(rows, cols)
@@ -328,7 +328,7 @@ func (s *SSHService) Latency(ctx context.Context, sessionID string) (int, error)
 	s.mu.Lock()
 	state, ok := s.sessions[sessionID]
 	s.mu.Unlock()
-	if !ok {
+	if !ok || state == nil {
 		return 0, fmt.Errorf("session %s not found", sessionID)
 	}
 	start := time.Now()

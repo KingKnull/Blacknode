@@ -3,7 +3,6 @@ import {
   VaultService,
   KeyService,
   SettingsService,
-  AIService,
   RecordingService,
   PluginService,
   AutoLockService,
@@ -289,7 +288,6 @@ class AppState {
     const now = Date.now();
     if (now - this.#lastTouch < 5_000) return;
     this.#lastTouch = now;
-    void AIService; // ensure tree-shaker keeps the import
     void this.#callTouch();
   }
 
