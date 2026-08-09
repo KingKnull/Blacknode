@@ -10,7 +10,7 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 import * as $models from "./models.js";
 
 /**
- * ForgetPassphrase removes the stored remember-me token.
+ * ForgetPassphrase removes the stored remember-me token and its key file.
  */
 export function ForgetPassphrase(): $CancellablePromise<void> {
     return $Call.ByID(2604778051);
