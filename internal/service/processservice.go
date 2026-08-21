@@ -50,7 +50,7 @@ func NewProcessService(pool *sshconn.Pool, h *store.Hosts) *ProcessService {
 // across most Linux distributions (uses ps with explicit field selection).
 // Caller can re-sort client-side; we always return CPU-desc to keep the
 // "kill the runaway" flow one click away.
-func (s *ProcessService) Top(ctx context.Context, hostID, password string, limit int) ([]ProcessInfo, error) {
+func (s *ProcessService) Top(ctx context.Context, hostID string, limit int) ([]ProcessInfo, error) {
 	if limit <= 0 || limit > 1000 {
 		limit = 200
 	}
@@ -63,7 +63,7 @@ func (s *ProcessService) Top(ctx context.Context, hostID, password string, limit
 			`sort -t$'\x1f' -k4 -nr | head -%d`,
 		limit,
 	)
-	out, err := s.run(hostID, password, cmd, 15*time.Second)
+	out, err := s.run(hostID, cmd, 15*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +100,7 @@ func (s *ProcessService) Top(ctx context.Context, hostID, password string, limit
 // keep the surface small and obvious. With useSudo=true we shell into sudo,
 // which requires passwordless sudo for the SSH user — otherwise it'll hang
 // waiting for a password we have no way to provide here.
-func (s *ProcessService) Kill(ctx context.Context, hostID, password string, pid int, signal string, useSudo bool) error {
+func (s *ProcessService) Kill(ctx context.Context, hostID string, pid int, signal string, useSudo bool) error {
 	if pid <= 1 {
 		return errors.New("refusing to kill PID <= 1")
 	}
@@ -116,7 +116,7 @@ func (s *ProcessService) Kill(ctx context.Context, hostID, password string, pid 
 	if useSudo {
 		cmd = "sudo -n " + cmd
 	}
-	out, err := s.run(hostID, password, cmd, 10*time.Second)
+	out, err := s.run(hostID, cmd, 10*time.Second)
 	if err != nil {
 		if strings.TrimSpace(out) != "" {
 			return errors.New(strings.TrimSpace(out))
@@ -132,9 +132,9 @@ func (s *ProcessService) Kill(ctx context.Context, hostID, password string, pid 
 
 // Services lists systemd services. Returns empty slice (not error) on hosts
 // without systemctl so the UI can render "no service manager" cleanly.
-func (s *ProcessService) Services(ctx context.Context, hostID, password string) ([]SystemdUnit, error) {
+func (s *ProcessService) Services(ctx context.Context, hostID string) ([]SystemdUnit, error) {
 	cmd := `command -v systemctl >/dev/null 2>&1 && systemctl list-units --type=service --all --no-legend --no-pager --plain 2>/dev/null || true`
-	out, err := s.run(hostID, password, cmd, 15*time.Second)
+	out, err := s.run(hostID, cmd, 15*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +162,7 @@ func (s *ProcessService) Services(ctx context.Context, hostID, password string) 
 
 // ServiceAction runs systemctl <action> <unit>. With useSudo we go through
 // sudo -n; without, only the user's own user-units will respond.
-func (s *ProcessService) ServiceAction(ctx context.Context, hostID, password, unit, action string, useSudo bool) (string, error) {
+func (s *ProcessService) ServiceAction(ctx context.Context, hostID, unit, action string, useSudo bool) (string, error) {
 	if unit == "" {
 		return "", errors.New("unit required")
 	}
@@ -178,7 +178,7 @@ func (s *ProcessService) ServiceAction(ctx context.Context, hostID, password, un
 	if useSudo && a != "status" {
 		cmd = "sudo -n " + cmd
 	}
-	out, _ := s.run(hostID, password, cmd, 30*time.Second)
+	out, _ := s.run(hostID, cmd, 30*time.Second)
 	// status returns non-zero when the unit is inactive — we surface output
 	// regardless of exit code.
 	return out, nil
@@ -186,12 +186,12 @@ func (s *ProcessService) ServiceAction(ctx context.Context, hostID, password, un
 
 // run dials via the pool and executes a one-shot command using the
 // centralized sshconn.Run helper.
-func (s *ProcessService) run(hostID, password, cmd string, timeout time.Duration) (string, error) {
+func (s *ProcessService) run(hostID, cmd string, timeout time.Duration) (string, error) {
 	h, err := s.hosts.Get(hostID)
 	if err != nil {
 		return "", fmt.Errorf("load host: %w", err)
 	}
-	client, release, err := s.pool.Get(sshconn.FromHost(h, password))
+	client, release, err := s.pool.Get(sshconn.FromHost(h))
 	if err != nil {
 		return "", err
 	}

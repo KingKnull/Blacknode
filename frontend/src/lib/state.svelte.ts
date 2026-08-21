@@ -16,6 +16,7 @@ import type {
   AppSettings,
 } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
 import { NotifyKind } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
+import { checkCommand, type Danger } from "./danger";
 
 type View =
   | "terminals"
@@ -55,8 +56,10 @@ class AppState {
   });
   selectedHostID = $state<string | null>(null);
   hostDetailOpen = $state(false);
-  hostPasswords = $state<Record<string, string>>({});
-  hostSudoPasswords = $state<Record<string, string>>({});
+  // Which hosts have credentials saved — booleans only. The plaintext lives in
+  // the vault and is resolved by the Go connect path; panels pass no password
+  // at all. See internal/sshconn/dialer.go (ResolveSecret).
+  secretStatus = $state<Record<string, { hasPassword: boolean; hasSudo: boolean }>>({});
   loading = $state(false);
   paletteOpen = $state(false);
   aiOpen = $state(false);
@@ -144,6 +147,25 @@ class AppState {
   // svelte-ignore state_referenced_locally
   broadcastSinks = $state<Record<string, (data: string) => void>>({});
 
+  // Line being composed in the broadcast source pane, reconstructed from the
+  // keystrokes flowing through fanOutBroadcast. We need it because the danger
+  // check works on whole commands, and broadcast operates on raw keystrokes:
+  // by the time Enter arrives the command exists only as the sum of what was
+  // typed. Local echo already showed it in every pane; this is a parallel
+  // record, not a second source of truth.
+  #broadcastLine = "";
+
+  // A dangerous command caught on its way out to the broadcast group. The
+  // Workspace renders a confirmation for this; resolving it either fans the
+  // command out to every member or drops it.
+  pendingBroadcastDanger = $state<{
+    id: string;
+    sourceSessionID: string;
+    command: string;
+    danger: Danger;
+    targets: number;
+  } | null>(null);
+
   registerBroadcastSink(sessionID: string, write: (data: string) => void) {
     this.broadcastSinks[sessionID] = write;
   }
@@ -161,14 +183,92 @@ class AppState {
     else next.add(sessionID);
     this.broadcastSet = next;
   }
+
   // Fan out from a source session to every OTHER session in the group.
+  //
+  // Broadcast is the one path where a single keystroke reaches N hosts at
+  // once, so it gets the same dangerous-command check as multi-host exec —
+  // running `mkfs` on twelve machines simultaneously is exactly the mistake
+  // worth interrupting. The check fires on Enter, against the line assembled
+  // so far; everything else fans out immediately.
   fanOutBroadcast(sourceSessionID: string, data: string) {
     if (!this.broadcastEnabled) return;
     if (!this.broadcastSet.has(sourceSessionID)) return;
+
+    if (this.#isSubmit(data)) {
+      const command = this.#broadcastLine;
+      this.#broadcastLine = "";
+      const danger = checkCommand(command);
+      if (danger) {
+        const targets = [...this.broadcastSet].filter((s) => s !== sourceSessionID).length;
+        this.pendingBroadcastDanger = {
+          id: crypto.randomUUID(),
+          sourceSessionID,
+          command,
+          danger,
+          targets,
+        };
+        return; // held until the user confirms
+      }
+    } else {
+      this.#trackBroadcastLine(data);
+    }
+
+    this.#writeToBroadcastGroup(sourceSessionID, data);
+  }
+
+  // Release a held command to the rest of the group.
+  confirmBroadcastDanger() {
+    const pending = this.pendingBroadcastDanger;
+    this.pendingBroadcastDanger = null;
+    if (!pending) return;
+    // Members never received the Enter, but they did receive the keystrokes
+    // that preceded it, so the newline alone submits the line they're holding.
+    this.#writeToBroadcastGroup(pending.sourceSessionID, "\r");
+  }
+
+  // Drop a held command, and clear the half-typed line from every member so
+  // they aren't left holding a command the user just declined to run.
+  cancelBroadcastDanger() {
+    const pending = this.pendingBroadcastDanger;
+    this.pendingBroadcastDanger = null;
+    if (!pending) return;
+    this.#writeToBroadcastGroup(pending.sourceSessionID, "\x15"); // Ctrl-U: kill line
+  }
+
+  #writeToBroadcastGroup(sourceSessionID: string, data: string) {
     for (const sid of this.broadcastSet) {
       if (sid === sourceSessionID) continue;
       const sink = this.broadcastSinks[sid];
       if (sink) sink(data);
+    }
+  }
+
+  #isSubmit(data: string): boolean {
+    return data === "\r" || data === "\n" || data === "\r\n";
+  }
+
+  // Maintain the in-flight line: printable input appends, backspace removes,
+  // and the usual line-kill / interrupt controls reset it.
+  #trackBroadcastLine(data: string) {
+    if (data === "\x7f" || data === "\b") {
+      this.#broadcastLine = this.#broadcastLine.slice(0, -1);
+      return;
+    }
+    // Ctrl-C, Ctrl-U, Ctrl-D, Escape — the line is gone as far as the shell
+    // is concerned, so stop tracking it.
+    if (data === "\x03" || data === "\x15" || data === "\x04" || data === "\x1b") {
+      this.#broadcastLine = "";
+      return;
+    }
+    // Ignore other control sequences (arrows, function keys) rather than
+    // letting escape codes pollute the reconstructed command.
+    if (data.length === 1 && data.charCodeAt(0) < 0x20) return;
+    if (data.startsWith("\x1b")) return;
+    this.#broadcastLine += data;
+    // Bound the buffer; a pathological paste shouldn't grow it without limit.
+    if (this.#broadcastLine.length > 4096) {
+      this.#broadcastLine = this.#broadcastLine.slice(-4096);
     }
   }
 
@@ -210,43 +310,30 @@ class AppState {
     this.hosts = ((await HostService.List()) ?? []) as Host[];
   }
 
-  async refreshPasswords() {
+  // Which hosts have a saved SSH / sudo password. Booleans only — enough to
+  // render a "saved" dot and to decide whether to prompt at connect.
+  async refreshSecretStatus() {
     if (!this.vault.unlocked) {
-      this.hostPasswords = {};
+      this.secretStatus = {};
       return;
     }
     try {
-      const map = (await HostService.GetAllPasswords()) as Record<string, string> | null;
-      if (map) {
-        // Merge: keep any in-session passwords already set, and fill in saved ones
-        for (const [id, pw] of Object.entries(map)) {
-          if (pw) this.hostPasswords[id] = pw;
-        }
-      }
+      const map = (await HostService.SecretStatus()) as Record<
+        string,
+        { hasPassword: boolean; hasSudo: boolean }
+      > | null;
+      this.secretStatus = map ?? {};
     } catch {
-      // vault may not support this yet — ignore
+      this.secretStatus = {};
     }
   }
 
-  async refreshSudoPasswords() {
-    if (!this.vault.unlocked) {
-      this.hostSudoPasswords = {};
-      return;
-    }
-    try {
-      const map = (await HostService.GetAllSudoPasswords()) as Record<string, string> | null;
-      if (map) {
-        for (const [id, pw] of Object.entries(map)) {
-          if (pw) this.hostSudoPasswords[id] = pw;
-        }
-      }
-    } catch {
-      // ignore
-    }
+  hasSavedPassword(hostID: string): boolean {
+    return this.secretStatus[hostID]?.hasPassword ?? false;
   }
 
-  setSudoPassword(hostID: string, password: string) {
-    this.hostSudoPasswords[hostID] = password;
+  hasSavedSudoPassword(hostID: string): boolean {
+    return this.secretStatus[hostID]?.hasSudo ?? false;
   }
 
   async refreshKeys() {
@@ -270,15 +357,10 @@ class AppState {
       await this.refreshHosts();
       await this.refreshKeys();
       await this.refreshSettings();
-      await this.refreshPasswords();
-      await this.refreshSudoPasswords();
+      await this.refreshSecretStatus();
     } finally {
       this.loading = false;
     }
-  }
-
-  setPassword(hostID: string, password: string) {
-    this.hostPasswords[hostID] = password;
   }
 
   // Cheap debounce for auto-lock activity pings — many DOM events fire fast.

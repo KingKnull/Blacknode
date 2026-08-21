@@ -77,7 +77,7 @@ func (s *PortForwardService) Delete(ctx context.Context, id string) error {
 // Start opens the listener (or remote bind), grabs an SSH client from the
 // pool, and begins accepting connections in the background. password is the
 // runtime SSH password for password-auth hosts (transient).
-func (s *PortForwardService) Start(forwardID, password string) error {
+func (s *PortForwardService) Start(forwardID string) error {
 	// Place a nil sentinel under the lock so concurrent callers with the same
 	// ID bail out immediately rather than racing through the long dial below.
 	s.mu.Lock()
@@ -108,7 +108,7 @@ func (s *PortForwardService) Start(forwardID, password string) error {
 	if err != nil {
 		return fmt.Errorf("load host: %w", err)
 	}
-	client, release, err := s.pool.Get(sshconn.FromHost(host, password))
+	client, release, err := s.pool.Get(sshconn.FromHost(host))
 	if err != nil {
 		return fmt.Errorf("dial: %w", err)
 	}

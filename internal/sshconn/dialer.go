@@ -34,6 +34,15 @@ type Target struct {
 	User       string
 	AuthMethod AuthMethod
 
+	// HostID is the saved-host record this target came from, when there is
+	// one. It lets the dialer resolve a stored password itself instead of
+	// having callers carry plaintext credentials around — see authFor.
+	HostID string
+
+	// Password is an explicitly-supplied password, used for hosts with no
+	// saved credential (the user typed it at a connect prompt). Leave it
+	// empty for saved hosts: the dialer resolves the stored secret from the
+	// vault, which is the path that keeps plaintext off the UI bridge.
 	Password string // password auth
 	KeyID    string // key auth → vault lookup
 
@@ -46,6 +55,7 @@ type Dialer struct {
 	Vault      *vault.Vault
 	Keys       *store.Keys
 	KnownHosts *store.KnownHosts
+	Secrets    *store.Secrets
 
 	// HostKeyOverride, when set, replaces the KnownHosts TOFU callback. It
 	// exists for tests that connect to ephemeral fake servers whose keys
@@ -53,8 +63,36 @@ type Dialer struct {
 	HostKeyOverride ssh.HostKeyCallback
 }
 
-func New(v *vault.Vault, k *store.Keys, kh *store.KnownHosts) *Dialer {
-	return &Dialer{Vault: v, Keys: k, KnownHosts: kh}
+func New(v *vault.Vault, k *store.Keys, kh *store.KnownHosts, secrets *store.Secrets) *Dialer {
+	return &Dialer{Vault: v, Keys: k, KnownHosts: kh, Secrets: secrets}
+}
+
+// ResolveSecret unseals a stored credential for a host. Returns an empty
+// string (no error) when nothing is stored, so callers can treat "no saved
+// password" and "vault has one" uniformly. Errors are reserved for a locked
+// vault or a genuine decrypt failure.
+//
+// This is the single place credentials leave the encrypted store. Nothing
+// hands them to the frontend.
+func (d *Dialer) ResolveSecret(kind store.Kind, hostID string) (string, error) {
+	if d.Secrets == nil || hostID == "" {
+		return "", nil
+	}
+	sealed, err := d.Secrets.Get(kind, hostID)
+	if errors.Is(err, store.ErrNoSecret) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("load secret: %w", err)
+	}
+	if d.Vault == nil || !d.Vault.IsUnlocked() {
+		return "", errors.New("vault is locked — unlock to use the saved password")
+	}
+	plain, err := d.Vault.Decrypt(sealed.Ciphertext, sealed.Nonce)
+	if err != nil {
+		return "", fmt.Errorf("decrypt secret: %w", err)
+	}
+	return string(plain), nil
 }
 
 // hostKeyCallback returns the configured TOFU callback, or the test override
@@ -105,7 +143,21 @@ func (d *Dialer) Dial(t Target) (*ssh.Client, error) {
 func (d *Dialer) authFor(t Target) ([]ssh.AuthMethod, error) {
 	switch t.AuthMethod {
 	case AuthPassword, "":
-		return []ssh.AuthMethod{ssh.Password(t.Password)}, nil
+		// An explicit password wins (typed at a connect prompt for a host with
+		// nothing saved). Otherwise resolve the stored secret here, in the
+		// backend, so the plaintext never has to travel to the UI and back.
+		pw := t.Password
+		if pw == "" {
+			resolved, err := d.ResolveSecret(store.KindPassword, t.HostID)
+			if err != nil {
+				return nil, err
+			}
+			pw = resolved
+		}
+		if pw == "" {
+			return nil, errors.New("no password available — save one on the host or enter it at connect")
+		}
+		return []ssh.AuthMethod{ssh.Password(pw)}, nil
 
 	case AuthKey:
 		if t.KeyID == "" {
@@ -171,18 +223,27 @@ func (d *Dialer) authFor(t Target) ([]ssh.AuthMethod, error) {
 	}
 }
 
-// FromHost expands a stored Host into a Target, copying the password through
-// (transient runtime input) when applicable.
-func FromHost(h store.Host, password string) Target {
+// FromHost expands a stored Host into a Target. Password is left empty on
+// purpose — the dialer resolves the saved credential from the vault at auth
+// time. Use FromHostWithPassword only for a password the user just typed for
+// a host that has none saved.
+func FromHost(h store.Host) Target {
 	return Target{
 		Host:       h.Host,
 		Port:       h.Port,
 		User:       h.Username,
 		AuthMethod: AuthMethod(h.AuthMethod),
-		Password:   password,
+		HostID:     h.ID,
 		KeyID:      h.KeyID,
 		ProxyJump:  h.ProxyJump,
 	}
+}
+
+// FromHostWithPassword is FromHost plus an explicit one-shot password.
+func FromHostWithPassword(h store.Host, password string) Target {
+	t := FromHost(h)
+	t.Password = password
+	return t
 }
 
 // HandshakeOver performs only the SSH client handshake on top of an

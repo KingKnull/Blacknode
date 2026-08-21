@@ -37,8 +37,7 @@
     err = "";
     busy = true;
     try {
-      const password = app.hostPasswords[host.id] ?? "";
-      entries = ((await SFTPService.List(host.id, password, path)) ??
+      entries = ((await SFTPService.List(host.id, path)) ??
         []) as SFTPEntry[];
     } catch (e: any) {
       let msg = String(e?.message ?? e);
@@ -82,17 +81,14 @@
     const bytes = new Uint8Array(buf);
     for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
     const b64 = btoa(bin);
-    const password = app.hostPasswords[host.id] ?? "";
-    await SFTPService.Upload(host.id, password, path || ".", file.name, b64);
+    await SFTPService.Upload(host.id, path || ".", file.name, b64);
     await reload();
   }
 
   async function download(e: SFTPEntry) {
     if (!host) return;
-    const password = app.hostPasswords[host.id] ?? "";
     const b64 = await SFTPService.Download(
       host.id,
-      password,
       joinPath(path, e.name),
     );
     const bin = atob(b64);
@@ -110,8 +106,7 @@
   let entryToDelete = $state<SFTPEntry | null>(null);
   async function remove() {
     if (!entryToDelete || !host) return;
-    const password = app.hostPasswords[host.id] ?? "";
-    await SFTPService.Remove(host.id, password, joinPath(path, entryToDelete.name));
+    await SFTPService.Remove(host.id, joinPath(path, entryToDelete.name));
     await reload();
     entryToDelete = null;
   }

@@ -104,7 +104,7 @@ func (s *SSHService) ConnectByHost(ctx context.Context, sessionID, hostID, passw
 	if err != nil {
 		return fmt.Errorf("load host: %w", err)
 	}
-	target := sshconn.FromHost(h, password)
+	target := sshconn.FromHostWithPassword(h, password)
 	return s.connectWith(sessionID, target, cols, rows, hostID)
 }
 
@@ -303,6 +303,19 @@ func (s *SSHService) Write(ctx context.Context, sessionID string, data string) e
 	}
 	_, err := state.stdin.Write([]byte(data))
 	return err
+}
+
+// SendSudoPassword writes the sudo password saved for hostID into the
+// session's PTY. The plaintext is resolved and written entirely in the
+// backend: the UI detects the sudo prompt and asks for the injection by
+// session id, so the password never crosses the bridge.
+//
+// Reports false when no sudo password is stored, which tells the UI to prompt
+// the user inline instead.
+func (s *SSHService) SendSudoPassword(ctx context.Context, sessionID, hostID string) (bool, error) {
+	return injectSudoPassword(s.dialer, hostID, func(data string) error {
+		return s.Write(ctx, sessionID, data)
+	})
 }
 
 func (s *SSHService) Resize(ctx context.Context, sessionID string, cols, rows int) error {

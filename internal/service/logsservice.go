@@ -65,7 +65,7 @@ func (s *LogsService) DeleteQuery(ctx context.Context, id string) error { return
 // Start opens a session per host and runs `command` (e.g. `tail -F /var/log/syslog`),
 // streaming lines back as `logs:line` events. Idempotent — calling Start with
 // an existing streamID kills the old run first.
-func (s *LogsService) Start(streamID string, hostIDs []string, passwords map[string]string, command string) error {
+func (s *LogsService) Start(streamID string, hostIDs []string, command string) error {
 	if streamID == "" {
 		return errors.New("streamID required")
 	}
@@ -89,7 +89,7 @@ func (s *LogsService) Start(streamID string, hostIDs []string, passwords map[str
 			s.emit(streamID, id, "?", fmt.Sprintf("[error: %v]", err), true)
 			continue
 		}
-		client, release, err := s.pool.Get(sshconn.FromHost(h, passwords[id]))
+		client, release, err := s.pool.Get(sshconn.FromHost(h))
 		if err != nil {
 			s.emit(streamID, id, h.Name, fmt.Sprintf("[connect error: %v]", err), true)
 			continue

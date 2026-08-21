@@ -67,8 +67,7 @@
   });
 
   async function start(hostID: string) {
-    const password = app.hostPasswords[hostID] ?? "";
-    await MetricsService.Start(hostID, password, 5);
+    await MetricsService.Start(hostID, 5);
     polling = new Set([...polling, hostID]);
   }
 

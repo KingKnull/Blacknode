@@ -60,6 +60,12 @@ func keyFor(t Target) string {
 	h.Write([]byte{0})
 	h.Write([]byte(string(t.AuthMethod)))
 	h.Write([]byte{0})
+	// HostID distinguishes two saved records that resolve to the same
+	// host:port:user but carry different stored credentials. Password is
+	// normally empty (resolved inside the dialer) and only contributes for
+	// one-shot user-typed credentials.
+	h.Write([]byte(t.HostID))
+	h.Write([]byte{0})
 	h.Write([]byte(t.Password))
 	h.Write([]byte{0})
 	h.Write([]byte(t.KeyID))
@@ -230,7 +236,10 @@ func (p *Pool) getThroughProxy(t Target, chain map[string]bool) (*ssh.Client, fu
 	if err != nil {
 		return nil, func() {}, fmt.Errorf("proxy host %q not found: %w", t.ProxyJump, err)
 	}
-	proxyT := FromHost(proxyHost, "")
+	// Bastions with password auth work now that the dialer resolves stored
+	// credentials itself — previously this passed an empty password and any
+	// password-auth jump host failed.
+	proxyT := FromHost(proxyHost)
 
 	// Recurse if the proxy itself has a proxy. Direct proxies use the
 	// regular pooled path so they share connections across callers.

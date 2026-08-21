@@ -78,7 +78,7 @@ func NewDBService(pool *sshconn.Pool, h *store.Hosts, saved *store.DBConnections
 // Connect dispatches on `kind` ("postgres" or "mysql"). Empty kind is auto-
 // detected from the DSN shape — `postgres://` URL → postgres, `@tcp(` →
 // mysql, anything else is an error.
-func (s *DBService) Connect(ctx context.Context, hostID, password, kind, dsn string) (DBConnectionInfo, error) {
+func (s *DBService) Connect(ctx context.Context, hostID, kind, dsn string) (DBConnectionInfo, error) {
 	if strings.TrimSpace(dsn) == "" {
 		return DBConnectionInfo{}, errors.New("dsn required")
 	}
@@ -87,9 +87,9 @@ func (s *DBService) Connect(ctx context.Context, hostID, password, kind, dsn str
 	}
 	switch kind {
 	case "postgres":
-		return s.connectPostgres(hostID, password, dsn)
+		return s.connectPostgres(hostID, dsn)
 	case "mysql":
-		return s.connectMySQL(hostID, password, dsn)
+		return s.connectMySQL(hostID, dsn)
 	default:
 		return DBConnectionInfo{}, fmt.Errorf("unsupported kind: %q (expected postgres or mysql)", kind)
 	}
@@ -106,12 +106,12 @@ func sniffKind(dsn string) string {
 	return ""
 }
 
-func (s *DBService) connectPostgres(hostID, password, dsn string) (DBConnectionInfo, error) {
+func (s *DBService) connectPostgres(hostID, dsn string) (DBConnectionInfo, error) {
 	h, err := s.hosts.Get(hostID)
 	if err != nil {
 		return DBConnectionInfo{}, fmt.Errorf("load host: %w", err)
 	}
-	sshClient, release, err := s.pool.Get(sshconn.FromHost(h, password))
+	sshClient, release, err := s.pool.Get(sshconn.FromHost(h))
 	if err != nil {
 		return DBConnectionInfo{}, err
 	}
@@ -151,12 +151,12 @@ func (s *DBService) connectPostgres(hostID, password, dsn string) (DBConnectionI
 // the driver; we leak one entry per connection (a closure capturing the SSH
 // client). That's bounded by the number of distinct DB sessions opened in
 // the app's lifetime — acceptable.
-func (s *DBService) connectMySQL(hostID, password, dsn string) (DBConnectionInfo, error) {
+func (s *DBService) connectMySQL(hostID, dsn string) (DBConnectionInfo, error) {
 	h, err := s.hosts.Get(hostID)
 	if err != nil {
 		return DBConnectionInfo{}, fmt.Errorf("load host: %w", err)
 	}
-	sshClient, release, err := s.pool.Get(sshconn.FromHost(h, password))
+	sshClient, release, err := s.pool.Get(sshconn.FromHost(h))
 	if err != nil {
 		return DBConnectionInfo{}, err
 	}
@@ -642,7 +642,7 @@ func (s *DBService) DeleteSavedConnection(ctx context.Context, id string) error 
 	return s.saved.Delete(id)
 }
 
-func (s *DBService) ConnectSaved(ctx context.Context, savedID, password string) (DBConnectionInfo, error) {
+func (s *DBService) ConnectSaved(ctx context.Context, savedID string) (DBConnectionInfo, error) {
 	if !s.vault.IsUnlocked() {
 		return DBConnectionInfo{}, errors.New("vault must be unlocked")
 	}
@@ -654,7 +654,7 @@ func (s *DBService) ConnectSaved(ctx context.Context, savedID, password string) 
 	if err != nil {
 		return DBConnectionInfo{}, fmt.Errorf("decrypt dsn: %w", err)
 	}
-	return s.Connect(context.Background(), rec.HostID, password, rec.Kind, string(plain))
+	return s.Connect(context.Background(), rec.HostID, rec.Kind, string(plain))
 }
 
 func formatValue(v any) string {

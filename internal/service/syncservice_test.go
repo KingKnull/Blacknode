@@ -53,7 +53,7 @@ func setupTestSyncService(t *testing.T) (*SyncService, *httptest.Server, *store.
 	mux := http.NewServeMux()
 	server := httptest.NewServer(mux)
 
-	syncSvc := NewSyncService(settings, hosts, snippets, httpRequests, teamActivity, v, nil)
+	syncSvc := NewSyncService(settings, hosts, snippets, httpRequests, teamActivity, store.NewSyncKeys(sqliteDB.DB), v, nil)
 
 	return syncSvc, server, settings, func() {
 		server.Close()

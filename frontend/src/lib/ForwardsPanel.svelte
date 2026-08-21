@@ -51,8 +51,7 @@
     busyID = f.id;
     err = "";
     try {
-      const password = app.hostPasswords[f.hostID] ?? "";
-      await PortForwardService.Start(f.id, password);
+      await PortForwardService.Start(f.id);
       await refresh();
     } catch (e: any) {
       err = String(e?.message ?? e);

@@ -113,7 +113,7 @@ func newTestKnownHosts(t *testing.T) *store.KnownHosts {
 // strict TOFU callback is exercised by knownhosts_test.go.
 func dialerFor(t *testing.T) *Dialer {
 	t.Helper()
-	d := New(nil, nil, newTestKnownHosts(t))
+	d := New(nil, nil, newTestKnownHosts(t), nil)
 	d.HostKeyOverride = ssh.InsecureIgnoreHostKey()
 	return d
 }

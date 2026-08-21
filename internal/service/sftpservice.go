@@ -31,12 +31,12 @@ func NewSFTPService(pool *sshconn.Pool, h *store.Hosts) *SFTPService {
 	return &SFTPService{pool: pool, hosts: h}
 }
 
-func (s *SFTPService) withClient(hostID, password string, fn func(*sftp.Client) error) error {
+func (s *SFTPService) withClient(hostID string, fn func(*sftp.Client) error) error {
 	h, err := s.hosts.Get(hostID)
 	if err != nil {
 		return fmt.Errorf("load host: %w", err)
 	}
-	client, release, err := s.pool.Get(sshconn.FromHost(h, password))
+	client, release, err := s.pool.Get(sshconn.FromHost(h))
 	if err != nil {
 		return err
 	}
@@ -51,9 +51,9 @@ func (s *SFTPService) withClient(hostID, password string, fn func(*sftp.Client) 
 
 // List returns the entries of a remote directory. If `dir` is empty, the
 // remote home directory is used.
-func (s *SFTPService) List(ctx context.Context, hostID, password, dir string) ([]SFTPEntry, error) {
+func (s *SFTPService) List(ctx context.Context, hostID, dir string) ([]SFTPEntry, error) {
 	var out []SFTPEntry
-	err := s.withClient(hostID, password, func(c *sftp.Client) error {
+	err := s.withClient(hostID, func(c *sftp.Client) error {
 		if dir == "" {
 			home, err := c.Getwd()
 			if err != nil {
@@ -79,12 +79,12 @@ func (s *SFTPService) List(ctx context.Context, hostID, password, dir string) ([
 
 // Download fetches a remote file and returns it base64-encoded. Suitable for
 // the spike's small-file UI; large files will need a streaming path.
-func (s *SFTPService) Download(ctx context.Context, hostID, password, remotePath string) (string, error) {
+func (s *SFTPService) Download(ctx context.Context, hostID, remotePath string) (string, error) {
 	if remotePath == "" {
 		return "", errors.New("remotePath required")
 	}
 	var encoded string
-	err := s.withClient(hostID, password, func(c *sftp.Client) error {
+	err := s.withClient(hostID, func(c *sftp.Client) error {
 		f, err := c.Open(remotePath)
 		if err != nil {
 			return err
@@ -101,7 +101,7 @@ func (s *SFTPService) Download(ctx context.Context, hostID, password, remotePath
 }
 
 // Upload writes base64-encoded payload to remoteDir/<filename>.
-func (s *SFTPService) Upload(ctx context.Context, hostID, password, remoteDir, filename, payloadB64 string) error {
+func (s *SFTPService) Upload(ctx context.Context, hostID, remoteDir, filename, payloadB64 string) error {
 	if remoteDir == "" || filename == "" {
 		return errors.New("remoteDir and filename required")
 	}
@@ -109,7 +109,7 @@ func (s *SFTPService) Upload(ctx context.Context, hostID, password, remoteDir, f
 	if err != nil {
 		return fmt.Errorf("decode payload: %w", err)
 	}
-	return s.withClient(hostID, password, func(c *sftp.Client) error {
+	return s.withClient(hostID, func(c *sftp.Client) error {
 		full := path.Join(remoteDir, filename)
 		f, err := c.Create(full)
 		if err != nil {
@@ -124,7 +124,7 @@ func (s *SFTPService) Upload(ctx context.Context, hostID, password, remoteDir, f
 // WriteFile overwrites a remote file at an absolute path. Used by the
 // in-app editor — Upload (which appends a filename onto a directory) is the
 // wrong shape there. Capped at 50MB to mirror the Download cap.
-func (s *SFTPService) WriteFile(ctx context.Context, hostID, password, remotePath, payloadB64 string) error {
+func (s *SFTPService) WriteFile(ctx context.Context, hostID, remotePath, payloadB64 string) error {
 	if remotePath == "" {
 		return errors.New("remotePath required")
 	}
@@ -135,7 +135,7 @@ func (s *SFTPService) WriteFile(ctx context.Context, hostID, password, remotePat
 	if len(data) > 50*1024*1024 {
 		return errors.New("file exceeds 50MB cap")
 	}
-	return s.withClient(hostID, password, func(c *sftp.Client) error {
+	return s.withClient(hostID, func(c *sftp.Client) error {
 		// Use OpenFile with O_WRONLY|O_CREATE|O_TRUNC so we can overwrite
 		// without first removing — preserves inode for tools watching it.
 		f, err := c.OpenFile(remotePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
@@ -148,14 +148,14 @@ func (s *SFTPService) WriteFile(ctx context.Context, hostID, password, remotePat
 	})
 }
 
-func (s *SFTPService) Mkdir(ctx context.Context, hostID, password, dir string) error {
-	return s.withClient(hostID, password, func(c *sftp.Client) error {
+func (s *SFTPService) Mkdir(ctx context.Context, hostID, dir string) error {
+	return s.withClient(hostID, func(c *sftp.Client) error {
 		return c.MkdirAll(dir)
 	})
 }
 
-func (s *SFTPService) Remove(ctx context.Context, hostID, password, target string) error {
-	return s.withClient(hostID, password, func(c *sftp.Client) error {
+func (s *SFTPService) Remove(ctx context.Context, hostID, target string) error {
+	return s.withClient(hostID, func(c *sftp.Client) error {
 		info, err := c.Lstat(target)
 		if err != nil {
 			return err

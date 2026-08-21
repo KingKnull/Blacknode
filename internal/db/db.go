@@ -240,8 +240,22 @@ func OpenPath(dbPath string) (*DB, error) {
 	if _, err := conn.Exec(schemaVaultRemember); err != nil {
 		return nil, fmt.Errorf("apply vault remember schema: %w", err)
 	}
+	if _, err := conn.Exec(schemaSyncKey); err != nil {
+		return nil, fmt.Errorf("apply sync key schema: %w", err)
+	}
 	return &DB{conn}, nil
 }
+
+// schemaSyncKey holds the sync root key that encrypts sync blobs, sealed with
+// the vault master key. Single row by construction.
+const schemaSyncKey = `
+CREATE TABLE IF NOT EXISTS sync_key (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    ciphertext BLOB NOT NULL,
+    nonce BLOB NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+`
 
 // postMigrationIndexes contains indexes that reference columns added by
 // migrations. They must run AFTER the ALTER TABLE statements, otherwise

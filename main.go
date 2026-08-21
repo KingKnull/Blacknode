@@ -52,6 +52,7 @@ func main() {
 	hosts := store.NewHosts(conn.DB)
 	keys := store.NewKeys(conn.DB)
 	knownHosts := store.NewKnownHosts(conn.DB)
+	secrets := store.NewSecrets(conn.DB)
 	settings := store.NewSettings(conn.DB)
 	forwards := store.NewForwards(conn.DB)
 	recordings := store.NewRecordings(conn.DB)
@@ -61,10 +62,11 @@ func main() {
 	dbConnections := store.NewDBConnections(conn.DB)
 	httpRequests := store.NewHTTPRequests(conn.DB)
 	teamActivity := store.NewTeamActivities(conn.DB)
+	syncKeys := store.NewSyncKeys(conn.DB)
 	activities := store.NewActivities(conn.DB)
 	recMgr := recorder.NewManager()
 	v := vault.New(conn.DB)
-	dialer := sshconn.New(v, keys, knownHosts)
+	dialer := sshconn.New(v, keys, knownHosts, secrets)
 	pool := sshconn.NewPool(dialer, hosts)
 
 	settingsSvc := service.NewSettingsService(settings, v)
@@ -73,7 +75,7 @@ func main() {
 	pfSvc := service.NewPortForwardService(pool, hosts, forwards)
 	notifySvc := service.NewNotificationService(settings)
 	activityRec := service.NewActivityRecorder(activities)
-	syncSvc := service.NewSyncService(settings, hosts, snippets, httpRequests, teamActivity, v, activityRec)
+	syncSvc := service.NewSyncService(settings, hosts, snippets, httpRequests, teamActivity, syncKeys, v, activityRec)
 	dataDir := filepath.Join(xdg.DataHome, "blacknode")
 	vaultSvc := service.NewVaultService(v, conn.DB, dataDir, activityRec, autoLock)
 	vaultSvc.SetSyncService(syncSvc)
@@ -86,8 +88,8 @@ func main() {
 			application.NewService(vaultSvc),
 			application.NewService(settingsSvc),
 			application.NewService(service.NewKeyService(keys, v)),
-			application.NewService(service.NewHostService(hosts, knownHosts, v, conn.DB)),
-			application.NewService(service.NewLocalShellService(recMgr, recordings, settings)),
+			application.NewService(service.NewHostService(hosts, knownHosts, secrets, v)),
+			application.NewService(service.NewLocalShellService(recMgr, recordings, settings, dialer)),
 			application.NewService(service.NewSSHService(dialer, hosts, recMgr, recordings, settings)),
 			application.NewService(service.NewSFTPService(pool, hosts)),
 			application.NewService(service.NewExecService(pool, hosts, history, notifySvc, activityRec)),

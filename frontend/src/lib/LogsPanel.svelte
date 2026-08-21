@@ -136,12 +136,7 @@
     streamID = crypto.randomUUID();
     buffer = [];
     paused = false;
-    const passwords: Record<string, string> = {};
-    for (const id of selectedHosts) {
-      const p = app.hostPasswords[id];
-      if (p) passwords[id] = p;
-    }
-    await LogsService.Start(streamID, [...selectedHosts], passwords, command);
+    await LogsService.Start(streamID, [...selectedHosts], command);
     running = true;
   }
 

@@ -51,7 +51,7 @@ var (
 	pingRTT      = regexp.MustCompile(`(?:rtt|round-trip).*?=\s*([\d.]+)/([\d.]+)/([\d.]+)`)
 )
 
-func (s *NetworkService) Ping(ctx context.Context, hostID, password, target string, count int) (PingResult, error) {
+func (s *NetworkService) Ping(ctx context.Context, hostID, target string, count int) (PingResult, error) {
 	if target == "" {
 		return PingResult{}, fmt.Errorf("target required")
 	}
@@ -59,7 +59,7 @@ func (s *NetworkService) Ping(ctx context.Context, hostID, password, target stri
 		count = 4
 	}
 	cmd := sshconn.Cmd("ping -c %d -W 2 %s 2>&1 || true", count, target)
-	out, err := s.run(hostID, password, cmd, 30*time.Second)
+	out, err := s.run(hostID, cmd, 30*time.Second)
 	res := PingResult{Target: target, RawOutput: out}
 	if err != nil {
 		return res, nil // surface raw output even on non-zero exit
@@ -95,7 +95,7 @@ type DNSResult struct {
 	RawOutput string      `json:"rawOutput"`
 }
 
-func (s *NetworkService) DNSLookup(ctx context.Context, hostID, password, target, recordType string) (DNSResult, error) {
+func (s *NetworkService) DNSLookup(ctx context.Context, hostID, target, recordType string) (DNSResult, error) {
 	if target == "" {
 		return DNSResult{}, fmt.Errorf("target required")
 	}
@@ -118,7 +118,7 @@ func (s *NetworkService) DNSLookup(ctx context.Context, hostID, password, target
 		rt, target,
 		rt, target,
 	)
-	out, err := s.run(hostID, password, cmd, 15*time.Second)
+	out, err := s.run(hostID, cmd, 15*time.Second)
 	res := DNSResult{Target: target, RawOutput: out}
 	if err != nil {
 		return res, nil
@@ -172,7 +172,7 @@ type PortScanResult struct {
 // host's network. Concurrent dials capped at 32; per-port timeout 2s. We read
 // up to 256 bytes after a successful connect to grab a banner if the service
 // volunteers one (SSH, HTTP servers that send a Server header on connect, etc.).
-func (s *NetworkService) PortScan(ctx context.Context, hostID, password, target string, ports []int) (PortScanResult, error) {
+func (s *NetworkService) PortScan(ctx context.Context, hostID, target string, ports []int) (PortScanResult, error) {
 	if target == "" {
 		return PortScanResult{}, fmt.Errorf("target required")
 	}
@@ -187,7 +187,7 @@ func (s *NetworkService) PortScan(ctx context.Context, hostID, password, target 
 	if err != nil {
 		return PortScanResult{}, fmt.Errorf("load host: %w", err)
 	}
-	client, release, err := s.pool.Get(sshconn.FromHost(h, password))
+	client, release, err := s.pool.Get(sshconn.FromHost(h))
 	if err != nil {
 		return PortScanResult{}, err
 	}
@@ -291,7 +291,7 @@ type SSLResult struct {
 // performs a TLS handshake, and returns the leaf certificate plus chain.
 // We deliberately accept invalid certs (expired, name-mismatched, self-signed)
 // — the goal is to inspect what the server returns, not to verify it.
-func (s *NetworkService) SSLCert(ctx context.Context, hostID, password, target string) (SSLResult, error) {
+func (s *NetworkService) SSLCert(ctx context.Context, hostID, target string) (SSLResult, error) {
 	if target == "" {
 		return SSLResult{}, fmt.Errorf("target required")
 	}
@@ -304,7 +304,7 @@ func (s *NetworkService) SSLCert(ctx context.Context, hostID, password, target s
 	if err != nil {
 		return SSLResult{}, fmt.Errorf("load host: %w", err)
 	}
-	client, release, err := s.pool.Get(sshconn.FromHost(h, password))
+	client, release, err := s.pool.Get(sshconn.FromHost(h))
 	if err != nil {
 		return SSLResult{Target: target, Error: err.Error()}, nil
 	}
@@ -392,12 +392,12 @@ func tlsVersionName(v uint16) string {
 
 // run is a slim wrapper that dials via the pool and executes a one-shot
 // command using the centralized sshconn.Run helper.
-func (s *NetworkService) run(hostID, password, cmd string, timeout time.Duration) (string, error) {
+func (s *NetworkService) run(hostID, cmd string, timeout time.Duration) (string, error) {
 	h, err := s.hosts.Get(hostID)
 	if err != nil {
 		return "", fmt.Errorf("load host: %w", err)
 	}
-	client, release, err := s.pool.Get(sshconn.FromHost(h, password))
+	client, release, err := s.pool.Get(sshconn.FromHost(h))
 	if err != nil {
 		return "", err
 	}

@@ -50,12 +50,12 @@ func NewContainerService(pool *sshconn.Pool, h *store.Hosts) *ContainerService {
 // Containers runs `docker ps --format json` and parses the per-line JSON
 // docker emits in newer versions. Falls back to a parsed table from
 // `docker ps --format ...` if `--format json` isn't supported.
-func (s *ContainerService) Containers(ctx context.Context, hostID, password string, includeStopped bool) ([]Container, error) {
+func (s *ContainerService) Containers(ctx context.Context, hostID string, includeStopped bool) ([]Container, error) {
 	cmd := `docker ps --format '{{json .}}'`
 	if includeStopped {
 		cmd = `docker ps -a --format '{{json .}}'`
 	}
-	out, err := s.runCmd(hostID, password, cmd, 15*time.Second)
+	out, err := s.runCmd(hostID, cmd, 15*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -93,21 +93,21 @@ func (s *ContainerService) Containers(ctx context.Context, hostID, password stri
 
 // ContainerLogs returns the last `lines` of logs for one-shot display. For
 // streaming, use the existing LogsService with `docker logs -f <id>`.
-func (s *ContainerService) ContainerLogs(ctx context.Context, hostID, password, containerID string, lines int) (string, error) {
+func (s *ContainerService) ContainerLogs(ctx context.Context, hostID, containerID string, lines int) (string, error) {
 	if containerID == "" {
 		return "", errors.New("containerID required")
 	}
 	if lines <= 0 || lines > 5000 {
 		lines = 200
 	}
-	return s.runCmd(hostID, password,
+	return s.runCmd(hostID,
 		sshconn.Cmd("docker logs --tail %d %s 2>&1", lines, containerID),
 		30*time.Second)
 }
 
 // Namespaces returns the list of kubernetes namespaces visible on the host.
-func (s *ContainerService) Namespaces(ctx context.Context, hostID, password string) ([]string, error) {
-	out, err := s.runCmd(hostID, password,
+func (s *ContainerService) Namespaces(ctx context.Context, hostID string) ([]string, error) {
+	out, err := s.runCmd(hostID,
 		"kubectl get namespaces --no-headers -o custom-columns=NAME:.metadata.name",
 		15*time.Second)
 	if err != nil {
@@ -125,14 +125,14 @@ func (s *ContainerService) Namespaces(ctx context.Context, hostID, password stri
 
 // Pods runs `kubectl get pods -o json` for a namespace and parses the
 // minimal subset we render. Empty namespace = all namespaces.
-func (s *ContainerService) Pods(ctx context.Context, hostID, password, namespace string) ([]Pod, error) {
+func (s *ContainerService) Pods(ctx context.Context, hostID, namespace string) ([]Pod, error) {
 	cmd := `kubectl get pods -o json`
 	if namespace == "" {
 		cmd = `kubectl get pods -A -o json`
 	} else {
 		cmd = sshconn.Cmd(`kubectl get pods -n %s -o json`, namespace)
 	}
-	out, err := s.runCmd(hostID, password, cmd, 30*time.Second)
+	out, err := s.runCmd(hostID, cmd, 30*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +182,7 @@ func (s *ContainerService) Pods(ctx context.Context, hostID, password, namespace
 
 // PodLogs returns the last N lines of logs for a pod (optionally a specific
 // container within it). Streaming is via the existing LogsService.
-func (s *ContainerService) PodLogs(ctx context.Context, hostID, password, namespace, pod, container string, lines int) (string, error) {
+func (s *ContainerService) PodLogs(ctx context.Context, hostID, namespace, pod, container string, lines int) (string, error) {
 	if pod == "" {
 		return "", errors.New("pod required")
 	}
@@ -198,18 +198,18 @@ func (s *ContainerService) PodLogs(ctx context.Context, hostID, password, namesp
 		cmd += " -c " + sshconn.ShellEscape(container)
 	}
 	cmd += " 2>&1"
-	return s.runCmd(hostID, password, cmd, 30*time.Second)
+	return s.runCmd(hostID, cmd, 30*time.Second)
 }
 
 // runCmd dials, opens a session, runs cmd via sshconn.Run, and returns the
 // output. kubectl/docker frequently exit non-zero with a useful error message
 // on stderr — we surface that as the body, not an opaque error.
-func (s *ContainerService) runCmd(hostID, password, cmd string, timeout time.Duration) (string, error) {
+func (s *ContainerService) runCmd(hostID, cmd string, timeout time.Duration) (string, error) {
 	h, err := s.hosts.Get(hostID)
 	if err != nil {
 		return "", fmt.Errorf("load host: %w", err)
 	}
-	client, release, err := s.pool.Get(sshconn.FromHost(h, password))
+	client, release, err := s.pool.Get(sshconn.FromHost(h))
 	if err != nil {
 		return "", err
 	}

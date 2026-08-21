@@ -173,14 +173,13 @@
     err = "";
     response = null;
     try {
-      const password = app.hostPasswords[host.id] ?? "";
       const vars = (activeEnv && envs[activeEnv]) || {};
       const headers = parseHeaders(headersText);
       const subbedHeaders: Record<string, string> = {};
       for (const [k, v] of Object.entries(headers)) {
         subbedHeaders[substituteVars(k, vars)] = substituteVars(v, vars);
       }
-      response = (await HTTPService.Request(host.id, password, {
+      response = (await HTTPService.Request(host.id, {
         method,
         url: substituteVars(url, vars),
         headers: subbedHeaders,

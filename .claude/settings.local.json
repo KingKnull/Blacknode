@@ -60,7 +60,9 @@
       "Bash(git -C /home/maverick/Blacknode diff frontend/bindings/github.com/blacknode/blacknode/internal/service/vaultservice.ts)",
       "Bash(git -C /home/maverick/Blacknode diff --stat frontend/bindings)",
       "Bash(git -C /home/maverick/Blacknode checkout -- frontend/bindings)",
-      "Bash(pkill -f blacknode-server)"
+      "Bash(pkill -f blacknode-server)",
+      "Bash(sed -i '116s/New\\(nil, nil, newTestKnownHosts\\(t\\)\\)/New\\(nil, nil, newTestKnownHosts\\(t\\), nil\\)/' internal/sshconn/integration_test.go)",
+      "Bash(python3 -)"
     ]
   }
 }

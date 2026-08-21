@@ -47,7 +47,7 @@ func NewExecService(pool *sshconn.Pool, h *store.Hosts, hist *store.History, n *
 	return &ExecService{pool: pool, hosts: h, history: hist, notify: n, activity: a}
 }
 
-func (s *ExecService) Run(ctx context.Context, runID, command string, hostIDs []string, passwords map[string]string, timeoutSeconds int) ([]ExecResult, error) {
+func (s *ExecService) Run(ctx context.Context, runID, command string, hostIDs []string, timeoutSeconds int) ([]ExecResult, error) {
 	if command == "" {
 		return nil, errors.New("command required")
 	}
@@ -78,7 +78,7 @@ func (s *ExecService) Run(ctx context.Context, runID, command string, hostIDs []
 			}
 			defer func() { <-sem }()
 
-			r := s.runOne(ctx, hostID, command, passwords[hostID])
+			r := s.runOne(ctx, hostID, command)
 			results[idx] = r
 			if s.history != nil {
 				status := "ok"
@@ -166,7 +166,7 @@ func truncate(s string, n int) string {
 	return s[:n] + "…"
 }
 
-func (s *ExecService) runOne(ctx context.Context, hostID, command, password string) ExecResult {
+func (s *ExecService) runOne(ctx context.Context, hostID, command string) ExecResult {
 	start := time.Now()
 	res := ExecResult{HostID: hostID, ExitCode: -1}
 
@@ -177,7 +177,7 @@ func (s *ExecService) runOne(ctx context.Context, hostID, command, password stri
 		return res
 	}
 	res.HostName = h.Name
-	target := sshconn.FromHost(h, password)
+	target := sshconn.FromHost(h)
 
 	// Connect with simple exponential backoff (max 3 attempts) — only the
 	// dial is retried; remote command failures are not.

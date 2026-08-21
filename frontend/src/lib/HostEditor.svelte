@@ -58,14 +58,16 @@
     try { snippets = ((await SnippetService.List()) ?? []) as Snippet[]; } catch { /* ignore */ }
     try { serialPorts = ((await SerialService.Ports()) ?? []) as string[]; } catch { /* ignore */ }
   });
-  // Password: pre-fill from the in-memory cache if editing an existing host.
-  // svelte-ignore state_referenced_locally
-  let password = $state(host?.id ? (app.hostPasswords[host.id] ?? "") : "");
+  // Passwords are write-only here. We can ask whether one is saved but never
+  // what it is, so the fields always start blank and an empty field means
+  // "leave whatever is in the vault alone" — see the save handler.
+  let password = $state("");
   let showPassword = $state(false);
   // Sudo password: separate from SSH auth password.
-  // svelte-ignore state_referenced_locally
-  let sudoPassword = $state(host?.id ? (app.hostSudoPasswords[host.id] ?? "") : "");
+  let sudoPassword = $state("");
   let showSudoPassword = $state(false);
+  let hasSavedPassword = $derived(host?.id ? app.hasSavedPassword(host.id) : false);
+  let hasSavedSudo = $derived(host?.id ? app.hasSavedSudoPassword(host.id) : false);
   let sudoSameAsSSH = $state(false);
   let busy = $state(false);
   let err = $state("");
@@ -139,31 +141,33 @@
         return;
       }
       // Persist the password in the vault if auth method is password.
-      if (authMethod === "password" && savedHost?.id) {
+      //
+      // An empty field means "keep what's already stored", not "clear it" —
+      // we can't prefill the field (the plaintext never leaves the backend),
+      // so a blank box is the normal state when editing an existing host.
+      // Clearing is done from the Vault panel.
+      if (authMethod === "password" && savedHost?.id && password) {
         try {
           await HostService.SetPassword(savedHost.id, password);
-          if (password) {
-            app.setPassword(savedHost.id, password);
-          }
         } catch (pe: any) {
           // Non-fatal for the host record, but the user must know the
           // credential didn't land (e.g. vault locked) so they can retry.
           app.toast('warn', 'PASSWORD NOT SAVED', String(pe?.message ?? pe));
         }
       }
-      // Persist sudo password (works for any auth method).
+      // Persist sudo password (works for any auth method). Same blank rule.
       if (savedHost?.id) {
         const sudoPw = sudoSameAsSSH ? password : sudoPassword;
-        try {
-          await HostService.SetSudoPassword(savedHost.id, sudoPw);
-          if (sudoPw) {
-            app.setSudoPassword(savedHost.id, sudoPw);
+        if (sudoPw) {
+          try {
+            await HostService.SetSudoPassword(savedHost.id, sudoPw);
+          } catch (pe: any) {
+            app.toast('warn', 'SUDO PASSWORD NOT SAVED', String(pe?.message ?? pe));
           }
-        } catch (pe: any) {
-          app.toast('warn', 'SUDO PASSWORD NOT SAVED', String(pe?.message ?? pe));
         }
       }
       await app.refreshHosts();
+      await app.refreshSecretStatus();
       onsaved();
     } catch (e: any) {
       err = String(e?.message ?? e);
@@ -365,13 +369,15 @@
       <!-- Password -->
       {#if authMethod === 'password'}
         <label class="block">
-          <span class="type-caption text-[var(--color-text-4)]">Password <span class="opacity-50">(vault)</span></span>
+          <span class="type-caption text-[var(--color-text-4)]">Password <span class="opacity-50">(vault)</span>
+            {#if hasSavedPassword}<span class="ml-1 text-[var(--color-success)]">· saved</span>{/if}
+          </span>
           <div class="relative mt-1">
             <input
               type={showPassword ? 'text' : 'password'}
               class="w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 pr-9 font-mono type-body text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
               bind:value={password}
-              placeholder={host ? "leave blank to keep current" : "SSH password"}
+              placeholder={hasSavedPassword ? "leave blank to keep saved password" : "SSH password"}
               autocomplete="new-password"
             />
             <button
@@ -452,6 +458,7 @@
         <div class="flex items-center gap-2 mb-2">
           <ShieldCheck size="11" class="text-[var(--color-warn)]" />
           <span class="type-caption font-semibold text-[var(--color-text-2)]">Sudo password</span>
+          {#if hasSavedSudo}<span class="type-caption text-[var(--color-success)]">· saved</span>{/if}
         </div>
         <label class="flex items-center gap-2 mb-2">
           <input type="checkbox" class="accent-[var(--color-accent)]" bind:checked={sudoSameAsSSH} />
@@ -463,7 +470,7 @@
               type={showSudoPassword ? 'text' : 'password'}
               class="w-full border hairline bg-[var(--color-surface-2)] px-3 py-2 pr-9 font-mono type-body text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
               bind:value={sudoPassword}
-              placeholder="sudo / root password"
+              placeholder={hasSavedSudo ? "leave blank to keep saved password" : "sudo / root password"}
               autocomplete="new-password"
             />
             <button

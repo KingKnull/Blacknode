@@ -125,7 +125,7 @@ func NewMetricsService(pool *sshconn.Pool, h *store.Hosts, n *NotificationServic
 
 // Start begins a polling loop for the given host. Emits "metrics:update"
 // every intervalSeconds. Idempotent — calling Start twice replaces the loop.
-func (s *MetricsService) Start(hostID, password string, intervalSeconds int) error {
+func (s *MetricsService) Start(hostID string, intervalSeconds int) error {
 	if intervalSeconds < 2 {
 		intervalSeconds = 5
 	}
@@ -135,7 +135,7 @@ func (s *MetricsService) Start(hostID, password string, intervalSeconds int) err
 	s.cancels[hostID] = cancel
 	s.mu.Unlock()
 
-	go s.loop(ctx, hostID, password, time.Duration(intervalSeconds)*time.Second)
+	go s.loop(ctx, hostID, time.Duration(intervalSeconds)*time.Second)
 	return nil
 }
 
@@ -161,22 +161,22 @@ func (s *MetricsService) StopAll(ctx context.Context) {
 	s.mu.Unlock()
 }
 
-func (s *MetricsService) loop(ctx context.Context, hostID, password string, interval time.Duration) {
+func (s *MetricsService) loop(ctx context.Context, hostID string, interval time.Duration) {
 	t := time.NewTicker(interval)
 	defer t.Stop()
-	s.tick(hostID, password)
+	s.tick(hostID)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			s.tick(hostID, password)
+			s.tick(hostID)
 		}
 	}
 }
 
-func (s *MetricsService) tick(hostID, password string) {
-	m := s.collect(hostID, password)
+func (s *MetricsService) tick(hostID string) {
+	m := s.collect(hostID)
 	if app := application.Get(); app != nil {
 		app.Event.Emit("metrics:update", m)
 	}
@@ -210,7 +210,7 @@ func (s *MetricsService) maybeAlert(m HostMetrics) {
 	check("disk", m.DiskPercent, "Disk")
 }
 
-func (s *MetricsService) collect(hostID, password string) HostMetrics {
+func (s *MetricsService) collect(hostID string) HostMetrics {
 	m := HostMetrics{HostID: hostID, Timestamp: time.Now().Unix()}
 	h, err := s.hosts.Get(hostID)
 	if err != nil {
@@ -219,7 +219,7 @@ func (s *MetricsService) collect(hostID, password string) HostMetrics {
 	}
 	m.HostName = h.Name
 
-	client, release, err := s.pool.Get(sshconn.FromHost(h, password))
+	client, release, err := s.pool.Get(sshconn.FromHost(h))
 	if err != nil {
 		m.Error = err.Error()
 		return m

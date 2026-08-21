@@ -115,8 +115,7 @@
     loading = true;
     err = "";
     try {
-      const password = app.hostPasswords[hostID] ?? "";
-      const b64 = (await SFTPService.Download(hostID, password, remotePath)) as string;
+      const b64 = (await SFTPService.Download(hostID, remotePath)) as string;
       const text = b64ToText(b64);
       binaryWarning = looksBinary(text);
       original = text;
@@ -176,8 +175,7 @@
     err = "";
     try {
       const text = view.state.doc.toString();
-      const password = app.hostPasswords[hostID] ?? "";
-      await SFTPService.WriteFile(hostID, password, remotePath, textToB64(text));
+      await SFTPService.WriteFile(hostID, remotePath, textToB64(text));
       original = text;
       dirty = false;
       savedAt = Date.now();

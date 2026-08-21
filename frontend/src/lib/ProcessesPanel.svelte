@@ -56,12 +56,11 @@
     loading = true;
     err = "";
     try {
-      const password = app.hostPasswords[host.id] ?? "";
       if (tab === "procs") {
-        procs = ((await ProcessService.Top(host.id, password, 200)) ??
+        procs = ((await ProcessService.Top(host.id, 200)) ??
           []) as ProcessInfo[];
       } else {
-        units = ((await ProcessService.Services(host.id, password)) ??
+        units = ((await ProcessService.Services(host.id)) ??
           []) as SystemdUnit[];
       }
     } catch (e: any) {
@@ -150,8 +149,7 @@
     killing = p.pid;
     pendingKill = null;
     try {
-      const password = app.hostPasswords[host.id] ?? "";
-      await ProcessService.Kill(host.id, password, p.pid, signal, useSudo);
+      await ProcessService.Kill(host.id, p.pid, signal, useSudo);
       await refresh();
     } catch (e: any) {
       err = String(e?.message ?? e);
@@ -165,10 +163,8 @@
     serviceBusy = u.name + ":" + action;
     err = "";
     try {
-      const password = app.hostPasswords[host.id] ?? "";
       const out = (await ProcessService.ServiceAction(
         host.id,
-        password,
         u.name,
         action,
         useSudo,

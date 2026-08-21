@@ -115,12 +115,7 @@
     runID = crypto.randomUUID();
     results = {};
     try {
-      const passwords: Record<string, string> = {};
-      for (const id of selected) {
-        const p = app.hostPasswords[id];
-        if (p) passwords[id] = p;
-      }
-      await ExecService.Run(runID, command, [...selected], passwords, 60);
+      await ExecService.Run(runID, command, [...selected], 60);
     } finally {
       running = false;
     }

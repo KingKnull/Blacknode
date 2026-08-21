@@ -92,7 +92,7 @@ func (s *HTTPService) DeleteSavedRequest(ctx context.Context, id string) error {
 // Request fires a single HTTP request and returns the response. Body capped
 // at 1MB to keep the JSON bridge healthy; flagged via Truncated so the UI
 // can warn.
-func (s *HTTPService) Request(ctx context.Context, hostID, password string, opts HTTPRequestOptions) (HTTPResponse, error) {
+func (s *HTTPService) Request(ctx context.Context, hostID string, opts HTTPRequestOptions) (HTTPResponse, error) {
 	if opts.URL == "" {
 		return HTTPResponse{}, errors.New("url required")
 	}
@@ -105,7 +105,7 @@ func (s *HTTPService) Request(ctx context.Context, hostID, password string, opts
 	if err != nil {
 		return HTTPResponse{}, fmt.Errorf("load host: %w", err)
 	}
-	client, release, err := s.pool.Get(sshconn.FromHost(h, password))
+	client, release, err := s.pool.Get(sshconn.FromHost(h))
 	if err != nil {
 		return HTTPResponse{}, err
 	}
