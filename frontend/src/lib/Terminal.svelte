@@ -196,30 +196,50 @@
     if (app.sessionStatus[sessionID] === "needs-input") app.clearSessionStatus(sessionID);
   }
 
-  function getSudoPassword(): string | null {
-    if (mode === "remote" && connectedHostID) return app.hostSudoPasswords[connectedHostID] || null;
-    if (mode === "local") return app.hostSudoPasswords["local"] || null;
-    return null;
+  // Whether a sudo password is on file for whatever this pane is attached to.
+  // A boolean is all the UI needs; the plaintext never comes over the bridge.
+  function hasSudoPassword(): boolean {
+    if (mode === "remote" && connectedHostID) return app.hasSavedSudoPassword(connectedHostID);
+    if (mode === "local") return app.hasSavedSudoPassword("local");
+    return false;
   }
 
-  function sendSudoPassword() {
-    const pw = getSudoPassword();
-    if (!pw) { sudoInlineInput = true; return; }
-    writeLocal(pw + "\n");
+  // Ask the backend to unseal the sudo password and write it into the session
+  // itself. Returns false when nothing is stored, in which case we fall back
+  // to the inline prompt. The renderer never sees the password either way.
+  async function sendSudoPassword() {
+    let sent = false;
+    try {
+      if (mode === "remote" && connectedHostID) {
+        sent = (await SSHService.SendSudoPassword(sessionID, connectedHostID)) ?? false;
+      } else if (mode === "local") {
+        sent = (await LocalShellService.SendSudoPassword(sessionID)) ?? false;
+      }
+    } catch (e: any) {
+      app.toast("error", "SUDO FILL FAILED", String(e?.message ?? e));
+      return;
+    }
+    if (!sent) { sudoInlineInput = true; return; }
     dismissSudoPill();
   }
 
-  function sendInlineSudoPassword() {
+  // The inline prompt is the one place a password legitimately passes through
+  // the renderer — the user just typed it here. We write it straight to the
+  // session and hand it to the vault; it isn't retained in app state.
+  async function sendInlineSudoPassword() {
     if (!sudoInlinePassword) return;
-    writeLocal(sudoInlinePassword + "\n");
-    if (mode === "remote" && connectedHostID) {
-      void HostService.SetSudoPassword(connectedHostID, sudoInlinePassword);
-      app.setSudoPassword(connectedHostID, sudoInlinePassword);
-    } else if (mode === "local") {
-      void HostService.SetSudoPassword("local", sudoInlinePassword);
-      app.setSudoPassword("local", sudoInlinePassword);
-    }
+    const pw = sudoInlinePassword;
     sudoInlinePassword = "";
+    writeLocal(pw + "\n");
+    const target = mode === "remote" && connectedHostID ? connectedHostID : mode === "local" ? "local" : null;
+    if (target) {
+      try {
+        await HostService.SetSudoPassword(target, pw);
+        await app.refreshSecretStatus();
+      } catch (e: any) {
+        app.toast("warn", "SUDO PASSWORD NOT SAVED", String(e?.message ?? e));
+      }
+    }
     dismissSudoPill();
   }
 
