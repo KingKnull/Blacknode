@@ -17,6 +17,7 @@
   import PanelRouter from "./PanelRouter.svelte";
   import StatusBar from "./StatusBar.svelte";
   import ShortcutOverlay from "./ShortcutOverlay.svelte";
+  import ConfirmDanger from "./ConfirmDanger.svelte";
 
   // Heavy panels (AI SDK glue) are lazy-loaded so the code
   // they pull in doesn't sit in the main bundle.
@@ -255,8 +256,9 @@
     activeTabID = t.id;
     const sid = leaves(t.root)[0]?.sessionID;
     if (!sid) return;
-    // Let the Terminal component mount before routing the connection to it.
-    setTimeout(() => bus.emit("connect-terminal-to-host", { sessionID: sid, hostID }), 200);
+    // The pane for this session hasn't mounted yet. Park the intent; it picks
+    // it up on mount, whenever that is.
+    app.requestConnect(sid, hostID, "ssh");
   }
 
   // Same as connectHost but routes through Mosh instead of plain SSH.
@@ -267,7 +269,7 @@
     activeTabID = t.id;
     const sid = leaves(t.root)[0]?.sessionID;
     if (!sid) return;
-    setTimeout(() => bus.emit("connect-terminal-to-host-mosh", { sessionID: sid, hostID }), 200);
+    app.requestConnect(sid, hostID, "mosh");
   }
 
   onDestroy(() => vaultLockOff?.());
@@ -382,18 +384,14 @@
     app.broadcastSet = broadcastSet;
     app.broadcastEnabled = true;
 
-    // Dispatch events so each Terminal component knows which host to connect to.
-    // We use a small delay so the Terminal components mount first.
-    setTimeout(() => {
-      allLeaves.forEach((leaf, i) => {
-        if (connectedIDs[i]) {
-          bus.emit('connect-terminal-to-host', {
-            sessionID: leaf.sessionID,
-            hostID: connectedIDs[i],
-          });
-        }
-      });
-    }, 200);
+    // Park a connect intent per pane. Tiling creates several panes at once, so
+    // this is where a mount-delay guess used to hurt most — the slowest pane
+    // set the deadline for all of them.
+    allLeaves.forEach((leaf, i) => {
+      if (connectedIDs[i]) {
+        app.requestConnect(leaf.sessionID, connectedIDs[i], "ssh");
+      }
+    });
 
     app.toast('ok', `TILED ${connectedIDs.length} HOSTS`, 'Broadcast mode enabled. Type once, execute everywhere.');
   }
@@ -719,6 +717,28 @@
 
   {#if shortcutOpen}
     <ShortcutOverlay onclose={() => (shortcutOpen = false)} />
+  {/if}
+
+  <!-- A dangerous command caught on its way into every broadcast pane. Held
+       here rather than in the source Terminal because the command targets the
+       whole group, not one pane — and the answer has to apply to all of them. -->
+  {#if app.pendingBroadcastDanger}
+    {@const p = app.pendingBroadcastDanger}
+    <ConfirmDanger
+      title={p.danger.level === "block-without-confirm"
+        ? `Dangerous broadcast — ${p.danger.reason}`
+        : `Risky broadcast — ${p.danger.reason}`}
+      body={`\`${p.command}\` matches \`${p.danger.matched}\` and will run on ${p.targets} other pane${p.targets === 1 ? "" : "s"} at once. It has already run in the pane you typed it in.`}
+      severity={p.danger.level}
+      productionHosts={p.productionHosts}
+      requirePhrase={p.danger.level === "block-without-confirm"
+        ? p.productionHosts.length > 0
+          ? "destroy production"
+          : "I understand"
+        : undefined}
+      onCancel={() => app.cancelBroadcastDanger()}
+      onConfirm={() => app.confirmBroadcastDanger()}
+    />
   {/if}
 
   <!-- ── STATUS BAR ──────────────────────────────────────────────── -->

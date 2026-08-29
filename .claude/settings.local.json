@@ -62,7 +62,8 @@
       "Bash(git -C /home/maverick/Blacknode checkout -- frontend/bindings)",
       "Bash(pkill -f blacknode-server)",
       "Bash(sed -i '116s/New\\(nil, nil, newTestKnownHosts\\(t\\)\\)/New\\(nil, nil, newTestKnownHosts\\(t\\), nil\\)/' internal/sshconn/integration_test.go)",
-      "Bash(python3 -)"
+      "Bash(python3 -)",
+      "Bash(echo \"=== EXIT: $? ===\")"
     ]
   }
 }

@@ -17,6 +17,7 @@ import type {
 } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
 import { NotifyKind } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
 import { checkCommand, type Danger } from "./danger";
+import { bus } from "./events";
 
 type View =
   | "terminals"
@@ -96,10 +97,28 @@ class AppState {
       delete next[sessionID];
       this.sessionStatus = next;
     }
+    if (sessionID in this.sessionHosts) {
+      delete this.sessionHosts[sessionID];
+    }
   }
 
   // Track which hosts have active terminal sessions connected
   connectedHosts = $state<Set<string>>(new Set());
+
+  // What each live pane is attached to, and how. Panes report this as they
+  // connect and disconnect. Two things need it: naming the blast radius of a
+  // broadcast command, and persisting the workspace for session restore.
+  // `null` means the pane is on a local shell.
+  sessionHosts = $state<Record<string, { hostID: string; via: "ssh" | "mosh" } | null>>({});
+
+  setSessionHost(sessionID: string, host: { hostID: string; via: "ssh" | "mosh" } | null) {
+    // Guarded so panes can report unconditionally on every state change without
+    // waking every consumer of this map each time nothing actually moved.
+    const cur = this.sessionHosts[sessionID] ?? null;
+    if (!cur && !host) return;
+    if (cur && host && cur.hostID === host.hostID && cur.via === host.via) return;
+    this.sessionHosts[sessionID] = host;
+  }
 
   addConnectedHost(hostID: string) {
     if (!this.connectedHosts.has(hostID)) {
@@ -144,8 +163,11 @@ class AppState {
   // underlying mode (local PTY vs SSH).
   broadcastEnabled = $state(false);
   broadcastSet = $state<Set<string>>(new Set());
-  // svelte-ignore state_referenced_locally
-  broadcastSinks = $state<Record<string, (data: string) => void>>({});
+  // Each pane registers a write function so we can fan out without knowing its
+  // mode. Which host it's pointed at isn't stored here — a pane can disconnect
+  // and reconnect elsewhere while staying a broadcast member, so the danger
+  // confirmation reads `sessionHosts` at prompt time instead of a snapshot.
+  broadcastSinks = $state<Record<string, { write: (data: string) => void }>>({});
 
   // Line being composed in the broadcast source pane, reconstructed from the
   // keystrokes flowing through fanOutBroadcast. We need it because the danger
@@ -164,10 +186,11 @@ class AppState {
     command: string;
     danger: Danger;
     targets: number;
+    productionHosts: string[];
   } | null>(null);
 
   registerBroadcastSink(sessionID: string, write: (data: string) => void) {
-    this.broadcastSinks[sessionID] = write;
+    this.broadcastSinks[sessionID] = { write };
   }
   unregisterBroadcastSink(sessionID: string) {
     delete this.broadcastSinks[sessionID];
@@ -194,19 +217,22 @@ class AppState {
   fanOutBroadcast(sourceSessionID: string, data: string) {
     if (!this.broadcastEnabled) return;
     if (!this.broadcastSet.has(sourceSessionID)) return;
+    // Don't stack a second prompt on top of one already awaiting an answer.
+    if (this.pendingBroadcastDanger) return;
 
     if (this.#isSubmit(data)) {
       const command = this.#broadcastLine;
       this.#broadcastLine = "";
       const danger = checkCommand(command);
       if (danger) {
-        const targets = [...this.broadcastSet].filter((s) => s !== sourceSessionID).length;
+        const targets = [...this.broadcastSet].filter((s) => s !== sourceSessionID);
         this.pendingBroadcastDanger = {
           id: crypto.randomUUID(),
           sourceSessionID,
           command,
           danger,
-          targets,
+          targets: targets.length,
+          productionHosts: this.#productionHostNames(targets),
         };
         return; // held until the user confirms
       }
@@ -239,9 +265,21 @@ class AppState {
   #writeToBroadcastGroup(sourceSessionID: string, data: string) {
     for (const sid of this.broadcastSet) {
       if (sid === sourceSessionID) continue;
-      const sink = this.broadcastSinks[sid];
-      if (sink) sink(data);
+      this.broadcastSinks[sid]?.write(data);
     }
+  }
+
+  // Names of production-tagged hosts among the given sessions, deduped.
+  #productionHostNames(sessionIDs: string[]): string[] {
+    const names = new Set<string>();
+    for (const sid of sessionIDs) {
+      const attached = this.sessionHosts[sid];
+      if (!attached) continue;
+      const host = this.hosts.find((h) => h.id === attached.hostID);
+      if (!host) continue;
+      if ((host.environment ?? "").toLowerCase() === "production") names.add(host.name);
+    }
+    return [...names];
   }
 
   #isSubmit(data: string): boolean {
@@ -283,6 +321,33 @@ class AppState {
       sessionID,
       text,
     };
+  }
+
+  // ── Connect intents ───────────────────────────────────────────────
+  // "Session X should connect to host Y." Opening a tab and telling its pane
+  // where to connect are two steps, and the pane doesn't exist yet during the
+  // first one — the bus drops events with no listeners, so a naive emit is
+  // lost. Parking the intent here instead of guessing a mount delay means the
+  // pane picks it up whenever it actually mounts, however long that takes.
+  #connectIntents = new Map<string, { hostID: string; via: "ssh" | "mosh" }>();
+
+  requestConnect(sessionID: string, hostID: string, via: "ssh" | "mosh" = "ssh") {
+    this.#connectIntents.set(sessionID, { hostID, via });
+    // A pane that's already mounted handles this immediately and clears the
+    // intent; one that isn't will find it in takeConnectIntent on mount.
+    bus.emit("connect-intent", { sessionID });
+  }
+
+  takeConnectIntent(sessionID: string): { hostID: string; via: "ssh" | "mosh" } | null {
+    const intent = this.#connectIntents.get(sessionID);
+    if (!intent) return null;
+    this.#connectIntents.delete(sessionID);
+    return intent;
+  }
+
+  // A pane that closes before ever mounting shouldn't leave its intent behind.
+  forgetConnectIntent(sessionID: string) {
+    this.#connectIntents.delete(sessionID);
   }
 
   // Set when the vault locks mid-session (idle timeout or the Lock button).

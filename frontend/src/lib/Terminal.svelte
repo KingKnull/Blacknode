@@ -56,7 +56,12 @@
   let errorMsg = $state("");
   let connectedHostID = $state<string | null>(null);
   let promptingPassword = $state(false);
+  // One-shot password typed at the connect prompt. Held only for the duration
+  // of this pane's connect attempts (TOFU approval and auto-reconnect re-use
+  // it), then dropped on disconnect. Saved passwords are never loaded here —
+  // the Go dialer resolves those from the vault itself.
   let runtimePassword = $state("");
+  let rememberPassword = $state(false);
   let showHostPicker = $state(false);
 
   let promptingTofu = $state(false);
@@ -261,11 +266,27 @@
     else if (app.sessionStatus[sessionID] === "error") app.clearSessionStatus(sessionID);
   });
 
-  // Keep connected-hosts set in sync
+  // Keep the connected-hosts set and this pane's host attachment in sync. The
+  // attachment is what names a broadcast's blast radius and what the workspace
+  // persists for session restore, so it has to follow disconnects as closely as
+  // connects — a stale entry would restore a pane to a host it had left.
   $effect(() => {
-    if (mode !== "local" && connectedHostID) {
-      if (status === "connected") app.addConnectedHost(connectedHostID);
-      else app.removeConnectedHost(connectedHostID);
+    if (mode === "local" || !connectedHostID) {
+      app.setSessionHost(sessionID, null);
+      return;
+    }
+    if (status === "connected") {
+      app.addConnectedHost(connectedHostID);
+      app.setSessionHost(sessionID, {
+        hostID: connectedHostID,
+        // Telnet and serial hosts restore through the same SSH entry point,
+        // which re-reads host.protocol and routes them — only Mosh is a
+        // genuinely separate choice the user made for this pane.
+        via: mode === "mosh" ? "mosh" : "ssh",
+      });
+    } else {
+      app.removeConnectedHost(connectedHostID);
+      app.setSessionHost(sessionID, null);
     }
   });
 
@@ -421,12 +442,19 @@
 
     void openLocal();
 
-    const offAutoConnect = bus.on('connect-terminal-to-host', (detail) => {
-      if (detail.sessionID === sessionID) switchToRemote(detail.hostID);
-    });
-
-    const offAutoConnectMosh = bus.on('connect-terminal-to-host-mosh', (detail) => {
-      if (detail.sessionID === sessionID) switchToMosh(detail.hostID);
+    // Drain any connect intent parked for this session before the pane
+    // existed, then stay subscribed for intents that arrive while it's live.
+    // Both paths go through the same function, so there's no ordering to get
+    // wrong and nothing to wait for.
+    function drainConnectIntent() {
+      const intent = app.takeConnectIntent(sessionID);
+      if (!intent) return;
+      if (intent.via === "mosh") void switchToMosh(intent.hostID);
+      else void switchToRemote(intent.hostID);
+    }
+    drainConnectIntent();
+    const offConnectIntent = bus.on('connect-intent', (detail) => {
+      if (detail.sessionID === sessionID) drainConnectIntent();
     });
 
     // Listen for theme changes from TerminalSidePanel
@@ -436,7 +464,7 @@
     };
     window.addEventListener("terminal:theme-change", onThemeChange);
 
-    return () => { offAutoConnect(); offAutoConnectMosh(); window.removeEventListener("terminal:theme-change", onThemeChange); };
+    return () => { offConnectIntent(); window.removeEventListener("terminal:theme-change", onThemeChange); };
   });
 
   onDestroy(() => {
@@ -448,6 +476,7 @@
     clearTimeout(resizeDebounce);
     app.unregisterBroadcastSink(sessionID);
     app.forgetSession(sessionID);
+    app.forgetConnectIntent(sessionID);
     // xterm can throw here if the WebGL addon already disposed itself after a
     // context loss (hidden/minimized webview) — a throw during onDestroy would
     // abort Svelte's whole unmount and blank the app, so never let it escape.
@@ -514,9 +543,10 @@
     app.selectedHostID = hostID;
     mode = "remote";
     if (host.authMethod === "password") {
-      const cached = app.hostPasswords[host.id];
-      if (!cached) { promptingPassword = true; return; }
-      runtimePassword = cached;
+      // A saved password is resolved backend-side during the dial, so we only
+      // need to know whether one exists. If not, prompt for a one-shot.
+      if (!app.hasSavedPassword(host.id)) { promptingPassword = true; return; }
+      runtimePassword = "";
     } else {
       runtimePassword = "";
     }
@@ -582,11 +612,22 @@
     }
   }
 
+  // A password typed here is a one-shot: it goes to this pane's connect call
+  // and nowhere else. It is only persisted if the user asks for it, in which
+  // case it goes straight into the vault rather than into app state.
   async function submitPassword() {
     if (!runtimePassword || !app.selectedHostID) return;
-    app.setPassword(app.selectedHostID, runtimePassword);
+    const hostID = app.selectedHostID;
+    if (rememberPassword) {
+      try {
+        await HostService.SetPassword(hostID, runtimePassword);
+        await app.refreshSecretStatus();
+      } catch (e: any) {
+        app.toast("warn", "PASSWORD NOT SAVED", String(e?.message ?? e));
+      }
+    }
     promptingPassword = false;
-    await actuallyConnect(app.selectedHostID);
+    await actuallyConnect(hostID);
   }
 
   async function actuallyConnect(hostID: string) {
@@ -650,6 +691,7 @@
       else await SSHService.Disconnect(sessionID);
     } finally {
       connectedHostID = null; status = "idle";
+      runtimePassword = "";
       stopLatencyPolling();
       await openLocal();
     }
@@ -794,7 +836,7 @@
               <div class="border-b hairline px-3 py-2 font-mono type-eyebrow text-[var(--color-text-2)]">Saved hosts</div>
               <div class="max-h-64 overflow-y-auto">
                 {#each app.hosts as h (h.id)}
-                  {@const hasSavedPw = !!(app.hostPasswords[h.id])}
+                  {@const hasSavedPw = app.hasSavedPassword(h.id)}
                   <button
                     class="flex w-full items-center gap-2.5 px-3 py-2 text-left type-caption hover:bg-[var(--color-surface-3)] transition-colors"
                     onclick={() => switchToRemote(h.id)}
@@ -942,7 +984,10 @@
               bind:value={runtimePassword} placeholder="•••••••••" use:focus
               onkeydown={(e) => e.key === "Enter" && submitPassword()}
             />
-            <p class="mt-2 font-mono type-eyebrow text-[var(--color-text-4)]">TIP: Set permanently in Edit Host → Password</p>
+            <label class="mt-2.5 flex items-center gap-2">
+              <input type="checkbox" class="accent-[var(--color-accent)]" bind:checked={rememberPassword} />
+              <span class="font-mono type-eyebrow text-[var(--color-text-3)]">Save to vault for this host</span>
+            </label>
           </div>
           <div class="flex items-center justify-end gap-2 border-t hairline px-4 py-2.5">
             <button class="border border-[var(--color-line)] px-3 py-1.5 font-mono type-eyebrow text-[var(--color-text-3)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)] transition-all" onclick={() => { promptingPassword = false; void openLocal(); }}>CANCEL</button>
@@ -983,7 +1028,7 @@
 
   <!-- Sudo pill -->
   {#if showSudoPill && (status === "running" || status === "connected")}
-    {@const hasPw = !!getSudoPassword()}
+    {@const hasPw = hasSudoPassword()}
     <div class="absolute bottom-3 left-1/2 z-30 -translate-x-1/2 fade-up">
       <div class="flex items-center gap-2 border border-[var(--color-warn)]/50 bg-[var(--color-surface-2)]/95 px-3 py-2 shadow-2xl shadow-black/60" style="backdrop-filter: blur(12px); box-shadow: 0 0 20px rgba(255,170,0,0.08), 0 8px 32px rgba(0,0,0,0.5);">
         <ShieldCheck size="13" class="shrink-0 text-[var(--color-warn)]" />
