@@ -102,9 +102,6 @@ class AppState {
     }
   }
 
-  // Track which hosts have active terminal sessions connected
-  connectedHosts = $state<Set<string>>(new Set());
-
   // What each live pane is attached to, and how. Panes report this as they
   // connect and disconnect. Two things need it: naming the blast radius of a
   // broadcast command, and persisting the workspace for session restore.
@@ -120,21 +117,19 @@ class AppState {
     this.sessionHosts[sessionID] = host;
   }
 
-  addConnectedHost(hostID: string) {
-    if (!this.connectedHosts.has(hostID)) {
-      const next = new Set(this.connectedHosts);
-      next.add(hostID);
-      this.connectedHosts = next;
-    }
-  }
-
-  removeConnectedHost(hostID: string) {
-    if (this.connectedHosts.has(hostID)) {
-      const next = new Set(this.connectedHosts);
-      next.delete(hostID);
-      this.connectedHosts = next;
-    }
-  }
+  // Which hosts have at least one live terminal session. Derived from
+  // sessionHosts rather than kept as its own set: with two panes on the same
+  // host, the pane that disconnected first used to delete the host from a
+  // hand-maintained set while the other pane was still sitting on it. Deriving
+  // makes the refcount true by construction — the host is present exactly as
+  // long as some pane reports it, and forgetSession drops it on unmount.
+  connectedHosts = $derived(
+    new Set(
+      Object.values(this.sessionHosts)
+        .filter((h) => h !== null)
+        .map((h) => h!.hostID),
+    ),
+  );
 
   // Plugin-contributed panels surfaced in the sidebar nav.
   pluginPanels = $state<PanelView[]>([]);
@@ -470,6 +465,10 @@ class AppState {
       title,
       body,
       source: "APP",
+      // Required by the generated Notification model: Go's `omitempty` doesn't
+      // make the field optional on the TS side. Frontend toasts aren't tied to
+      // a host, so it's empty rather than absent.
+      hostName: "",
       timestamp: Math.floor(Date.now() / 1000),
     });
   }

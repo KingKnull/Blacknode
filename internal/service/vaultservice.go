@@ -33,11 +33,18 @@ func NewVaultService(v *vault.Vault, db *sql.DB, dataDir string, activity *activ
 	return &VaultService{vault: v, db: db, dataDir: dataDir, activity: activity, autoLock: autoLock}
 }
 
-// SetSyncService wires the sync service after construction, avoiding a
+// WireSyncService wires the sync service after construction, avoiding a
 // circular dependency at initialization time (SyncService doesn't need
 // VaultService, so this one-way late-bind keeps main.go simple).
-func (s *VaultService) SetSyncService(sync *SyncService) {
-	s.sync = sync
+//
+// This is deliberately a package-level function rather than a method on
+// VaultService. Wails binds every exported method of a registered service and
+// emits a TS model for each type in their signatures, so a `SetSyncService`
+// method made *SyncService both a service namespace and a model class in the
+// generated bindings — a duplicate-identifier clash. Internal wiring has no
+// business being callable from the frontend anyway.
+func WireSyncService(v *VaultService, sync *SyncService) {
+	v.sync = sync
 }
 
 type VaultStatus struct {

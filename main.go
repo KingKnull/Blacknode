@@ -38,6 +38,8 @@ func init() {
 	application.RegisterEvent[service.AIChunk]("ai:chunk")
 	application.RegisterEvent[service.VaultLockEvent]("vault:locked")
 	application.RegisterEvent[service.Notification]("notification:toast")
+	application.RegisterEvent[service.AuthPromptRequest]("auth:prompt")
+	application.RegisterEvent[service.TransferProgress]("sftp:progress")
 }
 
 func main() {
@@ -67,6 +69,11 @@ func main() {
 	recMgr := recorder.NewManager()
 	v := vault.New(conn.DB)
 	dialer := sshconn.New(v, keys, knownHosts, secrets)
+	// The prompter has to be attached before the pool takes the dialer:
+	// without it the dialer cannot offer keyboard-interactive, which is how
+	// every MFA-protected host expects to be authenticated.
+	authPrompt := service.NewAuthPromptService()
+	dialer.Prompter = authPrompt
 	pool := sshconn.NewPool(dialer, hosts)
 
 	settingsSvc := service.NewSettingsService(settings, v)
@@ -78,7 +85,7 @@ func main() {
 	syncSvc := service.NewSyncService(settings, hosts, snippets, httpRequests, teamActivity, syncKeys, v, activityRec)
 	dataDir := filepath.Join(xdg.DataHome, "blacknode")
 	vaultSvc := service.NewVaultService(v, conn.DB, dataDir, activityRec, autoLock)
-	vaultSvc.SetSyncService(syncSvc)
+	service.WireSyncService(vaultSvc, syncSvc)
 
 	app := application.New(application.Options{
 		Name:        "blacknode",
@@ -92,6 +99,7 @@ func main() {
 			application.NewService(service.NewLocalShellService(recMgr, recordings, settings, dialer)),
 			application.NewService(service.NewSSHService(dialer, hosts, recMgr, recordings, settings)),
 			application.NewService(service.NewSFTPService(pool, hosts)),
+			application.NewService(authPrompt),
 			application.NewService(service.NewExecService(pool, hosts, history, notifySvc, activityRec)),
 			application.NewService(service.NewMetricsService(pool, hosts, notifySvc)),
 			application.NewService(service.NewLogsService(pool, hosts, logQueries)),

@@ -13,6 +13,7 @@ import (
 	"github.com/blacknode/blacknode/internal/store"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/agent"
 )
 
 type TerminalData struct {
@@ -148,6 +149,21 @@ func (s *SSHService) connectWith(sessionID string, t sshconn.Target, cols, rows 
 	if err != nil {
 		client.Close()
 		return fmt.Errorf("new session: %w", err)
+	}
+	// Agent forwarding, when the host asks for it. Both halves are needed: the
+	// client-side channel handler that answers the remote's auth-agent requests,
+	// and the session-level request that tells sshd to set SSH_AUTH_SOCK.
+	//
+	// Failures here are reported but not fatal. Plenty of servers run with
+	// AllowAgentForwarding no, and refusing to open a session the user could
+	// otherwise have used is the wrong trade — they lose the onward hop, not
+	// the shell.
+	if t.ForwardAgent {
+		if err := sshconn.ForwardAgentTo(client); err != nil {
+			s.emitData(sessionID, "\r\n\x1b[33magent forwarding unavailable: "+err.Error()+"\x1b[0m\r\n")
+		} else if err := agent.RequestAgentForwarding(sess); err != nil {
+			s.emitData(sessionID, "\r\n\x1b[33mserver refused agent forwarding: "+err.Error()+"\x1b[0m\r\n")
+		}
 	}
 	modes := ssh.TerminalModes{
 		ssh.ECHO:          1,

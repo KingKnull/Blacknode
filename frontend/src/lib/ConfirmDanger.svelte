@@ -8,6 +8,15 @@
     severity: "warn" | "block-without-confirm";
     productionHosts: string[]; // names of prod hosts in scope
     requirePhrase?: string; // user must type this exactly to confirm
+    /**
+     * Whether Enter confirms. Default true, which suits the click-triggered
+     * call sites: the user pressed a button, the dialog appeared, and Enter is
+     * a natural "yes". Pass false when the dialog is raised *by* a keystroke —
+     * see the broadcast danger prompt in Workspace.svelte, where the Enter that
+     * submitted the command bubbles to window and would confirm the dialog it
+     * just opened.
+     */
+    allowEnterConfirm?: boolean;
     onCancel: () => void;
     onConfirm: () => void;
   };
@@ -17,6 +26,7 @@
     severity,
     productionHosts,
     requirePhrase,
+    allowEnterConfirm = true,
     onCancel,
     onConfirm,
   }: Props = $props();
@@ -26,9 +36,11 @@
     !requirePhrase || typed.trim() === requirePhrase.trim(),
   );
 
-  // Enter-to-confirm (Escape + focus trap handled by Dialog). Disabled for
-  // the most destructive tier, which requires an explicit click.
+  // Enter-to-confirm (Escape + focus trap handled by Dialog). Disabled for the
+  // most destructive tier, which requires an explicit click, and for callers
+  // that opt out because a keystroke opened the dialog.
   function onKey(e: KeyboardEvent) {
+    if (!allowEnterConfirm) return;
     if (e.key === "Enter" && canConfirm && severity !== "block-without-confirm")
       onConfirm();
   }

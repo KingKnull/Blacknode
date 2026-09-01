@@ -19,6 +19,7 @@
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
+  import EmptyState from "./EmptyState.svelte";
   import {
     Settings as SettingsIcon,
     Sparkles,
@@ -539,9 +540,12 @@
           {#if knownHostsBusy && knownHosts.length === 0}
             <p class="type-caption text-[var(--color-text-4)]">Loading…</p>
           {:else if knownHosts.length === 0}
-            <p class="type-caption text-[var(--color-text-4)]">
-              No trusted host keys yet. They're added the first time you connect to a host.
-            </p>
+            <EmptyState
+              compact
+              icon={ShieldCheck}
+              title="No trusted host keys yet"
+              description="Keys are added the first time you connect to a host and accept its fingerprint."
+            />
           {:else}
             <div class="divide-y divide-[var(--color-line)] border hairline">
               {#each knownHosts as k (k.host + ":" + k.port + ":" + k.keyType)}

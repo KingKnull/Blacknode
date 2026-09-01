@@ -728,7 +728,7 @@
       title={p.danger.level === "block-without-confirm"
         ? `Dangerous broadcast — ${p.danger.reason}`
         : `Risky broadcast — ${p.danger.reason}`}
-      body={`\`${p.command}\` matches \`${p.danger.matched}\` and will run on ${p.targets} other pane${p.targets === 1 ? "" : "s"} at once. It has already run in the pane you typed it in.`}
+      body={`“${p.command}” matches the pattern “${p.danger.matched}” and will run on ${p.targets} other pane${p.targets === 1 ? "" : "s"} at once. It has already run in the pane you typed it in.`}
       severity={p.danger.level}
       productionHosts={p.productionHosts}
       requirePhrase={p.danger.level === "block-without-confirm"
@@ -736,6 +736,7 @@
           ? "destroy production"
           : "I understand"
         : undefined}
+      allowEnterConfirm={false}
       onCancel={() => app.cancelBroadcastDanger()}
       onConfirm={() => app.confirmBroadcastDanger()}
     />

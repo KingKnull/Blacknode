@@ -74,7 +74,7 @@
     if (danger && danger.level === "block-without-confirm") {
       return {
         title: `Dangerous command — ${danger.reason}`,
-        body: `The command matches a known destructive pattern (\`${danger.matched}\`) and will run on ${selected.size} host${selected.size === 1 ? "" : "s"}. Type the phrase below if you really mean this.`,
+        body: `The command matches a known destructive pattern (“${danger.matched}”) and will run on ${selected.size} host${selected.size === 1 ? "" : "s"}. Type the phrase below if you really mean this.`,
         severity: "block-without-confirm",
         requirePhrase: hasProd ? "destroy production" : "I understand",
         productionHosts: prodNames,
@@ -83,7 +83,7 @@
     if (danger) {
       return {
         title: `Risky command — ${danger.reason}`,
-        body: `The command matches \`${danger.matched}\`. Confirm before running on ${selected.size} host${selected.size === 1 ? "" : "s"}.`,
+        body: `The command matches the pattern “${danger.matched}”. Confirm before running on ${selected.size} host${selected.size === 1 ? "" : "s"}.`,
         severity: "warn",
         productionHosts: prodNames,
       };
@@ -91,7 +91,7 @@
     if (hasProd) {
       return {
         title: "Production hosts in scope",
-        body: `${prodNames.length} of the selected hosts are tagged production. Confirm you want to run \`${command}\` against them.`,
+        body: `${prodNames.length} of the selected hosts are tagged production. Confirm you want to run “${command}” against them.`,
         severity: "warn",
         productionHosts: prodNames,
       };

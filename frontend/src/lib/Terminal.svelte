@@ -22,6 +22,7 @@
   import SnippetApplyDialog from "./SnippetApplyDialog.svelte";
   import AutocompletePopup from "./AutocompletePopup.svelte";
   import TerminalSidePanel from "./TerminalSidePanel.svelte";
+  import Dialog from "./Dialog.svelte";
   import { envBadge } from "./envColor";
   import {
     TerminalIcon,
@@ -266,28 +267,28 @@
     else if (app.sessionStatus[sessionID] === "error") app.clearSessionStatus(sessionID);
   });
 
-  // Keep the connected-hosts set and this pane's host attachment in sync. The
-  // attachment is what names a broadcast's blast radius and what the workspace
-  // persists for session restore, so it has to follow disconnects as closely as
-  // connects — a stale entry would restore a pane to a host it had left.
+  // Keep this pane's host attachment in sync. The attachment is what names a
+  // broadcast's blast radius, what the workspace persists for session restore,
+  // and what app.connectedHosts is derived from, so it has to follow
+  // disconnects as closely as connects — a stale entry would restore a pane to
+  // a host it had left, and would keep the host lit as connected.
   $effect(() => {
     if (mode === "local" || !connectedHostID) {
       app.setSessionHost(sessionID, null);
       return;
     }
-    if (status === "connected") {
-      app.addConnectedHost(connectedHostID);
-      app.setSessionHost(sessionID, {
-        hostID: connectedHostID,
-        // Telnet and serial hosts restore through the same SSH entry point,
-        // which re-reads host.protocol and routes them — only Mosh is a
-        // genuinely separate choice the user made for this pane.
-        via: mode === "mosh" ? "mosh" : "ssh",
-      });
-    } else {
-      app.removeConnectedHost(connectedHostID);
-      app.setSessionHost(sessionID, null);
-    }
+    app.setSessionHost(
+      sessionID,
+      status === "connected"
+        ? {
+            hostID: connectedHostID,
+            // Telnet and serial hosts restore through the same SSH entry point,
+            // which re-reads host.protocol and routes them — only Mosh is a
+            // genuinely separate choice the user made for this pane.
+            via: mode === "mosh" ? "mosh" : "ssh",
+          }
+        : null,
+    );
   });
 
   // Terminal theme themes — updated via TerminalSidePanel theme picker
@@ -440,19 +441,25 @@
       }
     });
 
-    void openLocal();
-
     // Drain any connect intent parked for this session before the pane
     // existed, then stay subscribed for intents that arrive while it's live.
-    // Both paths go through the same function, so there's no ordering to get
-    // wrong and nothing to wait for.
     function drainConnectIntent() {
       const intent = app.takeConnectIntent(sessionID);
       if (!intent) return;
       if (intent.via === "mosh") void switchToMosh(intent.hostID);
       else void switchToRemote(intent.hostID);
     }
-    drainConnectIntent();
+
+    // The drain waits for openLocal to *finish*, not just start. Both
+    // switchToRemote and switchToMosh close the local shell only when they see
+    // status === "running", which openLocal sets after its await — so draining
+    // synchronously leaks the local PTY (it keeps emitting terminal:data under
+    // this same sessionID) and lets openLocal's continuation reset mode/status
+    // after the remote is up, which sends keystrokes to the wrong shell and
+    // resets the tab label. openLocal swallows its own errors, so this always
+    // runs, and a live pane's intents still arrive via the bus below.
+    void openLocal().then(drainConnectIntent);
+
     const offConnectIntent = bus.on('connect-intent', (detail) => {
       if (detail.sessionID === sessionID) drainConnectIntent();
     });
@@ -618,7 +625,16 @@
   async function submitPassword() {
     if (!runtimePassword || !app.selectedHostID) return;
     const hostID = app.selectedHostID;
-    if (rememberPassword) {
+    // The checkbox is disabled while the vault is locked, but it may have been
+    // ticked before an idle auto-lock fired, so re-check here rather than
+    // letting SetPassword fail and surfacing it as a post-hoc error.
+    if (rememberPassword && !app.vault.unlocked) {
+      app.toast(
+        "warn",
+        "PASSWORD NOT SAVED",
+        "The vault locked before this password could be stored. Connecting anyway.",
+      );
+    } else if (rememberPassword) {
       try {
         await HostService.SetPassword(hostID, runtimePassword);
         await app.refreshSecretStatus();
@@ -658,6 +674,23 @@
       promptingTofu = false;
       await actuallyConnect(app.selectedHostID);
     } catch (e: any) { status = "error"; errorMsg = "TOFU approval failed: " + String(e?.message ?? e); }
+  }
+
+  // Declining either prompt drops the pane back to a local shell. Named
+  // functions rather than inline handlers because Dialog routes Escape and the
+  // Cancel button through the same path, and both must clear the typed
+  // password rather than leave it in memory for the next prompt.
+  function cancelPasswordPrompt() {
+    promptingPassword = false;
+    runtimePassword = "";
+    rememberPassword = false;
+    void openLocal();
+  }
+
+  function cancelTofuPrompt() {
+    promptingTofu = false;
+    tofuPayload = null;
+    void openLocal();
   }
 
   function startLatencyPolling() {
@@ -964,15 +997,26 @@
     {/if}
   </div>
 
-  <!-- Password prompt -->
+  <!-- Password prompt. Rendered through Dialog, which puts it at window scope
+       rather than inside the pane: an `absolute inset-0` overlay was being
+       clipped by the pane's `min-w-0 overflow-hidden` box, so in a tiled layout
+       the auth prompt could be cut off or invisible. Dialog also brings
+       role/aria-modal, a Tab trap, Escape, and focus restore. -->
   {#if promptingPassword && app.selectedHostID}
     {@const host = app.hosts.find((h) => h.id === app.selectedHostID)}
     {#if host}
-      <div class="absolute inset-0 z-20 flex items-center justify-center bg-black/70">
-        <div class="w-80 overflow-hidden border hairline-strong surface-2 shadow-2xl shadow-black/80">
+      {@const vaultLocked = !app.vault.unlocked}
+      <Dialog
+        onclose={cancelPasswordPrompt}
+        labelledby="pw-prompt-title-{sessionID}"
+        closeOnBackdrop={false}
+        backdropClass="bg-black/70"
+        panelClass="w-80 overflow-hidden border hairline-strong surface-2 shadow-2xl shadow-black/80"
+      >
+        {#snippet children()}
           <div class="flex items-center gap-2 border-b hairline px-4 py-2.5">
             <Lock size="11" class="text-[var(--color-accent)]" />
-            <span class="font-mono type-eyebrow text-[var(--color-text-1)]">AUTH REQUIRED</span>
+            <span id="pw-prompt-title-{sessionID}" class="font-mono type-eyebrow text-[var(--color-text-1)]">AUTH REQUIRED</span>
           </div>
           <div class="p-4">
             <div class="mb-3 font-mono type-micro text-[var(--color-text-3)]">
@@ -981,49 +1025,76 @@
             <input
               type="password"
               class="w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-caption outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50"
-              bind:value={runtimePassword} placeholder="•••••••••" use:focus
+              bind:value={runtimePassword} placeholder="•••••••••" data-autofocus
+              aria-label="Password for {host.username}@{host.host}"
               onkeydown={(e) => e.key === "Enter" && submitPassword()}
             />
-            <label class="mt-2.5 flex items-center gap-2">
-              <input type="checkbox" class="accent-[var(--color-accent)]" bind:checked={rememberPassword} />
-              <span class="font-mono type-eyebrow text-[var(--color-text-3)]">Save to vault for this host</span>
+            <label class="mt-2.5 flex items-start gap-2" class:opacity-60={vaultLocked}>
+              <input
+                type="checkbox"
+                class="mt-0.5 accent-[var(--color-accent)] disabled:cursor-not-allowed"
+                bind:checked={rememberPassword}
+                disabled={vaultLocked}
+              />
+              <span class="type-caption text-[var(--color-text-3)]">
+                Save to vault for this host
+                {#if vaultLocked}
+                  <!-- Say so up front instead of accepting the checkbox and
+                       failing with a toast after the password is submitted. -->
+                  <span class="mt-0.5 block type-caption text-[var(--color-text-4)]">
+                    Unlock the vault to save passwords.
+                  </span>
+                {/if}
+              </span>
             </label>
           </div>
           <div class="flex items-center justify-end gap-2 border-t hairline px-4 py-2.5">
-            <button class="border border-[var(--color-line)] px-3 py-1.5 font-mono type-eyebrow text-[var(--color-text-3)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)] transition-all" onclick={() => { promptingPassword = false; void openLocal(); }}>CANCEL</button>
+            <button class="border border-[var(--color-line)] px-3 py-1.5 font-mono type-eyebrow text-[var(--color-text-3)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)] transition-all" onclick={cancelPasswordPrompt}>CANCEL</button>
             <button class="border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 px-3 py-1.5 font-mono type-eyebrow text-[var(--color-accent)] hover:bg-[var(--color-accent)]/15 disabled:opacity-30 disabled:cursor-not-allowed transition-all" disabled={!runtimePassword} onclick={submitPassword}>CONNECT</button>
           </div>
-        </div>
-      </div>
+        {/snippet}
+      </Dialog>
     {/if}
   {/if}
 
-  <!-- TOFU prompt -->
+  <!-- TOFU prompt. Same reasoning as the password prompt above: a host-key
+       decision is the last thing that should be clipped out of view. Backdrop
+       clicks don't dismiss it — declining is an explicit choice. -->
   {#if promptingTofu && tofuPayload}
-    <div class="absolute inset-0 z-20 flex items-center justify-center bg-black/70">
-      <div class="w-96 overflow-hidden border border-[var(--color-warn)] surface-2 shadow-2xl shadow-black/80">
+    <!-- Bound before the snippet: the {#if} narrows tofuPayload to non-null,
+         but a snippet is its own closure, so the narrowing doesn't reach inside
+         it. Capturing here carries the non-null type across. -->
+    {@const tofu = tofuPayload}
+    <Dialog
+      onclose={cancelTofuPrompt}
+      labelledby="tofu-prompt-title-{sessionID}"
+      closeOnBackdrop={false}
+      backdropClass="bg-black/70"
+      panelClass="w-96 overflow-hidden border border-[var(--color-warn)] surface-2 shadow-2xl shadow-black/80"
+    >
+      {#snippet children()}
         <div class="flex items-center gap-2 border-b hairline px-4 py-2.5 bg-[var(--color-warn)]/10">
           <AlertTriangle size="11" class="text-[var(--color-warn)]" />
-          <span class="font-mono type-eyebrow text-[var(--color-warn)]">UNKNOWN HOST KEY</span>
+          <span id="tofu-prompt-title-{sessionID}" class="font-mono type-eyebrow text-[var(--color-warn)]">UNKNOWN HOST KEY</span>
         </div>
         <div class="p-4 font-mono">
           <p class="mb-3 type-caption text-[var(--color-text-2)] leading-relaxed">
-            The authenticity of host <span class="text-[var(--color-accent)]">{tofuPayload.host}</span> can't be established.
+            The authenticity of host <span class="text-[var(--color-accent)]">{tofu.host}</span> can't be established.
           </p>
           <div class="mb-4 bg-[var(--color-surface-3)] p-3 border hairline type-micro space-y-1.5">
             <div class="text-[var(--color-text-4)]">Key Type</div>
-            <div class="text-[var(--color-text-1)]">{tofuPayload.keyType}</div>
+            <div class="text-[var(--color-text-1)]">{tofu.keyType}</div>
             <div class="text-[var(--color-text-4)] mt-2">Fingerprint</div>
-            <div class="text-[var(--color-text-1)] break-all">{tofuPayload.presentedFp}</div>
+            <div class="text-[var(--color-text-1)] break-all">{tofu.presentedFp}</div>
           </div>
           <p class="type-micro text-[var(--color-text-3)]">Are you sure you want to continue connecting?</p>
         </div>
         <div class="flex items-center justify-end gap-2 border-t hairline px-4 py-2.5">
-          <button class="border border-[var(--color-line)] px-3 py-1.5 font-mono type-eyebrow text-[var(--color-text-3)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)] transition-all" onclick={() => { promptingTofu = false; void openLocal(); }}>CANCEL</button>
-          <button class="border border-[var(--color-warn)]/50 bg-[var(--color-warn)]/10 px-3 py-1.5 font-mono type-eyebrow text-[var(--color-warn)] hover:bg-[var(--color-warn)]/15 transition-all" onclick={approveTofu}>TRUST & CONNECT</button>
+          <button class="border border-[var(--color-line)] px-3 py-1.5 font-mono type-eyebrow text-[var(--color-text-3)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)] transition-all" onclick={cancelTofuPrompt} data-autofocus>CANCEL</button>
+          <button class="border border-[var(--color-warn)]/50 bg-[var(--color-warn)]/10 px-3 py-1.5 font-mono type-eyebrow text-[var(--color-warn)] hover:bg-[var(--color-warn)]/15 transition-all" onclick={approveTofu}>TRUST &amp; CONNECT</button>
         </div>
-      </div>
-    </div>
+      {/snippet}
+    </Dialog>
   {/if}
 
   <!-- Sudo pill -->

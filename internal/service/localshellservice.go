@@ -89,6 +89,7 @@ func (s *LocalShellService) Open(ctx context.Context, sessionID string, cols, ro
 	}
 
 	cmd := p.Command(shell)
+	cmd.Env = ptyEnv()
 	if home, err := os.UserHomeDir(); err == nil {
 		cmd.Dir = home
 	}

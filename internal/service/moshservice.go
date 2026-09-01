@@ -98,6 +98,10 @@ func (s *MoshService) Connect(ctx context.Context, sessionID, hostID string, col
 	}
 
 	cmd := p.Command(moshBin, args...)
+	// mosh-client reads TERM from its own environment and forwards it to the
+	// remote mosh-server, so an unset TERM here degrades the *remote* session
+	// too, not just this process. See ptyEnv.
+	cmd.Env = ptyEnv()
 	if err := cmd.Start(); err != nil {
 		p.Close()
 		return fmt.Errorf("start mosh-client: %w", err)

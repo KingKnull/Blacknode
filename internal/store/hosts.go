@@ -39,6 +39,12 @@ type Host struct {
 	SerialDataBits int    `json:"serialDataBits,omitempty"`
 	SerialParity   string `json:"serialParity,omitempty"`   // "none" | "odd" | "even"
 	SerialStopBits string `json:"serialStopBits,omitempty"` // "1" | "1.5" | "2"
+	// ForwardAgent requests SSH agent forwarding on sessions to this host, so
+	// a further hop from it can authenticate with the local agent instead of a
+	// private key copied onto the intermediate machine. Off by default: it
+	// lets anyone with root on the remote use your agent for as long as the
+	// session is open, so it should be a deliberate per-host choice.
+	ForwardAgent bool `json:"forwardAgent,omitempty"`
 	CreatedAt       int64    `json:"createdAt"`
 	UpdatedAt       int64    `json:"updatedAt"`
 	LastConnectedAt int64    `json:"lastConnectedAt"`
@@ -90,9 +96,9 @@ func (s *Hosts) Create(h Host) (Host, error) {
 
 	tags, _ := json.Marshal(h.Tags)
 	_, err := s.db.Exec(
-		`INSERT INTO hosts (id, name, host, port, username, auth_method, key_id, group_name, environment, proxy_jump, tags, notes, favorite, created_at, updated_at, last_connected_at, startup_snippet_id, protocol, serial_device, serial_baud, serial_data_bits, serial_parity, serial_stop_bits)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)`,
-		h.ID, h.Name, h.Host, h.Port, h.Username, h.AuthMethod, h.KeyID, h.Group, h.Environment, h.ProxyJump, string(tags), h.Notes, boolToInt(h.Favorite), h.CreatedAt, h.UpdatedAt, h.StartupSnippetID, h.Protocol, h.SerialDevice, h.SerialBaud, h.SerialDataBits, h.SerialParity, h.SerialStopBits,
+		`INSERT INTO hosts (id, name, host, port, username, auth_method, key_id, group_name, environment, proxy_jump, tags, notes, favorite, created_at, updated_at, last_connected_at, startup_snippet_id, protocol, serial_device, serial_baud, serial_data_bits, serial_parity, serial_stop_bits, forward_agent)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		h.ID, h.Name, h.Host, h.Port, h.Username, h.AuthMethod, h.KeyID, h.Group, h.Environment, h.ProxyJump, string(tags), h.Notes, boolToInt(h.Favorite), h.CreatedAt, h.UpdatedAt, h.StartupSnippetID, h.Protocol, h.SerialDevice, h.SerialBaud, h.SerialDataBits, h.SerialParity, h.SerialStopBits, boolToInt(h.ForwardAgent),
 	)
 	return h, err
 }
@@ -107,8 +113,8 @@ func (s *Hosts) Update(h Host) error {
 	h.UpdatedAt = time.Now().Unix()
 	tags, _ := json.Marshal(h.Tags)
 	_, err := s.db.Exec(
-		`UPDATE hosts SET name=?, host=?, port=?, username=?, auth_method=?, key_id=?, group_name=?, environment=?, proxy_jump=?, tags=?, notes=?, favorite=?, startup_snippet_id=?, protocol=?, serial_device=?, serial_baud=?, serial_data_bits=?, serial_parity=?, serial_stop_bits=?, updated_at=? WHERE id=?`,
-		h.Name, h.Host, h.Port, h.Username, h.AuthMethod, h.KeyID, h.Group, h.Environment, h.ProxyJump, string(tags), h.Notes, boolToInt(h.Favorite), h.StartupSnippetID, h.Protocol, h.SerialDevice, h.SerialBaud, h.SerialDataBits, h.SerialParity, h.SerialStopBits, h.UpdatedAt, h.ID,
+		`UPDATE hosts SET name=?, host=?, port=?, username=?, auth_method=?, key_id=?, group_name=?, environment=?, proxy_jump=?, tags=?, notes=?, favorite=?, startup_snippet_id=?, protocol=?, serial_device=?, serial_baud=?, serial_data_bits=?, serial_parity=?, serial_stop_bits=?, forward_agent=?, updated_at=? WHERE id=?`,
+		h.Name, h.Host, h.Port, h.Username, h.AuthMethod, h.KeyID, h.Group, h.Environment, h.ProxyJump, string(tags), h.Notes, boolToInt(h.Favorite), h.StartupSnippetID, h.Protocol, h.SerialDevice, h.SerialBaud, h.SerialDataBits, h.SerialParity, h.SerialStopBits, boolToInt(h.ForwardAgent), h.UpdatedAt, h.ID,
 	)
 	return err
 }
@@ -128,7 +134,7 @@ func (s *Hosts) Delete(id string) error {
 }
 
 func (s *Hosts) Get(id string) (Host, error) {
-	row := s.db.QueryRow(`SELECT id, name, host, port, username, auth_method, key_id, group_name, environment, proxy_jump, tags, notes, favorite, created_at, updated_at, last_connected_at, startup_snippet_id, protocol, serial_device, serial_baud, serial_data_bits, serial_parity, serial_stop_bits FROM hosts WHERE id = ?`, id)
+	row := s.db.QueryRow(`SELECT id, name, host, port, username, auth_method, key_id, group_name, environment, proxy_jump, tags, notes, favorite, created_at, updated_at, last_connected_at, startup_snippet_id, protocol, serial_device, serial_baud, serial_data_bits, serial_parity, serial_stop_bits, forward_agent FROM hosts WHERE id = ?`, id)
 	return scanHost(row)
 }
 
@@ -136,12 +142,12 @@ func (s *Hosts) Get(id string) (Host, error) {
 // dialer to resolve ProxyJump references — saved hosts identify each other
 // by name, not ID.
 func (s *Hosts) GetByName(name string) (Host, error) {
-	row := s.db.QueryRow(`SELECT id, name, host, port, username, auth_method, key_id, group_name, environment, proxy_jump, tags, notes, favorite, created_at, updated_at, last_connected_at, startup_snippet_id, protocol, serial_device, serial_baud, serial_data_bits, serial_parity, serial_stop_bits FROM hosts WHERE name = ?`, name)
+	row := s.db.QueryRow(`SELECT id, name, host, port, username, auth_method, key_id, group_name, environment, proxy_jump, tags, notes, favorite, created_at, updated_at, last_connected_at, startup_snippet_id, protocol, serial_device, serial_baud, serial_data_bits, serial_parity, serial_stop_bits, forward_agent FROM hosts WHERE name = ?`, name)
 	return scanHost(row)
 }
 
 func (s *Hosts) List() ([]Host, error) {
-	rows, err := s.db.Query(`SELECT id, name, host, port, username, auth_method, key_id, group_name, environment, proxy_jump, tags, notes, favorite, created_at, updated_at, last_connected_at, startup_snippet_id, protocol, serial_device, serial_baud, serial_data_bits, serial_parity, serial_stop_bits FROM hosts ORDER BY name COLLATE NOCASE`)
+	rows, err := s.db.Query(`SELECT id, name, host, port, username, auth_method, key_id, group_name, environment, proxy_jump, tags, notes, favorite, created_at, updated_at, last_connected_at, startup_snippet_id, protocol, serial_device, serial_baud, serial_data_bits, serial_parity, serial_stop_bits, forward_agent FROM hosts ORDER BY name COLLATE NOCASE`)
 	if err != nil {
 		return nil, err
 	}
@@ -171,12 +177,14 @@ func scanHost(r rowScanner) (Host, error) {
 		keyID    sql.NullString
 		tagsJSON string
 		favorite int
+		fwdAgent int
 	)
-	err := r.Scan(&h.ID, &h.Name, &h.Host, &h.Port, &h.Username, &h.AuthMethod, &keyID, &h.Group, &h.Environment, &h.ProxyJump, &tagsJSON, &h.Notes, &favorite, &h.CreatedAt, &h.UpdatedAt, &h.LastConnectedAt, &h.StartupSnippetID, &h.Protocol, &h.SerialDevice, &h.SerialBaud, &h.SerialDataBits, &h.SerialParity, &h.SerialStopBits)
+	err := r.Scan(&h.ID, &h.Name, &h.Host, &h.Port, &h.Username, &h.AuthMethod, &keyID, &h.Group, &h.Environment, &h.ProxyJump, &tagsJSON, &h.Notes, &favorite, &h.CreatedAt, &h.UpdatedAt, &h.LastConnectedAt, &h.StartupSnippetID, &h.Protocol, &h.SerialDevice, &h.SerialBaud, &h.SerialDataBits, &h.SerialParity, &h.SerialStopBits, &fwdAgent)
 	if err != nil {
 		return Host{}, err
 	}
 	h.Favorite = favorite != 0
+	h.ForwardAgent = fwdAgent != 0
 	if keyID.Valid {
 		h.KeyID = keyID.String
 	}
