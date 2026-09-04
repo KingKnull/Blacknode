@@ -18,7 +18,7 @@ import (
 type VaultService struct {
 	vault    *vault.Vault
 	db       *sql.DB
-	dataDir  string           // directory where the remember-me key file is written
+	dataDir  string // directory where the remember-me key file is written
 	activity *activityRecorder
 	sync     *SyncService     // optional — nil-checked; wired for sync-on-unlock / stop-on-lock
 	autoLock *AutoLockService // optional — nil-checked; idle timer reset on unlock

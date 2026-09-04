@@ -35,6 +35,7 @@
     type PaneNode,
   } from "./panes";
   import { bus } from "./events";
+  import { pluginIDForSource, parseHostMessage } from "./pluginBridge";
   import {
     Radio,
     Lock,
@@ -179,26 +180,28 @@
       aiInsert(text);
     });
 
-    // Bridge for plugin iframe → host backchannel. Iframes post messages
-    // to the parent window; we whitelist a handful of methods and route
-    // them through the matching service. Anything else is dropped.
+    // Bridge for plugin iframe → host backchannel. Iframes post messages to
+    // the parent window; we identify the sender, allow-list the method, and
+    // route it through the matching service. Anything else is dropped.
+    //
+    // The plugin id comes from the sending window, not from the message: a
+    // sandboxed panel can put any id it likes in the body, and the backend
+    // permission check is only worth anything if the id it checks is the
+    // sender's own. PanelRouter registers each panel's window; see
+    // pluginBridge.ts for why origin checking cannot do this job.
     const onPluginMessage = (e: MessageEvent) => {
-      const data = e.data;
-      if (!data || typeof data !== "object" || typeof data.type !== "string") {
-        return;
-      }
-      if (!data.type.startsWith("host.")) return;
-      const pluginID =
-        typeof data.pluginId === "string" ? data.pluginId : "";
-      switch (data.type) {
+      const pluginID = pluginIDForSource(e.source);
+      if (!pluginID) return;
+      const msg = parseHostMessage(e.data);
+      if (!msg) return;
+      switch (msg.type) {
         case "host.notify":
-          PluginService.HostNotify(
-            pluginID,
-            String(data.title ?? ""),
-            String(data.body ?? ""),
-          );
+          // Still denied host-side if the manifest didn't request
+          // host.notify — this call is Wails-bound and reachable without us.
+          PluginService.HostNotify(pluginID, msg.title, msg.body);
           break;
-        // Add more allowlisted methods here as the SDK grows.
+        // Add more allowlisted methods here as the SDK grows, and a matching
+        // permission in internal/plugin/permissions.go for each.
       }
     };
     window.addEventListener("message", onPluginMessage);

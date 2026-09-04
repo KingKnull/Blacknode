@@ -70,7 +70,10 @@
       "Bash(echo \"=== CLI exit: $? ===\")",
       "Bash(grep -n 'mode = $state\\\\|status = $state\\\\|function writeLocal' -A 12 Terminal.svelte)",
       "Read(//home/maverick/.npm/**)",
-      "Read(//home/maverick/.npm/_cacache/**)"
+      "Read(//home/maverick/.npm/_cacache/**)",
+      "Bash(node -e ' *)",
+      "Bash(npm test *)",
+      "Bash(echo \"exit=$?\")"
     ]
   }
 }

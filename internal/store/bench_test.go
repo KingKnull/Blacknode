@@ -5,33 +5,25 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/blacknode/blacknode/internal/db"
 	_ "modernc.org/sqlite"
 )
 
-// Combined schema mirroring the production DDL — kept here so the
-// benchmark is self-contained.
-const benchSchema = hostsSchema + `
-CREATE TABLE snippets (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    body TEXT NOT NULL,
-    description TEXT NOT NULL DEFAULT '',
-    tags TEXT NOT NULL DEFAULT '[]',
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL
-);
-` + httpRequestsSchema
-
+// benchDB builds an in-memory database on the production schema. The benchmark
+// used to concatenate its own DDL fragments; db.Migrate keeps it honest about
+// what the app actually queries, indexes included — an index missing here would
+// make a benchmark look slower than production, or faster.
 func benchDB(b *testing.B) *sql.DB {
 	b.Helper()
-	db, err := sql.Open("sqlite", ":memory:")
+	conn, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		b.Fatal(err)
 	}
-	if _, err := db.Exec(benchSchema); err != nil {
+	if err := db.Migrate(conn); err != nil {
 		b.Fatal(err)
 	}
-	return db
+	b.Cleanup(func() { _ = conn.Close() })
+	return conn
 }
 
 func BenchmarkHosts_List_500(b *testing.B) {

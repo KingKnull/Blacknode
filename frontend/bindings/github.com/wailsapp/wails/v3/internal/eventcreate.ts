@@ -17,25 +17,29 @@ function configure() {
     Object.freeze(Object.assign($Create.Events, {
         "activity:append": $$createType0,
         "ai:chunk": $$createType1,
-        "exec:progress": $$createType2,
-        "logs:line": $$createType3,
-        "metrics:update": $$createType4,
-        "notification:toast": $$createType5,
-        "terminal:data": $$createType6,
-        "terminal:exit": $$createType7,
-        "vault:locked": $$createType8,
+        "auth:prompt": $$createType2,
+        "exec:progress": $$createType3,
+        "logs:line": $$createType4,
+        "metrics:update": $$createType5,
+        "notification:toast": $$createType6,
+        "sftp:progress": $$createType7,
+        "terminal:data": $$createType8,
+        "terminal:exit": $$createType9,
+        "vault:locked": $$createType10,
     }));
 }
 
 // Private type creation functions
 const $$createType0 = store$0.Activity.createFrom;
 const $$createType1 = service$0.AIChunk.createFrom;
-const $$createType2 = service$0.ExecProgress.createFrom;
-const $$createType3 = service$0.LogLine.createFrom;
-const $$createType4 = service$0.HostMetrics.createFrom;
-const $$createType5 = service$0.Notification.createFrom;
-const $$createType6 = service$0.TerminalData.createFrom;
-const $$createType7 = service$0.TerminalExit.createFrom;
-const $$createType8 = service$0.VaultLockEvent.createFrom;
+const $$createType2 = service$0.AuthPromptRequest.createFrom;
+const $$createType3 = service$0.ExecProgress.createFrom;
+const $$createType4 = service$0.LogLine.createFrom;
+const $$createType5 = service$0.HostMetrics.createFrom;
+const $$createType6 = service$0.Notification.createFrom;
+const $$createType7 = service$0.TransferProgress.createFrom;
+const $$createType8 = service$0.TerminalData.createFrom;
+const $$createType9 = service$0.TerminalExit.createFrom;
+const $$createType10 = service$0.VaultLockEvent.createFrom;
 
 configure();

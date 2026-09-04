@@ -37,13 +37,13 @@ type StartMeta struct {
 // FinishedRec is the snapshot returned to callers when a recording closes,
 // so they can persist metadata.
 type FinishedRec struct {
-	ID         string
-	Path       string
-	StartedAt  int64 // unix
-	EndedAt    int64
-	SizeBytes  int64
-	HostID     string
-	Title      string
+	ID        string
+	Path      string
+	StartedAt int64 // unix
+	EndedAt   int64
+	SizeBytes int64
+	HostID    string
+	Title     string
 }
 
 func NewManager() *Manager {

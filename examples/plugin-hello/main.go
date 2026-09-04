@@ -2,7 +2,8 @@
 //
 // Build:  go build -o plugin-hello .
 // Install: copy plugin-hello + plugin.json into
-//          $XDG_DATA_HOME/blacknode/plugins/hello/
+//
+//	$XDG_DATA_HOME/blacknode/plugins/hello/
 package main
 
 import (

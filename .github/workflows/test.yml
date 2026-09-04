@@ -1,0 +1,102 @@
+name: Test
+
+# Runs on every push and PR. Deliberately separate from release.yml: that
+# workflow only fires on tags, which meant nothing verified a commit until it
+# was already being shipped.
+#
+# Scope note: this builds and tests the Go packages and the frontend's pure-TS
+# modules. It does NOT run the Wails packaging chain — that lives in
+# release.yml and needs the full toolchain per platform. What this catches is
+# the class of breakage that actually happens on a normal commit: a compile
+# error, a failing test, an unformatted file.
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
+
+# A second push to the same branch makes the first run's result irrelevant.
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    name: Go build + test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache: true
+
+      - name: Install build deps
+        # GTK4 + webkitgtk-6.0 to match the pkg-config lines Wails compiles
+        # against by default; the gtk3 path is behind a build tag we do not set.
+        # libx11-dev is needed by the X11 global-shortcut file.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev libx11-dev
+
+      - name: gofmt
+        # -l lists files that differ from gofmt's output. Failing here rather
+        # than reformatting in CI keeps the diff the author's to review.
+        run: |
+          unformatted=$(gofmt -l . | grep -v '^frontend/' || true)
+          if [ -n "$unformatted" ]; then
+            echo "These files are not gofmt-clean:"
+            echo "$unformatted"
+            echo
+            echo "Run: gofmt -w \$(gofmt -l . | grep -v '^frontend/')"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./internal/... ./cmd/...
+
+      - name: Build
+        # Not `./...`: build/ios/main_ios.go is behind a `//go:build ios` tag,
+        # so that package has no main function on Linux and can never build
+        # here. Listing the real targets keeps the failure signal meaningful.
+        run: go build . ./internal/... ./cmd/...
+
+      - name: Test
+        # -race because the code under test is concurrent in the places that
+        # matter (the connection pool, and the activity log's hash chain, whose
+        # whole correctness argument is that appends serialise).
+        run: go test -race -timeout 10m ./internal/...
+
+  frontend:
+    name: Frontend check + test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Type-check app
+        run: npm run check
+
+      - name: Type-check tests
+        # Separate tsconfig: the tests need Node's types and `.ts` import
+        # specifiers, neither of which the app config should grant.
+        run: npm run check:test
+
+      - name: Test
+        # Node's built-in runner over its native TypeScript support, so the
+        # suite adds no test-framework dependency. Requires Node >= 22.6.
+        run: npm test

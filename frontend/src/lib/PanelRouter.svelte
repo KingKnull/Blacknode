@@ -1,6 +1,7 @@
 <script lang="ts">
   import { app } from "./state.svelte";
   import ErrorBoundary from "./ErrorBoundary.svelte";
+  import { registerPanelWindow, unregisterPanelWindow } from "./pluginBridge";
 
   import ExecPanel from "./ExecPanel.svelte";
   import SFTPPanel from "./SFTPPanel.svelte";
@@ -31,6 +32,32 @@
     children: any;
   };
   let { children }: Props = $props();
+
+  /**
+   * Bind a plugin panel iframe's window to the plugin that owns it, so the
+   * workspace bridge can identify messages by their sender instead of
+   * believing whatever id the panel puts in the message. See pluginBridge.ts.
+   *
+   * An action rather than an `onload` handler because it gives us the
+   * teardown hook: the iframe is destroyed when the view changes, and a
+   * window that stays registered after that would let a replaced panel keep
+   * speaking for its plugin.
+   */
+  function panelOwner(node: HTMLIFrameElement, pluginID: string) {
+    // contentWindow is available as soon as the element is in the document —
+    // it does not wait for srcdoc to finish parsing — so there is no race
+    // with a panel that posts a message immediately on load.
+    registerPanelWindow(node.contentWindow, pluginID);
+    return {
+      update(nextID: string) {
+        unregisterPanelWindow(node.contentWindow);
+        registerPanelWindow(node.contentWindow, nextID);
+      },
+      destroy() {
+        unregisterPanelWindow(node.contentWindow);
+      },
+    };
+  }
 </script>
 
 <div class:hidden={app.view !== 'terminals'}>
@@ -114,7 +141,13 @@
   {@const found = app.pluginPanels.find((p) => p.pluginId === pluginID && p.id === panelID)}
   <div class="view-enter h-full w-full">
     {#if found}
-      <iframe title={found.title} class="h-full w-full border-0 bg-transparent" sandbox="allow-scripts" srcdoc={found.html}></iframe>
+      <iframe
+        use:panelOwner={pluginID}
+        title={found.title}
+        class="h-full w-full border-0 bg-transparent"
+        sandbox="allow-scripts"
+        srcdoc={found.html}
+      ></iframe>
     {:else}
       <div class="flex h-full items-center justify-center type-caption text-[var(--color-text-3)]">Plugin panel not loaded.</div>
     {/if}

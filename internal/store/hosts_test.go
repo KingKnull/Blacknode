@@ -5,46 +5,25 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/blacknode/blacknode/internal/db"
 	_ "modernc.org/sqlite"
 )
 
-const hostsSchema = `
-CREATE TABLE hosts (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    host TEXT NOT NULL,
-    port INTEGER NOT NULL DEFAULT 22,
-    username TEXT NOT NULL,
-    auth_method TEXT NOT NULL,
-    key_id TEXT,
-    group_name TEXT NOT NULL DEFAULT '',
-    environment TEXT NOT NULL DEFAULT '',
-    proxy_jump TEXT NOT NULL DEFAULT '',
-    tags TEXT NOT NULL DEFAULT '[]',
-    notes TEXT NOT NULL DEFAULT '',
-    favorite INTEGER NOT NULL DEFAULT 0,
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL,
-    last_connected_at INTEGER NOT NULL DEFAULT 0,
-    startup_snippet_id TEXT NOT NULL DEFAULT '',
-    protocol TEXT NOT NULL DEFAULT 'ssh',
-    serial_device TEXT NOT NULL DEFAULT '',
-    serial_baud INTEGER NOT NULL DEFAULT 0,
-    serial_data_bits INTEGER NOT NULL DEFAULT 0,
-    serial_parity TEXT NOT NULL DEFAULT '',
-    serial_stop_bits TEXT NOT NULL DEFAULT ''
-);`
-
+// newHostsDB builds an in-memory database with the real production schema.
+// It used to hold a hand-copied CREATE TABLE, which drifted every time a column
+// was added: the app migrated, this copy didn't, and unrelated tests failed on a
+// schema that was correct. db.Migrate is the single source of truth.
 func newHostsDB(t *testing.T) *sql.DB {
 	t.Helper()
-	db, err := sql.Open("sqlite", ":memory:")
+	conn, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(hostsSchema); err != nil {
+	if err := db.Migrate(conn); err != nil {
 		t.Fatal(err)
 	}
-	return db
+	t.Cleanup(func() { _ = conn.Close() })
+	return conn
 }
 
 func TestCreateAndGetHost(t *testing.T) {
@@ -73,9 +52,9 @@ func TestCreateAndGetHost(t *testing.T) {
 func TestCreateValidation(t *testing.T) {
 	s := NewHosts(newHostsDB(t))
 	cases := []Host{
-		{Host: "h", Username: "u"},          // missing name
-		{Name: "n", Username: "u"},          // missing host
-		{Name: "n", Host: "h"},              // missing username
+		{Host: "h", Username: "u"}, // missing name
+		{Name: "n", Username: "u"}, // missing host
+		{Name: "n", Host: "h"},     // missing username
 	}
 	for i, h := range cases {
 		if _, err := s.Create(h); err == nil {

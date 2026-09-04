@@ -146,6 +146,143 @@ export class AppSettings {
 }
 
 /**
+ * AuditExport describes what was written by ExportSigned, so the UI can show
+ * the paths and — more importantly — the head hash, which is the value worth
+ * recording somewhere outside this machine.
+ */
+export class AuditExport {
+    "documentPath": string;
+    "signaturePath"?: string;
+    "allowedSignersPath"?: string;
+    "head": string;
+    "rows": number;
+    "signed": boolean;
+    "verifyCommand"?: string;
+
+    /** Creates a new AuditExport instance. */
+    constructor($$source: Partial<AuditExport> = {}) {
+        if (!("documentPath" in $$source)) {
+            this["documentPath"] = "";
+        }
+        if (!("head" in $$source)) {
+            this["head"] = "";
+        }
+        if (!("rows" in $$source)) {
+            this["rows"] = 0;
+        }
+        if (!("signed" in $$source)) {
+            this["signed"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new AuditExport instance from a string or object.
+     */
+    static createFrom($$source: any = {}): AuditExport {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new AuditExport($$parsedSource as Partial<AuditExport>);
+    }
+}
+
+/**
+ * AuthPromptRequest is emitted on "auth:prompt" when a handshake needs input
+ * that cannot be resolved from stored state.
+ */
+export class AuthPromptRequest {
+    "id": string;
+    "hostId"?: string;
+    "host": string;
+    "user": string;
+
+    /**
+     * Kind is "password" or "keyboard-interactive". The UI renders both as a
+     * prompt but the wording differs: one is a retry of a known credential, the
+     * other is a challenge only the server can explain.
+     */
+    "kind": string;
+
+    /**
+     * Attempt is the 1-based try number for password prompts, so the UI can say
+     * "Incorrect password — 2 of 3" rather than repeating a bare prompt.
+     */
+    "attempt"?: number;
+
+    /**
+     * Name and Instruction are the server's own text for a keyboard-interactive
+     * round. They are shown verbatim: this is where a server explains "Enter
+     * your 6-digit code" or "Password expired, choose a new one", and
+     * paraphrasing it would lose information only the server has.
+     */
+    "name"?: string;
+    "instruction"?: string;
+    "questions": AuthQuestion[];
+
+    /** Creates a new AuthPromptRequest instance. */
+    constructor($$source: Partial<AuthPromptRequest> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("host" in $$source)) {
+            this["host"] = "";
+        }
+        if (!("user" in $$source)) {
+            this["user"] = "";
+        }
+        if (!("kind" in $$source)) {
+            this["kind"] = "";
+        }
+        if (!("questions" in $$source)) {
+            this["questions"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new AuthPromptRequest instance from a string or object.
+     */
+    static createFrom($$source: any = {}): AuthPromptRequest {
+        const $$createField8_0 = $$createType1;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("questions" in $$parsedSource) {
+            $$parsedSource["questions"] = $$createField8_0($$parsedSource["questions"]);
+        }
+        return new AuthPromptRequest($$parsedSource as Partial<AuthPromptRequest>);
+    }
+}
+
+/**
+ * AuthQuestion is a single prompt. Echo reports whether the answer should be
+ * visible while typing — true for "Username:", false for a password or OTP.
+ */
+export class AuthQuestion {
+    "prompt": string;
+    "echo": boolean;
+
+    /** Creates a new AuthQuestion instance. */
+    constructor($$source: Partial<AuthQuestion> = {}) {
+        if (!("prompt" in $$source)) {
+            this["prompt"] = "";
+        }
+        if (!("echo" in $$source)) {
+            this["echo"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new AuthQuestion instance from a string or object.
+     */
+    static createFrom($$source: any = {}): AuthQuestion {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new AuthQuestion($$parsedSource as Partial<AuthQuestion>);
+    }
+}
+
+/**
  * AutoSyncConfig is persisted to the settings KV store.
  */
 export class AutoSyncConfig {
@@ -268,8 +405,8 @@ export class CertInfo {
      * Creates a new CertInfo instance from a string or object.
      */
     static createFrom($$source: any = {}): CertInfo {
-        const $$createField5_0 = $$createType0;
-        const $$createField8_0 = $$createType0;
+        const $$createField5_0 = $$createType2;
+        const $$createField8_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("dnsNames" in $$parsedSource) {
             $$parsedSource["dnsNames"] = $$createField5_0($$parsedSource["dnsNames"]);
@@ -571,7 +708,7 @@ export class DNSResult {
      * Creates a new DNSResult instance from a string or object.
      */
     static createFrom($$source: any = {}): DNSResult {
-        const $$createField1_0 = $$createType2;
+        const $$createField1_0 = $$createType4;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("answers" in $$parsedSource) {
             $$parsedSource["answers"] = $$createField1_0($$parsedSource["answers"]);
@@ -600,7 +737,7 @@ export class ExecProgress {
      * Creates a new ExecProgress instance from a string or object.
      */
     static createFrom($$source: any = {}): ExecProgress {
-        const $$createField1_0 = $$createType3;
+        const $$createField1_0 = $$createType5;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("result" in $$parsedSource) {
             $$parsedSource["result"] = $$createField1_0($$parsedSource["result"]);
@@ -729,7 +866,7 @@ export class HTTPRequestOptions {
      * Creates a new HTTPRequestOptions instance from a string or object.
      */
     static createFrom($$source: any = {}): HTTPRequestOptions {
-        const $$createField2_0 = $$createType4;
+        const $$createField2_0 = $$createType6;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("headers" in $$parsedSource) {
             $$parsedSource["headers"] = $$createField2_0($$parsedSource["headers"]);
@@ -790,7 +927,7 @@ export class HTTPResponse {
      * Creates a new HTTPResponse instance from a string or object.
      */
     static createFrom($$source: any = {}): HTTPResponse {
-        const $$createField3_0 = $$createType6;
+        const $$createField3_0 = $$createType8;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("headers" in $$parsedSource) {
             $$parsedSource["headers"] = $$createField3_0($$parsedSource["headers"]);
@@ -1137,7 +1274,7 @@ export class PortScanResult {
      * Creates a new PortScanResult instance from a string or object.
      */
     static createFrom($$source: any = {}): PortScanResult {
-        const $$createField1_0 = $$createType8;
+        const $$createField1_0 = $$createType10;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("results" in $$parsedSource) {
             $$parsedSource["results"] = $$createField1_0($$parsedSource["results"]);
@@ -1350,8 +1487,8 @@ export class QueryResult {
      * Creates a new QueryResult instance from a string or object.
      */
     static createFrom($$source: any = {}): QueryResult {
-        const $$createField0_0 = $$createType10;
-        const $$createField1_0 = $$createType11;
+        const $$createField0_0 = $$createType12;
+        const $$createField1_0 = $$createType13;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("columns" in $$parsedSource) {
             $$parsedSource["columns"] = $$createField0_0($$parsedSource["columns"]);
@@ -1421,7 +1558,7 @@ export class RecordingDetail {
      * Creates a new RecordingDetail instance from a string or object.
      */
     static createFrom($$source: any = {}): RecordingDetail {
-        const $$createField12_0 = $$createType13;
+        const $$createField12_0 = $$createType15;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("events" in $$parsedSource) {
             $$parsedSource["events"] = $$createField12_0($$parsedSource["events"]);
@@ -1436,6 +1573,14 @@ export class SFTPEntry {
     "size": number;
     "mode": string;
     "modTime": number;
+
+    /**
+     * Symlink reports whether the entry is a symbolic link, and LinkTarget its
+     * destination when it could be read. Lstat is used for the listing so links
+     * are visible as links rather than silently resolved.
+     */
+    "symlink"?: boolean;
+    "linkTarget"?: string;
 
     /** Creates a new SFTPEntry instance. */
     constructor($$source: Partial<SFTPEntry> = {}) {
@@ -1604,7 +1749,7 @@ export class SSLResult {
      * Creates a new SSLResult instance from a string or object.
      */
     static createFrom($$source: any = {}): SSLResult {
-        const $$createField4_0 = $$createType14;
+        const $$createField4_0 = $$createType16;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("cert" in $$parsedSource) {
             $$parsedSource["cert"] = $$createField4_0($$parsedSource["cert"]);
@@ -1680,8 +1825,8 @@ export class SearchHit {
      * Creates a new SearchHit instance from a string or object.
      */
     static createFrom($$source: any = {}): SearchHit {
-        const $$createField0_0 = $$createType15;
-        const $$createField1_0 = $$createType17;
+        const $$createField0_0 = $$createType17;
+        const $$createField1_0 = $$createType19;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("recording" in $$parsedSource) {
             $$parsedSource["recording"] = $$createField0_0($$parsedSource["recording"]);
@@ -1717,8 +1862,8 @@ export class SnippetValidation {
      * Creates a new SnippetValidation instance from a string or object.
      */
     static createFrom($$source: any = {}): SnippetValidation {
-        const $$createField0_0 = $$createType19;
-        const $$createField1_0 = $$createType0;
+        const $$createField0_0 = $$createType21;
+        const $$createField1_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("variables" in $$parsedSource) {
             $$parsedSource["variables"] = $$createField0_0($$parsedSource["variables"]);
@@ -1962,6 +2107,57 @@ export class TerminalExit {
 }
 
 /**
+ * TransferProgress is emitted on the "sftp:progress" event as a streaming
+ * transfer advances. Total is -1 when the size isn't known up front.
+ */
+export class TransferProgress {
+    "id": string;
+
+    /**
+     * "download" | "upload"
+     */
+    "direction": string;
+    "path": string;
+    "transferred": number;
+    "total": number;
+    "done": boolean;
+    "canceled"?: boolean;
+    "error"?: string;
+
+    /** Creates a new TransferProgress instance. */
+    constructor($$source: Partial<TransferProgress> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("direction" in $$source)) {
+            this["direction"] = "";
+        }
+        if (!("path" in $$source)) {
+            this["path"] = "";
+        }
+        if (!("transferred" in $$source)) {
+            this["transferred"] = 0;
+        }
+        if (!("total" in $$source)) {
+            this["total"] = 0;
+        }
+        if (!("done" in $$source)) {
+            this["done"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TransferProgress instance from a string or object.
+     */
+    static createFrom($$source: any = {}): TransferProgress {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new TransferProgress($$parsedSource as Partial<TransferProgress>);
+    }
+}
+
+/**
  * UpdateInfo is the wire shape returned to the frontend. Empty `Latest`
  * + non-empty `Error` indicates the probe failed — the UI should surface
  * that state rather than silently treating it as "you're up to date".
@@ -2053,23 +2249,25 @@ export class VaultStatus {
 }
 
 // Private type creation functions
-const $$createType0 = $Create.Array($Create.Any);
-const $$createType1 = DNSAnswer.createFrom;
-const $$createType2 = $Create.Array($$createType1);
-const $$createType3 = ExecResult.createFrom;
-const $$createType4 = $Create.Map($Create.Any, $Create.Any);
-const $$createType5 = HTTPHeader.createFrom;
-const $$createType6 = $Create.Array($$createType5);
-const $$createType7 = PortStatus.createFrom;
+const $$createType0 = AuthQuestion.createFrom;
+const $$createType1 = $Create.Array($$createType0);
+const $$createType2 = $Create.Array($Create.Any);
+const $$createType3 = DNSAnswer.createFrom;
+const $$createType4 = $Create.Array($$createType3);
+const $$createType5 = ExecResult.createFrom;
+const $$createType6 = $Create.Map($Create.Any, $Create.Any);
+const $$createType7 = HTTPHeader.createFrom;
 const $$createType8 = $Create.Array($$createType7);
-const $$createType9 = QueryColumn.createFrom;
+const $$createType9 = PortStatus.createFrom;
 const $$createType10 = $Create.Array($$createType9);
-const $$createType11 = $Create.Array($$createType0);
-const $$createType12 = CastEvent.createFrom;
-const $$createType13 = $Create.Array($$createType12);
-const $$createType14 = CertInfo.createFrom;
-const $$createType15 = store$0.Recording.createFrom;
-const $$createType16 = recorder$0.Match.createFrom;
-const $$createType17 = $Create.Array($$createType16);
-const $$createType18 = SnippetVariable.createFrom;
+const $$createType11 = QueryColumn.createFrom;
+const $$createType12 = $Create.Array($$createType11);
+const $$createType13 = $Create.Array($$createType2);
+const $$createType14 = CastEvent.createFrom;
+const $$createType15 = $Create.Array($$createType14);
+const $$createType16 = CertInfo.createFrom;
+const $$createType17 = store$0.Recording.createFrom;
+const $$createType18 = recorder$0.Match.createFrom;
 const $$createType19 = $Create.Array($$createType18);
+const $$createType20 = SnippetVariable.createFrom;
+const $$createType21 = $Create.Array($$createType20);

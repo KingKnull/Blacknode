@@ -194,7 +194,7 @@ func (s *MetricsService) maybeAlert(m HostMetrics) {
 		if pct < 90 {
 			return
 		}
-		s.notify.NotifyDebounced(context.Background(), 
+		s.notify.NotifyDebounced(context.Background(),
 			fmt.Sprintf("metrics:%s:%s", metric, m.HostID),
 			Notification{
 				Kind:     NotifyWarn,

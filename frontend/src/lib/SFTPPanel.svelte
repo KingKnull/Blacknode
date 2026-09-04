@@ -106,7 +106,11 @@
   let entryToDelete = $state<SFTPEntry | null>(null);
   async function remove() {
     if (!entryToDelete || !host) return;
-    await SFTPService.Remove(host.id, joinPath(path, entryToDelete.name));
+    // Recursive only for directories. Passing it unconditionally would be
+    // harmless for files but would turn a mis-click on a directory into an
+    // unbounded delete; passing it never would make non-empty directories
+    // undeletable from the UI.
+    await SFTPService.Remove(host.id, joinPath(path, entryToDelete.name), entryToDelete.isDir);
     await reload();
     entryToDelete = null;
   }
@@ -305,9 +309,11 @@
 
 {#if entryToDelete}
   <ConfirmDanger
-    title="DELETE FILE"
-    body="Are you sure you want to delete '{entryToDelete.name}'? This action cannot be undone and will permanently remove the item from the remote server."
-    severity="warn"
+    title={entryToDelete.isDir ? "DELETE FOLDER" : "DELETE FILE"}
+    body={entryToDelete.isDir
+      ? `Delete the folder '${entryToDelete.name}' and everything inside it? This removes all contents recursively and cannot be undone.`
+      : `Are you sure you want to delete '${entryToDelete.name}'? This action cannot be undone and will permanently remove the item from the remote server.`}
+    severity={entryToDelete.isDir ? "block-without-confirm" : "warn"}
     productionHosts={host?.environment === 'production' ? [host.name] : []}
     onCancel={() => (entryToDelete = null)}
     onConfirm={remove}

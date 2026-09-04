@@ -10,15 +10,15 @@ import (
 )
 
 type Host struct {
-	ID              string   `json:"id"`
-	Name            string   `json:"name"`
-	Host            string   `json:"host"`
-	Port            int      `json:"port"`
-	Username        string   `json:"username"`
-	AuthMethod      string   `json:"authMethod"`     // "password" | "key" | "agent"
-	KeyID           string   `json:"keyID,omitempty"`
-	Group           string   `json:"group,omitempty"`
-	Environment     string   `json:"environment,omitempty"` // "dev" | "staging" | "production" | ""
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Host        string `json:"host"`
+	Port        int    `json:"port"`
+	Username    string `json:"username"`
+	AuthMethod  string `json:"authMethod"` // "password" | "key" | "agent"
+	KeyID       string `json:"keyID,omitempty"`
+	Group       string `json:"group,omitempty"`
+	Environment string `json:"environment,omitempty"` // "dev" | "staging" | "production" | ""
 	// ProxyJump references another saved host (by Name) to use as a bastion.
 	// Empty = direct connect. Cycles are detected at connect time.
 	ProxyJump string   `json:"proxyJump,omitempty"`
@@ -44,10 +44,10 @@ type Host struct {
 	// private key copied onto the intermediate machine. Off by default: it
 	// lets anyone with root on the remote use your agent for as long as the
 	// session is open, so it should be a deliberate per-host choice.
-	ForwardAgent bool `json:"forwardAgent,omitempty"`
-	CreatedAt       int64    `json:"createdAt"`
-	UpdatedAt       int64    `json:"updatedAt"`
-	LastConnectedAt int64    `json:"lastConnectedAt"`
+	ForwardAgent    bool  `json:"forwardAgent,omitempty"`
+	CreatedAt       int64 `json:"createdAt"`
+	UpdatedAt       int64 `json:"updatedAt"`
+	LastConnectedAt int64 `json:"lastConnectedAt"`
 }
 
 type Hosts struct{ db *sql.DB }

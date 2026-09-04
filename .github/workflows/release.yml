@@ -53,7 +53,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install Wails CLI
-        run: go install github.com/wailsapp/wails/v3/cmd/wails3@latest
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.16
 
       - name: Install NSIS
         run: choco install nsis -y --no-progress
@@ -104,7 +104,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install Wails CLI
-        run: go install github.com/wailsapp/wails/v3/cmd/wails3@latest
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.16
 
       - name: Build universal .app
         # package:universal builds amd64 + arm64, lipos them into a single
@@ -143,12 +143,17 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install Wails CLI
-        run: go install github.com/wailsapp/wails/v3/cmd/wails3@latest
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.16
 
       - name: Install build deps
+        # GTK4 + webkitgtk-6.0, matching the pkg-config lines Wails compiles
+        # against by default (linux_cgo.go). The gtk3 path is behind a `gtk3`
+        # build tag that build/linux/Taskfile.yml deliberately does not set, so
+        # installing libgtk-3-dev/libwebkit2gtk-4.1-dev here left cgo unable to
+        # resolve gtk4 at all.
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev libx11-dev
 
       - name: Build + package (deb + rpm + arch)
         # linux:package chains: frontend build → icons → desktop file →

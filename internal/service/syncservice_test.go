@@ -39,7 +39,7 @@ func setupTestSyncService(t *testing.T) (*SyncService, *httptest.Server, *store.
 	httpRequests := store.NewHTTPRequests(sqliteDB.DB)
 	teamActivity := store.NewTeamActivities(sqliteDB.DB)
 	v := vault.New(sqliteDB.DB)
-	
+
 	// Initialize and Unlock vault
 	if init, _ := v.IsInitialized(); !init {
 		if err := v.Setup("test-password"); err != nil {

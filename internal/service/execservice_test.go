@@ -19,11 +19,13 @@ import (
 
 // noopNotify is a dummy implementation of the notification interface if needed
 type noopNotify struct{}
-func (n noopNotify) Notify(ctx context.Context, msg Notification) {}
+
+func (n noopNotify) Notify(ctx context.Context, msg Notification)                      {}
 func (n noopNotify) NotifyDebounced(ctx context.Context, key string, msg Notification) {}
 
 // noopActivityRecorder is a dummy implementation
 type noopActivityRecorder struct{}
+
 func (n noopActivityRecorder) Record(ctx context.Context, actType string, meta map[string]any) {}
 
 func setupTestExecService(t *testing.T) (*ExecService, *mockssh.Server, *store.Hosts, func(string, string), func()) {

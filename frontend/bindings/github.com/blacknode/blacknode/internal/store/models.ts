@@ -23,6 +23,15 @@ export class Activity {
     "hostName"?: string;
     "at": number;
 
+    /**
+     * Seq is the position in the append-only chain, starting at 1. PrevHash and
+     * Hash form the tamper-evidence: Hash covers PrevHash along with every field
+     * above, so editing or deleting any row invalidates every hash after it.
+     */
+    "seq": number;
+    "prevHash"?: string;
+    "hash"?: string;
+
     /** Creates a new Activity instance. */
     constructor($$source: Partial<Activity> = {}) {
         if (!("id" in $$source)) {
@@ -42,6 +51,9 @@ export class Activity {
         }
         if (!("at" in $$source)) {
             this["at"] = 0;
+        }
+        if (!("seq" in $$source)) {
+            this["seq"] = 0;
         }
 
         Object.assign(this, $$source);
@@ -88,6 +100,55 @@ export class ActivityFilter {
             $$parsedSource["levels"] = $$createField1_0($$parsedSource["levels"]);
         }
         return new ActivityFilter($$parsedSource as Partial<ActivityFilter>);
+    }
+}
+
+/**
+ * ChainStatus reports the result of verifying the log.
+ */
+export class ChainStatus {
+    "valid": boolean;
+    "rows": number;
+
+    /**
+     * Head is the hash of the last row — the single value that commits to the
+     * entire history. Record it somewhere outside this database and any later
+     * rewrite of the rows before it becomes detectable.
+     */
+    "head"?: string;
+
+    /**
+     * BrokenAtSeq and Detail describe the first failure, if any.
+     */
+    "brokenAtSeq"?: number;
+    "detail"?: string;
+
+    /**
+     * FirstVerifiableSeq is where checking began. Rows written before the chain
+     * existed have no hash and cannot be verified; they are reported rather
+     * than treated as either valid or broken.
+     */
+    "firstVerifiableSeq"?: number;
+    "unchainedLegacy"?: number;
+
+    /** Creates a new ChainStatus instance. */
+    constructor($$source: Partial<ChainStatus> = {}) {
+        if (!("valid" in $$source)) {
+            this["valid"] = false;
+        }
+        if (!("rows" in $$source)) {
+            this["rows"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ChainStatus instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ChainStatus {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ChainStatus($$parsedSource as Partial<ChainStatus>);
     }
 }
 
@@ -340,6 +401,15 @@ export class Host {
      * "1" | "1.5" | "2"
      */
     "serialStopBits"?: string;
+
+    /**
+     * ForwardAgent requests SSH agent forwarding on sessions to this host, so
+     * a further hop from it can authenticate with the local agent instead of a
+     * private key copied onto the intermediate machine. Off by default: it
+     * lets anyone with root on the remote use your agent for as long as the
+     * session is open, so it should be a deliberate per-host choice.
+     */
+    "forwardAgent"?: boolean;
     "createdAt": number;
     "updatedAt": number;
     "lastConnectedAt": number;

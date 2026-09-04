@@ -4,6 +4,7 @@
 export {
     Activity,
     ActivityFilter,
+    ChainStatus,
     Forward,
     ForwardKind,
     HTTPRequest,

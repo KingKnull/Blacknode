@@ -14,7 +14,7 @@ import (
 type DBSavedConnection struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
-	Kind      string `json:"kind"`            // "postgres" for now; "mysql" later
+	Kind      string `json:"kind"` // "postgres" for now; "mysql" later
 	HostID    string `json:"hostID"`
 	DSNCipher []byte `json:"-"`
 	DSNNonce  []byte `json:"-"`

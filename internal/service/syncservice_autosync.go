@@ -25,7 +25,7 @@ type AutoSyncConfig struct {
 
 // ConflictItem describes one record that would be overwritten by a pull.
 type ConflictItem struct {
-	Kind        string `json:"kind"`        // "host" | "snippet"
+	Kind        string `json:"kind"` // "host" | "snippet"
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	LocalTime   int64  `json:"localTime"`

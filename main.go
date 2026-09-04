@@ -118,7 +118,7 @@ func main() {
 			application.NewService(service.NewUpdateService()),
 			application.NewService(service.NewPluginService(notifySvc, activityRec)),
 			application.NewService(syncSvc),
-			application.NewService(service.NewActivityService(activities)),
+			application.NewService(service.NewActivityService(activities, keys, v)),
 			// New services — Feature 1: Autocomplete
 			application.NewService(service.NewAutocompleteService(history, snippets)),
 			// New services — Feature 2: Mosh

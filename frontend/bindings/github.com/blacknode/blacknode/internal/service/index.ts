@@ -3,6 +3,7 @@
 
 import * as AIService from "./aiservice.js";
 import * as ActivityService from "./activityservice.js";
+import * as AuthPromptService from "./authpromptservice.js";
 import * as AutoLockService from "./autolockservice.js";
 import * as AutocompleteService from "./autocompleteservice.js";
 import * as ContainerService from "./containerservice.js";
@@ -34,6 +35,7 @@ import * as VaultService from "./vaultservice.js";
 export {
     AIService,
     ActivityService,
+    AuthPromptService,
     AutoLockService,
     AutocompleteService,
     ContainerService,
@@ -68,6 +70,9 @@ export {
     AIChunk,
     ActiveForward,
     AppSettings,
+    AuditExport,
+    AuthPromptRequest,
+    AuthQuestion,
     AutoSyncConfig,
     CastEvent,
     CertInfo,
@@ -111,6 +116,7 @@ export {
     SystemdUnit,
     TerminalData,
     TerminalExit,
+    TransferProgress,
     UpdateInfo,
     VaultLockEvent,
     VaultStatus

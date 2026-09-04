@@ -18,12 +18,21 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 import * as plugin$0 from "../plugin/models.js";
 
 /**
- * HostNotify is the host-RPC backchannel surfaced to plugin iframes:
- * they postMessage `{type: "host.notify", title, body}` to the parent
- * window, the workspace bridge calls this method, and we route it
- * through the existing NotificationService. Routed methods are an
- * allowlist — anything else gets dropped, matching the Permissions
- * model from the manifest.
+ * HostNotify is the host-RPC backchannel surfaced to plugin iframes: they
+ * postMessage `{type: "host.notify", ...}` to the parent window, the
+ * workspace bridge calls this method, and we route it through the existing
+ * NotificationService.
+ * 
+ * pluginID is attested by the bridge, which resolves it from the MessageEvent
+ * source against its registry of mounted panel iframes — it is not a field
+ * the iframe fills in, because a panel could name any plugin it liked. We
+ * still re-check it here: this method is Wails-bound, so the browser context
+ * can call it directly, and the frontend check is a filter rather than a
+ * boundary.
+ * 
+ * Denials are recorded rather than dropped. A plugin trying to use a
+ * capability it never declared is either broken or probing, and both are
+ * things the user should be able to see in the activity feed.
  */
 export function HostNotify(pluginID: string, title: string, body: string): $CancellablePromise<void> {
     return $Call.ByID(1884334924, pluginID, title, body);

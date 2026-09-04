@@ -41,12 +41,12 @@ type TelnetService struct {
 }
 
 type telnetSession struct {
-	conn     net.Conn
-	cancel   chan struct{}
-	writeMu  sync.Mutex // serialises writes to conn (negotiation replies + user input)
-	cols     int
-	rows     int
-	naws     bool // server asked us to report window size
+	conn    net.Conn
+	cancel  chan struct{}
+	writeMu sync.Mutex // serialises writes to conn (negotiation replies + user input)
+	cols    int
+	rows    int
+	naws    bool // server asked us to report window size
 }
 
 func NewTelnetService(h *store.Hosts) *TelnetService {

@@ -65,6 +65,36 @@
   --color-info: #3b82f6;
   --color-success: #22c55e;
 
+  /* Environment badges — see lib/envColor.ts, which returns these as var()
+     references so both themes are covered by one call site.
+
+     These render as 10px badge text (type-micro), so all four must clear AA
+     4.5:1 — including the neutral one, which is also used as a bare 3px stripe.
+     Measured on the badge fill (the -bg token composited over the surface,
+     which is what the text actually sits on) and, in brackets, on the bare
+     surface for the stripe:
+       prod     s0 6.05 [6.98]   s2 5.28 [6.24]   s3 4.75 [5.63]
+       stage    s0 7.55 [8.99]   s2 6.55 [8.04]   s3 5.87 [7.26]
+       dev      s0 8.66 [10.5]   s2 7.47 [9.42]   s3 6.68 [8.50]
+       neutral  s0 6.60 [7.53]   s2 5.73 [6.73]   s3 5.13 [6.08]
+
+     The -bg/-border alpha ladder descends prod > stage > dev > neutral on
+     purpose: production has to read as the loudest badge on screen, and
+     contrast ratio alone does not deliver that (dev is the highest-contrast
+     colour of the four). envColor.test.ts pins both properties. */
+  --color-env-prod: #f87171;
+  --color-env-prod-bg: rgba(248, 113, 113, 0.12);
+  --color-env-prod-border: rgba(248, 113, 113, 0.35);
+  --color-env-stage: #f59e0b;
+  --color-env-stage-bg: rgba(245, 158, 11, 0.12);
+  --color-env-stage-border: rgba(245, 158, 11, 0.30);
+  --color-env-dev: #10d9a0;
+  --color-env-dev-bg: rgba(16, 217, 160, 0.12);
+  --color-env-dev-border: rgba(16, 217, 160, 0.25);
+  --color-env-none: #94a3b8;
+  --color-env-none-bg: rgba(148, 163, 184, 0.10);
+  --color-env-none-border: rgba(148, 163, 184, 0.20);
+
   --color-code-bg: #0b0e14;
 }
 
@@ -97,6 +127,29 @@
   --color-warn: #d97706;
   --color-info: #2563eb;
   --color-success: #16a34a;
+
+  /* Environment badges, light. The dark values are 4.5:1 *because* they are
+     light-on-dark, so they invert to roughly 1.5:1 here — the dev badge was
+     effectively invisible on this theme. These are the -800 steps of the same
+     hues, re-measured the same way:
+       prod     s0 6.72 [8.31]   s2 5.92 [7.28]   s3 5.47 [6.70]
+       stage    s0 5.88 [7.09]   s2 5.19 [6.21]   s3 4.80 [5.71]
+       dev      s0 6.35 [7.68]   s2 5.61 [6.73]   s3 5.18 [6.19]
+       neutral  s0 6.52 [7.58]   s2 5.75 [6.64]   s3 5.31 [6.11]
+     Alphas are unchanged so the prod > stage > dev > neutral loudness ladder
+     survives the theme switch. */
+  --color-env-prod: #991b1b;
+  --color-env-prod-bg: rgba(153, 27, 27, 0.12);
+  --color-env-prod-border: rgba(153, 27, 27, 0.35);
+  --color-env-stage: #92400e;
+  --color-env-stage-bg: rgba(146, 64, 14, 0.12);
+  --color-env-stage-border: rgba(146, 64, 14, 0.30);
+  --color-env-dev: #065f46;
+  --color-env-dev-bg: rgba(6, 95, 70, 0.12);
+  --color-env-dev-border: rgba(6, 95, 70, 0.25);
+  --color-env-none: #475569;
+  --color-env-none-bg: rgba(71, 85, 105, 0.10);
+  --color-env-none-border: rgba(71, 85, 105, 0.20);
 
   --color-code-bg: #f3f4f7;
 }

@@ -174,7 +174,16 @@ CREATE TABLE IF NOT EXISTS activity (
     body TEXT NOT NULL DEFAULT '',
     host_id TEXT NOT NULL DEFAULT '',
     host_name TEXT NOT NULL DEFAULT '',
-    at INTEGER NOT NULL
+    at INTEGER NOT NULL,
+    -- Hash-chain columns. seq is a gapless append counter assigned in Go
+    -- (ALTER TABLE cannot add AUTOINCREMENT, and the chain needs a total
+    -- order that the second-resolution "at" column cannot provide). hash
+    -- covers prev_hash, so altering or deleting any row breaks every hash
+    -- after it. NOTE: no backticks in this comment — it lives inside a Go
+    -- raw string literal, which a backtick would terminate.
+    seq INTEGER NOT NULL DEFAULT 0,
+    prev_hash TEXT NOT NULL DEFAULT '',
+    hash TEXT NOT NULL DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_activity_at ON activity(at DESC);
@@ -203,49 +212,68 @@ func OpenPath(dbPath string) (*DB, error) {
 	if err := conn.Ping(); err != nil {
 		return nil, fmt.Errorf("ping db: %w", err)
 	}
+	if err := Migrate(conn); err != nil {
+		return nil, err
+	}
+	return &DB{conn}, nil
+}
+
+// Migrate brings any connection up to the current schema. It is idempotent, so
+// it is equally the first-run path and the upgrade path.
+//
+// Exported so tests can build a real database instead of hand-writing DDL.
+// They used to keep their own copies of the hosts table, which meant every new
+// column broke unrelated test files — the column was added to production, the
+// duplicate DDL wasn't, and three tests failed on a schema that was actually
+// fine. Anything reaching for a store now gets the same schema the app runs.
+func Migrate(conn *sql.DB) error {
 	if _, err := conn.Exec(schema); err != nil {
-		return nil, fmt.Errorf("apply schema: %w", err)
+		return fmt.Errorf("apply schema: %w", err)
 	}
 	// Idempotent column-add migrations for users upgrading from earlier
 	// builds. SQLite returns "duplicate column" if the column already exists;
 	// we silence it. These run BEFORE post-migration indexes that reference
 	// the new columns, otherwise the index creation fails on an upgraded DB
 	// where the column hasn't been added yet.
-	for _, mig := range []string{
-		`ALTER TABLE hosts ADD COLUMN environment TEXT NOT NULL DEFAULT ''`,
-		`ALTER TABLE hosts ADD COLUMN proxy_jump TEXT NOT NULL DEFAULT ''`,
-		`ALTER TABLE hosts ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0`,
-		`ALTER TABLE hosts ADD COLUMN startup_snippet_id TEXT NOT NULL DEFAULT ''`,
-		`ALTER TABLE keys ADD COLUMN certificate TEXT NOT NULL DEFAULT ''`,
-		`ALTER TABLE hosts ADD COLUMN protocol TEXT NOT NULL DEFAULT 'ssh'`,
-		`ALTER TABLE hosts ADD COLUMN serial_device TEXT NOT NULL DEFAULT ''`,
-		`ALTER TABLE hosts ADD COLUMN serial_baud INTEGER NOT NULL DEFAULT 0`,
-		`ALTER TABLE hosts ADD COLUMN serial_data_bits INTEGER NOT NULL DEFAULT 0`,
-		`ALTER TABLE hosts ADD COLUMN serial_parity TEXT NOT NULL DEFAULT ''`,
-		`ALTER TABLE hosts ADD COLUMN serial_stop_bits TEXT NOT NULL DEFAULT ''`,
-		`ALTER TABLE hosts ADD COLUMN forward_agent INTEGER NOT NULL DEFAULT 0`,
-	} {
+	for _, mig := range columnMigrations {
 		_, _ = conn.Exec(mig)
 	}
-	if _, err := conn.Exec(postMigrationIndexes); err != nil {
-		return nil, fmt.Errorf("apply post-migration indexes: %w", err)
+	for _, s := range []struct {
+		name, ddl string
+	}{
+		{"post-migration indexes", postMigrationIndexes},
+		{"forwards", schemaForwards},
+		{"host secrets", schemaHostSecrets},
+		{"host sudo secrets", schemaHostSudoSecrets},
+		{"vault remember", schemaVaultRemember},
+		{"sync key", schemaSyncKey},
+	} {
+		if _, err := conn.Exec(s.ddl); err != nil {
+			return fmt.Errorf("apply %s schema: %w", s.name, err)
+		}
 	}
-	if _, err := conn.Exec(schemaForwards); err != nil {
-		return nil, fmt.Errorf("apply forwards schema: %w", err)
-	}
-	if _, err := conn.Exec(schemaHostSecrets); err != nil {
-		return nil, fmt.Errorf("apply host secrets schema: %w", err)
-	}
-	if _, err := conn.Exec(schemaHostSudoSecrets); err != nil {
-		return nil, fmt.Errorf("apply host sudo secrets schema: %w", err)
-	}
-	if _, err := conn.Exec(schemaVaultRemember); err != nil {
-		return nil, fmt.Errorf("apply vault remember schema: %w", err)
-	}
-	if _, err := conn.Exec(schemaSyncKey); err != nil {
-		return nil, fmt.Errorf("apply sync key schema: %w", err)
-	}
-	return &DB{conn}, nil
+	return nil
+}
+
+// columnMigrations are ALTER TABLE ADD COLUMN statements for databases created
+// by earlier builds. Append only — never reorder or remove, since an old
+// database replays the whole list.
+var columnMigrations = []string{
+	`ALTER TABLE hosts ADD COLUMN environment TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE hosts ADD COLUMN proxy_jump TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE hosts ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0`,
+	`ALTER TABLE hosts ADD COLUMN startup_snippet_id TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE keys ADD COLUMN certificate TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE hosts ADD COLUMN protocol TEXT NOT NULL DEFAULT 'ssh'`,
+	`ALTER TABLE hosts ADD COLUMN serial_device TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE hosts ADD COLUMN serial_baud INTEGER NOT NULL DEFAULT 0`,
+	`ALTER TABLE hosts ADD COLUMN serial_data_bits INTEGER NOT NULL DEFAULT 0`,
+	`ALTER TABLE hosts ADD COLUMN serial_parity TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE hosts ADD COLUMN serial_stop_bits TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE hosts ADD COLUMN forward_agent INTEGER NOT NULL DEFAULT 0`,
+	`ALTER TABLE activity ADD COLUMN seq INTEGER NOT NULL DEFAULT 0`,
+	`ALTER TABLE activity ADD COLUMN prev_hash TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE activity ADD COLUMN hash TEXT NOT NULL DEFAULT ''`,
 }
 
 // schemaSyncKey holds the sync root key that encrypts sync blobs, sealed with
@@ -264,6 +292,7 @@ CREATE TABLE IF NOT EXISTS sync_key (
 // existing-DB upgrades fail at startup.
 const postMigrationIndexes = `
 CREATE INDEX IF NOT EXISTS idx_hosts_env ON hosts(environment);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_activity_seq ON activity(seq);
 `
 
 const schemaHostSecrets = `

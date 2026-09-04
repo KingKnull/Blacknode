@@ -7,7 +7,7 @@ import (
 
 // ShellEscape wraps a value in single quotes for safe inclusion in a shell
 // command. Single quotes inside the value are split-escaped: `it's` becomes
-// `'it'\''s'`. This is the standard POSIX-safe pattern.
+// `'it'\”s'`. This is the standard POSIX-safe pattern.
 //
 // Exported so services that need to build commands incrementally (e.g.
 // appending optional flags) can escape individual values. Prefer Cmd()

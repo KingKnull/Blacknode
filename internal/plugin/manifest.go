@@ -1,17 +1,24 @@
 // Package plugin loads out-of-process plugins discovered on disk and
 // brokers JSON-RPC over stdio between the app and each plugin process.
 //
-// This is a skeleton: it spawns the process, performs an `init` handshake,
-// records each plugin's reported metadata, and stops them cleanly on
-// shutdown. Concrete capabilities (panel hosting, host-RPC backchannel,
-// permission enforcement) are deliberately out of scope until a real
-// plugin demands them.
+// It spawns the process, performs an `init` handshake, records each plugin's
+// reported metadata, and stops them cleanly on shutdown.
+//
+// Permissions are enforced, deny-by-default, at the points listed in
+// permissions.go — panel registration, the host.notify backchannel, the
+// child's environment, and whether the entrypoint may leave the plugin
+// directory. What is NOT enforced is the process boundary itself: a plugin
+// runs as a normal child process with the user's own uid, so it can read the
+// user's files and reach the network regardless of what it declared. Treat
+// installing a plugin as running a program, and read the grants in the
+// Plugins panel as "what the host will hand over", not as a sandbox.
 package plugin
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 )
@@ -25,9 +32,11 @@ type Manifest struct {
 	Version     string   `json:"version"`
 	Description string   `json:"description,omitempty"`
 	Entrypoint  []string `json:"entrypoint"`
-	// Permissions reserved for future enforcement. Today the host trusts
-	// the plugin process for everything in its sandbox; we record what the
-	// manifest claimed so it can later be matched against an allow-list.
+	// Permissions is the set of capabilities the plugin asks for, drawn from
+	// the closed vocabulary in permissions.go. Anything not listed here is
+	// denied. LoadManifest rejects a manifest that names a permission
+	// outside the vocabulary, so a typo fails loudly at load rather than
+	// showing up as a granted capability that never works.
 	Permissions []string `json:"permissions,omitempty"`
 
 	// Panels: each entry registers a sidebar panel rendered from a static
@@ -69,13 +78,25 @@ func LoadManifest(dir string) (Manifest, error) {
 	if len(m.Entrypoint) == 0 {
 		return Manifest{}, errors.New("manifest missing entrypoint")
 	}
+	if m.Entrypoint[0] == "" {
+		return Manifest{}, errors.New("manifest has an empty entrypoint executable")
+	}
+	if err := ValidatePermissions(m.Permissions); err != nil {
+		// Refusing the whole manifest rather than dropping the bad entry: a
+		// plugin that asked for something we don't understand should not be
+		// started with a silently narrower grant than it expects.
+		return Manifest{}, fmt.Errorf("manifest %q: %w", m.ID, err)
+	}
 	m.Dir = dir
 	return m, nil
 }
 
 // DiscoverManifests walks `root` one level deep and returns each
-// subdirectory that contains a valid manifest. Bad manifests are silently
-// skipped — listing should never fail just because one plugin is broken.
+// subdirectory that contains a valid manifest. Bad manifests are skipped —
+// listing should never fail just because one plugin is broken — but the
+// reason is logged. Silence was tolerable when the only way to be rejected
+// was malformed JSON; now that an unrecognised permission also rejects, an
+// unexplained disappearance would be a plugin the user cannot debug.
 func DiscoverManifests(root string) []Manifest {
 	out := []Manifest{}
 	entries, err := os.ReadDir(root)
@@ -86,8 +107,14 @@ func DiscoverManifests(root string) []Manifest {
 		if !e.IsDir() {
 			continue
 		}
-		m, err := LoadManifest(filepath.Join(root, e.Name()))
+		dir := filepath.Join(root, e.Name())
+		m, err := LoadManifest(dir)
 		if err != nil {
+			// A directory with no plugin.json at all is not a broken plugin,
+			// it is not a plugin — don't log that as a failure.
+			if !errors.Is(err, os.ErrNotExist) {
+				log.Printf("[plugin] skipping %s: %v", dir, err)
+			}
 			continue
 		}
 		out = append(out, m)

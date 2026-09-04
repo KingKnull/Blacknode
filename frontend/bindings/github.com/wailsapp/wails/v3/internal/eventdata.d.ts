@@ -17,10 +17,12 @@ declare module "@wailsio/runtime" {
         interface CustomEvents {
             "activity:append": store$0.Activity;
             "ai:chunk": service$0.AIChunk;
+            "auth:prompt": service$0.AuthPromptRequest;
             "exec:progress": service$0.ExecProgress;
             "logs:line": service$0.LogLine;
             "metrics:update": service$0.HostMetrics;
             "notification:toast": service$0.Notification;
+            "sftp:progress": service$0.TransferProgress;
             "terminal:data": service$0.TerminalData;
             "terminal:exit": service$0.TerminalExit;
             "vault:locked": service$0.VaultLockEvent;
