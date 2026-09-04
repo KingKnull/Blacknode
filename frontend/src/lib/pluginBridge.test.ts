@@ -172,10 +172,12 @@ describe("message parsing", () => {
     assert.equal(typeof coerced.body, "string");
   });
 
-  test("does not treat a prototype-polluting payload as a method", () => {
-    // postMessage delivers a structured clone, so `__proto__` arrives as an
-    // ordinary own property. Asserting the refusal keeps it that way if the
-    // type check is ever rewritten as a lookup in an object literal.
-    assert.equal(parseHostMessage({ __proto__: { type: "host.notify" } }), null);
+  test("an own __proto__ property is not a method", () => {
+    // Structured clone cannot carry a prototype, so `__proto__` arriving from
+    // postMessage is an ordinary own property and `type` is simply absent.
+    // Written with a computed key on purpose: the literal form `__proto__:`
+    // would set the prototype instead, which is a shape the real path can't
+    // produce.
+    assert.equal(parseHostMessage({ ["__proto__"]: { type: "host.notify" } }), null);
   });
 });
