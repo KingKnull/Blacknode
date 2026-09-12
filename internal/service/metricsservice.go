@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+ "encoding/json"
 	"math"
 	"strconv"
 	"strings"
@@ -106,6 +107,8 @@ type MetricsService struct {
 	// prevNet stores the (rx, tx, wall-clock-time) of the previous sample so
 	// the next collect can compute bytes/sec. Cleared on Stop.
 	prevNet map[string]netSample
+ alertConfig MetricAlertConfig
+ alertStates map[string]map[string]metricAlertState
 }
 
 type netSample struct {
@@ -114,8 +117,17 @@ type netSample struct {
 }
 
 func NewMetricsService(pool *sshconn.Pool, h *store.Hosts, n *NotificationService) *MetricsService {
-	return &MetricsService{
-		pool:    pool,
+	cfg := defaultMetricAlerts()
+ if n != nil && n.settings != nil {
+ if raw, err := n.settings.GetPlain(metricAlertsKey); err == nil && raw != "" {
+ var saved MetricAlertConfig
+ if json.Unmarshal([]byte(raw), &saved) == nil && validateMetricAlerts(saved) == nil { cfg = saved }
+ }
+ }
+ return &MetricsService{
+		alertConfig: cfg,
+ alertStates: make(map[string]map[string]metricAlertState),
+ pool:    pool,
 		hosts:   h,
 		notify:  n,
 		cancels: make(map[string]context.CancelFunc),
@@ -148,6 +160,7 @@ func (s *MetricsService) Stop(hostID string) {
 	}
 	delete(s.prevCPU, hostID)
 	delete(s.prevNet, hostID)
+ delete(s.alertStates, hostID)
 	s.mu.Unlock()
 }
 
@@ -159,56 +172,38 @@ func (s *MetricsService) StopAll(ctx context.Context) {
 	}
 	s.prevCPU = make(map[string]struct{ total, idle float64 })
 	s.prevNet = make(map[string]netSample)
+ s.alertStates = make(map[string]map[string]metricAlertState)
 	s.mu.Unlock()
 }
 
 func (s *MetricsService) loop(ctx context.Context, hostID string, interval time.Duration) {
 	t := time.NewTicker(interval)
 	defer t.Stop()
-	s.tick(hostID)
+	s.tick(ctx, hostID)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			s.tick(hostID)
+			s.tick(ctx, hostID)
 		}
 	}
 }
 
-func (s *MetricsService) tick(hostID string) {
+func (s *MetricsService) tick(ctx context.Context, hostID string) {
 	m := s.collect(hostID)
+ if ctx.Err() != nil { return }
 	if app := application.Get(); app != nil {
 		app.Event.Emit("metrics:update", m)
 	}
 	s.maybeAlert(m)
 }
 
-// maybeAlert fires a notification when CPU/MEM/DISK crosses 90%. Debounced
-// per (host, metric) so a sustained spike doesn't spam every poll — see
-// NotificationService.NotifyDebounced.
 func (s *MetricsService) maybeAlert(m HostMetrics) {
-	if s.notify == nil || !m.Online || m.Error != "" {
-		return
-	}
-	check := func(metric string, pct float64, label string) {
-		if pct < 90 {
-			return
-		}
-		s.notify.NotifyDebounced(context.Background(),
-			fmt.Sprintf("metrics:%s:%s", metric, m.HostID),
-			Notification{
-				Kind:     NotifyWarn,
-				Title:    fmt.Sprintf("%s high on %s", label, m.HostName),
-				Body:     fmt.Sprintf("%s = %.1f%% (threshold 90%%)", label, pct),
-				Source:   "metrics",
-				HostName: m.HostName,
-			},
-		)
-	}
-	check("cpu", m.CPUPercent, "CPU")
-	check("mem", m.MemPercent, "Memory")
-	check("disk", m.DiskPercent, "Disk")
+ if s.notify == nil { return }
+ for _, notification := range s.evaluateAlerts(m, time.Now()) {
+  s.notify.Notify(context.Background(), notification)
+ }
 }
 
 func (s *MetricsService) collect(hostID string) HostMetrics {
