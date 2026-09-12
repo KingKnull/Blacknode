@@ -2,8 +2,7 @@ package service
 
 import (
 	"context"
-	"fmt"
- "encoding/json"
+	"encoding/json"
 	"math"
 	"strconv"
 	"strings"
@@ -106,9 +105,9 @@ type MetricsService struct {
 	prevCPU map[string]struct{ total, idle float64 }
 	// prevNet stores the (rx, tx, wall-clock-time) of the previous sample so
 	// the next collect can compute bytes/sec. Cleared on Stop.
-	prevNet map[string]netSample
- alertConfig MetricAlertConfig
- alertStates map[string]map[string]metricAlertState
+	prevNet     map[string]netSample
+	alertConfig MetricAlertConfig
+	alertStates map[string]map[string]metricAlertState
 }
 
 type netSample struct {
@@ -118,21 +117,23 @@ type netSample struct {
 
 func NewMetricsService(pool *sshconn.Pool, h *store.Hosts, n *NotificationService) *MetricsService {
 	cfg := defaultMetricAlerts()
- if n != nil && n.settings != nil {
- if raw, err := n.settings.GetPlain(metricAlertsKey); err == nil && raw != "" {
- var saved MetricAlertConfig
- if json.Unmarshal([]byte(raw), &saved) == nil && validateMetricAlerts(saved) == nil { cfg = saved }
- }
- }
- return &MetricsService{
+	if n != nil && n.settings != nil {
+		if raw, err := n.settings.GetPlain(metricAlertsKey); err == nil && raw != "" {
+			var saved MetricAlertConfig
+			if json.Unmarshal([]byte(raw), &saved) == nil && validateMetricAlerts(saved) == nil {
+				cfg = saved
+			}
+		}
+	}
+	return &MetricsService{
 		alertConfig: cfg,
- alertStates: make(map[string]map[string]metricAlertState),
- pool:    pool,
-		hosts:   h,
-		notify:  n,
-		cancels: make(map[string]context.CancelFunc),
-		prevCPU: make(map[string]struct{ total, idle float64 }),
-		prevNet: make(map[string]netSample),
+		alertStates: make(map[string]map[string]metricAlertState),
+		pool:        pool,
+		hosts:       h,
+		notify:      n,
+		cancels:     make(map[string]context.CancelFunc),
+		prevCPU:     make(map[string]struct{ total, idle float64 }),
+		prevNet:     make(map[string]netSample),
 	}
 }
 
@@ -160,7 +161,7 @@ func (s *MetricsService) Stop(hostID string) {
 	}
 	delete(s.prevCPU, hostID)
 	delete(s.prevNet, hostID)
- delete(s.alertStates, hostID)
+	delete(s.alertStates, hostID)
 	s.mu.Unlock()
 }
 
@@ -172,7 +173,7 @@ func (s *MetricsService) StopAll(ctx context.Context) {
 	}
 	s.prevCPU = make(map[string]struct{ total, idle float64 })
 	s.prevNet = make(map[string]netSample)
- s.alertStates = make(map[string]map[string]metricAlertState)
+	s.alertStates = make(map[string]map[string]metricAlertState)
 	s.mu.Unlock()
 }
 
@@ -192,7 +193,9 @@ func (s *MetricsService) loop(ctx context.Context, hostID string, interval time.
 
 func (s *MetricsService) tick(ctx context.Context, hostID string) {
 	m := s.collect(hostID)
- if ctx.Err() != nil { return }
+	if ctx.Err() != nil {
+		return
+	}
 	if app := application.Get(); app != nil {
 		app.Event.Emit("metrics:update", m)
 	}
@@ -200,10 +203,12 @@ func (s *MetricsService) tick(ctx context.Context, hostID string) {
 }
 
 func (s *MetricsService) maybeAlert(m HostMetrics) {
- if s.notify == nil { return }
- for _, notification := range s.evaluateAlerts(m, time.Now()) {
-  s.notify.Notify(context.Background(), notification)
- }
+	if s.notify == nil {
+		return
+	}
+	for _, notification := range s.evaluateAlerts(m, time.Now()) {
+		s.notify.Notify(context.Background(), notification)
+	}
 }
 
 func (s *MetricsService) collect(hostID string) HostMetrics {

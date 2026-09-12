@@ -4,6 +4,7 @@
   import { registerPanelWindow, unregisterPanelWindow } from "./pluginBridge";
 
   import ExecPanel from "./ExecPanel.svelte";
+  import RunbooksPanel from "./RunbooksPanel.svelte";
   import SFTPPanel from "./SFTPPanel.svelte";
   import MetricsPanel from "./MetricsPanel.svelte";
   import KeysPanel from "./KeysPanel.svelte";
@@ -67,6 +68,10 @@
 {#if app.view === 'exec'}
   <div class="view-enter h-full w-full">
     <ErrorBoundary name="Multi-host"><ExecPanel /></ErrorBoundary>
+  </div>
+{:else if app.view === 'runbooks'}
+  <div class="view-enter h-full w-full">
+    <ErrorBoundary name="Runbooks"><RunbooksPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'files'}
   <div class="view-enter h-full w-full">

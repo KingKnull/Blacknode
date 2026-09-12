@@ -78,18 +78,26 @@ exist. The Wails v3 framework is a prerelease, so expect churn there too. See
   `mkfs`, `dd of=/dev/sd*`, fork bombs, etc. Two severity levels: warn
   (proceed button) and block-without-confirm (must type a phrase).
 - Production hosts in scope escalate confirmation severity automatically.
+- **Runbooks** — save ordered steps, add steps from snippets, substitute
+  variables, and review every rendered command before manually running across
+  selected SSH hosts. Set per-step timeouts, cancel a run, and optionally skip
+  later steps on hosts that fail. Results show each step and host separately.
 
 ### Observability
 - **Metrics** — CPU / memory / disk and network throughput over SSH; Linux
-  and macOS collectors, live sparklines, and alerts at 90% with 5-minute
-  debounce per (host, metric).
+  and macOS collectors, live sparklines, configurable thresholds and sustained
+  breach durations, plus optional recovery notifications. Defaults alert at
+  90%; ongoing breaches repeat at most every five minutes per host and metric.
 - **Logs** — multi-host live tail, regex / substring filter, pause /
   resume, color-coded per host. Save (command + host set + filter) as a
   named query for one-click recall.
-- **Session recording** — optional automatic capture of new interactive sessions as
+- **Session recording** — optional automatic capture of new SSH/local sessions as
   asciinema cast v2 to disk. Output-only (passwords typed at sudo prompts
   never hit disk by design). Search across all recordings; in-app
-  playback at 0.5×–8× with seek.
+  playback at 0.5×–8× with seek. Override recording preferences per host or for
+  local shells, and pause/resume active capture from the terminal. Optional
+  retention and total storage limits remove expired or oldest completed
+  recordings. Active capture pauses when storage fills; defaults delete nothing.
 
 ### Files
 - **SFTP** browser with drag-and-drop upload, multi-format size display,
@@ -140,7 +148,7 @@ exist. The Wails v3 framework is a prerelease, so expect churn there too. See
   panels, hosts, opens AI, applies snippets, locks vault.
 - **Notifications** — desktop notifications (cross-platform via
   `gen2brain/beeep`), in-app toasts (always), and JSON webhook (POST,
-  optional). Auto-fires on long multi-host runs and 90%+ metric breaches.
+  optional). Auto-fires on long multi-host runs and configured metric alerts.
 
 ### Additional tools
 - **Database client** — PostgreSQL and MySQL connections, saved connection
@@ -279,11 +287,23 @@ The honest list — features either intentionally narrow or straight-up unfinish
   presented, so it doesn't defend against an active MITM on that initial
   exchange.
 - **Metrics collectors support Linux and macOS.** BSD and Windows host
-  collectors are not implemented.
+  collectors are not implemented. Alerts evaluate only while hosts are being
+  polled; leaving the Metrics panel stops polling. Recovery requires a reading
+  three percentage points below the threshold (half the threshold below 6%).
+- **Runbooks are manually triggered and local to this device.** There is no
+  scheduler or cloud sync for runbooks. Each step uses a fresh shell; working
+  directories and shell variables do not carry over. Variable values are
+  inserted literally, so review quoting in the final commands.
 - **Session recording is output-only by design.** Stdin (passwords typed
   at `sudo` prompts) is intentionally not captured. Some sensitive
   *output* still ends up in recordings — `cat ~/.ssh/id_rsa`, `env`,
   etc. Treat recordings as sensitive.
+- **Recording controls apply to SSH/local shells.** Mosh, Telnet, and Serial
+  are not recorded. Paused time remains a gap in playback. Retention cleanup
+  runs on startup, when saving limits, and every minute while the app is open;
+  only completed recordings in the app's recording directory are deleted.
+  Files left by an interrupted session count toward storage but need manual
+  removal. Free space or raise the cap before resuming capture after a limit.
 - **Inline file operations are capped at 8 MiB.** The backend streaming APIs
   exist, but the Files panel still uses inline upload/download.
 - **Safe editor saves require POSIX rename support** and permission to create
@@ -306,7 +326,8 @@ The honest list — features either intentionally narrow or straight-up unfinish
 - **NSIS installer is optional** — production .exe is a single-file
   self-contained binary, no installer required to run it.
 - **Tests cover core stores and services**, including SSH integration,
-  remote-save conflicts/backups, workspace serialization, and terminal helpers.
+  runbook execution, alert timing, recording limits, remote-save conflicts/backups,
+  workspace serialization, and terminal helpers.
   Full desktop interaction and cross-platform coverage remain incomplete.
 - **Wails v3 is in beta.16**. APIs may move before v3 GA.
 
@@ -367,5 +388,4 @@ MIT — see [LICENSE](LICENSE).
   [Lucide](https://lucide.dev/) for the UI primitives.
 - [asciinema](https://asciinema.org/) for the cast v2 format.
 - [Anthropic](https://www.anthropic.com/) for the Claude API.
-
 

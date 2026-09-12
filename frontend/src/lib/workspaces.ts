@@ -18,7 +18,7 @@ export type SavedWorkspace = { id: string; name: string; snapshot: WorkspaceSnap
 
 export const SESSION_KEY = "blacknode.session";
 export const WORKSPACES_KEY = "blacknode.workspaces.v1";
-const VIEWS = new Set(["terminals", "exec", "files", "metrics", "logs", "forwards", "recordings", "containers", "network", "processes", "http", "database", "snippets", "history", "topology", "plugins", "activity", "vault", "keys", "settings"]);
+const VIEWS = new Set(["terminals", "exec", "runbooks", "files", "metrics", "logs", "forwards", "recordings", "containers", "network", "processes", "http", "database", "snippets", "history", "topology", "plugins", "activity", "vault", "keys", "settings"]);
 const bounded = (n: unknown, fallback: number, min: number, max: number) =>
   typeof n === "number" && Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback;
 

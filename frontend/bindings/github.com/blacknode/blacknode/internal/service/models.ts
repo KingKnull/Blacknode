@@ -1059,6 +1059,47 @@ export class LogLine {
     }
 }
 
+export class MetricAlertConfig {
+    "enabled": boolean;
+    "cpuThreshold": number;
+    "memoryThreshold": number;
+    "diskThreshold": number;
+    "holdSeconds": number;
+    "recoveryNotifications": boolean;
+
+    /** Creates a new MetricAlertConfig instance. */
+    constructor($$source: Partial<MetricAlertConfig> = {}) {
+        if (!("enabled" in $$source)) {
+            this["enabled"] = false;
+        }
+        if (!("cpuThreshold" in $$source)) {
+            this["cpuThreshold"] = 0;
+        }
+        if (!("memoryThreshold" in $$source)) {
+            this["memoryThreshold"] = 0;
+        }
+        if (!("diskThreshold" in $$source)) {
+            this["diskThreshold"] = 0;
+        }
+        if (!("holdSeconds" in $$source)) {
+            this["holdSeconds"] = 0;
+        }
+        if (!("recoveryNotifications" in $$source)) {
+            this["recoveryNotifications"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new MetricAlertConfig instance from a string or object.
+     */
+    static createFrom($$source: any = {}): MetricAlertConfig {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new MetricAlertConfig($$parsedSource as Partial<MetricAlertConfig>);
+    }
+}
+
 /**
  * Notification is the wire shape: matches what the in-app toast renders and
  * what the webhook receives.
@@ -1571,6 +1612,75 @@ export class RecordingDetail {
     }
 }
 
+export class RecordingPolicy {
+    /**
+     * zero means unlimited
+     */
+    "retentionDays": number;
+
+    /**
+     * zero means unlimited; includes active output
+     */
+    "maxStorageMB": number;
+
+    /**
+     * always, never, or omitted to inherit; empty ID = local
+     */
+    "hostModes": { [_ in string]?: string };
+
+    /** Creates a new RecordingPolicy instance. */
+    constructor($$source: Partial<RecordingPolicy> = {}) {
+        if (!("retentionDays" in $$source)) {
+            this["retentionDays"] = 0;
+        }
+        if (!("maxStorageMB" in $$source)) {
+            this["maxStorageMB"] = 0;
+        }
+        if (!("hostModes" in $$source)) {
+            this["hostModes"] = {};
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new RecordingPolicy instance from a string or object.
+     */
+    static createFrom($$source: any = {}): RecordingPolicy {
+        const $$createField2_0 = $$createType6;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("hostModes" in $$parsedSource) {
+            $$parsedSource["hostModes"] = $$createField2_0($$parsedSource["hostModes"]);
+        }
+        return new RecordingPolicy($$parsedSource as Partial<RecordingPolicy>);
+    }
+}
+
+export class RecordingStorage {
+    "usedBytes": number;
+    "limitBytes": number;
+
+    /** Creates a new RecordingStorage instance. */
+    constructor($$source: Partial<RecordingStorage> = {}) {
+        if (!("usedBytes" in $$source)) {
+            this["usedBytes"] = 0;
+        }
+        if (!("limitBytes" in $$source)) {
+            this["limitBytes"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new RecordingStorage instance from a string or object.
+     */
+    static createFrom($$source: any = {}): RecordingStorage {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new RecordingStorage($$parsedSource as Partial<RecordingStorage>);
+    }
+}
+
 export class RemoteFileSave {
     "revision": string;
     "backupPath": string;
@@ -1618,6 +1728,146 @@ export class RemoteFileSnapshot {
     static createFrom($$source: any = {}): RemoteFileSnapshot {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new RemoteFileSnapshot($$parsedSource as Partial<RemoteFileSnapshot>);
+    }
+}
+
+export class Runbook {
+    "id": string;
+    "name": string;
+    "steps": RunbookStep[];
+    "timeoutSeconds": number;
+    "stopOnFailure": boolean;
+
+    /** Creates a new Runbook instance. */
+    constructor($$source: Partial<Runbook> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("steps" in $$source)) {
+            this["steps"] = [];
+        }
+        if (!("timeoutSeconds" in $$source)) {
+            this["timeoutSeconds"] = 0;
+        }
+        if (!("stopOnFailure" in $$source)) {
+            this["stopOnFailure"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Runbook instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Runbook {
+        const $$createField2_0 = $$createType17;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("steps" in $$parsedSource) {
+            $$parsedSource["steps"] = $$createField2_0($$parsedSource["steps"]);
+        }
+        return new Runbook($$parsedSource as Partial<Runbook>);
+    }
+}
+
+export class RunbookProgress {
+    "runID": string;
+    "result": RunbookResult;
+
+    /** Creates a new RunbookProgress instance. */
+    constructor($$source: Partial<RunbookProgress> = {}) {
+        if (!("runID" in $$source)) {
+            this["runID"] = "";
+        }
+        if (!("result" in $$source)) {
+            this["result"] = (new RunbookResult());
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new RunbookProgress instance from a string or object.
+     */
+    static createFrom($$source: any = {}): RunbookProgress {
+        const $$createField1_0 = $$createType18;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("result" in $$parsedSource) {
+            $$parsedSource["result"] = $$createField1_0($$parsedSource["result"]);
+        }
+        return new RunbookProgress($$parsedSource as Partial<RunbookProgress>);
+    }
+}
+
+export class RunbookResult {
+    "stepIndex": number;
+    "stepName": string;
+    "command": string;
+
+    /**
+     * running, ok, failed, skipped, canceled
+     */
+    "status": string;
+    "result": ExecResult;
+
+    /** Creates a new RunbookResult instance. */
+    constructor($$source: Partial<RunbookResult> = {}) {
+        if (!("stepIndex" in $$source)) {
+            this["stepIndex"] = 0;
+        }
+        if (!("stepName" in $$source)) {
+            this["stepName"] = "";
+        }
+        if (!("command" in $$source)) {
+            this["command"] = "";
+        }
+        if (!("status" in $$source)) {
+            this["status"] = "";
+        }
+        if (!("result" in $$source)) {
+            this["result"] = (new ExecResult());
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new RunbookResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): RunbookResult {
+        const $$createField4_0 = $$createType5;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("result" in $$parsedSource) {
+            $$parsedSource["result"] = $$createField4_0($$parsedSource["result"]);
+        }
+        return new RunbookResult($$parsedSource as Partial<RunbookResult>);
+    }
+}
+
+export class RunbookStep {
+    "name": string;
+    "command": string;
+
+    /** Creates a new RunbookStep instance. */
+    constructor($$source: Partial<RunbookStep> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("command" in $$source)) {
+            this["command"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new RunbookStep instance from a string or object.
+     */
+    static createFrom($$source: any = {}): RunbookStep {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new RunbookStep($$parsedSource as Partial<RunbookStep>);
     }
 }
 
@@ -1803,7 +2053,7 @@ export class SSLResult {
      * Creates a new SSLResult instance from a string or object.
      */
     static createFrom($$source: any = {}): SSLResult {
-        const $$createField4_0 = $$createType16;
+        const $$createField4_0 = $$createType19;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("cert" in $$parsedSource) {
             $$parsedSource["cert"] = $$createField4_0($$parsedSource["cert"]);
@@ -1879,8 +2129,8 @@ export class SearchHit {
      * Creates a new SearchHit instance from a string or object.
      */
     static createFrom($$source: any = {}): SearchHit {
-        const $$createField0_0 = $$createType17;
-        const $$createField1_0 = $$createType19;
+        const $$createField0_0 = $$createType20;
+        const $$createField1_0 = $$createType22;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("recording" in $$parsedSource) {
             $$parsedSource["recording"] = $$createField0_0($$parsedSource["recording"]);
@@ -1916,7 +2166,7 @@ export class SnippetValidation {
      * Creates a new SnippetValidation instance from a string or object.
      */
     static createFrom($$source: any = {}): SnippetValidation {
-        const $$createField0_0 = $$createType21;
+        const $$createField0_0 = $$createType24;
         const $$createField1_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("variables" in $$parsedSource) {
@@ -2319,9 +2569,12 @@ const $$createType12 = $Create.Array($$createType11);
 const $$createType13 = $Create.Array($$createType2);
 const $$createType14 = CastEvent.createFrom;
 const $$createType15 = $Create.Array($$createType14);
-const $$createType16 = CertInfo.createFrom;
-const $$createType17 = store$0.Recording.createFrom;
-const $$createType18 = recorder$0.Match.createFrom;
-const $$createType19 = $Create.Array($$createType18);
-const $$createType20 = SnippetVariable.createFrom;
-const $$createType21 = $Create.Array($$createType20);
+const $$createType16 = RunbookStep.createFrom;
+const $$createType17 = $Create.Array($$createType16);
+const $$createType18 = RunbookResult.createFrom;
+const $$createType19 = CertInfo.createFrom;
+const $$createType20 = store$0.Recording.createFrom;
+const $$createType21 = recorder$0.Match.createFrom;
+const $$createType22 = $Create.Array($$createType21);
+const $$createType23 = SnippetVariable.createFrom;
+const $$createType24 = $Create.Array($$createType23);

@@ -24,6 +24,7 @@ import type { ConnectionTarget } from "./workspaces";
 type View =
   | "terminals"
   | "exec"
+  | "runbooks"
   | "files"
   | "metrics"
   | "logs"

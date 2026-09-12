@@ -23,6 +23,7 @@
   import AutocompletePopup from "./AutocompletePopup.svelte";
   import TerminalSidePanel from "./TerminalSidePanel.svelte";
   import Dialog from "./Dialog.svelte";
+  import RecordingButton from "./RecordingButton.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
   import { envBadge } from "./envColor";
   import {
@@ -984,10 +985,8 @@
         <span class="truncate font-mono type-nano text-[var(--color-danger)]" title={errorMsg}>ERR: {errorMsg}</span>
       {/if}
 
-      {#if app.recordingsEnabled && (status === "running" || status === "connected")}
-        <span class="flex items-center gap-1 border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/8 px-1.5 py-px font-mono type-eyebrow text-[var(--color-danger)]">
-          <Circle size="6" class="fill-[var(--color-danger)] text-[var(--color-danger)] pulse-soft" />REC
-        </span>
+      {#if (mode === "local" || mode === "remote") && (status === "running" || status === "connected")}
+        <RecordingButton {sessionID} />
       {/if}
 
       <button

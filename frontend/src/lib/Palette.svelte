@@ -67,6 +67,7 @@
   const VIEW_ACTIONS: { id: View; label: string; icon: any }[] = [
     { id: "terminals", label: "Go to Terminals", icon: TerminalSquare },
     { id: "exec", label: "Go to Multi-host", icon: Zap },
+    { id: "runbooks", label: "Go to Runbooks", icon: Bookmark },
     { id: "files", label: "Go to Files", icon: Folder },
     { id: "metrics", label: "Go to Metrics", icon: Activity },
     { id: "logs", label: "Go to Logs", icon: ScrollText },

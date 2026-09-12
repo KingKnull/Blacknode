@@ -22,6 +22,7 @@ declare module "@wailsio/runtime" {
             "logs:line": service$0.LogLine;
             "metrics:update": service$0.HostMetrics;
             "notification:toast": service$0.Notification;
+            "runbook:progress": service$0.RunbookProgress;
             "sftp:progress": service$0.TransferProgress;
             "terminal:data": service$0.TerminalData;
             "terminal:exit": service$0.TerminalExit;

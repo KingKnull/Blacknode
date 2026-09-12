@@ -6,6 +6,7 @@
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
   import EmptyState from "./EmptyState.svelte";
+  import MetricAlertSettings from "./MetricAlertSettings.svelte";
   import {
     Activity,
     Server,
@@ -67,7 +68,7 @@
   });
 
   async function start(hostID: string) {
-    await MetricsService.Start(hostID, 5);
+    await MetricsService.Start(hostID, app.settings.metricsIntervalSeconds);
     polling = new Set([...polling, hostID]);
   }
 
@@ -117,7 +118,8 @@
     subtitle="Live host telemetry — CPU, memory, disk"
   />
 
-  <div class="grid flex-1 grid-cols-2 gap-3 overflow-y-auto p-4">
+  <MetricAlertSettings />
+  <div class="grid min-h-0 flex-1 grid-cols-2 gap-3 overflow-y-auto p-4">
     {#each app.hosts as h (h.id)}
       {@const m = latest[h.id]}
       {@const s = history[h.id]}

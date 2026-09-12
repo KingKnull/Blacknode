@@ -535,6 +535,7 @@
     { id: "sessions", label: "Sessions", Icon: TerminalSquare, views: [
       { id: "terminals", label: "Terminals", Icon: TerminalSquare },
       { id: "exec", label: "Multi-host", Icon: Zap },
+      { id: "runbooks", label: "Runbooks", Icon: Bookmark },
       { id: "files", label: "Files", Icon: Folder },
       { id: "snippets", label: "Snippets", Icon: Bookmark },
       { id: "recordings", label: "Recordings", Icon: Film },

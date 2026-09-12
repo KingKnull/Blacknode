@@ -207,7 +207,7 @@ func (s *SSHService) connectWith(sessionID string, t sshconn.Target, cols, rows 
 	s.mu.Unlock()
 	removeSentinel = false // session is live; don't clean up the map entry
 
-	if s.recordingEnabled() {
+	if shouldRecord(s.settings, hostID) {
 		_ = s.rec.Start(sessionID, recorder.StartMeta{
 			SessionID: sessionID,
 			Title:     title,
@@ -281,11 +281,6 @@ func (s *SSHService) keepalive(sessionID string, client *ssh.Client, cancel <-ch
 			}
 		}
 	}
-}
-
-func (s *SSHService) recordingEnabled() bool {
-	v, err := s.settings.GetPlain("record_sessions")
-	return err == nil && v == "1"
 }
 
 func (s *SSHService) finishRecording(sessionID string) {

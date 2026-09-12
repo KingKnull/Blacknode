@@ -22,10 +22,11 @@ function configure() {
         "logs:line": $$createType4,
         "metrics:update": $$createType5,
         "notification:toast": $$createType6,
-        "sftp:progress": $$createType7,
-        "terminal:data": $$createType8,
-        "terminal:exit": $$createType9,
-        "vault:locked": $$createType10,
+        "runbook:progress": $$createType7,
+        "sftp:progress": $$createType8,
+        "terminal:data": $$createType9,
+        "terminal:exit": $$createType10,
+        "vault:locked": $$createType11,
     }));
 }
 
@@ -37,9 +38,10 @@ const $$createType3 = service$0.ExecProgress.createFrom;
 const $$createType4 = service$0.LogLine.createFrom;
 const $$createType5 = service$0.HostMetrics.createFrom;
 const $$createType6 = service$0.Notification.createFrom;
-const $$createType7 = service$0.TransferProgress.createFrom;
-const $$createType8 = service$0.TerminalData.createFrom;
-const $$createType9 = service$0.TerminalExit.createFrom;
-const $$createType10 = service$0.VaultLockEvent.createFrom;
+const $$createType7 = service$0.RunbookProgress.createFrom;
+const $$createType8 = service$0.TransferProgress.createFrom;
+const $$createType9 = service$0.TerminalData.createFrom;
+const $$createType10 = service$0.TerminalExit.createFrom;
+const $$createType11 = service$0.VaultLockEvent.createFrom;
 
 configure();

@@ -17,6 +17,7 @@
      * just opened.
      */
     allowEnterConfirm?: boolean;
+    portal?: boolean;
     onCancel: () => void;
     onConfirm: () => void;
   };
@@ -27,6 +28,7 @@
     productionHosts,
     requirePhrase,
     allowEnterConfirm = true,
+    portal = false,
     onCancel,
     onConfirm,
   }: Props = $props();
@@ -49,6 +51,7 @@
 <svelte:window onkeydown={onKey} />
 
 <Dialog
+  {portal}
   onclose={onCancel}
   labelledby="confirm-danger-title"
   panelClass="w-[520px] overflow-hidden border border-[var(--color-danger)]/40 bg-[var(--color-surface-2)] shadow-2xl"

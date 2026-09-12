@@ -18,6 +18,7 @@
   } from "@lucide/svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
   import Skeleton from "./Skeleton.svelte";
+  import RecordingSettings from "./RecordingSettings.svelte";
 
   let list = $state<Recording[]>([]);
   let hits = $state<SearchHit[]>([]);
@@ -128,6 +129,8 @@
       </button>
     {/snippet}
   </PageHeader>
+
+  <RecordingSettings onchanged={refresh} />
 
   <div class="border-b hairline surface-1 px-4 py-3">
     <div
@@ -262,4 +265,3 @@
     />
   {/if}
 </div>
-

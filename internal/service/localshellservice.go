@@ -103,7 +103,7 @@ func (s *LocalShellService) Open(ctx context.Context, sessionID string, cols, ro
 	s.sessions[sessionID] = state
 	s.mu.Unlock()
 
-	if s.recordingEnabled() {
+	if shouldRecord(s.settings, "") {
 		_ = s.rec.Start(sessionID, recorder.StartMeta{
 			SessionID: sessionID,
 			Title:     "local: " + shell,
@@ -141,11 +141,6 @@ func (s *LocalShellService) pump(id string, r io.Reader, cancel <-chan struct{})
 			return
 		}
 	}
-}
-
-func (s *LocalShellService) recordingEnabled() bool {
-	v, err := s.settings.GetPlain("record_sessions")
-	return err == nil && v == "1"
 }
 
 func (s *LocalShellService) finishRecording(sessionID, title string) {

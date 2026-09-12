@@ -23,6 +23,7 @@ import * as PluginService from "./pluginservice.js";
 import * as PortForwardService from "./portforwardservice.js";
 import * as ProcessService from "./processservice.js";
 import * as RecordingService from "./recordingservice.js";
+import * as RunbookService from "./runbookservice.js";
 import * as SFTPService from "./sftpservice.js";
 import * as SSHService from "./sshservice.js";
 import * as SerialService from "./serialservice.js";
@@ -55,6 +56,7 @@ export {
     PortForwardService,
     ProcessService,
     RecordingService,
+    RunbookService,
     SFTPService,
     SSHService,
     SerialService,
@@ -90,6 +92,7 @@ export {
     HTTPResponse,
     HostMetrics,
     LogLine,
+    MetricAlertConfig,
     Notification,
     NotifyConfig,
     NotifyKind,
@@ -102,8 +105,14 @@ export {
     QueryColumn,
     QueryResult,
     RecordingDetail,
+    RecordingPolicy,
+    RecordingStorage,
     RemoteFileSave,
     RemoteFileSnapshot,
+    Runbook,
+    RunbookProgress,
+    RunbookResult,
+    RunbookStep,
     SFTPEntry,
     SSHConfigCandidate,
     SSHConnectOptions,

@@ -5,6 +5,20 @@
 // @ts-ignore: Unused imports
 import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as $models from "./models.js";
+
+export function GetAlertConfig(): $CancellablePromise<$models.MetricAlertConfig> {
+    return $Call.ByID(3506697943).then(($result: any) => {
+        return $$createType0($result);
+    });
+}
+
+export function SetAlertConfig(cfg: $models.MetricAlertConfig): $CancellablePromise<void> {
+    return $Call.ByID(4055041811, cfg);
+}
+
 /**
  * Start begins a polling loop for the given host. Emits "metrics:update"
  * every intervalSeconds. Idempotent — calling Start twice replaces the loop.
@@ -20,3 +34,6 @@ export function Stop(hostID: string): $CancellablePromise<void> {
 export function StopAll(): $CancellablePromise<void> {
     return $Call.ByID(1757633482);
 }
+
+// Private type creation functions
+const $$createType0 = $models.MetricAlertConfig.createFrom;

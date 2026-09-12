@@ -1,5 +1,6 @@
 export const OPTIONAL_VIEWS = [
   { id: "exec", label: "Multi-host execution" },
+  { id: "runbooks", label: "Runbooks" },
   { id: "snippets", label: "Snippets" },
   { id: "recordings", label: "Recordings" },
   { id: "history", label: "Command history" },

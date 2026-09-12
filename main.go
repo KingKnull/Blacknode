@@ -33,6 +33,7 @@ func init() {
 	application.RegisterEvent[service.TerminalData]("terminal:data")
 	application.RegisterEvent[service.TerminalExit]("terminal:exit")
 	application.RegisterEvent[service.ExecProgress]("exec:progress")
+	application.RegisterEvent[service.RunbookProgress]("runbook:progress")
 	application.RegisterEvent[service.HostMetrics]("metrics:update")
 	application.RegisterEvent[service.LogLine]("logs:line")
 	application.RegisterEvent[service.AIChunk]("ai:chunk")
@@ -82,6 +83,7 @@ func main() {
 	pfSvc := service.NewPortForwardService(pool, hosts, forwards)
 	notifySvc := service.NewNotificationService(settings)
 	activityRec := service.NewActivityRecorder(activities)
+	execSvc := service.NewExecService(pool, hosts, history, notifySvc, activityRec)
 	syncSvc := service.NewSyncService(settings, hosts, snippets, httpRequests, teamActivity, syncKeys, v, activityRec)
 	dataDir := filepath.Join(xdg.DataHome, "blacknode")
 	vaultSvc := service.NewVaultService(v, conn.DB, dataDir, activityRec, autoLock)
@@ -100,13 +102,14 @@ func main() {
 			application.NewService(service.NewSSHService(dialer, hosts, recMgr, recordings, settings)),
 			application.NewService(service.NewSFTPService(pool, hosts)),
 			application.NewService(authPrompt),
-			application.NewService(service.NewExecService(pool, hosts, history, notifySvc, activityRec)),
+			application.NewService(execSvc),
+			application.NewService(service.NewRunbookService(settings, execSvc)),
 			application.NewService(service.NewMetricsService(pool, hosts, notifySvc)),
 			application.NewService(service.NewLogsService(pool, hosts, logQueries)),
 			application.NewService(service.NewAIService(settingsSvc)),
 			application.NewService(autoLock),
 			application.NewService(pfSvc),
-			application.NewService(service.NewRecordingService(recordings, settings)),
+			application.NewService(service.NewRecordingService(recordings, settings, recMgr)),
 			application.NewService(service.NewContainerService(pool, hosts)),
 			application.NewService(service.NewSnippetService(snippets, history)),
 			application.NewService(service.NewHistoryService(history)),
