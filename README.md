@@ -1,4 +1,4 @@
-content: <div align="center">
+<div align="center">
   <img src="frontend/public/icon.svg" alt="blacknode" width="84" height="84" />
 
   <h1>blacknode</h1>
@@ -8,7 +8,7 @@ content: <div align="center">
 
   <p>
     <img src="https://img.shields.io/badge/status-alpha-orange" alt="alpha" />
-    <img src="https://img.shields.io/badge/wails-v3.0.0--alpha-cyan" alt="wails v3 alpha" />
+    <img src="https://img.shields.io/badge/wails-v3.0.0--beta.16-cyan" alt="wails v3 alpha" />
     <img src="https://img.shields.io/badge/go-1.25-00ADD8" alt="go 1.25" />
     <img src="https://img.shields.io/badge/svelte-5-FF3E00" alt="svelte 5" />
     <img src="https://img.shields.io/badge/tailwind-4-38BDF8" alt="tailwind 4" />
@@ -29,7 +29,7 @@ on disk in `~/.local/share/blacknode/` (Linux/macOS) or
 ## Status
 
 **Alpha.** Built rapidly across many iterations. Core flows work; rough edges
-exist. The Wails v3 framework itself is alpha, so expect churn there too. See
+exist. The Wails v3 framework is a prerelease, so expect churn there too. See
 [Caveats](#caveats) below for the honest list.
 
 ## Features
@@ -45,6 +45,16 @@ exist. The Wails v3 framework itself is alpha, so expect churn there too. See
   with one click.
 - **Tabs + recursive split panes** — horizontal/vertical splits, drag to
   resize, double-click divider to reset 50/50.
+- **Workspaces** — automatic layout restore plus named workspaces containing
+  tabs, split ratios, active panes, SSH/Mosh host assignments, and selected
+  tunnel presets. On launch, choose **Reconnect workspace** or **Use local
+  shells**. The **Workspaces** button saves, updates, opens, and deletes named
+  layouts; opening one replaces the current terminal tabs.
+- **SSH config import** — import concrete aliases from `~/.ssh/config`,
+  including resolved ProxyJump relationships.
+- **Reconnect** — SSH reconnect attempts with backoff after a dropped session.
+  Reconnecting creates a new shell; it does not recover remote processes or
+  terminal scrollback. Use a remote multiplexer such as tmux for that.
 - **Multi-cursor broadcast** — keystrokes typed in any pane in the
   broadcast group fan out to every other group member. Master toggle in
   the top bar; per-pane opt-in.
@@ -70,13 +80,13 @@ exist. The Wails v3 framework itself is alpha, so expect churn there too. See
 - Production hosts in scope escalate confirmation severity automatically.
 
 ### Observability
-- **Metrics** — CPU / memory / disk per host via `/proc` + `df` over SSH;
-  live sparklines; threshold alerts at 90% with 5-minute debounce per
-  (host, metric).
+- **Metrics** — CPU / memory / disk and network throughput over SSH; Linux
+  and macOS collectors, live sparklines, and alerts at 90% with 5-minute
+  debounce per (host, metric).
 - **Logs** — multi-host live tail, regex / substring filter, pause /
   resume, color-coded per host. Save (command + host set + filter) as a
   named query for one-click recall.
-- **Session recording** — every interactive session captured as
+- **Session recording** — optional automatic capture of new interactive sessions as
   asciinema cast v2 to disk. Output-only (passwords typed at sudo prompts
   never hit disk by design). Search across all recordings; in-app
   playback at 0.5×–8× with seek.
@@ -86,7 +96,14 @@ exist. The Wails v3 framework itself is alpha, so expect churn there too. See
   recursive directory navigation.
 - **In-app file editor** — CodeMirror 6 with the One Dark theme,
   auto-language detection (JSON / YAML / JS-TS / Python / Markdown /
-  HTML / CSS / SQL / XML), `⌘S` save, dirty-state guard, binary heuristic.
+  HTML / CSS / SQL / XML), `⌘S` change review, dirty-state guard, and binary
+  heuristic. Saving checks the original content revision, stages a complete
+  replacement, and commits with POSIX atomic rename. Optional server-side
+  backups (enabled by default, mode `0600`) can be reviewed and restored
+  from the editor.
+- **Transfer APIs** — the backend exposes streaming file/directory transfers
+  with progress and cancellation. The Files panel still uses the inline path,
+  capped at 8 MiB; streaming UI integration is pending.
 
 ### DevOps
 - **Containers** — Docker `ps` / `logs` and `kubectl get pods` /
@@ -100,6 +117,10 @@ exist. The Wails v3 framework itself is alpha, so expect churn there too. See
   grab, SSL certificate inspector with chain + expiry coloring.
 
 ### Productivity
+- **Customizable navigation** — Settings → Navigation shows or hides tools
+  in the sidebar, section tabs, and New menu. Hidden tools remain accessible
+  through the command palette; Terminals, Files, Vault, and Settings remain
+  visible. Preferences and workspaces are local to this device.
 - **AI assistant** — natural language → command (Claude Haiku 4.5,
   one-shot) and pasted output / log explanation (Claude Sonnet 4.6,
   streaming). Prompt caching on system prompts. API key encrypted at
@@ -120,6 +141,15 @@ exist. The Wails v3 framework itself is alpha, so expect churn there too. See
 - **Notifications** — desktop notifications (cross-platform via
   `gen2brain/beeep`), in-app toasts (always), and JSON webhook (POST,
   optional). Auto-fires on long multi-host runs and 90%+ metric breaches.
+
+### Additional tools
+- **Database client** — PostgreSQL and MySQL connections, saved connection
+  profiles, schema browsing, and SQL queries.
+- **HTTP client** — saved requests, environment variables, and cURL import/export.
+- **Plugins** — local executable plugins with RPC, declared permissions, and
+  iframe panels. Includes an example in `examples/plugin-hello/`.
+- **Shared configuration** — publish/subscribe snapshots under Settings →
+  Cloud Sync; this is configuration sharing, without RBAC or a shared vault.
 
 ### Security
 - **Vault** — Argon2id KDF (3 iterations, 64 MiB, 4 lanes) → AES-256-GCM
@@ -160,8 +190,12 @@ task darwin:build       # bin/blacknode (macOS)
 ### Run tests
 
 ```bash
-go test ./internal/...                                # vault, store, recorder
-cd frontend && npx svelte-check --tsconfig ./tsconfig.json
+go test ./internal/...
+cd frontend
+npm run check
+npm run check:test
+npm test
+npm run build
 ```
 
 ## First-time setup
@@ -180,8 +214,7 @@ cd frontend && npx svelte-check --tsconfig ./tsconfig.json
 ```
 blacknode/
 ├── main.go                 application bootstrap, service registration
-├── *service.go             one Wails-bound service per file (SSH, SFTP,
-│                           AI, Container, Network, Process, etc.)
+├── internal/service/       Wails-bound services (SSH, SFTP, AI, etc.)
 ├── internal/
 │   ├── db/                 SQLite + schema + migrations
 │   ├── store/              repos: hosts, keys, snippets, history,
@@ -192,7 +225,7 @@ blacknode/
 ├── frontend/
 │   ├── src/
 │   │   ├── App.svelte      → VaultGate → Workspace
-│   │   └── lib/            14 panels + Pane / Terminal / Toaster /
+│   │   └── lib/            panels + Pane / Terminal / Toaster /
 │   │                       Palette / RemoteEditor / etc.
 │   └── public/icon.svg     branded mark
 ├── build/
@@ -222,8 +255,8 @@ entry in `Workspace.svelte`. Every existing panel is a working template.
 
 | Layer | Tech |
 | --- | --- |
-| Desktop runtime | Wails v3 (alpha) |
-| Backend | Go 1.26 |
+| Desktop runtime | Wails v3.0.0-beta.16 |
+| Backend | Go 1.25+ |
 | SSH | `golang.org/x/crypto/ssh`, `pkg/sftp`, `aymanbagabas/go-pty` |
 | Storage | SQLite (`modernc.org/sqlite`, no CGo) + on-disk cast files |
 | Crypto | Argon2id + AES-256-GCM (`crypto/aes`, `crypto/cipher`, `crypto/x/crypto/argon2`) |
@@ -245,27 +278,37 @@ The honest list — features either intentionally narrow or straight-up unfinish
   hosts**. The first-connect prompt still trusts whatever key is
   presented, so it doesn't defend against an active MITM on that initial
   exchange.
-- **Metrics command is Linux-only** (`/proc` + `df`). macOS, BSD, and
-  Windows hosts will fail.
+- **Metrics collectors support Linux and macOS.** BSD and Windows host
+  collectors are not implemented.
 - **Session recording is output-only by design.** Stdin (passwords typed
   at `sudo` prompts) is intentionally not captured. Some sensitive
   *output* still ends up in recordings — `cat ~/.ssh/id_rsa`, `env`,
   etc. Treat recordings as sensitive.
-- **SFTP loads whole files** (50 MB cap) for both download and the
-  in-app editor. Larger files need a streaming path.
-- **Multi-host exec on password-auth hosts** uses cached passwords from
-  prior interactive sessions. Hosts you've never connected interactively
-  to will fail with empty password.
+- **Inline file operations are capped at 8 MiB.** The backend streaming APIs
+  exist, but the Files panel still uses inline upload/download.
+- **Safe editor saves require POSIX rename support** and permission to create
+  files in the target directory. Unix ownership and mode bits are preserved;
+  extended ACLs, xattrs, and hard-link identity are not preserved by replacement.
+  Revision checks detect changes before commit, but SFTP offers no atomic
+  compare-and-swap against another writer. Backups remain on the server until
+  deleted; the editor offers the most recent backup from the current editing
+  session. Other backups can be accessed through the file browser.
+- **Workspace restore opens fresh sessions.** Local shell processes, remote
+  process state, scrollback, and broadcast membership are not restored.
+  Named workspaces and navigation preferences are stored in the local webview
+  storage, contain no credential values, and are not included in cloud sync.
+- **Password-auth background operations** need a saved vault credential.
+  One-shot passwords entered for an interactive pane are not stored by default.
 - **Vault holds the master key in memory** until lock or app exit.
 - **`wails3 generate icons` requires the source PNG;** the
   `cmd/icongen` tool re-rasterizes from the SVG when you change the
   brand mark.
 - **NSIS installer is optional** — production .exe is a single-file
   self-contained binary, no installer required to run it.
-- **Tests are sparse** — vault crypto, known-hosts mismatch, hosts
-  store, recorder, port forwards. Most services have no test coverage.
-- **Wails v3 is in alpha-74**. APIs may move; migration churn likely
-  before v3 GA.
+- **Tests cover core stores and services**, including SSH integration,
+  remote-save conflicts/backups, workspace serialization, and terminal helpers.
+  Full desktop interaction and cross-platform coverage remain incomplete.
+- **Wails v3 is in beta.16**. APIs may move before v3 GA.
 
 ## Roadmap
 
@@ -296,23 +339,22 @@ Not done (with reasons):
 
 - **Phase 10 — automation playbooks (multi-step, scheduled)** — design
   decision pending.
-- **Phase 11 — plugin system (sandbox, SDK)** — needs an architectural
-  call on isolation model (WASM? subprocess + capability tokens?).
+- **Plugin hardening** — the executable/RPC plugin system is implemented;
+  stronger process isolation and a broader SDK remain future work.
 - **Phase 13 — team features (RBAC, shared vault)** — needs a backend
-  service. (A `team_activity` store exists but there's no RBAC or shared
-  vault yet.)
-- **Phase 15 — comprehensive testing** — sparse today.
-- **Auto-update** — needs a release server.
-- **Network stats in metrics** — `rx/tx` bytes, not yet collected.
-- **macOS metrics** — would need a `vm_stat` / `iostat` collector.
+  service. Shared configuration snapshots exist; RBAC and a shared vault do not.
+- **Phase 15 — comprehensive testing** — extend desktop and cross-platform coverage.
+- **Automatic update installation** — the app checks GitHub releases and
+  links to downloads; it does not install updates automatically.
 
 ## Privacy
 
 - No telemetry. No analytics. No phone-home.
-- Only outbound traffic is direct SSH to your hosts and (if configured)
-  Anthropic API calls and webhook POSTs.
-- All credentials encrypted at rest with the vault. Master key never
-  leaves memory.
+- Outbound traffic depends on enabled tools: host connections, HTTP/database
+  requests, and configured AI, sync, webhook, and release-check endpoints.
+- Vault-managed keys, passwords, and the Anthropic API key are encrypted at
+  rest. Treat recordings, HTTP request/environment data, and sync endpoint
+  configuration as sensitive local data.
 
 ## License
 

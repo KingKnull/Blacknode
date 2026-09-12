@@ -11,8 +11,11 @@
     onsplit: (leafID: string, direction: "horizontal" | "vertical") => void;
     onclose: (leafID: string) => void;
     onresize?: (splitID: string, ratio: number) => void;
+    /** Total leaves in the current tab's tree — lets lone panes hide the
+     *  session-ID chip in their toolbar. */
+    leafCount?: number;
   };
-  let { node, activeLeafID, onactivate, onsplit, onclose, onresize }: Props = $props();
+  let { node, activeLeafID, onactivate, onsplit, onclose, onresize, leafCount = 1 }: Props = $props();
 
   // Drag state lives in the split branch only — leaf branches don't render a
   // divider. Tracked here so the pointermove handler can resolve the new
@@ -72,6 +75,7 @@
     >
       <button
         title="Split right"
+        aria-label="Split pane right"
         class="rounded border hairline-strong surface-2 p-1 text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
         onclick={(e) => {
           e.stopPropagation();
@@ -82,6 +86,7 @@
       </button>
       <button
         title="Split down"
+        aria-label="Split pane down"
         class="rounded border hairline-strong surface-2 p-1 text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
         onclick={(e) => {
           e.stopPropagation();
@@ -91,7 +96,8 @@
         <SplitSquareVertical size="12" />
       </button>
       <button
-        title="Close pane"
+        title={leafCount > 1 ? "Close pane" : "Close tab"}
+        aria-label={leafCount > 1 ? "Close pane" : "Close tab"}
         class="rounded border hairline-strong surface-2 p-1 text-[var(--color-text-2)] hover:bg-[var(--color-danger)]/20 hover:text-[var(--color-danger)]"
         onclick={(e) => {
           e.stopPropagation();
@@ -101,7 +107,7 @@
         <X size="12" />
       </button>
     </div>
-    <Terminal sessionID={node.sessionID} />
+    <Terminal sessionID={node.sessionID} {leafCount} active={activeLeafID === node.id} />
   </div>
 {:else}
   <div
@@ -123,6 +129,7 @@
         {onsplit}
         {onclose}
         {onresize}
+        {leafCount}
       />
     </div>
 
@@ -161,6 +168,7 @@
         {onsplit}
         {onclose}
         {onresize}
+        {leafCount}
       />
     </div>
   </div>

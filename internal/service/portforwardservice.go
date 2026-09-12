@@ -289,6 +289,13 @@ func socks5Handshake(c net.Conn) (string, error) {
 		return "", errors.New("not socks5")
 	}
 	nMethods := int(buf[1])
+	// RFC 1928 requires at least one method octet. Zero is malformed, and
+	// accepting it meant replying "no-auth accepted" to a greeting that never
+	// offered anything — a lax parser facing whatever can reach the local
+	// SOCKS port, which is the one place worth being strict.
+	if nMethods == 0 {
+		return "", errors.New("socks5 greeting offered no methods")
+	}
 	if _, err := io.ReadFull(c, buf[:nMethods]); err != nil {
 		return "", err
 	}
@@ -316,6 +323,14 @@ func socks5Handshake(c net.Conn) (string, error) {
 			return "", err
 		}
 		n := int(buf[0])
+		// A zero-length domain used to yield host "", which JoinHostPort turns
+		// into ":port" — and that dials the *remote* host's own loopback rather
+		// than failing. Not a privilege gain (a client on the SOCKS port could
+		// ask for localhost directly), but a silent redirect is the wrong
+		// answer to a malformed request.
+		if n == 0 {
+			return "", errors.New("socks5 request had an empty domain")
+		}
 		if _, err := io.ReadFull(c, buf[:n]); err != nil {
 			return "", err
 		}

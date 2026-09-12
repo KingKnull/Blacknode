@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/blacknode/blacknode/internal/sshconn"
 	"github.com/blacknode/blacknode/internal/store"
@@ -663,20 +664,36 @@ func formatValue(v any) string {
 	}
 	switch x := v.(type) {
 	case []byte:
-		s := string(x)
-		if len(s) > 200 {
-			return s[:200] + "…"
-		}
-		return s
+		return truncateRunes(string(x), 200)
 	case time.Time:
 		return x.Format(time.RFC3339Nano)
 	default:
-		s := fmt.Sprintf("%v", v)
-		if len(s) > 1000 {
-			return s[:1000] + "…"
-		}
+		return truncateRunes(fmt.Sprintf("%v", v), 1000)
+	}
+}
+
+// truncateRunes cuts s to at most max bytes without splitting a rune.
+//
+// Slicing at a byte offset was the obvious version and it is wrong for any
+// non-ASCII column: a cut through the middle of a multi-byte rune produces
+// invalid UTF-8, which encoding/json then rewrites as U+FFFD on the way to the
+// frontend. The user sees a replacement character and has no way to tell it
+// apart from one that was really in their data.
+//
+// The limit stays a byte count rather than a rune count because it exists to
+// bound the payload, not the visible length.
+func truncateRunes(s string, max int) string {
+	if len(s) <= max {
 		return s
 	}
+	// Walk back to the start of the rune that straddles the cut. A UTF-8
+	// continuation byte is 0b10xxxxxx, and a rune is at most 4 bytes, so this
+	// steps back at most 3 times.
+	end := max
+	for end > 0 && !utf8.RuneStart(s[end]) {
+		end--
+	}
+	return s[:end] + "…"
 }
 
 func pgTypeName(oid uint32) string {

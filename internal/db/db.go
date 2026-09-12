@@ -241,6 +241,7 @@ func Migrate(conn *sql.DB) error {
 	for _, s := range []struct {
 		name, ddl string
 	}{
+		{"activity seq backfill", ""},
 		{"post-migration indexes", postMigrationIndexes},
 		{"forwards", schemaForwards},
 		{"host secrets", schemaHostSecrets},
@@ -248,11 +249,210 @@ func Migrate(conn *sql.DB) error {
 		{"vault remember", schemaVaultRemember},
 		{"sync key", schemaSyncKey},
 	} {
+		if s.name == "activity seq backfill" {
+			if err := backfillActivitySeq(conn); err != nil {
+				return fmt.Errorf("apply %s: %w", s.name, err)
+			}
+			continue
+		}
 		if _, err := conn.Exec(s.ddl); err != nil {
 			return fmt.Errorf("apply %s schema: %w", s.name, err)
 		}
 	}
 	return nil
+}
+
+// activityRow is the part of an activity row the seq planner needs.
+type activityRow struct {
+	id      string
+	seq     int64
+	chained bool // a hash commits to this row's seq
+}
+
+// backfillActivitySeq makes activity.seq distinct so the unique index built in
+// the next step can be created, without moving any seq that a hash commits to.
+//
+// Two shapes of database arrive here needing repair, both produced by this app:
+//
+//   - Pre-chain installs. The chain columns were added with `ALTER TABLE ...
+//     ADD COLUMN seq INTEGER NOT NULL DEFAULT 0`, so every row that already
+//     existed carries seq = 0. With more than one such row the index cannot be
+//     built, Migrate returns an error, and main.go's log.Fatalf turns that into
+//     an app that builds fine and exits at startup. Only a database with fewer
+//     than two pre-chain rows escaped it.
+//   - Installs that ran the first attempt at this repair, which renumbered with
+//     a correlated subquery over the table being updated. SQLite does not
+//     define what such a subquery observes, and in practice every row read the
+//     first row's new value, leaving the rows sharing seq = 1 rather than
+//     numbered 1..N. That overwrote the sentinel, so a repair keyed on
+//     `seq = 0` matches nothing and the startup failure survives it.
+//
+// Keying on the invariant the index actually needs — distinct values — covers
+// both, and any other shape a damaged database might have reached.
+//
+// Rows divide by whether a hash covers them:
+//
+//   - An empty hash — written before the chain existed, or by the migration
+//     above. Nothing commits to their seq, so renumbering them loses nothing.
+//   - A non-empty hash — seq is an input to chainHash, so changing it would
+//     make the row fail Verify. These are never moved.
+//
+// Legacy rows keep an empty hash throughout. Writing hashes over them now would
+// claim a provenance they do not have; Verify reports unhashed rows as
+// unchained and skips them, and the chain restarts at MAX(seq)+1 on the next
+// Record.
+//
+// Idempotent: a second run plans the same seq for every row, finds no
+// differences, and writes nothing.
+func backfillActivitySeq(conn *sql.DB) error {
+	// The common case is a database that is already correct, and it can be
+	// settled without materialising the table. A row at seq = 0 is excluded
+	// from the fast path so a lone pre-chain row still gets normalised.
+	var total, distinct, zeroes int64
+	if err := conn.QueryRow(
+		`SELECT COUNT(*), COUNT(DISTINCT seq), COALESCE(SUM(seq = 0), 0) FROM activity`,
+	).Scan(&total, &distinct, &zeroes); err != nil {
+		return err
+	}
+	if total == 0 || (total == distinct && zeroes == 0) {
+		return nil
+	}
+
+	rows, err := loadActivityRows(conn)
+	if err != nil {
+		return err
+	}
+	want, err := planActivitySeq(rows)
+	if err != nil {
+		return err
+	}
+	changed := false
+	for i, r := range rows {
+		if want[i] != r.seq {
+			changed = true
+			break
+		}
+	}
+	if !changed {
+		return nil
+	}
+
+	tx, err := conn.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	// Drop the index for the duration of the renumber. Uniqueness is checked
+	// per statement, so a permutation — one row moving to a value another row
+	// still holds — trips the constraint midway even though the final state is
+	// valid. The next migration step recreates it with IF NOT EXISTS, and
+	// SQLite's DDL is transactional so a rollback puts it back; neither path
+	// leaves the database without it.
+	if _, err := tx.Exec(`DROP INDEX IF EXISTS idx_activity_seq`); err != nil {
+		return err
+	}
+	for i, r := range rows {
+		if want[i] == r.seq {
+			continue
+		}
+		if _, err := tx.Exec(`UPDATE activity SET seq = ? WHERE id = ?`, want[i], r.id); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// loadActivityRows reads every activity row in rowid order. rowid is never
+// reused and never reordered, so it is the stable insertion order — the one
+// thing a collapsed or defaulted seq column can no longer supply.
+func loadActivityRows(conn *sql.DB) ([]activityRow, error) {
+	res, err := conn.Query(`SELECT id, seq, hash FROM activity ORDER BY rowid`)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Close()
+	var rows []activityRow
+	for res.Next() {
+		var r activityRow
+		var hash string
+		if err := res.Scan(&r.id, &r.seq, &hash); err != nil {
+			return nil, err
+		}
+		r.chained = hash != ""
+		rows = append(rows, r)
+	}
+	return rows, res.Err()
+}
+
+// planActivitySeq returns the seq each row should end up with, positionally
+// matching rows. It does not write anything, so the decision is testable
+// without a database.
+func planActivitySeq(rows []activityRow) ([]int64, error) {
+	want := make([]int64, len(rows))
+
+	anyChained := false
+	for _, r := range rows {
+		if r.chained {
+			anyChained = true
+			break
+		}
+	}
+
+	// No chained row means the app has never started successfully since the
+	// chain was added, so nothing depends on the current values and the table
+	// can simply be numbered 1..N. This is both the pre-chain database and the
+	// one the correlated-subquery migration collapsed.
+	if !anyChained {
+		for i := range rows {
+			want[i] = int64(i + 1)
+		}
+		return want, nil
+	}
+
+	// A chained row means the app did start, which means the unique index
+	// existed and Record's MAX(seq)+1 has been keeping values distinct ever
+	// since. So only genuine collisions are moved, and a lone pre-chain row at
+	// seq = 0 keeps its place rather than being pushed above the chain — up
+	// there Purge's `MIN(seq) WHERE at >= cutoff` boundary would read the
+	// oldest row in the table as the newest and delete the chain instead.
+	counts := map[int64]int{}
+	chained := map[int64]int{}
+	for _, r := range rows {
+		counts[r.seq]++
+		if r.chained {
+			chained[r.seq]++
+		}
+	}
+	for seq, n := range chained {
+		if n > 1 {
+			// Every candidate to move is a row whose hash commits to this seq,
+			// so there is no value any of them can be given. Report it rather
+			// than let the index build fail with a bare constraint error that
+			// says nothing about which rows are involved.
+			return nil, fmt.Errorf("activity has %d chained rows sharing seq %d, which cannot be repaired without invalidating a hash", n, seq)
+		}
+	}
+
+	taken := map[int64]bool{}
+	for i, r := range rows {
+		if r.chained || counts[r.seq] == 1 {
+			want[i] = r.seq
+			taken[r.seq] = true
+		}
+	}
+	next := int64(1)
+	for i, r := range rows {
+		if r.chained || counts[r.seq] == 1 {
+			continue
+		}
+		for taken[next] {
+			next++
+		}
+		want[i] = next
+		taken[next] = true
+	}
+	return want, nil
 }
 
 // columnMigrations are ALTER TABLE ADD COLUMN statements for databases created

@@ -164,9 +164,34 @@ html, body, #app {
   color: var(--color-text-1);
 }
 
+/* Touchpads: rubber-banding an inner scrollable list would chase the whole
+   app. Every scroll that happens here is either contained or intentionally
+   swallowed — never chained to the body. */
+html, body {
+  overscroll-behavior: none;
+}
+
 html, body {
   width: 100vw;
   height: 100vh;
+}
+
+/* The body is a desktop app frame, not a document — no text cursor, ever.
+   Interactive elements and both terminal surfaces get their own cursors:
+   xterm's own .xterm-helper-textarea is a real input, and buttons/links get
+   the default pointer from the Tailwind base layer. */
+html, body {
+  cursor: default;
+}
+
+/* Terminal panes: a native terminal shows a block or beam caret, not an
+   I-beam. Let xterm draw its selection cursor and keep the pane chrome on
+   the default arrow. */
+.xterm {
+  cursor: default;
+}
+.xterm .xterm-helper-textarea {
+  cursor: text;
 }
 
 body {

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { Plus, X } from "@lucide/svelte";
   import { leaves, type PaneNode } from "./panes";
   import { app } from "./state.svelte";
@@ -59,11 +60,23 @@
   let tabMenu = $state<{ x: number; y: number; tabID: string } | null>(null);
   function openTabMenu(e: MouseEvent, id: string) {
     e.preventDefault();
-    tabMenu = { x: e.clientX, y: e.clientY, tabID: id };
+    tabMenu = {
+      x: Math.min(e.clientX, window.innerWidth - 170),
+      y: Math.min(e.clientY, window.innerHeight - 90),
+      tabID: id,
+    };
   }
   function closeTabMenu() {
     tabMenu = null;
   }
+
+  onMount(() => {
+    const onKeydown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeTabMenu();
+    };
+    window.addEventListener("keydown", onKeydown);
+    return () => window.removeEventListener("keydown", onKeydown);
+  });
 </script>
 
 <div class="flex h-8 shrink-0 items-center gap-px border-b hairline surface-1 px-2">
@@ -84,6 +97,7 @@
       onclick={() => onSelectTab(t.id)}
       onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectTab(t.id); } }}
       oncontextmenu={(e) => openTabMenu(e, t.id)}
+      onauxclick={(e) => { if (e.button === 1) { e.preventDefault(); onCloseTab(t.id); } }}
       ondragstart={(e) => tabDragStart(e, t.id)}
       ondragover={(e) => tabDragOver(e, t.id)}
       ondragend={tabDragEnd}

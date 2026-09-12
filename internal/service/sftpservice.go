@@ -56,8 +56,9 @@ type TransferProgress struct {
 }
 
 type SFTPService struct {
-	pool  *sshconn.Pool
-	hosts *store.Hosts
+	pool   *sshconn.Pool
+	hosts  *store.Hosts
+	editMu sync.Mutex
 
 	mu        sync.Mutex
 	transfers map[string]context.CancelFunc
@@ -168,10 +169,14 @@ func (s *SFTPService) Stat(ctx context.Context, hostID, remotePath string) (SFTP
 // in-app editor.
 //
 // It refuses anything over maxInlineBytes rather than returning a prefix. The
-// previous implementation read through io.LimitReader, which returns io.EOF at
+// first implementation read through io.LimitReader, which returns io.EOF at
 // the cap — io.ReadAll treats that as a clean end of file, so an oversized
 // download silently produced a truncated result that the UI reported as a
 // success. Use DownloadTo for real files.
+//
+// The Stat is a fast rejection, not the enforcement: it describes the file as
+// it was before the Open, and a remote log being appended to is bigger by the
+// time it is read. readCapped is what actually holds the line.
 func (s *SFTPService) Download(ctx context.Context, hostID, remotePath string) (string, error) {
 	if remotePath == "" {
 		return "", errors.New("remotePath required")
@@ -194,14 +199,33 @@ func (s *SFTPService) Download(ctx context.Context, hostID, remotePath string) (
 			return err
 		}
 		defer f.Close()
-		buf, err := io.ReadAll(f)
+		buf, err := readCapped(f, maxInlineBytes)
 		if err != nil {
-			return err
+			return fmt.Errorf("%s: %w", path.Base(remotePath), err)
 		}
 		encoded = base64.StdEncoding.EncodeToString(buf)
 		return nil
 	})
 	return encoded, err
+}
+
+// readCapped reads r fully, but refuses to return more than max bytes.
+//
+// The obvious spelling — io.ReadAll(io.LimitReader(r, max)) — is the bug this
+// replaces: LimitReader reports io.EOF once it has handed over max bytes, and
+// ReadAll cannot tell that from the reader genuinely ending, so an oversized
+// input comes back as a silently truncated success. Reading one byte past the
+// cap removes the ambiguity: if that byte arrives, the input was too big, and
+// the caller gets an error instead of a prefix.
+func readCapped(r io.Reader, max int64) ([]byte, error) {
+	buf, err := io.ReadAll(io.LimitReader(r, max+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(buf)) > max {
+		return nil, fmt.Errorf("larger than the %s inline limit; download it to disk instead", humanBytes(max))
+	}
+	return buf, nil
 }
 
 // Upload writes base64-encoded payload to remoteDir/<filename>. Inline path,

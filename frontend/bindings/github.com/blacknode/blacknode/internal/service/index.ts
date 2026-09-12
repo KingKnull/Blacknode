@@ -102,6 +102,8 @@ export {
     QueryColumn,
     QueryResult,
     RecordingDetail,
+    RemoteFileSave,
+    RemoteFileSnapshot,
     SFTPEntry,
     SSHConfigCandidate,
     SSHConnectOptions,

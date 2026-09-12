@@ -4,6 +4,7 @@
   import {
     VaultService,
     PluginService,
+    PortForwardService,
   } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import { app, type View } from "./state.svelte";
   import HostList from "./HostList.svelte";
@@ -18,6 +19,8 @@
   import StatusBar from "./StatusBar.svelte";
   import ShortcutOverlay from "./ShortcutOverlay.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
+  import WorkspacesMenu from "./WorkspacesMenu.svelte";
+  import { captureWorkspace, readWorkspace, restoreWorkspace, SESSION_KEY, type WorkspaceSnapshot } from "./workspaces";
 
   // Heavy panels (AI SDK glue) are lazy-loaded so the code
   // they pull in doesn't sit in the main bundle.
@@ -51,54 +54,99 @@
     return { id: leaf.id + "-tab", root: leaf, activeLeafID: leaf.id };
   }
 
+  // Read before mounting terminals or enabling autosave, so an initial empty
+  // tab cannot overwrite the saved workspace during startup.
+  const previous = readWorkspace(localStorage);
+  const restored = previous ? restoreWorkspace(previous, () => crypto.randomUUID()) : null;
   const firstTab = makeTab();
-  let tabs = $state<Tab[]>([firstTab]);
-  let activeTabID = $state(firstTab.id);
+  let tabs = $state<Tab[]>(restored?.tabs ?? [firstTab]);
+  let activeTabID = $state(restored?.activeTabID ?? firstTab.id);
+  if (restored) app.sessionTargets = restored.targets;
+  if (previous) {
+    app.view = (app.isViewVisible(previous.view) ? previous.view : "terminals") as View;
+    app.selectedHostID = previous.selectedHostID;
+  }
+  let forwardIDs = $state<string[]>(previous?.forwardIDs ?? []);
+  let reconnectPending = $state(!!restored && (Object.values(restored.targets).some(Boolean) || !!previous?.forwardIDs.length));
+  let workspaceReady = $state(false);
+  let reconnectingWorkspace = $state(false);
+  let sessionSaveError = $state(false);
 
-  // Session persistence — save tab layout info to localStorage.
-  // We save tab count, active view, and connected host IDs for restoration.
-  const SESSION_KEY = 'blacknode.session';
-
-  function saveSession() {
-    try {
-      const data = {
-        tabCount: tabs.length,
-        view: app.view,
-        sidebarWidth: sidebarWidth,
-      };
-      localStorage.setItem(SESSION_KEY, JSON.stringify(data));
-    } catch { /* ignore quota errors */ }
+  function capture(): WorkspaceSnapshot {
+    return captureWorkspace(tabs, activeTabID, app.sessionTargets, {
+      view: app.view, sidebarWidth, selectedHostID: app.selectedHostID, forwardIDs,
+    });
   }
 
-  function restoreSession() {
+  $effect(() => {
+    const data = JSON.stringify(capture());
+    // Debounce splitter drags while still tracking all nested pane changes.
+    const timer = setTimeout(() => {
+      try { localStorage.setItem(SESSION_KEY, data); sessionSaveError = false; }
+      catch { sessionSaveError = true; }
+    }, 150);
+    const flush = () => { try { localStorage.setItem(SESSION_KEY, data); } catch { /* visible error on next save */ } };
+    window.addEventListener("pagehide", flush);
+    return () => { clearTimeout(timer); window.removeEventListener("pagehide", flush); };
+  });
+
+  async function reconnectWorkspace() {
+    if (!workspaceReady || reconnectingWorkspace) return;
+    reconnectPending = false;
+    reconnectingWorkspace = true;
     try {
-      const raw = localStorage.getItem(SESSION_KEY);
-      if (!raw) return;
-      const data = JSON.parse(raw);
-      // Restore extra tabs beyond the initial one
-      if (data.tabCount > 1) {
-        for (let i = 1; i < data.tabCount; i++) {
-          tabs.push(makeTab());
+      for (const tab of tabs) for (const leaf of leaves(tab.root)) {
+        const target = app.sessionTargets[leaf.sessionID];
+        if (!target || app.sessionHosts[leaf.sessionID]) continue;
+        const host = app.hosts.find((h) => h.id === target.hostID);
+        if (!host) {
+          app.toast("warn", "Saved host no longer exists", target.hostID);
+          app.sessionTargets[leaf.sessionID] = null;
+          continue;
+        }
+        app.requestConnect(leaf.sessionID, target.hostID, target.via);
+      }
+      if (forwardIDs.length) {
+        const forwards = await PortForwardService.List() ?? [];
+        for (const id of forwardIDs) {
+          const forward = forwards.find((f) => f.id === id);
+          if (!forward) { app.toast("warn", "Saved tunnel no longer exists", id); continue; }
+          if (forward.active) continue;
+          try { await PortForwardService.Start(id); }
+          catch (e) { app.toast("error", `Could not start ${forward.name}`, String(e)); }
         }
       }
-      if (data.view) app.view = data.view;
-      if (data.sidebarWidth) sidebarWidth = data.sidebarWidth;
-    } catch { /* ignore parse errors */ }
+    } catch (e) { app.toast("error", "Could not restore tunnels", String(e)); }
+    finally { reconnectingWorkspace = false; }
   }
 
-  // Save session whenever tabs change
-  $effect(() => {
-    // Access reactive deps
-    tabs.length;
-    app.view;
-    saveSession();
-  });
+  function openWorkspace(snapshot: WorkspaceSnapshot) {
+    const next = restoreWorkspace(snapshot, () => crypto.randomUUID());
+    app.broadcastEnabled = false;
+    app.broadcastSet = new Set();
+    app.pendingBroadcastDanger = null;
+    app.sessionTargets = next.targets;
+    tabs = next.tabs;
+    activeTabID = next.activeTabID;
+    sidebarWidth = snapshot.sidebarWidth;
+    app.selectedHostID = snapshot.selectedHostID;
+    app.view = (app.isViewVisible(snapshot.view) ? snapshot.view : "terminals") as View;
+    forwardIDs = [...snapshot.forwardIDs];
+    reconnectPending = true;
+    void reconnectWorkspace();
+  }
 
   let vaultLockOff: (() => void) | undefined;
 
   onMount(() => {
-    restoreSession();
-    void app.refreshAll();
+    void app.refreshAll().then(() => { workspaceReady = true; }).catch((e) => {
+      app.toast("error", "Could not load workspace hosts", String(e));
+    });
+
+    // Flush before vault lock unmounts the workspace and tears down its panes.
+    returnWorkspaceSnapshot = () => {
+      try { localStorage.setItem(SESSION_KEY, JSON.stringify(capture())); } catch { /* save error already surfaced */ }
+    };
 
     // Activity tracking for vault auto-lock.
     const onActivity = () => app.touchActivity();
@@ -106,6 +154,21 @@
     window.addEventListener("mousedown", onActivity, true);
 
     // Keyboard shortcuts for workspace navigation.
+    //
+    // Registered in the CAPTURE phase deliberately. xterm cancels every key it
+    // maps to a control code, and its cancel() does preventDefault *and*
+    // stopPropagation — so a bubble-phase listener never sees Ctrl+Tab (HT),
+    // Ctrl+T (^T) or Ctrl+3..8 (^[ ^\ ^] ^^ ^_ ^?) while a pane is focused,
+    // which is exactly where these shortcuts are supposed to work. Capture runs
+    // first; each branch then stops the event so the key isn't handled twice,
+    // once as a shortcut and once as terminal input.
+    //
+    // Which keys the app may take is a deliberate line. Bare Ctrl+T and Ctrl+W
+    // belong to the shell (transpose-chars and werase) and are not bound here:
+    // losing the word you were typing is one thing, closing the tab and its SSH
+    // session is another. The app takes the shifted forms instead, matching
+    // GNOME Terminal / Konsole / Windows Terminal. On macOS the Cmd forms need
+    // no Shift — xterm maps only Cmd+A, so Meta is free.
     const onShortcut = (e: KeyboardEvent) => {
       // ? opens shortcut overlay (only when not typing in an input)
       if (e.key === '?' && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
@@ -117,10 +180,14 @@
       const mod = e.metaKey || e.ctrlKey;
       if (!mod) return;
       const k = e.key.toLowerCase();
+      const consume = () => { e.preventDefault(); e.stopPropagation(); };
+      // Ctrl has to be shifted to outrank the shell; Cmd doesn't.
+      const appMod = e.metaKey || e.shiftKey;
 
-      // Cmd+I — toggle AI drawer
-      if (k === "i") {
-        e.preventDefault();
+      // Ctrl+Shift+I / Cmd+Shift+I — toggle AI drawer. Bare Ctrl+I is TAB, so
+      // the unshifted form could never have worked from inside a pane anyway.
+      if (k === "i" && e.shiftKey) {
+        consume();
         app.aiOpen = !app.aiOpen;
         return;
       }
@@ -128,23 +195,24 @@
       // Tab shortcuts only apply in terminals view
       if (app.view !== "terminals") return;
 
-      // Cmd+T — new tab
-      if (k === "t") {
-        e.preventDefault();
+      // Ctrl+Shift+T / Cmd+T — new tab
+      if (k === "t" && appMod) {
+        consume();
         newTab();
         return;
       }
 
-      // Cmd+W — close active tab
-      if (k === "w") {
-        e.preventDefault();
+      // Ctrl+Shift+W / Cmd+W — close active tab
+      if (k === "w" && appMod) {
+        consume();
         closeTab(activeTabID);
         return;
       }
 
-      // Ctrl+Tab / Ctrl+Shift+Tab — cycle tabs
+      // Ctrl+Tab / Ctrl+Shift+Tab — cycle tabs. Bare Tab is untouched (`mod` is
+      // required above), so shell completion still works.
       if (e.key === "Tab") {
-        e.preventDefault();
+        consume();
         const idx = tabs.findIndex((t) => t.id === activeTabID);
         if (e.shiftKey) {
           activeTabID = tabs[(idx - 1 + tabs.length) % tabs.length].id;
@@ -154,16 +222,23 @@
         return;
       }
 
-      // Ctrl+1-9 — jump to tab N
-      const num = parseInt(e.key);
-      if (num >= 1 && num <= 9) {
-        e.preventDefault();
-        const target = tabs[Math.min(num - 1, tabs.length - 1)];
+      // Ctrl+1-9 — jump to tab N. Read from `code`, not `key`: Shift turns "3"
+      // into "#" on a US layout and parseInt would give NaN, so the shifted
+      // form works too and the binding survives non-US layouts.
+      //
+      // This is the one place the app does take keys off the shell — Ctrl+3..8
+      // are alternate encodings of ^[ ^\ ^] ^^ ^_ ^?. The canonical keys for
+      // all of them (Esc, Ctrl+\ for SIGQUIT, Ctrl+], Backspace) are on other
+      // keycodes and still reach the PTY untouched.
+      const digit = /^Digit([1-9])$/.exec(e.code);
+      if (digit) {
+        consume();
+        const target = tabs[Math.min(Number(digit[1]) - 1, tabs.length - 1)];
         if (target) activeTabID = target.id;
         return;
       }
     };
-    window.addEventListener("keydown", onShortcut);
+    window.addEventListener("keydown", onShortcut, true);
 
     vaultLockOff = Events.On("vault:locked", () => {
       // Idle lock must stick: without this flag refreshVault would auto-unlock
@@ -222,7 +297,7 @@
     return () => {
       window.removeEventListener("keydown", onActivity, true);
       window.removeEventListener("mousedown", onActivity, true);
-      window.removeEventListener("keydown", onShortcut);
+      window.removeEventListener("keydown", onShortcut, true);
       offInsert();
       window.removeEventListener("message", onPluginMessage);
       offTile();
@@ -275,7 +350,8 @@
     app.requestConnect(sid, hostID, "mosh");
   }
 
-  onDestroy(() => vaultLockOff?.());
+  let returnWorkspaceSnapshot: (() => void) | undefined;
+  onDestroy(() => { returnWorkspaceSnapshot?.(); vaultLockOff?.(); });
 
   function newTab() {
     const t = makeTab();
@@ -493,21 +569,40 @@
   }
 
   let activeSection = $derived(sectionOf(app.view));
+  let visibleSections = $derived(SECTIONS.map((s) => ({ ...s, views: s.views.filter((v) => app.isViewVisible(v.id)) })).filter((s) => s.views.length));
 
   // Plugin panels become extra tabs under the Plugins section.
   let sectionViews = $derived.by<ViewDef[]>(() => {
-    if (activeSection.id !== "plugins") return activeSection.views;
+    // An explicitly opened hidden tool remains visible for this visit.
+    const visible = activeSection.views.filter((v) => app.isViewVisible(v.id) || v.id === app.view);
+    if (activeSection.id !== "plugins") return visible;
     const pluginTabs: ViewDef[] = app.pluginPanels.map((p) => ({
       id: `plugin:${p.pluginId}:${p.id}` as View,
       label: p.title,
       Icon: Puzzle,
     }));
-    return [...activeSection.views, ...pluginTabs];
+    return [...visible, ...pluginTabs];
   });
 
   function selectSection(s: Section) {
-    app.view = lastViewPerSection[s.id] ?? s.views[0].id;
+    const last = lastViewPerSection[s.id];
+    app.view = last && app.isViewVisible(last) ? last : s.views[0].id;
   }
+
+  // Breadcrumb should say what you're looking at ("Terminals"), not what the
+  // router calls it ("terminals"). Resolve the active view against SECTIONS;
+  // plugin panels fall back to their registered title.
+  let activeViewDef = $derived.by<ViewDef | null>(() => {
+    for (const s of SECTIONS) {
+      const v = s.views.find((v) => v.id === app.view);
+      if (v) return v;
+    }
+    if (typeof app.view === "string" && app.view.startsWith("plugin:")) {
+      const title = app.pluginPanels.find((p) => app.view === `plugin:${p.pluginId}:${p.id}`)?.title;
+      return { id: app.view, label: title ?? app.view, Icon: Puzzle };
+    }
+    return null;
+  });
 
   $effect(() => {
     lastViewPerSection[activeSection.id] = app.view;
@@ -535,11 +630,13 @@
   function tabLabel(t: Tab): string {
     const label = tabLabels[t.id];
     if (label) return label;
+    const target = leaves(t.root).map((l) => app.sessionTargets[l.sessionID]).find(Boolean);
+    if (target) return app.hosts.find((h) => h.id === target.hostID)?.name ?? "Saved host";
     const idx = tabs.indexOf(t) + 1;
     return `local-${idx}`;
   }
 
-  let sidebarWidth = $state(Number(localStorage.getItem('blacknode.sidebar-width') || 252));
+  let sidebarWidth = $state(previous?.sidebarWidth ?? 252);
   let isResizing = $state(false);
   let shortcutOpen = $state(false);
 
@@ -575,11 +672,19 @@
     <div class="h-4 w-px bg-[var(--color-line-strong)]"></div>
 
     <!-- Breadcrumb -->
-    <span class="type-caption font-medium capitalize text-[var(--color-text-2)]">
-      {app.view}
+    <span class="flex items-center gap-1.5 type-caption font-medium text-[var(--color-text-2)]">
+      {#if activeViewDef}
+        <activeViewDef.Icon size="12" strokeWidth={1.8} class="text-[var(--color-text-4)]" />
+        {activeViewDef.label}
+      {:else}
+        {app.view}
+      {/if}
     </span>
 
     <div class="ml-auto flex items-center gap-1 type-caption">
+      {#if workspaceReady}
+        <WorkspacesMenu {capture} onopen={openWorkspace} {forwardIDs} onforwards={(ids) => forwardIDs = ids} disabled={reconnectingWorkspace} />
+      {/if}
       <!-- Broadcast -->
       <button
         class="flex items-center gap-1.5 border px-2 py-0.5 rounded-sm transition-all {app.broadcastEnabled
@@ -640,7 +745,7 @@
   <!-- ── BODY ─────────────────────────────────────────────────────────── -->
   <div class="grid flex-1 overflow-hidden" style="grid-template-columns: 60px {sidebarWidth}px 1fr">
     <!-- ── SECTION RAIL ─────────────────────────────── -->
-    <NavRail sections={SECTIONS} activeSectionId={activeSection.id} onSelect={(id) => selectSection(SECTIONS.find((s) => s.id === id)!)} />
+    <NavRail sections={visibleSections} activeSectionId={activeSection.id} onSelect={(id) => selectSection(visibleSections.find((s) => s.id === id)!)} />
 
     <!-- ── SIDEBAR ─────────────────────────────────────── -->
     <aside class="relative overflow-hidden border-r hairline group/sidebar">
@@ -669,6 +774,14 @@
       style:grid-template-columns={app.aiOpen ? 'minmax(400px, 1fr) 360px' : '1fr'}
     >
       <main class="relative flex flex-col overflow-hidden">
+        {#if reconnectPending}
+          <div class="flex shrink-0 items-center gap-3 border-b hairline surface-2 px-3 py-2 type-caption">
+            <span>Workspace restored. Reconnect to reopen its saved hosts and tunnels.</span>
+            <button class="ml-auto rounded border hairline px-2 py-1 disabled:opacity-40" disabled={!workspaceReady} onclick={reconnectWorkspace}>Reconnect workspace</button>
+            <button class="rounded border hairline px-2 py-1" onclick={() => { reconnectPending = false; for (const tab of tabs) for (const leaf of leaves(tab.root)) if (!app.sessionHosts[leaf.sessionID]) app.sessionTargets[leaf.sessionID] = null; forwardIDs = []; }}>Use local shells</button>
+          </div>
+        {/if}
+        {#if sessionSaveError}<p role="alert" class="px-3 py-2 type-caption text-[var(--color-danger)]">Workspace changes could not be saved. Local storage may be full.</p>{/if}
         <SectionTabs
           views={sectionViews}
           activeView={app.view}
@@ -694,7 +807,8 @@
                 <div class="h-full w-full" class:hidden={activeTabID !== t.id}>
                   <Pane
                     node={t.root}
-                    activeLeafID={t.activeLeafID}
+                    activeLeafID={activeTabID === t.id ? t.activeLeafID : null}
+                    leafCount={leaves(t.root).length}
                     onactivate={(id) => onActivate(t.id, id)}
                     onsplit={(id, d) => onSplit(t.id, id, d)}
                     onclose={(id) => onCloseLeaf(t.id, id)}
@@ -748,4 +862,3 @@
   <!-- ── STATUS BAR ──────────────────────────────────────────────── -->
   <StatusBar tabCount={tabs.length} {activeLeafCount} />
 </div>
-

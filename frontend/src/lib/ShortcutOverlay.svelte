@@ -15,6 +15,7 @@
         { keys: ["Ctrl", "Tab"],  desc: "Next tab" },
         { keys: ["Ctrl", "W"],    desc: "Close tab" },
         { keys: ["Ctrl", "T"],    desc: "New tab" },
+        { keys: ["Middle-click"], desc: "Close tab" },
         { keys: ["?"],            desc: "Open this overlay" },
       ],
     },
@@ -24,12 +25,28 @@
         { keys: ["Ctrl", "Shift", "F"], desc: "Search terminal output" },
         { keys: ["Ctrl", "Shift", "S"], desc: "Auto-fill sudo password" },
         { keys: ["Ctrl", "Shift", "I"], desc: "Toggle AI assistant" },
+        { keys: ["Ctrl", "Shift", "B"], desc: "Toggle pane broadcast" },
+        { keys: ["Ctrl", "."],          desc: "Toggle side panel" },
+        { keys: ["Right-click"],        desc: "Pane actions menu" },
+      ],
+    },
+    {
+      // Shifted deliberately: bare Ctrl+C/Ctrl+A belong to the shell (SIGINT,
+      // beginning-of-line). Cmd also works on macOS.
+      label: "Clipboard",
+      shortcuts: [
+        { keys: ["Ctrl", "Shift", "C"], desc: "Copy selection" },
+        { keys: ["Ctrl", "Shift", "V"], desc: "Paste" },
+        { keys: ["Ctrl", "Shift", "A"], desc: "Select all" },
+        { keys: ["Ctrl", "Shift", "K"], desc: "Clear scrollback" },
       ],
     },
     {
       label: "Hosts",
       shortcuts: [
         { keys: ["Ctrl", "Shift", "H"], desc: "Toggle host sidebar" },
+        { keys: ["Double-click"],       desc: "Connect to host" },
+        { keys: ["Right-click"],        desc: "Host actions menu" },
       ],
     },
   ];

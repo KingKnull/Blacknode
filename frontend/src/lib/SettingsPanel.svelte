@@ -17,6 +17,7 @@
   } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import type { TeamActivity, KnownHost } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { app } from "./state.svelte";
+  import { OPTIONAL_VIEWS } from "./navigation";
   import PageHeader from "./PageHeader.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
   import EmptyState from "./EmptyState.svelte";
@@ -51,6 +52,8 @@
   let savingLock = $state(false);
   let savingShell = $state(false);
   let savingMetrics = $state(false);
+  let savingScrollback = $state(false);
+  let scrollbackError = $state("");
   let savingTheme = $state(false);
 
   // Confirmation dialog for removing the API key
@@ -59,6 +62,31 @@
   let autoLockMinutes = $state(15);
   let defaultShellPath = $state("");
   let metricsIntervalSeconds = $state(5);
+  let terminalScrollback = $state(5000);
+
+  // Mirrors ScrollbackMin/Max in internal/service/settingsservice.go, which is
+  // authoritative and rejects anything outside them. These only drive the
+  // input's affordances and the inline hint.
+  const SCROLLBACK_MIN = 100;
+  const SCROLLBACK_MAX = 50000;
+
+  /**
+   * Rough memory cost of the chosen scrollback, per pane.
+   *
+   * xterm.js retains each line as a typed array of about 12 bytes per cell, so
+   * the figure is lines × columns × 12 at an assumed 120 columns. It is an
+   * estimate and labelled as one — the point is to make an invisible cost
+   * visible before someone types 50000 across eight panes, not to be exact.
+   */
+  const scrollbackEstimateMB = $derived(
+    ((terminalScrollback * 120 * 12) / (1024 * 1024)).toFixed(1),
+  );
+
+  const scrollbackInvalid = $derived(
+    !Number.isInteger(terminalScrollback) ||
+      terminalScrollback < SCROLLBACK_MIN ||
+      terminalScrollback > SCROLLBACK_MAX,
+  );
 
   let notify = $state<NotifyConfig>({
     desktopEnabled: true,
@@ -179,8 +207,14 @@
   }
 
   async function forgetKnownHost(k: KnownHost) {
-    await HostService.RemoveKnownHost(k.host, k.port, k.keyType);
+    // Close the dialog first. Clearing it after the await left it open for the
+    // duration of the call, and stuck open for good if the call threw.
     confirmForget = null;
+    try {
+      await HostService.RemoveKnownHost(k.host, k.port, k.keyType);
+    } catch (e: any) {
+      app.toast("error", "FORGET HOST KEY FAILED", String(e?.message ?? e));
+    }
     await loadKnownHosts();
   }
 
@@ -251,6 +285,7 @@
     autoLockMinutes = app.settings.autoLockMinutes;
     defaultShellPath = app.settings.defaultShellPath;
     metricsIntervalSeconds = app.settings.metricsIntervalSeconds;
+    terminalScrollback = app.settings.terminalScrollback;
     try {
       notify = (await NotificationService.Config()) as NotifyConfig;
     } catch {
@@ -362,6 +397,22 @@
     }
   }
 
+  async function saveScrollback() {
+    savingScrollback = true;
+    scrollbackError = "";
+    try {
+      await SettingsService.SetTerminalScrollback(terminalScrollback);
+      await app.refreshSettings();
+    } catch (e) {
+      // Surfaced rather than swallowed: the backend is the authority on the
+      // bounds, and its message names them. Silently failing here would leave
+      // the input showing a number that never took effect.
+      scrollbackError = e instanceof Error ? e.message : String(e);
+    } finally {
+      savingScrollback = false;
+    }
+  }
+
   async function setTheme(t: "dark" | "light") {
     if (t === app.settings.theme) return;
     savingTheme = true;
@@ -380,10 +431,10 @@
     { id: "security", label: "SECURITY", Icon: Lock },
     { id: "knownhosts", label: "KNOWN HOSTS", Icon: ShieldCheck },
     { id: "appearance", label: "APPEARANCE", Icon: Palette },
+    { id: "navigation", label: "NAVIGATION", Icon: SettingsIcon },
     { id: "notifications", label: "NOTIFICATIONS", Icon: Bell },
     { id: "shell", label: "LOCAL SHELL", Icon: Activity },
     { id: "sync", label: "CLOUD SYNC", Icon: Cloud },
-    { id: "team", label: "TEAM", Icon: Users },
     { id: "about", label: "ABOUT", Icon: Info },
   ];
 
@@ -604,6 +655,19 @@
           </div>
         </section>
 
+        <section id="section-navigation" class="border hairline-strong surface-2 p-6">
+          <h3 class="type-eyebrow text-[var(--color-text-1)]">Navigation</h3>
+          <p class="mt-2 type-caption text-[var(--color-text-3)]">Choose the tools shown in the sidebar, section tabs, and New menu. Hidden tools remain available through the command palette. Terminals, Files, Vault, and Settings always stay visible.</p>
+          <div class="mt-4 grid grid-cols-2 gap-3">
+            {#each OPTIONAL_VIEWS as item (item.id)}
+              <label class="flex items-center gap-2 type-caption">
+                <input type="checkbox" checked={app.isViewVisible(item.id)} onchange={(e) => app.setViewVisible(item.id, e.currentTarget.checked)} />
+                {item.label}
+              </label>
+            {/each}
+          </div>
+        </section>
+
         <!-- Notifications -->
         <section id="section-notifications" class="border hairline-strong surface-2 p-6 shadow-xl" style="backdrop-filter: blur(12px) saturate(1.2);">
           <div class="mb-4 flex items-center gap-2">
@@ -720,6 +784,44 @@
                 SAVE
               </button>
             </div>
+          </label>
+
+          <label class="mt-4 block">
+            <span class="type-caption font-bold text-[var(--color-text-1)]">Terminal scrollback</span>
+            <p class="mt-0.5 type-caption text-[var(--color-text-3)] leading-relaxed">
+              Lines of history each terminal pane keeps in memory
+              ({SCROLLBACK_MIN.toLocaleString()}–{SCROLLBACK_MAX.toLocaleString()}). The cost is paid
+              per pane, and lowering it discards the oldest lines from panes that are already open.
+              For history that outlives a session, use recordings instead — they spool to disk.
+            </p>
+            <div class="mt-2 flex items-center gap-2">
+              <input
+                type="number"
+                min={SCROLLBACK_MIN}
+                max={SCROLLBACK_MAX}
+                step="100"
+                aria-describedby="scrollback-hint"
+                aria-invalid={scrollbackInvalid}
+                class="w-28 border hairline bg-[var(--color-surface-3)] px-3 py-2 type-caption outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59,130,246,0.06)] transition-all"
+                bind:value={terminalScrollback}
+              />
+              <span class="type-caption text-[var(--color-text-3)]">lines</span>
+              <span id="scrollback-hint" class="type-caption text-[var(--color-text-3)]">
+                ≈ {scrollbackEstimateMB} MB per pane
+              </span>
+              <button
+                class="ml-auto border hairline-strong px-3 py-1.5 type-caption hover:bg-[var(--color-surface-3)] disabled:opacity-50 transition-colors"
+                disabled={savingScrollback ||
+                  scrollbackInvalid ||
+                  terminalScrollback === app.settings.terminalScrollback}
+                onclick={saveScrollback}
+              >
+                SAVE
+              </button>
+            </div>
+            {#if scrollbackError}
+              <p class="mt-2 type-caption text-[var(--color-danger)]" role="alert">{scrollbackError}</p>
+            {/if}
           </label>
         </section>
 
@@ -893,7 +995,7 @@
         <section id="section-team" class="border hairline-strong surface-2 p-6 shadow-xl" style="backdrop-filter: blur(12px) saturate(1.2);">
           <div class="mb-4 flex items-center gap-2">
             <Users size="14" class="text-[var(--color-accent)]" />
-            <h3 class="type-eyebrow text-[var(--color-text-1)]">Team</h3>
+            <h3 class="type-eyebrow text-[var(--color-text-1)]">Shared configuration</h3>
           </div>
           <p class="type-caption text-[var(--color-text-3)] leading-relaxed">
             Publishes a curated snapshot to a shared blob

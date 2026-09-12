@@ -40,13 +40,39 @@
   let menuPos = $state<{ x: number; y: number }>({ x: 0, y: 0 });
 
   function openMenu(e: MouseEvent, h: Host) {
+    e.preventDefault();
     e.stopPropagation();
     menuHostID = h.id;
-    menuPos = { x: e.clientX, y: e.clientY };
+    // Clamp so a right-click near the bottom-right edge doesn't push the menu
+    // off-screen (it's fixed-position, so there's nothing to scroll it back).
+    menuPos = {
+      x: Math.min(e.clientX, window.innerWidth - 170),
+      y: Math.min(e.clientY, window.innerHeight - 190),
+    };
   }
 
   function closeMenu() {
     menuHostID = null;
+  }
+
+  // Single-click opens the details panel, double-click connects (SSH). Both
+  // click events fire before dblclick, so the panel is opened deferentially —
+  // a double-click cancels the pending open and connects instead.
+  let detailTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function rowClick(e: MouseEvent, h: Host) {
+    if (detailTimer) { clearTimeout(detailTimer); detailTimer = null; }
+    app.selectedHostID = h.id;
+    if (e.detail === 2) {
+      bus.emit("connect-host", { hostID: h.id });
+      return;
+    }
+    detailTimer = setTimeout(() => { app.hostDetailOpen = true; }, 220);
+  }
+
+  function rowContextMenu(e: MouseEvent, h: Host) {
+    if (detailTimer) { clearTimeout(detailTimer); detailTimer = null; }
+    openMenu(e, h);
   }
 
   let visible = $derived(
@@ -130,9 +156,15 @@
     });
     // "+ New → New host" from the section tab bar opens the editor here.
     const offNewHost = bus.on("new-host", () => (creating = true));
+    const onKeydown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeMenu();
+    };
+    window.addEventListener("keydown", onKeydown);
     return () => {
       offMetrics();
       offNewHost();
+      window.removeEventListener("keydown", onKeydown);
+      if (detailTimer) clearTimeout(detailTimer);
     };
   });
 
@@ -187,6 +219,8 @@
         ? 'border-[var(--color-accent)]/40 bg-[var(--color-accent-soft)] text-[var(--color-text-1)]'
         : 'border-transparent text-[var(--color-text-2)] hover:bg-[var(--color-surface-2)]'}"
       style="border-radius: var(--radius-md);"
+      role="presentation"
+      oncontextmenu={(e) => rowContextMenu(e, h)}
     >
       <!-- Env stripe -->
       {#if env.label}
@@ -195,8 +229,9 @@
 
       <button
         class="flex min-w-0 flex-1 items-start gap-2.5 text-left"
-        onclick={() => { app.selectedHostID = h.id; app.hostDetailOpen = true; }}
+        onclick={(e) => rowClick(e, h)}
         aria-label="{h.name} — {h.username}@{h.host}:{h.port}"
+        title="Click for details · double-click to connect"
       >
         <!-- Status dot -->
         <span class="mt-1.5 shrink-0">
@@ -250,6 +285,8 @@
       <button
         class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-transparent text-[var(--color-text-4)] transition-colors hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-2)] focus-visible:border-[var(--color-accent)]/50"
         onclick={(e) => openMenu(e, h)}
+        oncontextmenu={(e) => openMenu(e, h)}
+        ondblclick={(e) => { e.stopPropagation(); }}
         title="Actions"
         aria-label="Host actions"
       >

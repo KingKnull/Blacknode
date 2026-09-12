@@ -43,6 +43,17 @@ export function SetMetricsInterval(seconds: number): $CancellablePromise<void> {
     return $Call.ByID(4142291509, seconds);
 }
 
+/**
+ * SetTerminalScrollback stores the per-pane scrollback line limit.
+ * 
+ * Rejecting instead of clamping: the number came from a person, and a silent
+ * clamp would show them a saved value they did not choose with no explanation.
+ * The error names both bounds so the message is actionable on its own.
+ */
+export function SetTerminalScrollback(lines: number): $CancellablePromise<void> {
+    return $Call.ByID(4080923549, lines);
+}
+
 export function SetTheme(theme: string): $CancellablePromise<void> {
     return $Call.ByID(2182026940, theme);
 }

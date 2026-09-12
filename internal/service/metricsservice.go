@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"sync"
@@ -301,9 +302,21 @@ func parseMetrics(out string) map[string]float64 {
 		k := strings.TrimSpace(line[:eq])
 		v := strings.TrimSpace(line[eq+1:])
 		f, err := strconv.ParseFloat(v, 64)
-		if err == nil {
-			m[k] = f
+		if err != nil {
+			continue
 		}
+		// ParseFloat accepts "NaN", "Inf" and "+Inf", and every value here ends
+		// up in a HostMetrics field that is JSON-marshalled to the frontend.
+		// encoding/json rejects non-finite floats, so a single odd line from a
+		// remote host would fail the whole payload and blank the metrics panel
+		// rather than one number. Infinity is also a hazard on the way to
+		// RxBytesTotal, where float→int64 conversion is implementation-defined
+		// out of range. Dropping the value falls back to the zero default, which
+		// is the same thing a missing line does.
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			continue
+		}
+		m[k] = f
 	}
 	return m
 }

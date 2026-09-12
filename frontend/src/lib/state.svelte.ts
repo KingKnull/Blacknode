@@ -18,6 +18,8 @@ import type {
 import { NotifyKind } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
 import { checkCommand, type Danger } from "./danger";
 import { bus } from "./events";
+import { NAVIGATION_KEY, readHiddenViews, viewVisible } from "./navigation";
+import type { ConnectionTarget } from "./workspaces";
 
 type View =
   | "terminals"
@@ -45,6 +47,16 @@ type View =
 
 class AppState {
   view = $state<View>("terminals");
+  hiddenViews = $state<string[]>(readHiddenViews(localStorage));
+  isViewVisible(view: string) { return viewVisible(view, this.hiddenViews); }
+  setViewVisible(view: string, visible: boolean) {
+    const next = visible ? this.hiddenViews.filter((id) => id !== view) : [...new Set([...this.hiddenViews, view])];
+    try {
+      localStorage.setItem(NAVIGATION_KEY, JSON.stringify(next));
+      this.hiddenViews = next;
+      if (!this.isViewVisible(this.view)) this.view = "settings";
+    } catch (e) { this.toast("error", "Could not save navigation preferences", String(e)); }
+  }
   vault = $state<VaultStatus>({ initialized: false, unlocked: false });
   hosts = $state<Host[]>([]);
   keys = $state<PublicKeyView[]>([]);
@@ -53,6 +65,12 @@ class AppState {
     autoLockMinutes: 15,
     defaultShellPath: "",
     metricsIntervalSeconds: 5,
+    // Mirrors ScrollbackDefault in internal/service/settingsservice.go. Only
+    // used for the moment before the first Get() resolves — the backend clamps
+    // and is authoritative — but it has to be a usable number rather than 0,
+    // because a terminal that mounts in that window would otherwise be built
+    // with no scrollback at all.
+    terminalScrollback: 5000,
     hasAnthropicKey: false,
   });
   selectedHostID = $state<string | null>(null);
@@ -107,6 +125,9 @@ class AppState {
   // broadcast command, and persisting the workspace for session restore.
   // `null` means the pane is on a local shell.
   sessionHosts = $state<Record<string, { hostID: string; via: "ssh" | "mosh" } | null>>({});
+  // Intended attachments survive a network failure or a pending auth prompt.
+  // sessionHosts continues to describe only live connections.
+  sessionTargets = $state<Record<string, ConnectionTarget | null>>({});
 
   setSessionHost(sessionID: string, host: { hostID: string; via: "ssh" | "mosh" } | null) {
     // Guarded so panes can report unconditionally on every state change without

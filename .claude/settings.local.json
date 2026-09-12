@@ -73,7 +73,17 @@
       "Read(//home/maverick/.npm/_cacache/**)",
       "Bash(node -e ' *)",
       "Bash(npm test *)",
-      "Bash(echo \"exit=$?\")"
+      "Bash(echo \"exit=$?\")",
+      "Bash(awk 'BEGIN{n=0} /^export \\\\{/{n++} n==2 && /^    SyncService,/{print \"DUPLICATE PRESENT at line \" NR}' frontend/bindings/github.com/blacknode/blacknode/internal/service/index.ts)",
+      "Bash(echo \"=== exit=$? ===\")",
+      "Bash(ls /home/maverick/Blacknode/.claude/plans 2>/dev/null || ls -d ~/.claude/plans 2>/dev/null || echo \"no plans dir found\")",
+      "Bash(gofmt -l internal/db/db.go)",
+      "Bash(grep -n 'sessionID:\\\\|type Props\\\\|let {.*} = $props\\\\|export interface\\\\|interface Props' /home/maverick/Blacknode/frontend/src/lib/Terminal.svelte)",
+      "Bash(rm -rf __TRACKED_VAR__/bn4)",
+      "Bash(mkdir -p __TRACKED_VAR__/bn4/blacknode)",
+      "Bash(cp ~/.local/share/blacknode/blacknode.db* __TRACKED_VAR__/bn4/blacknode/)",
+      "Bash(rm -f __TRACKED_VAR__/bn4/blacknode/blacknode.log)",
+      "Bash(timeout 20 env XDG_DATA_HOME=__TRACKED_VAR__/bn4 ./bin/blacknode)"
     ]
   }
 }

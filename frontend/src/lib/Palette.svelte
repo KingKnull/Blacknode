@@ -276,6 +276,13 @@
       .map((x) => x.a),
   ]);
 
+  // Typing more characters shrinks `filtered` from under the cursor — a stale
+  // `highlighted` then points past the end and Enter does nothing. Clamp it
+  // whenever the result count changes.
+  $effect(() => {
+    if (highlighted > filtered.length - 1) highlighted = Math.max(0, filtered.length - 1);
+  });
+
   $effect(() => {
     if (app.paletteOpen) {
       input = "";
@@ -296,7 +303,9 @@
   onMount(() => {
     const onKey = (e: KeyboardEvent) => {
       const isMod = e.metaKey || e.ctrlKey;
-      if (isMod && e.key.toLowerCase() === "k") {
+      // Bare mod+K only. Mod+Shift+K is "clear scrollback" inside a terminal
+      // pane, and without the shift guard this would fire alongside it.
+      if (isMod && !e.shiftKey && e.key.toLowerCase() === "k") {
         e.preventDefault();
         app.paletteOpen = !app.paletteOpen;
         return;
@@ -307,8 +316,10 @@
         app.paletteOpen = false;
       } else if (e.key === "ArrowDown") {
         e.preventDefault();
-        highlighted = Math.min(highlighted + 1, filtered.length - 1);
-        scrollHighlightedIntoView();
+        if (filtered.length > 0) {
+          highlighted = Math.min(highlighted + 1, filtered.length - 1);
+          scrollHighlightedIntoView();
+        }
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         highlighted = Math.max(highlighted - 1, 0);

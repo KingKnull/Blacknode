@@ -1,5 +1,6 @@
 <script lang="ts">
-  import type { View } from "./state.svelte";
+  import { onMount } from "svelte";
+  import { app, type View } from "./state.svelte";
   import { Plus, Server, TerminalSquare, SquareTerminal, Database, Globe2 } from "@lucide/svelte";
 
   type ViewDef = { id: View; label: string; Icon: any };
@@ -21,6 +22,14 @@
     { id: "database", label: "New DB connection", Icon: Database },
     { id: "http", label: "New HTTP request", Icon: Globe2 },
   ];
+
+  onMount(() => {
+    const onKeydown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && menuOpen) menuOpen = false;
+    };
+    window.addEventListener("keydown", onKeydown);
+    return () => window.removeEventListener("keydown", onKeydown);
+  });
 </script>
 
 <div class="flex h-9 shrink-0 items-center gap-1 border-b hairline surface-1 px-2">
@@ -51,7 +60,7 @@
     {#if menuOpen}
       <button class="fixed inset-0 z-40 cursor-default" aria-label="Close menu" onclick={() => (menuOpen = false)}></button>
       <div class="fade-up absolute right-0 top-full z-50 mt-1 min-w-[190px] overflow-hidden border hairline-strong surface-2 py-1 shadow-xl shadow-black/40" style="border-radius: var(--radius-md);">
-        {#each NEW_ITEMS as item (item.id)}
+        {#each NEW_ITEMS.filter((item) => app.isViewVisible(item.id)) as item (item.id)}
           <button
             class="flex w-full items-center gap-2.5 px-3 py-1.5 text-left type-caption text-[var(--color-text-2)] transition-colors hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
             onclick={() => { menuOpen = false; onNew(item.id); }}

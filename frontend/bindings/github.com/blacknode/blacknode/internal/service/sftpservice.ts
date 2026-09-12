@@ -32,10 +32,14 @@ export function Chmod(hostID: string, remotePath: string, mode: string): $Cancel
  * in-app editor.
  * 
  * It refuses anything over maxInlineBytes rather than returning a prefix. The
- * previous implementation read through io.LimitReader, which returns io.EOF at
+ * first implementation read through io.LimitReader, which returns io.EOF at
  * the cap — io.ReadAll treats that as a clean end of file, so an oversized
  * download silently produced a truncated result that the UI reported as a
  * success. Use DownloadTo for real files.
+ * 
+ * The Stat is a fast rejection, not the enforcement: it describes the file as
+ * it was before the Open, and a remote log being appended to is bigger by the
+ * time it is read. readCapped is what actually holds the line.
  */
 export function Download(hostID: string, remotePath: string): $CancellablePromise<string> {
     return $Call.ByID(2487137113, hostID, remotePath);
@@ -65,6 +69,15 @@ export function Mkdir(hostID: string, dir: string): $CancellablePromise<void> {
 }
 
 /**
+ * ReadForEdit returns a revision of the exact bytes read, including line endings.
+ */
+export function ReadForEdit(hostID: string, remotePath: string): $CancellablePromise<$models.RemoteFileSnapshot> {
+    return $Call.ByID(3094968948, hostID, remotePath).then(($result: any) => {
+        return $$createType2($result);
+    });
+}
+
+/**
  * ReadLink resolves a symlink's target.
  */
 export function ReadLink(hostID: string, remotePath: string): $CancellablePromise<string> {
@@ -88,6 +101,19 @@ export function Remove(hostID: string, target: string, recursive: boolean): $Can
  */
 export function Rename(hostID: string, oldPath: string, newPath: string): $CancellablePromise<void> {
     return $Call.ByID(3014939955, hostID, oldPath, newPath);
+}
+
+/**
+ * SaveForEdit checks the revision, optionally backs up the original, and stages
+ * a complete replacement before an atomic rename. It never truncates the live
+ * file. Servers without POSIX rename support fail without changing the target.
+ * SFTP has no compare-and-swap: a concurrent external write after the last
+ * revision check cannot be excluded. The mutex serializes this app's editors.
+ */
+export function SaveForEdit(hostID: string, remotePath: string, payloadBase64: string, expectedRevision: string, backup: boolean): $CancellablePromise<$models.RemoteFileSave> {
+    return $Call.ByID(2696463547, hostID, remotePath, payloadBase64, expectedRevision, backup).then(($result: any) => {
+        return $$createType3($result);
+    });
 }
 
 /**
@@ -134,3 +160,5 @@ export function WriteFile(hostID: string, remotePath: string, payloadB64: string
 // Private type creation functions
 const $$createType0 = $models.SFTPEntry.createFrom;
 const $$createType1 = $Create.Array($$createType0);
+const $$createType2 = $models.RemoteFileSnapshot.createFrom;
+const $$createType3 = $models.RemoteFileSave.createFrom;

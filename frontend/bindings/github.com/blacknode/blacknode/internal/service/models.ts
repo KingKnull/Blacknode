@@ -113,6 +113,7 @@ export class AppSettings {
     "autoLockMinutes": number;
     "defaultShellPath": string;
     "metricsIntervalSeconds": number;
+    "terminalScrollback": number;
     "hasAnthropicKey": boolean;
 
     /** Creates a new AppSettings instance. */
@@ -128,6 +129,9 @@ export class AppSettings {
         }
         if (!("metricsIntervalSeconds" in $$source)) {
             this["metricsIntervalSeconds"] = 0;
+        }
+        if (!("terminalScrollback" in $$source)) {
+            this["terminalScrollback"] = 0;
         }
         if (!("hasAnthropicKey" in $$source)) {
             this["hasAnthropicKey"] = false;
@@ -1564,6 +1568,56 @@ export class RecordingDetail {
             $$parsedSource["events"] = $$createField12_0($$parsedSource["events"]);
         }
         return new RecordingDetail($$parsedSource as Partial<RecordingDetail>);
+    }
+}
+
+export class RemoteFileSave {
+    "revision": string;
+    "backupPath": string;
+
+    /** Creates a new RemoteFileSave instance. */
+    constructor($$source: Partial<RemoteFileSave> = {}) {
+        if (!("revision" in $$source)) {
+            this["revision"] = "";
+        }
+        if (!("backupPath" in $$source)) {
+            this["backupPath"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new RemoteFileSave instance from a string or object.
+     */
+    static createFrom($$source: any = {}): RemoteFileSave {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new RemoteFileSave($$parsedSource as Partial<RemoteFileSave>);
+    }
+}
+
+export class RemoteFileSnapshot {
+    "contentBase64": string;
+    "revision": string;
+
+    /** Creates a new RemoteFileSnapshot instance. */
+    constructor($$source: Partial<RemoteFileSnapshot> = {}) {
+        if (!("contentBase64" in $$source)) {
+            this["contentBase64"] = "";
+        }
+        if (!("revision" in $$source)) {
+            this["revision"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new RemoteFileSnapshot instance from a string or object.
+     */
+    static createFrom($$source: any = {}): RemoteFileSnapshot {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new RemoteFileSnapshot($$parsedSource as Partial<RemoteFileSnapshot>);
     }
 }
 
