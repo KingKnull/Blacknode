@@ -51,6 +51,12 @@
   let conflict = $state(false);
   const diff = $derived(fileDiff(original, reviewDraft ?? original));
 
+  function errorText(error: any): string {
+    let message = String(error?.message ?? error);
+    try { const parsed = JSON.parse(message); if (parsed.message) message = parsed.message; } catch { /* plain error */ }
+    return message;
+  }
+
   const filename = $derived(remotePath.split("/").pop() ?? remotePath);
   const language = $derived(langForPath(remotePath));
 
@@ -135,7 +141,7 @@
       await tick();
       mountEditor(text);
     } catch (e: any) {
-      err = String(e?.message ?? e);
+      err = errorText(e);
     } finally {
       loading = false;
     }
@@ -158,7 +164,7 @@
       ]),
       EditorView.updateListener.of((u) => {
         if (u.docChanged) {
-          dirty = u.state.doc.toString() !== original;
+          dirty = u.state.sliceDoc() !== original;
           if (dirty) savedAt = null;
         }
       }),
@@ -170,6 +176,10 @@
         },
       }),
     ];
+    // Preserve Windows line endings for configuration files edited over SSH.
+    if (initial.includes("\r\n") && !initial.replace(/\r\n/g, "").includes("\n")) {
+      exts.push(EditorState.lineSeparator.of("\r\n"));
+    }
     // CodeMirror's default styling is light. Only push oneDark when the app
     // is in dark mode. Active editors keep the theme they spawned with —
     // toggling settings.theme requires reopening the file to switch.
@@ -186,7 +196,7 @@
   function review() {
     if (!view || saving || !dirty || binaryWarning || conflict) return;
     restoring = false;
-    reviewDraft = view.state.doc.toString();
+    reviewDraft = view.state.sliceDoc();
   }
 
   async function restoreBackup() {
@@ -197,7 +207,7 @@
       const snapshot = await SFTPService.ReadForEdit(hostID, backupPath);
       reviewDraft = b64ToText(snapshot.contentBase64);
       restoring = true;
-    } catch (e) { err = String(e); }
+    } catch (e) { err = errorText(e); }
     finally { saving = false; }
   }
 
@@ -217,8 +227,9 @@
       dirty = false;
       savedAt = Date.now();
     } catch (e: any) {
-      err = String(e?.message ?? e);
-      conflict = err.includes("REMOTE_FILE_CHANGED");
+      const message = errorText(e);
+      conflict = message.includes("REMOTE_FILE_CHANGED");
+      err = message.replace("REMOTE_FILE_CHANGED: ", "");
     } finally {
       saving = false;
     }
@@ -237,7 +248,7 @@
   onDestroy(() => view?.destroy());
 </script>
 
-<Dialog label={`Edit ${filename}`} onclose={close} panelClass="flex h-[85vh] w-[min(95vw,1200px)] flex-col overflow-hidden rounded-xl border hairline-strong surface-2 shadow-2xl">
+<Dialog portal label={`Edit ${filename}`} onclose={close} panelClass="flex h-[85vh] w-[min(95vw,1200px)] flex-col overflow-hidden rounded-xl border hairline-strong surface-2 shadow-2xl">
     <div class="flex items-center gap-2 border-b hairline px-4 py-2.5">
       <FileCode size="14" class="text-[var(--color-accent)]" />
       <div class="min-w-0">
@@ -296,7 +307,7 @@
         {err}
         {#if conflict}
           <div class="mt-2 flex gap-3">
-            <button class="underline" onclick={async () => { try { await navigator.clipboard.writeText(reviewDraft ?? view?.state.doc.toString() ?? ""); app.toast("ok", "Edits copied"); } catch (e) { app.toast("error", "Could not copy edits", String(e)); } }}>Copy my edits</button>
+            <button class="underline" onclick={async () => { try { await navigator.clipboard.writeText(reviewDraft ?? view?.state.sliceDoc() ?? ""); app.toast("ok", "Edits copied"); } catch (e) { app.toast("error", "Could not copy edits", String(e)); } }}>Copy my edits</button>
             <button class="underline" onclick={() => { if (confirm("Reload the remote file and discard your local edits? Copy them first if you need to merge them.")) void load(); }}>Reload remote file</button>
           </div>
         {/if}

@@ -20,7 +20,7 @@
   import ShortcutOverlay from "./ShortcutOverlay.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
   import WorkspacesMenu from "./WorkspacesMenu.svelte";
-  import { captureWorkspace, readWorkspace, restoreWorkspace, SESSION_KEY, type WorkspaceSnapshot } from "./workspaces";
+  import { captureWorkspace, parseWorkspace, readWorkspace, restoreWorkspace, SESSION_KEY, type WorkspaceSnapshot } from "./workspaces";
 
   // Heavy panels (AI SDK glue) are lazy-loaded so the code
   // they pull in doesn't sit in the main bundle.
@@ -76,6 +76,21 @@
     return captureWorkspace(tabs, activeTabID, app.sessionTargets, {
       view: app.view, sidebarWidth, selectedHostID: app.selectedHostID, forwardIDs,
     });
+  }
+
+  function layoutFits(candidate: Tab[]): boolean {
+    const valid = parseWorkspace(captureWorkspace(candidate, activeTabID, app.sessionTargets, {
+      view: app.view, sidebarWidth, selectedHostID: app.selectedHostID, forwardIDs,
+    }));
+    if (!valid) app.toast("warn", "Workspace layout limit reached", "Close a tab or pane before adding another.");
+    return !!valid;
+  }
+
+  function addTab(tab: Tab): boolean {
+    if (!layoutFits([...tabs, tab])) return false;
+    tabs.push(tab);
+    activeTabID = tab.id;
+    return true;
   }
 
   $effect(() => {
@@ -143,11 +158,6 @@
       app.toast("error", "Could not load workspace hosts", String(e));
     });
 
-    // Flush before vault lock unmounts the workspace and tears down its panes.
-    returnWorkspaceSnapshot = () => {
-      try { localStorage.setItem(SESSION_KEY, JSON.stringify(capture())); } catch { /* save error already surfaced */ }
-    };
-
     // Activity tracking for vault auto-lock.
     const onActivity = () => app.touchActivity();
     window.addEventListener("keydown", onActivity, true);
@@ -170,6 +180,7 @@
     // GNOME Terminal / Konsole / Windows Terminal. On macOS the Cmd forms need
     // no Shift — xterm maps only Cmd+A, so Meta is free.
     const onShortcut = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement)?.closest?.('[role="dialog"]')) return;
       // ? opens shortcut overlay (only when not typing in an input)
       if (e.key === '?' && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
         e.preventDefault();
@@ -330,8 +341,7 @@
   function connectHost(hostID: string) {
     app.view = "terminals";
     const t = makeTab();
-    tabs.push(t);
-    activeTabID = t.id;
+    if (!addTab(t)) return;
     const sid = leaves(t.root)[0]?.sessionID;
     if (!sid) return;
     // The pane for this session hasn't mounted yet. Park the intent; it picks
@@ -343,20 +353,21 @@
   function connectHostMosh(hostID: string) {
     app.view = "terminals";
     const t = makeTab();
-    tabs.push(t);
-    activeTabID = t.id;
+    if (!addTab(t)) return;
     const sid = leaves(t.root)[0]?.sessionID;
     if (!sid) return;
     app.requestConnect(sid, hostID, "mosh");
   }
 
-  let returnWorkspaceSnapshot: (() => void) | undefined;
-  onDestroy(() => { returnWorkspaceSnapshot?.(); vaultLockOff?.(); });
+  onDestroy(() => {
+    // Flush before vault lock unmounts the workspace and tears down its panes.
+    try { localStorage.setItem(SESSION_KEY, JSON.stringify(capture())); } catch { /* save error already surfaced */ }
+    vaultLockOff?.();
+  });
 
   function newTab() {
     const t = makeTab();
-    tabs.push(t);
-    activeTabID = t.id;
+    addTab(t);
   }
 
   function closeTab(id: string) {
@@ -387,7 +398,8 @@
   function onSplit(tabID: string, leafID: string, direction: Direction) {
     const t = tabs.find((t) => t.id === tabID);
     if (!t) return;
-    t.root = splitLeaf(t.root, leafID, direction);
+    const root = splitLeaf(t.root, leafID, direction);
+    if (layoutFits(tabs.map((tab) => tab.id === t.id ? { ...tab, root } : tab))) t.root = root;
   }
 
   function onCloseLeaf(tabID: string, leafID: string) {
@@ -452,8 +464,7 @@
       root,
       activeLeafID: allLeaves[0]?.id ?? '',
     };
-    tabs.push(tab);
-    activeTabID = tab.id;
+    if (!addTab(tab)) return;
 
     // Add all leaf session IDs to the broadcast set and enable broadcast.
     const broadcastSet = new Set(app.broadcastSet);

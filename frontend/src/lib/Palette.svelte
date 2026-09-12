@@ -302,6 +302,7 @@
 
   onMount(() => {
     const onKey = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement)?.closest?.('[role="dialog"]')) return;
       const isMod = e.metaKey || e.ctrlKey;
       // Bare mod+K only. Mod+Shift+K is "clear scrollback" inside a terminal
       // pane, and without the shift guard this would fire alongside it.

@@ -9,6 +9,8 @@
     labelledby?: string;
     /** Click on the backdrop closes the dialog. Default true. */
     closeOnBackdrop?: boolean;
+    /** Escape transformed panel ancestors that would clip a fixed overlay. */
+    portal?: boolean;
     /** Utility classes for the full-screen backdrop layer. */
     backdropClass?: string;
     /** Utility classes for the dialog panel. */
@@ -22,6 +24,7 @@
     label,
     labelledby,
     closeOnBackdrop = true,
+    portal = false,
     backdropClass = "bg-black/80",
     panelClass = "",
     panelStyle = "",
@@ -30,6 +33,12 @@
 
   let panelEl: HTMLElement | undefined = $state();
   let prevFocus: HTMLElement | null = null;
+
+  function placeOverlay(node: HTMLDivElement) {
+    if (!portal) return;
+    document.body.appendChild(node);
+    return { destroy: () => node.remove() };
+  }
 
   function focusables(): HTMLElement[] {
     if (!panelEl) return [];
@@ -79,6 +88,7 @@
 <svelte:window onkeydown={onKeydown} />
 
 <div
+  use:placeOverlay
   class="fixed inset-0 z-50 flex items-center justify-center {backdropClass}"
   role="presentation"
   onclick={(e) => {

@@ -710,7 +710,7 @@
     if (mode === "remote" && status === "connected") await SSHService.Disconnect(sessionID);
     if (mode === "telnet" && status === "connected") await TelnetService.Disconnect(sessionID);
     if (mode === "serial" && status === "connected") await SerialService.Disconnect(sessionID);
-    app.selectedHostID = hostID;
+    if (active) app.selectedHostID = hostID;
     mode = "remote";
     if (host.authMethod === "password") {
       // A saved password is resolved backend-side during the dial, so we only
@@ -740,7 +740,7 @@
     if (mode === "remote" && status === "connected") await SSHService.Disconnect(sessionID);
     if (mode === "telnet" && status === "connected") await TelnetService.Disconnect(sessionID);
     if (mode === "serial" && status === "connected") await SerialService.Disconnect(sessionID);
-    app.selectedHostID = hostID;
+    if (active) app.selectedHostID = hostID;
     mode = "mosh";
     status = "connecting";
     errorMsg = "";
@@ -769,7 +769,7 @@
     if (mode === "remote" && status === "connected") await SSHService.Disconnect(sessionID);
     if (mode === "telnet" && status === "connected") await TelnetService.Disconnect(sessionID);
     if (mode === "serial" && status === "connected") await SerialService.Disconnect(sessionID);
-    app.selectedHostID = hostID;
+    if (active) app.selectedHostID = hostID;
     mode = proto;
     status = "connecting";
     errorMsg = "";
