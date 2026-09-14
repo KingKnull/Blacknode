@@ -79,7 +79,7 @@
   });
 </script>
 
-<div class="flex h-8 shrink-0 items-center gap-px border-b hairline surface-1 px-2">
+<div class="flex h-9 shrink-0 items-center gap-px border-b hairline surface-1 px-2.5">
   {#each tabs as t (t.id)}
     {@const label = tabLabel(t)}
     {@const isActive = activeTabID === t.id}
@@ -90,7 +90,7 @@
       draggable="true"
       aria-selected={isActive}
       aria-label={label}
-      class="group flex max-w-[180px] cursor-pointer items-center gap-1.5 border-r border-[var(--color-line)] px-3 py-1 type-caption select-none transition-colors {isActive ? 'bg-[var(--color-surface-2)] text-[var(--color-text-1)] border-t border-t-[var(--color-accent)]/60' : 'text-[var(--color-text-4)] hover:bg-[var(--color-surface-2)]/50 hover:text-[var(--color-text-3)]'}"
+      class="group flex max-w-[190px] cursor-pointer items-center gap-1.5 border-r border-[var(--color-line)] px-3 py-1.5 type-caption select-none transition-colors {isActive ? 'bg-[var(--color-surface-2)] text-[var(--color-text-1)] border-t-2 border-t-[var(--color-accent)]' : 'text-[var(--color-text-4)] hover:bg-[var(--color-surface-2)]/60 hover:text-[var(--color-text-2)]'}"
       class:opacity-40={dragSourceID === t.id}
       class:outline={dragOverID === t.id && dragSourceID !== t.id}
       class:outline-[var(--color-accent)]={dragOverID === t.id && dragSourceID !== t.id}
@@ -126,7 +126,7 @@
     </div>
   {/each}
   <button
-    class="ml-1 flex h-6 w-6 shrink-0 items-center justify-center border border-[var(--color-line)] text-[var(--color-text-4)] hover:border-[var(--color-accent)]/40 hover:text-[var(--color-accent)] transition-colors"
+    class="ml-1 flex h-6 w-6 shrink-0 items-center justify-center border border-[var(--color-line)] bg-[var(--color-surface-2)] text-[var(--color-text-4)] hover:border-[var(--color-accent)]/40 hover:text-[var(--color-accent)] transition-colors"
     style="border-radius: var(--radius-sm);"
     onclick={onNewTab}
     title="New terminal (⌘T)"

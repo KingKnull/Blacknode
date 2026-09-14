@@ -28,6 +28,7 @@
   let creating = $state(false);
   let importing = $state(false);
   let filter = $state("");
+  let searchInput: HTMLInputElement;
 
   // Mosh availability — checked once, gates the context-menu entry.
   let moshAvailable = $state(false);
@@ -87,6 +88,8 @@
       );
     }),
   );
+
+  let connectedCount = $derived(app.connectedHosts.size);
 
   let groups = $derived(
     visible.reduce<Record<string, Host[]>>((acc, h) => {
@@ -158,6 +161,10 @@
     const offNewHost = bus.on("new-host", () => (creating = true));
     const onKeydown = (e: KeyboardEvent) => {
       if (e.key === "Escape") closeMenu();
+      if (e.key === "/" && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
+        e.preventDefault();
+        searchInput?.focus();
+      }
     };
     window.addEventListener("keydown", onKeydown);
     return () => {
@@ -177,9 +184,17 @@
 
 <div class="flex h-full w-full flex-col">
   <!-- Header -->
-  <div class="flex items-center gap-2 border-b hairline px-3 py-2.5">
-    <span class="type-title text-[var(--color-text-1)]">Hosts</span>
-    <span class="rounded-full bg-[var(--color-surface-3)] px-1.5 type-micro tabular text-[var(--color-text-4)]">{app.hosts.length}</span>
+  <div class="flex items-center gap-2 border-b hairline px-3 py-3">
+    <div class="min-w-0">
+      <div class="flex items-center gap-2">
+        <span class="type-title text-[var(--color-text-1)]">Hosts</span>
+        <span class="rounded-full bg-[var(--color-surface-3)] px-1.5 type-micro tabular text-[var(--color-text-3)]">{app.hosts.length}</span>
+      </div>
+      <div class="mt-0.5 flex items-center gap-1.5 type-micro text-[var(--color-text-4)]">
+        <span class="h-1.5 w-1.5 rounded-full {connectedCount > 0 ? 'bg-[var(--color-success)]' : 'bg-[var(--color-text-4)]'}"></span>
+        {connectedCount > 0 ? `${connectedCount} connected` : 'Ready to connect'}
+      </div>
+    </div>
     <button
       class="ml-auto flex h-6 w-6 items-center justify-center rounded-md text-[var(--color-text-4)] transition-colors hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-2)]"
       onclick={() => (importing = true)}
@@ -197,14 +212,16 @@
   </div>
 
   <!-- Search -->
-  <div class="px-2 py-2">
+  <div class="px-2.5 py-2.5">
     <div class="relative flex items-center rounded-md border hairline bg-[var(--color-surface-2)] transition-colors focus-within:border-[var(--color-accent)]/60">
       <Search size="13" class="absolute left-2.5 text-[var(--color-text-4)]" />
       <input
-        class="w-full bg-transparent py-1.5 pl-8 pr-2 type-caption text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)]"
+        class="w-full bg-transparent py-2 pl-8 pr-10 type-caption text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)]"
         placeholder="Search hosts, tags…"
         bind:value={filter}
+        bind:this={searchInput}
       />
+      <kbd class="absolute right-2 border hairline bg-[var(--color-surface-3)] px-1.5 py-0.5 font-mono type-micro text-[var(--color-text-4)]">/</kbd>
     </div>
   </div>
 
@@ -328,14 +345,14 @@
     {/each}
 
     {#if app.hosts.length === 0}
-      <div class="px-4 py-10 text-center">
-        <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-lg border hairline bg-[var(--color-surface-2)] text-[var(--color-text-4)]">
+      <div class="px-4 py-12 text-center">
+        <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg border border-[var(--color-accent)]/25 bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
           <Server size="20" />
         </div>
         <p class="type-body font-medium text-[var(--color-text-2)]">No hosts yet</p>
-        <p class="mt-1 type-caption text-[var(--color-text-4)]">Add your first server to get started</p>
+        <p class="mt-1 type-caption text-[var(--color-text-3)]">Add a server to make it available across your workspace.</p>
         <button
-          class="mt-4 rounded-md bg-[var(--color-accent)] px-3 py-1.5 type-caption font-medium text-white transition-opacity hover:opacity-90"
+          class="mt-5 rounded-md bg-[var(--color-accent)] px-3.5 py-2 type-caption font-semibold text-[var(--color-surface-0)] transition-opacity hover:opacity-90"
           onclick={() => (creating = true)}
         >+ Add host</button>
       </div>

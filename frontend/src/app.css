@@ -29,7 +29,7 @@
   --radius-md: 6px;
   --radius-lg: 10px;
 
-  /* ── BLACKNODE DARK — navy / charcoal (Termius-class) ────────────── */
+  /* ── BLACKNODE DARK — obsidian surfaces with cool operational accents ── */
   --color-surface-0: #0b0e14;
   --color-surface-1: #11151d;
   --color-surface-2: #161b24;
@@ -55,11 +55,11 @@
   --color-text-3: #8b95a5;
   --color-text-4: #7f8998;
 
-  --color-accent: #3b82f6;
-  --color-accent-soft: rgba(59, 130, 246, 0.10);
-  --color-accent-strong: rgba(59, 130, 246, 0.28);
-  --color-accent-2: #38bdf8;
-  --color-accent-3: #a78bfa;
+  --color-accent: #5eead4;
+  --color-accent-soft: rgba(94, 234, 212, 0.10);
+  --color-accent-strong: rgba(94, 234, 212, 0.28);
+  --color-accent-2: #67e8f9;
+  --color-accent-3: #c4b5fd;
   --color-danger: #ef4444;
   --color-warn: #f59e0b;
   --color-info: #3b82f6;
@@ -118,11 +118,11 @@
   --color-text-3: #5b6474;
   --color-text-4: #626b7b;
 
-  --color-accent: #2563eb;
-  --color-accent-soft: rgba(37, 99, 235, 0.08);
-  --color-accent-strong: rgba(37, 99, 235, 0.22);
-  --color-accent-2: #0891b2;
-  --color-accent-3: #7c3aed;
+  --color-accent: #0f766e;
+  --color-accent-soft: rgba(15, 118, 110, 0.08);
+  --color-accent-strong: rgba(15, 118, 110, 0.22);
+  --color-accent-2: #0e7490;
+  --color-accent-3: #6d28d9;
   --color-danger: #dc2626;
   --color-warn: #d97706;
   --color-info: #2563eb;
@@ -201,6 +201,24 @@ body {
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+
+::selection {
+  color: var(--color-surface-0);
+  background: var(--color-accent);
+}
+
+button, a, [role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:not(:disabled) {
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease,
+    box-shadow 120ms ease, transform 120ms ease;
+}
+
+button:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 /* Mono applied only where it earns its keep */

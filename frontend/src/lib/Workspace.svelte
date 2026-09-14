@@ -659,7 +659,7 @@
 
   function onMouseMove(e: MouseEvent) {
     if (!isResizing) return;
-    sidebarWidth = Math.max(160, Math.min(600, e.clientX - 60));
+    sidebarWidth = Math.max(160, Math.min(600, e.clientX - 64));
   }
 
   function onMouseUp() {
@@ -672,34 +672,35 @@
 
 <svelte:window onmousemove={onMouseMove} onmouseup={onMouseUp} />
 
-<div
-  class="flex h-full w-full flex-col bg-[var(--color-surface-0)] text-[var(--color-text-1)]"
->
+<div class="flex h-full w-full flex-col bg-[var(--color-surface-0)] text-[var(--color-text-1)]">
   <!-- ── TOP BAR ─────────────────────────────────────────────────────── -->
-  <header class="relative flex h-10 shrink-0 items-center gap-3 border-b hairline surface-1 px-3">
-    <div class="flex items-center gap-1.5 select-none">
-      <Logo size={16} />
+  <header class="relative flex h-12 shrink-0 items-center gap-3 border-b hairline surface-1 px-4">
+    <div class="flex items-center gap-2 select-none">
+      <div class="flex h-7 w-7 items-center justify-center border border-[var(--color-accent)]/35 bg-[var(--color-accent-soft)]" style="border-radius: var(--radius-sm);">
+        <Logo size={17} />
+      </div>
+      <span class="hidden font-mono type-micro font-semibold tracking-[0.16em] text-[var(--color-text-2)] sm:inline">BLACKNODE</span>
     </div>
 
-    <div class="h-4 w-px bg-[var(--color-line-strong)]"></div>
+    <div class="h-5 w-px bg-[var(--color-line-strong)]"></div>
 
     <!-- Breadcrumb -->
-    <span class="flex items-center gap-1.5 type-caption font-medium text-[var(--color-text-2)]">
+    <span class="flex items-center gap-2 type-caption font-medium text-[var(--color-text-1)]">
       {#if activeViewDef}
-        <activeViewDef.Icon size="12" strokeWidth={1.8} class="text-[var(--color-text-4)]" />
+        <activeViewDef.Icon size="14" strokeWidth={1.8} class="text-[var(--color-accent)]" />
         {activeViewDef.label}
       {:else}
         {app.view}
       {/if}
     </span>
 
-    <div class="ml-auto flex items-center gap-1 type-caption">
+    <div class="ml-auto flex items-center gap-1.5 type-caption">
       {#if workspaceReady}
         <WorkspacesMenu {capture} onopen={openWorkspace} {forwardIDs} onforwards={(ids) => forwardIDs = ids} disabled={reconnectingWorkspace} />
       {/if}
       <!-- Broadcast -->
       <button
-        class="flex items-center gap-1.5 border px-2 py-0.5 rounded-sm transition-all {app.broadcastEnabled
+        class="flex items-center gap-1.5 border px-2.5 py-1 rounded-sm transition-all {app.broadcastEnabled
           ? 'border-[var(--color-warn)]/40 bg-[var(--color-warn)]/8 text-[var(--color-warn)]'
           : 'border-[var(--color-line)] text-[var(--color-text-4)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-2)]'}"
         onclick={() => {
@@ -719,7 +720,7 @@
 
       <!-- AI -->
       <button
-        class="flex items-center gap-1.5 border px-2 py-0.5 rounded-sm transition-all {app.aiOpen
+        class="flex items-center gap-1.5 border px-2.5 py-1 rounded-sm transition-all {app.aiOpen
           ? 'border-[var(--color-accent)]/50 bg-[var(--color-accent)]/8 text-[var(--color-accent)]'
           : 'border-[var(--color-line)] text-[var(--color-text-4)] hover:border-[var(--color-accent)]/30 hover:text-[var(--color-accent)]'}"
         onclick={() => (app.aiOpen = !app.aiOpen)}
@@ -731,20 +732,20 @@
 
       <!-- Command palette -->
       <button
-        class="flex items-center gap-1.5 border border-[var(--color-line)] px-2 py-0.5 rounded-sm text-[var(--color-text-4)] transition-all hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-2)]"
+        class="flex items-center gap-1.5 border border-[var(--color-line)] px-2.5 py-1 rounded-sm text-[var(--color-text-3)] transition-all hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)]"
         onclick={() => (app.paletteOpen = true)}
         title="Command palette (⌘K)"
       >
         <Command size="11" />
         <span>Palette</span>
-        <kbd class="font-mono border border-[var(--color-line-strong)] px-1 type-micro opacity-50">⌘K</kbd>
+        <kbd class="font-mono border border-[var(--color-line-strong)] bg-[var(--color-surface-2)] px-1.5 py-0.5 type-micro text-[var(--color-text-3)]">⌘K</kbd>
       </button>
 
       <div class="mx-1 h-3 w-px bg-[var(--color-line-strong)]"></div>
 
       <!-- Vault lock -->
       <button
-        class="flex items-center gap-1.5 border border-[var(--color-line)] px-2 py-0.5 rounded-sm text-[var(--color-text-4)] hover:border-[var(--color-accent)]/30 hover:text-[var(--color-accent)]"
+        class="flex items-center gap-1.5 border border-[var(--color-line)] px-2.5 py-1 rounded-sm text-[var(--color-text-3)] hover:border-[var(--color-accent)]/30 hover:text-[var(--color-accent)]"
         onclick={lockVault}
         title="Vault unlocked — click to lock"
       >
@@ -755,7 +756,7 @@
   </header>
 
   <!-- ── BODY ─────────────────────────────────────────────────────────── -->
-  <div class="grid flex-1 overflow-hidden" style="grid-template-columns: 60px {sidebarWidth}px 1fr">
+  <div class="grid flex-1 overflow-hidden" style="grid-template-columns: 64px {sidebarWidth}px 1fr">
     <!-- ── SECTION RAIL ─────────────────────────────── -->
     <NavRail sections={visibleSections} activeSectionId={activeSection.id} onSelect={(id) => selectSection(visibleSections.find((s) => s.id === id)!)} />
 
@@ -789,8 +790,8 @@
         {#if reconnectPending}
           <div class="flex shrink-0 items-center gap-3 border-b hairline surface-2 px-3 py-2 type-caption">
             <span>Workspace restored. Reconnect to reopen its saved hosts and tunnels.</span>
-            <button class="ml-auto rounded border hairline px-2 py-1 disabled:opacity-40" disabled={!workspaceReady} onclick={reconnectWorkspace}>Reconnect workspace</button>
-            <button class="rounded border hairline px-2 py-1" onclick={() => { reconnectPending = false; for (const tab of tabs) for (const leaf of leaves(tab.root)) if (!app.sessionHosts[leaf.sessionID]) app.sessionTargets[leaf.sessionID] = null; forwardIDs = []; }}>Use local shells</button>
+            <button class="ml-auto rounded border border-[var(--color-accent)]/40 bg-[var(--color-accent-soft)] px-2.5 py-1.5 font-medium text-[var(--color-accent)] disabled:opacity-40" disabled={!workspaceReady} onclick={reconnectWorkspace}>Reconnect workspace</button>
+            <button class="rounded border hairline px-2.5 py-1.5 text-[var(--color-text-2)] hover:border-[var(--color-line-strong)]" onclick={() => { reconnectPending = false; for (const tab of tabs) for (const leaf of leaves(tab.root)) if (!app.sessionHosts[leaf.sessionID]) app.sessionTargets[leaf.sessionID] = null; forwardIDs = []; }}>Use local shells</button>
           </div>
         {/if}
         {#if sessionSaveError}<p role="alert" class="px-3 py-2 type-caption text-[var(--color-danger)]">Workspace changes could not be saved. Local storage may be full.</p>{/if}
