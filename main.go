@@ -66,6 +66,7 @@ func main() {
 	httpRequests := store.NewHTTPRequests(conn.DB)
 	teamActivity := store.NewTeamActivities(conn.DB)
 	syncKeys := store.NewSyncKeys(conn.DB)
+	caKeys := store.NewCAKeys(conn.DB)
 	activities := store.NewActivities(conn.DB)
 	recMgr := recorder.NewManager()
 	v := vault.New(conn.DB)
