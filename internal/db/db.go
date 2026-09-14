@@ -248,6 +248,7 @@ func Migrate(conn *sql.DB) error {
 		{"host sudo secrets", schemaHostSudoSecrets},
 		{"vault remember", schemaVaultRemember},
 		{"sync key", schemaSyncKey},
+		{"ca key", schemaCAKey},
 	} {
 		if s.name == "activity seq backfill" {
 			if err := backfillActivitySeq(conn); err != nil {
