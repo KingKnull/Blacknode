@@ -488,6 +488,17 @@ CREATE TABLE IF NOT EXISTS sync_key (
 );
 `
 
+// schemaCAKey holds the SSH certificate authority signing key, sealed with the
+// vault master key. Single row by construction, like sync_key.
+const schemaCAKey = `
+CREATE TABLE IF NOT EXISTS ca_key (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    ciphertext BLOB NOT NULL,
+    nonce BLOB NOT NULL,
+    created_at INTEGER NOT NULL
+);
+`
+
 // postMigrationIndexes contains indexes that reference columns added by
 // migrations. They must run AFTER the ALTER TABLE statements, otherwise
 // existing-DB upgrades fail at startup.
