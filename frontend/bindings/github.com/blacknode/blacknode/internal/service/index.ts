@@ -6,6 +6,7 @@ import * as ActivityService from "./activityservice.js";
 import * as AuthPromptService from "./authpromptservice.js";
 import * as AutoLockService from "./autolockservice.js";
 import * as AutocompleteService from "./autocompleteservice.js";
+import * as CAService from "./caservice.js";
 import * as ContainerService from "./containerservice.js";
 import * as DBService from "./dbservice.js";
 import * as ExecService from "./execservice.js";
@@ -19,6 +20,7 @@ import * as MetricsService from "./metricsservice.js";
 import * as MoshService from "./moshservice.js";
 import * as NetworkService from "./networkservice.js";
 import * as NotificationService from "./notificationservice.js";
+import * as OpsConsoleService from "./opsconsoleservice.js";
 import * as PluginService from "./pluginservice.js";
 import * as PortForwardService from "./portforwardservice.js";
 import * as ProcessService from "./processservice.js";
@@ -39,6 +41,7 @@ export {
     AuthPromptService,
     AutoLockService,
     AutocompleteService,
+    CAService,
     ContainerService,
     DBService,
     ExecService,
@@ -52,6 +55,7 @@ export {
     MoshService,
     NetworkService,
     NotificationService,
+    OpsConsoleService,
     PluginService,
     PortForwardService,
     ProcessService,
@@ -76,23 +80,28 @@ export {
     AuthPromptRequest,
     AuthQuestion,
     AutoSyncConfig,
+    CAInfo,
     CastEvent,
     CertInfo,
     ConflictItem,
+    ConnectionHealth,
     Container,
     DBColumn,
     DBConnectionInfo,
     DBTable,
     DNSAnswer,
     DNSResult,
+    DiagnosticSection,
     ExecProgress,
     ExecResult,
     HTTPHeader,
     HTTPRequestOptions,
     HTTPResponse,
     HostMetrics,
+    IncidentSnapshot,
     LogLine,
     MetricAlertConfig,
+    MultiplexerSession,
     Notification,
     NotifyConfig,
     NotifyKind,
@@ -119,6 +128,7 @@ export {
     SSLResult,
     SavedConnection,
     SearchHit,
+    SignRequest,
     SnippetValidation,
     SnippetVariable,
     Suggestion,

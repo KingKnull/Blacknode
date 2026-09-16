@@ -4,6 +4,7 @@
 type EventMap = {
   'insert-into-active-terminal': string;
   'tile-active-hosts': void;
+  'toggle-focus-mode': void;
   'connect-host': { hostID: string };
   'connect-host-mosh': { hostID: string };
   // "Session X has a connect intent waiting." The intent itself lives in app

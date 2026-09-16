@@ -5,8 +5,10 @@
     VaultService,
     SnippetService,
     HostService,
+    HistoryService,
+    RecordingService,
   } from "../../bindings/github.com/blacknode/blacknode/internal/service";
-  import type { Snippet, Host } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
+  import type { Snippet, Host, HistoryEntry, Recording } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { bus } from "./events";
   import {
     TerminalSquare,
@@ -20,6 +22,7 @@
     Sparkles,
     Lock,
     Search,
+    ShieldCheck,
     Network,
     Film,
     Boxes,
@@ -63,10 +66,13 @@
   }
   let inputEl: HTMLInputElement | undefined = $state();
   let snippets = $state<Snippet[]>([]);
+  let historyEntries = $state<HistoryEntry[]>([]);
+  let recordings = $state<Recording[]>([]);
 
   const VIEW_ACTIONS: { id: View; label: string; icon: any }[] = [
     { id: "terminals", label: "Go to Terminals", icon: TerminalSquare },
     { id: "exec", label: "Go to Multi-host", icon: Zap },
+    { id: "ops", label: "Go to Ops Console", icon: ShieldCheck },
     { id: "runbooks", label: "Go to Runbooks", icon: Bookmark },
     { id: "files", label: "Go to Files", icon: Folder },
     { id: "metrics", label: "Go to Metrics", icon: Activity },
@@ -147,6 +153,15 @@
       },
     },
     {
+      id: "cmd:focus",
+      label: "Toggle focus mode",
+      hint: "Ctrl+Shift+Z · terminal-only chrome",
+      icon: LayoutGrid,
+      category: "Terminal",
+      keywords: "zen fullscreen focus hide chrome",
+      run: () => bus.emit("toggle-focus-mode"),
+    },
+    {
       id: "cmd:tile",
       label: "Tile active hosts",
       hint: "grid split all connected sessions",
@@ -172,6 +187,29 @@
         app.broadcastEnabled = !app.broadcastEnabled;
       },
     },
+    ...historyEntries.slice(0, 200).map((entry): Action => ({
+      id: `history:${entry.id}`,
+      label: `Run: ${entry.command}`,
+      hint: entry.hostName || "history",
+      icon: HistoryIcon,
+      category: "History",
+      keywords: `${entry.command} ${entry.hostName ?? ""} ${entry.source}`,
+      run: () => {
+        bus.emit("insert-into-active-terminal", entry.command);
+        app.view = "terminals";
+      },
+    })),
+    ...recordings.slice(0, 200).map((recording): Action => ({
+      id: `recording:${recording.id}`,
+      label: `Recording: ${recording.title}`,
+      hint: `${Math.round(recording.durationSeconds)}s`,
+      icon: Film,
+      category: "Recordings",
+      keywords: recording.title,
+      run: () => {
+        app.view = "recordings";
+      },
+    })),
     ...snippets.map(
       (s): Action => ({
         id: `snippet:${s.id}`,
@@ -289,9 +327,15 @@
       input = "";
       highlighted = 0;
       void focusInput();
-      // Refresh snippets on each open so newly-saved ones show up.
+      // Refresh searchable objects on each open so newly-saved items appear.
       void SnippetService.List().then((s) => {
         snippets = (s ?? []) as Snippet[];
+      });
+      void HistoryService.List("", "", 200).then((entries) => {
+        historyEntries = (entries ?? []) as HistoryEntry[];
+      });
+      void RecordingService.List().then((items) => {
+        recordings = (items ?? []) as Recording[];
       });
     }
   });

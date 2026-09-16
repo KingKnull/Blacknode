@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount, tick } from "svelte";
-  import { Events } from "@wailsio/runtime";
+  import { Clipboard as WailsClipboard, Events } from "@wailsio/runtime";
   import { Terminal } from "@xterm/xterm";
   import { FitAddon } from "@xterm/addon-fit";
   import { WebLinksAddon } from "@xterm/addon-web-links";
@@ -17,6 +17,7 @@
   } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { Snippet } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { focus } from "./actions";
+  import type { CommandBlock } from "./commandBlocks";
   import { app } from "./state.svelte";
   import { bus } from "./events";
   import SnippetApplyDialog from "./SnippetApplyDialog.svelte";
@@ -129,6 +130,8 @@
   let acBuffer = $state("");
   let showAutocomplete = $state(false);
 
+  let commandBlocks = $state<CommandBlock[]>([]);
+
   function stripAnsi(s: string): string {
     return s.replace(/\x1b\[[0-9;]*[A-Za-z]/g, "").replace(/\x1b\][^\x07]*\x07/g, "");
   }
@@ -136,6 +139,7 @@
   function updateAcBuffer(d: string) {
     // Newline / carriage return → reset buffer and dismiss.
     if (d === "\r" || d === "\n" || d.includes("\r") || d.includes("\n")) {
+      startCommandBlock(acBuffer);
       acBuffer = "";
       showAutocomplete = false;
       return;
@@ -163,6 +167,37 @@
     // Auto-show after 2 chars following a space (sub-command matching)
     const afterSpace = clean.includes(" ") && clean.split(" ").pop()!.length >= 2;
     showAutocomplete = clean.length >= 2 && (clean.length <= 60) && (!clean.includes(" ") || afterSpace);
+  }
+
+  function startCommandBlock(command: string) {
+    const clean = command.trim();
+    if (commandBlocks.length && commandBlocks.at(-1)?.running) {
+      const previous = commandBlocks.at(-1)!;
+      previous.running = false;
+      previous.endedAt = Date.now();
+    }
+    if (!clean) return;
+    commandBlocks.push({
+      id: crypto.randomUUID(),
+      command: clean,
+      startedAt: Date.now(),
+      running: true,
+      output: "",
+    });
+    if (commandBlocks.length > 100) commandBlocks.shift();
+  }
+
+  function recordCommandOutput(data: string) {
+    const block = commandBlocks.at(-1);
+    if (!block?.running) return;
+    const exitMarker = /\x1b\]133;D;(\d+)(?:\x07|\x1b\\)/.exec(data);
+    const clean = stripAnsi(data).replace(/\x1b\]133;D;\d+(?:\x07|\x1b\\)/g, "");
+    block.output = (block.output + clean).slice(-64 * 1024);
+    if (exitMarker) {
+      block.exitCode = Number(exitMarker[1]);
+      block.running = false;
+      block.endedAt = Date.now();
+    }
   }
 
   function acceptAutocomplete(text: string) {
@@ -197,7 +232,7 @@
     if (!sel) return;
     closeCtxMenu();
     try {
-      await navigator.clipboard.writeText(sel);
+      await WailsClipboard.SetText(sel);
     } catch {
       app.toast("error", "COPY FAILED", "Clipboard is unavailable in this webview.");
     }
@@ -206,7 +241,7 @@
   async function ctxPaste() {
     closeCtxMenu();
     try {
-      const text = await navigator.clipboard.readText();
+      const text = await WailsClipboard.Text();
       if (text) term?.paste(text);
     } catch {
       app.toast("error", "PASTE FAILED", "Clipboard is unavailable in this webview.");
@@ -530,6 +565,7 @@
       const p = e?.data;
       if (!p || p.sessionID !== sessionID) return;
       term?.write(p.data);
+      recordCommandOutput(p.data);
       checkForSudoPrompt(p.data);
       // Output landing on an unfocused pane → flag the tab as having unread output.
       if (!isFocused) app.markSessionUnread(sessionID);
@@ -1244,6 +1280,7 @@
     <!-- Side panel -->
     {#if showSidePanel}
       <TerminalSidePanel
+        commandBlocks={commandBlocks}
         hostID={connectedHostID}
         onInsert={(text) => { writeLocal(text); term?.focus(); }}
         onClose={() => (showSidePanel = false)}

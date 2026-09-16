@@ -45,6 +45,9 @@
     Server,
     Command,
     Sparkles,
+    ShieldCheck,
+    Maximize2,
+    Minimize2,
   } from "@lucide/svelte";
 
   type Tab = { id: string; root: PaneNode; activeLeafID: string };
@@ -241,6 +244,15 @@
       // are alternate encodings of ^[ ^\ ^] ^^ ^_ ^?. The canonical keys for
       // all of them (Esc, Ctrl+\ for SIGQUIT, Ctrl+], Backspace) are on other
       // keycodes and still reach the PTY untouched.
+      // Ctrl+Shift+Z keeps terminal search (Ctrl+Shift+F), clear (K), and
+      // broadcast (B) free while giving focus mode a memorable "zen" shortcut.
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        e.stopPropagation();
+        focusMode = !focusMode;
+        return;
+      }
+
       const digit = /^Digit([1-9])$/.exec(e.code);
       if (digit) {
         consume();
@@ -296,6 +308,7 @@
 
     // Tile active hosts — build a grid of all connected hosts in one tab.
     const offTile = bus.on('tile-active-hosts', () => tileActiveHosts());
+    const offFocusMode = bus.on('toggle-focus-mode', () => { focusMode = !focusMode; });
 
     // Connect a host from the detail panel / palette — open a fresh terminal
     // tab and route it to the chosen host once the Terminal has mounted.
@@ -312,6 +325,7 @@
       offInsert();
       window.removeEventListener("message", onPluginMessage);
       offTile();
+      offFocusMode();
       offConnect();
       offConnectMosh();
     };
@@ -535,6 +549,7 @@
     { id: "sessions", label: "Sessions", Icon: TerminalSquare, views: [
       { id: "terminals", label: "Terminals", Icon: TerminalSquare },
       { id: "exec", label: "Multi-host", Icon: Zap },
+      { id: "ops", label: "Ops Console", Icon: ShieldCheck },
       { id: "runbooks", label: "Runbooks", Icon: Bookmark },
       { id: "files", label: "Files", Icon: Folder },
       { id: "snippets", label: "Snippets", Icon: Bookmark },
@@ -651,6 +666,7 @@
   let sidebarWidth = $state(previous?.sidebarWidth ?? 252);
   let isResizing = $state(false);
   let shortcutOpen = $state(false);
+  let focusMode = $state(false);
 
   function startResize(e: MouseEvent) {
     isResizing = true;
@@ -674,6 +690,7 @@
 
 <div class="flex h-full w-full flex-col bg-[var(--color-surface-0)] text-[var(--color-text-1)]">
   <!-- ── TOP BAR ─────────────────────────────────────────────────────── -->
+  {#if !focusMode}
   <header class="relative flex h-12 shrink-0 items-center gap-3 border-b hairline surface-1 px-4">
     <div class="flex items-center gap-2 select-none">
       <div class="flex h-7 w-7 items-center justify-center border border-[var(--color-accent)]/35 bg-[var(--color-accent-soft)]" style="border-radius: var(--radius-sm);">
@@ -718,6 +735,15 @@
         {/if}
       </button>
 
+      <!-- Focus mode -->
+      <button
+        class="flex items-center gap-1.5 border border-[var(--color-line)] px-2.5 py-1 rounded-sm text-[var(--color-text-3)] transition-all hover:border-[var(--color-accent)]/30 hover:text-[var(--color-accent)]"
+        onclick={() => (focusMode = true)}
+        title="Focus mode (Ctrl+Shift+Z)"
+      >
+        <Maximize2 size="11" /><span>Focus</span>
+      </button>
+
       <!-- AI -->
       <button
         class="flex items-center gap-1.5 border px-2.5 py-1 rounded-sm transition-all {app.aiOpen
@@ -754,13 +780,15 @@
       </button>
     </div>
   </header>
+  {/if}
 
   <!-- ── BODY ─────────────────────────────────────────────────────────── -->
-  <div class="grid flex-1 overflow-hidden" style="grid-template-columns: 64px {sidebarWidth}px 1fr">
+  <div class="grid flex-1 overflow-hidden" style:grid-template-columns={focusMode ? '1fr' : `64px ${sidebarWidth}px 1fr`}>
     <!-- ── SECTION RAIL ─────────────────────────────── -->
-    <NavRail sections={visibleSections} activeSectionId={activeSection.id} onSelect={(id) => selectSection(visibleSections.find((s) => s.id === id)!)} />
+    {#if !focusMode}<NavRail sections={visibleSections} activeSectionId={activeSection.id} onSelect={(id) => selectSection(visibleSections.find((s) => s.id === id)!)} />{/if}
 
     <!-- ── SIDEBAR ─────────────────────────────────────── -->
+    {#if !focusMode}
     <aside class="relative overflow-hidden border-r hairline group/sidebar">
       <HostList />
       <!-- Resize handle — a separator is the correct role for a drag-to-resize
@@ -780,6 +808,7 @@
         ></span>
       </div>
     </aside>
+    {/if}
 
     <!-- Main + AI drawer -->
     <div
@@ -795,13 +824,26 @@
           </div>
         {/if}
         {#if sessionSaveError}<p role="alert" class="px-3 py-2 type-caption text-[var(--color-danger)]">Workspace changes could not be saved. Local storage may be full.</p>{/if}
+        {#if !focusMode}
         <SectionTabs
           views={sectionViews}
           activeView={app.view}
           onSelect={(id) => (app.view = id)}
           onNew={onNew}
         />
-        <HostDetail />
+        {/if}
+        {#if !focusMode}<HostDetail />{/if}
+        {#if focusMode}
+          <div class="pointer-events-none absolute right-3 top-3 z-30">
+            <button
+              class="pointer-events-auto flex items-center gap-1.5 rounded border hairline-strong bg-[var(--color-surface-2)]/90 px-2.5 py-1 type-caption text-[var(--color-text-2)] hover:text-[var(--color-accent)]"
+              onclick={() => (focusMode = false)}
+              title="Exit focus mode (Ctrl+Shift+Z)"
+            >
+              <Minimize2 size="11" />Exit focus
+            </button>
+          </div>
+        {/if}
         <PanelRouter>
           <!-- terminals view: tab bar + pane grid -->
           <div class="relative flex h-full flex-col">
@@ -873,5 +915,5 @@
   {/if}
 
   <!-- ── STATUS BAR ──────────────────────────────────────────────── -->
-  <StatusBar tabCount={tabs.length} {activeLeafCount} />
+  {#if !focusMode}<StatusBar tabCount={tabs.length} {activeLeafCount} />{/if}
 </div>

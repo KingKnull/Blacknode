@@ -63,6 +63,14 @@ exist. The Wails v3 framework is a prerelease, so expect churn there too. See
   MySQL / Redis / SOCKS.
 - **xterm.js** rendering with proper ANSI color, scrollback, JetBrains
   Mono Variable bundled for offline use.
+- **Focus mode** — `Ctrl+Shift+Z` hides app chrome and leaves only terminal
+  tabs, panes, and a compact exit control.
+- **Command blocks** — the terminal side panel records each submitted command,
+  output, duration, and shell-integration exit status when available; blocks
+  support rerun and output copy.
+- **Ops console** — one surface for a fleet command matrix, zero-agent
+  diagnostics, SSH connection health, tmux/Zellij session discovery, and
+  incident evidence snapshots.
 
 ### Host management
 - SQLite-backed registry; groups, tags, environment tagging
@@ -78,10 +86,10 @@ exist. The Wails v3 framework is a prerelease, so expect churn there too. See
   `mkfs`, `dd of=/dev/sd*`, fork bombs, etc. Two severity levels: warn
   (proceed button) and block-without-confirm (must type a phrase).
 - Production hosts in scope escalate confirmation severity automatically.
-- **Runbooks** — save ordered steps, add steps from snippets, substitute
-  variables, and review every rendered command before manually running across
-  selected SSH hosts. Set per-step timeouts, cancel a run, and optionally skip
-  later steps on hosts that fail. Results show each step and host separately.
+- **Runbooks** — save DAG steps with dependencies, rollback commands, variables,
+  and per-step timeouts. Preview/dry-run every rendered command, cancel a run,
+  skip failed hosts, and inspect per-step/per-host results including rollback
+  outcomes.
 
 ### Observability
 - **Metrics** — CPU / memory / disk and network throughput over SSH; Linux
@@ -125,6 +133,11 @@ exist. The Wails v3 framework is a prerelease, so expect churn there too. See
   grab, SSL certificate inspector with chain + expiry coloring.
 
 ### Productivity
+- **SSH certificate authority** — create a vault-sealed CA, copy the
+  authorized trust line, issue short-lived user certificates, and delete the CA
+  when its certificates should stop verifying.
+- **Global command palette** — search views, hosts, snippets, command history,
+  and recordings, plus quick connect and focus-mode actions.
 - **Customizable navigation** — Settings → Navigation shows or hides tools
   in the sidebar, section tabs, and New menu. Hidden tools remain accessible
   through the command palette; Terminals, Files, Vault, and Settings remain

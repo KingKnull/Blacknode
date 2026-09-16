@@ -2,17 +2,20 @@
   import { onMount } from "svelte";
   import { HistoryService, SnippetService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { HistoryEntry, Snippet } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
-  import { History, Bookmark, Palette as PaletteIcon, X, Search, ChevronRight } from "@lucide/svelte";
+  import { Clipboard as WailsClipboard } from "@wailsio/runtime";
+  import { commandDuration, type CommandBlock } from "./commandBlocks";
+  import { History, Bookmark, Palette as PaletteIcon, SquareTerminal, X, Search, ChevronRight } from "@lucide/svelte";
 
   type Props = {
+    commandBlocks: CommandBlock[];
     hostID: string | null;
     onInsert: (text: string) => void;
     onClose: () => void;
   };
-  let { hostID, onInsert, onClose }: Props = $props();
+  let { commandBlocks, hostID, onInsert, onClose }: Props = $props();
 
-  type Tab = "history" | "snippets" | "themes";
-  let activeTab = $state<Tab>("history");
+  type Tab = "blocks" | "history" | "snippets" | "themes";
+  let activeTab = $state<Tab>("blocks");
 
   // History
   let histEntries = $state<HistoryEntry[]>([]);
@@ -70,6 +73,14 @@
     loadHistory();
   });
 
+  async function copyBlockOutput(block: CommandBlock) {
+    try {
+      await WailsClipboard.SetText(block.output);
+    } catch {
+      // The panel is still useful for rerun/history without copy.
+    }
+  }
+
   function fmtAge(ts: number): string {
     const secs = Math.floor((Date.now() - ts * 1000) / 1000);
     if (secs < 60) return "now";
@@ -119,7 +130,7 @@
 
   <!-- Tab strip -->
   <div class="flex border-b hairline">
-    {#each [["history", History, "History"] as const, ["snippets", Bookmark, "Snippets"] as const, ["themes", PaletteIcon, "Themes"] as const] as [id, Icon, label]}
+    {#each [["blocks", SquareTerminal, "Blocks"] as const, ["history", History, "History"] as const, ["snippets", Bookmark, "Snippets"] as const, ["themes", PaletteIcon, "Themes"] as const] as [id, Icon, label]}
       <button
         class="flex flex-1 flex-col items-center gap-0.5 py-2 type-micro font-medium transition-colors {activeTab === id
           ? 'text-[var(--color-accent)] border-b-2 border-[var(--color-accent)] -mb-px'
@@ -134,6 +145,36 @@
 
   <!-- Tab content -->
   <div class="flex-1 overflow-hidden flex flex-col">
+
+    {#if activeTab === "blocks"}
+      <div class="flex-1 overflow-y-auto py-1">
+        {#each [...commandBlocks].reverse() as block (block.id)}
+          <details class="border-b hairline px-2 py-2">
+            <summary class="cursor-pointer">
+              <span class="block truncate font-mono type-micro text-[var(--color-text-1)]">{block.command}</span>
+              <span class="mt-0.5 flex items-center gap-2 type-nano text-[var(--color-text-4)]">
+                {commandDuration(block)}
+                {#if block.running}
+                  <span class="text-[var(--color-accent)]">running</span>
+                {:else if block.exitCode !== undefined}
+                  <span class={block.exitCode === 0 ? "text-[var(--color-success)]" : "text-[var(--color-danger)]"}>exit {block.exitCode}</span>
+                {/if}
+              </span>
+            </summary>
+            <div class="mt-2 flex gap-1">
+              <button class="rounded border hairline px-1.5 py-0.5 type-nano hover:text-[var(--color-accent)]" onclick={() => onInsert(block.command)}>Rerun</button>
+              <button class="rounded border hairline px-1.5 py-0.5 type-nano hover:text-[var(--color-accent)]" onclick={() => copyBlockOutput(block)}>Copy output</button>
+            </div>
+            <pre class="mt-2 max-h-40 overflow-auto rounded surface-3 p-2 font-mono type-nano text-[var(--color-text-3)]">{block.output || "(no output captured)"}</pre>
+          </details>
+        {:else}
+          <div class="px-3 py-6 text-center">
+            <SquareTerminal size="20" class="mx-auto mb-2 text-[var(--color-text-4)]" />
+            <p class="type-micro text-[var(--color-text-4)]">Run a command to build a searchable block.</p>
+          </div>
+        {/each}
+      </div>
+    {/if}
 
     {#if activeTab === "history"}
       <div class="px-2 py-2 border-b hairline">

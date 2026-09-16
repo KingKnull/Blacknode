@@ -16,7 +16,7 @@
   import Dialog from "./Dialog.svelte";
   import { ListChecks, Plus, Play, Square, Save, Trash2, ArrowUp, ArrowDown } from "@lucide/svelte";
 
-  const blank = (): Runbook => ({ id: "", name: "New runbook", steps: [{ name: "Check host", command: "uname -a" }], timeoutSeconds: 60, stopOnFailure: true });
+  const blank = (): Runbook => ({ id: "", name: "New runbook", steps: [{ name: "Check host", command: "uname -a", dependsOn: [], rollbackCommand: "" }], timeoutSeconds: 60, stopOnFailure: true });
   let books = $state<Runbook[]>([]);
   let snippets = $state<Snippet[]>([]);
   let book = $state<Runbook>(blank());
@@ -42,7 +42,9 @@
       const progress = event?.data;
       if (progress?.runID !== execution.runID) return;
       const result = progress.result as RunbookResult;
-      execution.results = [...execution.results.filter((r) => r.stepIndex !== result.stepIndex || r.result.hostID !== result.result.hostID), result];
+      // A rollback shares its step's index, so it needs `rollback` in the key
+      // or it would replace the failure row it is compensating for.
+      execution.results = [...execution.results.filter((r) => r.stepIndex !== result.stepIndex || r.result.hostID !== result.result.hostID || r.rollback !== result.rollback), result];
     });
   });
 
@@ -123,13 +125,39 @@
               <button aria-label={`Remove step ${i+1}`} disabled={book.steps.length === 1} onclick={() => book.steps = book.steps.filter((_, index) => i !== index)} class="disabled:opacity-30"><Trash2 size="13" /></button>
             </div>
             <textarea aria-label={`Step ${i+1} command`} rows="2" maxlength="16384" bind:value={step.command} class="w-full rounded border hairline surface-3 p-2 font-mono type-caption"></textarea>
+            <div class="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+              <label class="type-micro text-[var(--color-text-4)]">
+                Depends on
+                <select
+                  multiple
+                  aria-label={`Step ${i+1} dependencies`}
+                  class="mt-1 h-20 w-full rounded border hairline surface-3 p-1 font-mono type-micro"
+                >
+                  {#each book.steps.filter((candidate) => candidate.name !== step.name) as candidate (candidate.name)}
+                    <option
+                      selected={step.dependsOn?.includes(candidate.name)}
+                      onclick={() => {
+                        const set = new Set(step.dependsOn ?? []);
+                        if (set.has(candidate.name)) set.delete(candidate.name);
+                        else set.add(candidate.name);
+                        step.dependsOn = [...set];
+                      }}
+                    >{candidate.name}</option>
+                  {/each}
+                </select>
+              </label>
+              <label class="type-micro text-[var(--color-text-4)]">
+                Rollback command (optional)
+                <textarea aria-label={`Step ${i+1} rollback command`} rows="2" maxlength="16384" bind:value={step.rollbackCommand} class="mt-1 w-full rounded border hairline surface-3 p-2 font-mono type-micro"></textarea>
+              </label>
+            </div>
           </div>
         {/each}
       </div>
       <div class="flex flex-wrap items-center gap-2 type-caption">
-        <button class="flex items-center gap-1 rounded border hairline px-3 py-2 disabled:opacity-40" disabled={book.steps.length >= 32} onclick={() => book.steps.push({ name: `Step ${book.steps.length+1}`, command: "" })}><Plus size="13" />Add step</button>
+        <button class="flex items-center gap-1 rounded border hairline px-3 py-2 disabled:opacity-40" disabled={book.steps.length >= 32} onclick={() => book.steps.push({ name: `Step ${book.steps.length+1}`, command: "", dependsOn: [], rollbackCommand: "" })}><Plus size="13" />Add step</button>
         <select aria-label="Snippet to add" bind:value={snippetID} class="rounded border hairline surface-3 p-2"><option value="">Choose a snippet</option>{#each snippets as snippet}<option value={snippet.id}>{snippet.name}</option>{/each}</select>
-        <button class="rounded border hairline px-3 py-2 disabled:opacity-40" disabled={!snippetID || book.steps.length >= 32} onclick={() => { const snippet = snippets.find((s) => s.id === snippetID); if (snippet) book.steps.push({ name: snippet.name, command: snippet.body }); }}>Add snippet</button>
+        <button class="rounded border hairline px-3 py-2 disabled:opacity-40" disabled={!snippetID || book.steps.length >= 32} onclick={() => { const snippet = snippets.find((s) => s.id === snippetID); if (snippet) book.steps.push({ name: snippet.name, command: snippet.body, dependsOn: [], rollbackCommand: "" }); }}>Add snippet</button>
       </div>
       {#if variables.length}
         <div class="rounded border hairline p-3">
@@ -145,15 +173,15 @@
       <fieldset class="rounded border hairline p-3"><legend class="type-caption">Target hosts</legend>
         <div class="flex flex-wrap gap-3">{#each app.hosts.filter((h) => !h.protocol || h.protocol === 'ssh') as host}<label class="flex items-center gap-2 type-caption"><input type="checkbox" checked={hosts.includes(host.id)} onchange={(e) => hosts = e.currentTarget.checked ? [...hosts, host.id] : hosts.filter((id) => id !== host.id)} />{host.name}{host.environment === 'production' ? ' · production' : ''}</label>{/each}</div>
       </fieldset>
-      <button class="flex items-center gap-2 rounded bg-[var(--color-accent)] px-4 py-2 type-caption text-[var(--color-surface-0)] disabled:opacity-40" disabled={!hosts.length} onclick={review}><Play size="13" />Review run</button>
+      <button class="flex items-center gap-2 rounded bg-[var(--color-accent)] px-4 py-2 type-caption text-[var(--color-surface-0)] disabled:opacity-40" disabled={!hosts.length} onclick={review}><Play size="13" />Dry-run / review</button>
     </fieldset>
     {#if execution.runID}
       <div class="border-t hairline pt-4">
         <div class="flex items-center gap-3"><h3 class="type-body">{execution.name} — {execution.running ? "running" : "finished"}</h3>{#if execution.running}<button class="flex items-center gap-1 rounded border hairline px-3 py-1 type-caption" onclick={cancel}><Square size="12" />Cancel run</button>{/if}</div>
         {#if execution.error}<p role="alert" class="type-caption text-[var(--color-danger)]">{execution.error}</p>{/if}
-        {#each [...execution.results].sort((a,b) => a.stepIndex-b.stepIndex || a.result.hostID.localeCompare(b.result.hostID)) as result (`${result.stepIndex}:${result.result.hostID}`)}
-          <details class="mt-2 rounded border hairline surface-2 p-3" open={result.status === 'failed'}>
-            <summary class="cursor-pointer type-caption">{result.stepIndex+1}. {result.stepName} · {result.result.hostName || app.hosts.find((h) => h.id === result.result.hostID)?.name || result.result.hostID} · <span class={result.status === 'failed' ? 'text-[var(--color-danger)]' : result.status === 'ok' ? 'text-[var(--color-success)]' : ''}>{result.status}</span></summary>
+        {#each [...execution.results].sort((a,b) => a.stepIndex-b.stepIndex || a.result.hostID.localeCompare(b.result.hostID) || Number(a.rollback)-Number(b.rollback)) as result (`${result.stepIndex}:${result.result.hostID}:${result.rollback}`)}
+          <details class="mt-2 rounded border hairline surface-2 p-3" open={result.status.includes('failed')}>
+            <summary class="cursor-pointer type-caption">{result.stepIndex+1}. {result.stepName} · {result.result.hostName || app.hosts.find((h) => h.id === result.result.hostID)?.name || result.result.hostID} · <span class={result.status.includes('failed') ? 'text-[var(--color-danger)]' : result.status === 'ok' || result.status === 'rollback_ok' ? 'text-[var(--color-success)]' : ''}>{result.status}</span></summary>
             <pre class="mt-2 max-h-64 overflow-auto whitespace-pre-wrap font-mono type-caption">{result.result.stdout}{result.result.stderr}{result.result.error}</pre>
           </details>
         {/each}
@@ -167,7 +195,7 @@
     <h2 class="type-title">Run {pending.book.name}</h2>
     <p class="mt-2 type-caption">Hosts: {pending.hosts.map((id) => app.hosts.find((h) => h.id === id)?.name || id).join(", ")}</p>
     {#if pending.warning}<p class="mt-3 type-caption text-[var(--color-warn)]">{pending.warning}</p>{/if}
-    {#each pending.steps as step, i}<div class="mt-3"><p class="type-caption">{i+1}. {step.name}</p><pre class="mt-1 overflow-auto rounded surface-3 p-2 font-mono type-caption">{step.command}</pre></div>{/each}
+    {#each pending.steps as step, i}<div class="mt-3"><p class="type-caption">{i+1}. {step.name}{#if step.dependsOn?.length}<span class="ml-2 text-[var(--color-text-4)]">after {step.dependsOn.join(", ")}</span>{/if}</p><pre class="mt-1 overflow-auto rounded surface-3 p-2 font-mono type-caption">{step.command}</pre>{#if step.rollbackCommand}<p class="mt-1 type-micro text-[var(--color-text-4)]">rollback: {step.rollbackCommand}</p>{/if}</div>{/each}
     {#if pending.phrase}<label class="mt-3 block type-caption">Type <strong>{pending.phrase}</strong> to continue<input class="mt-1 w-full rounded border hairline surface-3 p-2" bind:value={phrase} /></label>{/if}
     <div class="mt-4 flex justify-end gap-2 type-caption"><button class="rounded border hairline px-3 py-2" onclick={() => pending = null}>Cancel</button><button class="rounded bg-[var(--color-accent)] px-3 py-2 text-[var(--color-surface-0)] disabled:opacity-40" disabled={!!pending.phrase && phrase !== pending.phrase} onclick={run}>Run {pending.steps.length} steps</button></div>
   </Dialog>

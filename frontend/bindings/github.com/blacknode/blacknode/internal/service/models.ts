@@ -323,6 +323,38 @@ export class AutoSyncConfig {
 }
 
 /**
+ * CAInfo is the non-secret description of the configured CA.
+ */
+export class CAInfo {
+    "exists": boolean;
+
+    /**
+     * PublicKey is the CA's public half in authorized_keys form. Safe to show
+     * and copy; it's what goes into sshd_config.
+     */
+    "publicKey"?: string;
+    "fingerprint"?: string;
+    "createdAt"?: number;
+
+    /** Creates a new CAInfo instance. */
+    constructor($$source: Partial<CAInfo> = {}) {
+        if (!("exists" in $$source)) {
+            this["exists"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new CAInfo instance from a string or object.
+     */
+    static createFrom($$source: any = {}): CAInfo {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new CAInfo($$parsedSource as Partial<CAInfo>);
+    }
+}
+
+/**
  * CastEvent is the over-the-wire shape of a single playback event. The cast
  * internal type uses a custom MarshalJSON for asciinema compatibility, which
  * the Wails binding generator can't introspect — this struct is the "wire"
@@ -470,6 +502,52 @@ export class ConflictItem {
     static createFrom($$source: any = {}): ConflictItem {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new ConflictItem($$parsedSource as Partial<ConflictItem>);
+    }
+}
+
+export class ConnectionHealth {
+    "latencyMs": number;
+    "jitterMs": number;
+    "sent": number;
+    "received": number;
+    "loss": number;
+    "quality": string;
+    "checkedAt": number;
+    "error"?: string;
+
+    /** Creates a new ConnectionHealth instance. */
+    constructor($$source: Partial<ConnectionHealth> = {}) {
+        if (!("latencyMs" in $$source)) {
+            this["latencyMs"] = 0;
+        }
+        if (!("jitterMs" in $$source)) {
+            this["jitterMs"] = 0;
+        }
+        if (!("sent" in $$source)) {
+            this["sent"] = 0;
+        }
+        if (!("received" in $$source)) {
+            this["received"] = 0;
+        }
+        if (!("loss" in $$source)) {
+            this["loss"] = 0;
+        }
+        if (!("quality" in $$source)) {
+            this["quality"] = "";
+        }
+        if (!("checkedAt" in $$source)) {
+            this["checkedAt"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ConnectionHealth instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ConnectionHealth {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ConnectionHealth($$parsedSource as Partial<ConnectionHealth>);
     }
 }
 
@@ -718,6 +796,44 @@ export class DNSResult {
             $$parsedSource["answers"] = $$createField1_0($$parsedSource["answers"]);
         }
         return new DNSResult($$parsedSource as Partial<DNSResult>);
+    }
+}
+
+export class DiagnosticSection {
+    "title": string;
+    "command": string;
+    "output": string;
+    "exitCode": number;
+    "error"?: string;
+    "durationMs": number;
+
+    /** Creates a new DiagnosticSection instance. */
+    constructor($$source: Partial<DiagnosticSection> = {}) {
+        if (!("title" in $$source)) {
+            this["title"] = "";
+        }
+        if (!("command" in $$source)) {
+            this["command"] = "";
+        }
+        if (!("output" in $$source)) {
+            this["output"] = "";
+        }
+        if (!("exitCode" in $$source)) {
+            this["exitCode"] = 0;
+        }
+        if (!("durationMs" in $$source)) {
+            this["durationMs"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DiagnosticSection instance from a string or object.
+     */
+    static createFrom($$source: any = {}): DiagnosticSection {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new DiagnosticSection($$parsedSource as Partial<DiagnosticSection>);
     }
 }
 
@@ -1012,6 +1128,48 @@ export class HostMetrics {
     }
 }
 
+export class IncidentSnapshot {
+    "runID": string;
+    "hostID": string;
+    "hostName": string;
+    "createdAt": number;
+    "sections": DiagnosticSection[];
+    "error"?: string;
+
+    /** Creates a new IncidentSnapshot instance. */
+    constructor($$source: Partial<IncidentSnapshot> = {}) {
+        if (!("runID" in $$source)) {
+            this["runID"] = "";
+        }
+        if (!("hostID" in $$source)) {
+            this["hostID"] = "";
+        }
+        if (!("hostName" in $$source)) {
+            this["hostName"] = "";
+        }
+        if (!("createdAt" in $$source)) {
+            this["createdAt"] = 0;
+        }
+        if (!("sections" in $$source)) {
+            this["sections"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new IncidentSnapshot instance from a string or object.
+     */
+    static createFrom($$source: any = {}): IncidentSnapshot {
+        const $$createField4_0 = $$createType10;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("sections" in $$parsedSource) {
+            $$parsedSource["sections"] = $$createField4_0($$parsedSource["sections"]);
+        }
+        return new IncidentSnapshot($$parsedSource as Partial<IncidentSnapshot>);
+    }
+}
+
 /**
  * LogLine is the per-line payload streamed to the frontend during a log run.
  * Lines from multiple hosts share a single streamID so the UI can colocate
@@ -1097,6 +1255,32 @@ export class MetricAlertConfig {
     static createFrom($$source: any = {}): MetricAlertConfig {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new MetricAlertConfig($$parsedSource as Partial<MetricAlertConfig>);
+    }
+}
+
+export class MultiplexerSession {
+    "manager": string;
+    "name": string;
+    "detail"?: string;
+
+    /** Creates a new MultiplexerSession instance. */
+    constructor($$source: Partial<MultiplexerSession> = {}) {
+        if (!("manager" in $$source)) {
+            this["manager"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new MultiplexerSession instance from a string or object.
+     */
+    static createFrom($$source: any = {}): MultiplexerSession {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new MultiplexerSession($$parsedSource as Partial<MultiplexerSession>);
     }
 }
 
@@ -1319,7 +1503,7 @@ export class PortScanResult {
      * Creates a new PortScanResult instance from a string or object.
      */
     static createFrom($$source: any = {}): PortScanResult {
-        const $$createField1_0 = $$createType10;
+        const $$createField1_0 = $$createType12;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("results" in $$parsedSource) {
             $$parsedSource["results"] = $$createField1_0($$parsedSource["results"]);
@@ -1532,8 +1716,8 @@ export class QueryResult {
      * Creates a new QueryResult instance from a string or object.
      */
     static createFrom($$source: any = {}): QueryResult {
-        const $$createField0_0 = $$createType12;
-        const $$createField1_0 = $$createType13;
+        const $$createField0_0 = $$createType14;
+        const $$createField1_0 = $$createType15;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("columns" in $$parsedSource) {
             $$parsedSource["columns"] = $$createField0_0($$parsedSource["columns"]);
@@ -1603,7 +1787,7 @@ export class RecordingDetail {
      * Creates a new RecordingDetail instance from a string or object.
      */
     static createFrom($$source: any = {}): RecordingDetail {
-        const $$createField12_0 = $$createType15;
+        const $$createField12_0 = $$createType17;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("events" in $$parsedSource) {
             $$parsedSource["events"] = $$createField12_0($$parsedSource["events"]);
@@ -1763,7 +1947,7 @@ export class Runbook {
      * Creates a new Runbook instance from a string or object.
      */
     static createFrom($$source: any = {}): Runbook {
-        const $$createField2_0 = $$createType17;
+        const $$createField2_0 = $$createType19;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("steps" in $$parsedSource) {
             $$parsedSource["steps"] = $$createField2_0($$parsedSource["steps"]);
@@ -1792,7 +1976,7 @@ export class RunbookProgress {
      * Creates a new RunbookProgress instance from a string or object.
      */
     static createFrom($$source: any = {}): RunbookProgress {
-        const $$createField1_0 = $$createType18;
+        const $$createField1_0 = $$createType20;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("result" in $$parsedSource) {
             $$parsedSource["result"] = $$createField1_0($$parsedSource["result"]);
@@ -1807,10 +1991,16 @@ export class RunbookResult {
     "command": string;
 
     /**
-     * running, ok, failed, skipped, canceled
+     * running, ok, failed, skipped, canceled, rollback_ok, rollback_failed
      */
     "status": string;
     "result": ExecResult;
+
+    /**
+     * Rollback marks the compensating run of a failed step. It shares the
+     * step's index, so consumers must key on it to keep both rows.
+     */
+    "rollback": boolean;
 
     /** Creates a new RunbookResult instance. */
     constructor($$source: Partial<RunbookResult> = {}) {
@@ -1828,6 +2018,9 @@ export class RunbookResult {
         }
         if (!("result" in $$source)) {
             this["result"] = (new ExecResult());
+        }
+        if (!("rollback" in $$source)) {
+            this["rollback"] = false;
         }
 
         Object.assign(this, $$source);
@@ -1850,6 +2043,16 @@ export class RunbookStep {
     "name": string;
     "command": string;
 
+    /**
+     * DependsOn names steps that must succeed on the same host first.
+     */
+    "dependsOn"?: string[];
+
+    /**
+     * RollbackCommand runs on the same host when this step fails.
+     */
+    "rollbackCommand"?: string;
+
     /** Creates a new RunbookStep instance. */
     constructor($$source: Partial<RunbookStep> = {}) {
         if (!("name" in $$source)) {
@@ -1866,7 +2069,11 @@ export class RunbookStep {
      * Creates a new RunbookStep instance from a string or object.
      */
     static createFrom($$source: any = {}): RunbookStep {
+        const $$createField2_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("dependsOn" in $$parsedSource) {
+            $$parsedSource["dependsOn"] = $$createField2_0($$parsedSource["dependsOn"]);
+        }
         return new RunbookStep($$parsedSource as Partial<RunbookStep>);
     }
 }
@@ -2053,7 +2260,7 @@ export class SSLResult {
      * Creates a new SSLResult instance from a string or object.
      */
     static createFrom($$source: any = {}): SSLResult {
-        const $$createField4_0 = $$createType19;
+        const $$createField4_0 = $$createType21;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("cert" in $$parsedSource) {
             $$parsedSource["cert"] = $$createField4_0($$parsedSource["cert"]);
@@ -2129,8 +2336,8 @@ export class SearchHit {
      * Creates a new SearchHit instance from a string or object.
      */
     static createFrom($$source: any = {}): SearchHit {
-        const $$createField0_0 = $$createType20;
-        const $$createField1_0 = $$createType22;
+        const $$createField0_0 = $$createType22;
+        const $$createField1_0 = $$createType24;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("recording" in $$parsedSource) {
             $$parsedSource["recording"] = $$createField0_0($$parsedSource["recording"]);
@@ -2139,6 +2346,66 @@ export class SearchHit {
             $$parsedSource["matches"] = $$createField1_0($$parsedSource["matches"]);
         }
         return new SearchHit($$parsedSource as Partial<SearchHit>);
+    }
+}
+
+/**
+ * SignRequest is the input to SignUserKey.
+ */
+export class SignRequest {
+    "keyID": string;
+
+    /**
+     * Principals are the remote usernames this certificate may log in as. An
+     * empty list is rejected: OpenSSH treats a certificate with no principals as
+     * valid for *every* user, which is never what someone means to ask for.
+     */
+    "principals": string[];
+
+    /**
+     * TTLSeconds defaults to defaultCertTTL, capped at maxCertTTL.
+     */
+    "ttlSeconds": number;
+
+    /**
+     * Extensions defaults to permit-pty only.
+     */
+    "extensions"?: string[];
+
+    /**
+     * SourceAddress, when set, restricts the certificate to these CIDRs.
+     */
+    "sourceAddress"?: string;
+
+    /** Creates a new SignRequest instance. */
+    constructor($$source: Partial<SignRequest> = {}) {
+        if (!("keyID" in $$source)) {
+            this["keyID"] = "";
+        }
+        if (!("principals" in $$source)) {
+            this["principals"] = [];
+        }
+        if (!("ttlSeconds" in $$source)) {
+            this["ttlSeconds"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SignRequest instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SignRequest {
+        const $$createField1_0 = $$createType2;
+        const $$createField3_0 = $$createType2;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("principals" in $$parsedSource) {
+            $$parsedSource["principals"] = $$createField1_0($$parsedSource["principals"]);
+        }
+        if ("extensions" in $$parsedSource) {
+            $$parsedSource["extensions"] = $$createField3_0($$parsedSource["extensions"]);
+        }
+        return new SignRequest($$parsedSource as Partial<SignRequest>);
     }
 }
 
@@ -2166,7 +2433,7 @@ export class SnippetValidation {
      * Creates a new SnippetValidation instance from a string or object.
      */
     static createFrom($$source: any = {}): SnippetValidation {
-        const $$createField0_0 = $$createType24;
+        const $$createField0_0 = $$createType26;
         const $$createField1_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("variables" in $$parsedSource) {
@@ -2562,19 +2829,21 @@ const $$createType5 = ExecResult.createFrom;
 const $$createType6 = $Create.Map($Create.Any, $Create.Any);
 const $$createType7 = HTTPHeader.createFrom;
 const $$createType8 = $Create.Array($$createType7);
-const $$createType9 = PortStatus.createFrom;
+const $$createType9 = DiagnosticSection.createFrom;
 const $$createType10 = $Create.Array($$createType9);
-const $$createType11 = QueryColumn.createFrom;
+const $$createType11 = PortStatus.createFrom;
 const $$createType12 = $Create.Array($$createType11);
-const $$createType13 = $Create.Array($$createType2);
-const $$createType14 = CastEvent.createFrom;
-const $$createType15 = $Create.Array($$createType14);
-const $$createType16 = RunbookStep.createFrom;
+const $$createType13 = QueryColumn.createFrom;
+const $$createType14 = $Create.Array($$createType13);
+const $$createType15 = $Create.Array($$createType2);
+const $$createType16 = CastEvent.createFrom;
 const $$createType17 = $Create.Array($$createType16);
-const $$createType18 = RunbookResult.createFrom;
-const $$createType19 = CertInfo.createFrom;
-const $$createType20 = store$0.Recording.createFrom;
-const $$createType21 = recorder$0.Match.createFrom;
-const $$createType22 = $Create.Array($$createType21);
-const $$createType23 = SnippetVariable.createFrom;
+const $$createType18 = RunbookStep.createFrom;
+const $$createType19 = $Create.Array($$createType18);
+const $$createType20 = RunbookResult.createFrom;
+const $$createType21 = CertInfo.createFrom;
+const $$createType22 = store$0.Recording.createFrom;
+const $$createType23 = recorder$0.Match.createFrom;
 const $$createType24 = $Create.Array($$createType23);
+const $$createType25 = SnippetVariable.createFrom;
+const $$createType26 = $Create.Array($$createType25);

@@ -18,6 +18,8 @@
   let activeIndex = $state(0);
   let loading = $state(false);
   let el: HTMLDivElement | undefined = $state();
+  let suggestTimer: ReturnType<typeof setTimeout> | undefined;
+  let suggestSequence = 0;
 
   // Strip ANSI escape sequences before matching.
   function stripAnsi(s: string): string {
@@ -42,21 +44,35 @@
   $effect(() => {
     const clean = stripAnsi(prefix).trim();
     if (clean.length < 2) {
+      // Bump the sequence so a request already in flight cannot repopulate the
+      // list for a prefix the user has since deleted below the threshold.
+      suggestSequence++;
       suggestions = [];
+      loading = false;
+      activeIndex = 0;
       return;
     }
     loading = true;
-    AutocompleteService.Suggest(clean, hostID, 8)
-      .then((res) => {
-        suggestions = (res ?? []) as Suggestion[];
-        activeIndex = 0;
-      })
-      .catch(() => {
-        suggestions = [];
-      })
-      .finally(() => {
-        loading = false;
-      });
+    const sequence = ++suggestSequence;
+    suggestTimer = setTimeout(() => {
+      AutocompleteService.Suggest(clean, hostID, 8)
+        .then((res) => {
+          if (sequence !== suggestSequence) return;
+          suggestions = (res ?? []) as Suggestion[];
+          activeIndex = 0;
+        })
+        .catch(() => {
+          if (sequence !== suggestSequence) return;
+          suggestions = [];
+        })
+        .finally(() => {
+          if (sequence === suggestSequence) loading = false;
+        });
+    }, 120);
+
+    return () => {
+      clearTimeout(suggestTimer);
+    };
   });
 
   function accept(s: Suggestion) {
@@ -87,6 +103,7 @@
     window.addEventListener("keydown", onKeyDown, true);
   });
   onDestroy(() => {
+    if (suggestTimer) clearTimeout(suggestTimer);
     window.removeEventListener("keydown", onKeyDown, true);
   });
 </script>

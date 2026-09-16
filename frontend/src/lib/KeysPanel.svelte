@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { KeyService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
+  import { onMount } from "svelte";
+  import { Clipboard as WailsClipboard } from "@wailsio/runtime";
+  import { CAService, KeyService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
   import EmptyState from "./EmptyState.svelte";
@@ -14,6 +16,7 @@
     Loader2,
     X,
     BadgeCheck,
+    ShieldCheck,
   } from "@lucide/svelte";
 
   let creating = $state(false);
@@ -89,6 +92,85 @@
     void navigator.clipboard.writeText(text);
     app.toast('ok', 'COPIED', 'Public key copied to clipboard.');
   }
+
+  // ── SSH certificate authority ────────────────────────────────────────
+  let caInfo = $state<{ exists: boolean; publicKey?: string; fingerprint?: string; createdAt?: number } | null>(null);
+  let caBusy = $state(false);
+  let caErr = $state("");
+  let caDeleteConfirm = $state(false);
+  let caSignKeyID = $state("");
+  let caPrincipals = $state("");
+  let caTTLHours = $state(8);
+
+  async function loadCA() {
+    try {
+      caInfo = await CAService.Info();
+    } catch {
+      caInfo = { exists: false };
+    }
+  }
+
+  async function setupCA() {
+    caBusy = true;
+    caErr = "";
+    try {
+      caInfo = await CAService.Setup();
+      app.toast("ok", "CA CREATED", "Copy the trust line into each host's sshd_config.");
+    } catch (e: any) {
+      caErr = String(e?.message ?? e);
+    } finally {
+      caBusy = false;
+    }
+  }
+
+  async function deleteCA() {
+    caDeleteConfirm = false;
+    caBusy = true;
+    try {
+      await CAService.Delete();
+      caInfo = { exists: false };
+      app.toast("ok", "CA DELETED", "Certificates it issued no longer verify.");
+    } catch (e: any) {
+      app.toast("error", "CA DELETE FAILED", String(e?.message ?? e));
+    } finally {
+      caBusy = false;
+    }
+  }
+
+  async function copyTrustLine() {
+    try {
+      const line = await CAService.AuthorizedCALine();
+      await WailsClipboard.SetText(line);
+      app.toast("ok", "TRUST LINE COPIED", "Add it to sshd_config or authorized_principals.");
+    } catch (e: any) {
+      app.toast("error", "COPY FAILED", String(e?.message ?? e));
+    }
+  }
+
+  async function issueCertificate() {
+    const principals = caPrincipals.split(/[\s,]+/).filter(Boolean);
+    if (!caSignKeyID || !principals.length) return;
+    caBusy = true;
+    caErr = "";
+    try {
+      await CAService.SignUserKey({
+        keyID: caSignKeyID,
+        principals,
+        ttlSeconds: caTTLHours * 3600,
+      });
+      await app.refreshKeys();
+      app.toast("ok", "CERTIFICATE ISSUED", "The selected key now carries a short-lived certificate.");
+    } catch (e: any) {
+      caErr = String(e?.message ?? e);
+    } finally {
+      caBusy = false;
+    }
+  }
+
+  onMount(() => {
+    loadCA();
+    caSignKeyID = app.keys[0]?.id ?? "";
+  });
 
   // ── Certificate attach / detach ──────────────────────────────────────
   let certTarget = $state<{ id: string; name: string } | null>(null);
@@ -244,6 +326,45 @@
   {/if}
 
   <div class="flex-1 overflow-y-auto p-4">
+    <section class="mb-4 rounded border hairline-strong surface-2 p-4">
+      <div class="flex items-center gap-2">
+        <ShieldCheck size="14" class="text-[var(--color-accent)]" />
+        <h3 class="type-body font-medium text-[var(--color-text-1)]">SSH certificate authority</h3>
+        <span class="ml-auto font-mono type-micro text-[var(--color-text-4)]">
+          {caInfo?.exists ? caInfo.fingerprint ?? "configured" : "not configured"}
+        </span>
+      </div>
+      {#if caInfo?.exists}
+        <div class="mt-3 flex flex-wrap gap-2">
+          <button class="rounded border hairline px-3 py-1.5 type-caption hover:text-[var(--color-accent)]" onclick={copyTrustLine}>Copy host trust line</button>
+          <button class="rounded border border-[var(--color-danger)]/40 px-3 py-1.5 type-caption text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10" onclick={() => (caDeleteConfirm = true)}>Delete CA</button>
+        </div>
+        <div class="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_140px_auto]">
+          <select class="rounded border hairline bg-[var(--color-surface-3)] px-2 py-2 type-caption" bind:value={caSignKeyID}>
+            <option value="">Select key…</option>
+            {#each app.keys as key (key.id)}<option value={key.id}>{key.name}</option>{/each}
+          </select>
+          <input class="rounded border hairline bg-[var(--color-surface-3)] px-2 py-2 font-mono type-caption" placeholder="user1,user2" bind:value={caPrincipals} />
+          <input class="rounded border hairline bg-[var(--color-surface-3)] px-2 py-2 font-mono type-caption" type="number" min="1" max="2160" bind:value={caTTLHours} />
+        </div>
+        <div class="mt-2 flex items-center gap-2">
+          <span class="type-micro text-[var(--color-text-4)]">TTL hours</span>
+          <button class="ml-auto rounded bg-[var(--color-accent)] px-3 py-1.5 type-caption text-[var(--color-surface-0)] disabled:opacity-40" disabled={caBusy || !caSignKeyID || !caPrincipals.trim()} onclick={issueCertificate}>
+            {#if caBusy}<Loader2 size="11" class="animate-spin" />{:else}Issue certificate{/if}
+          </button>
+        </div>
+      {:else}
+        <p class="mt-2 type-caption text-[var(--color-text-3)]">
+          Generate a sealed CA, trust its public key on hosts, then issue short-lived user certificates instead of managing authorized_keys everywhere.
+        </p>
+        <button class="mt-3 rounded bg-[var(--color-accent)] px-3 py-1.5 type-caption text-[var(--color-surface-0)] disabled:opacity-40" disabled={caBusy || !app.vault.unlocked} onclick={setupCA}>
+          {#if caBusy}<Loader2 size="11" class="animate-spin" />{:else}Create CA{/if}
+        </button>
+        {#if !app.vault.unlocked}<p class="mt-2 type-micro text-[var(--color-warn)]">Unlock the vault first.</p>{/if}
+      {/if}
+      {#if caErr}<p class="mt-2 type-caption text-[var(--color-danger)]">{caErr}</p>{/if}
+    </section>
+
     <div class="space-y-2">
       {#each app.keys as k (k.id)}
         <div
@@ -321,6 +442,18 @@
     productionHosts={[]}
     onCancel={() => (keyToDelete = null)}
     onConfirm={del}
+  />
+{/if}
+
+{#if caDeleteConfirm}
+  <ConfirmDanger
+    title="DELETE CERTIFICATE AUTHORITY"
+    body="Every certificate this CA issued stops verifying immediately. Host trust lines remain, but new certificates cannot be issued until a new CA is created."
+    severity="block-without-confirm"
+    requirePhrase="delete ca"
+    productionHosts={[]}
+    onCancel={() => (caDeleteConfirm = false)}
+    onConfirm={deleteCA}
   />
 {/if}
 
