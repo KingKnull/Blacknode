@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -24,10 +25,21 @@ type Key struct {
 	// (e.g. "ssh-ed25519-cert-v01@openssh.com AAAA…") issued by a CA for this
 	// key. When set, the dialer authenticates with the certificate rather than
 	// the bare public key. Not secret — safe to list.
-	Certificate         string `json:"certificate,omitempty"`
+	Certificate string `json:"certificate,omitempty"`
+	// Hardware marks a FIDO2/U2F security key (an "sk-" algorithm). The secret
+	// never leaves the token, so EncryptedPrivateKey and Nonce are empty and
+	// signing goes through the SSH agent. Everything else — public key,
+	// fingerprint, attached certificate — works the same way.
+	Hardware            bool   `json:"hardware,omitempty"`
 	CreatedAt           int64  `json:"createdAt"`
 	EncryptedPrivateKey []byte `json:"-"`
 	Nonce               []byte `json:"-"`
+}
+
+// HardwareKeyType reports whether an SSH public key algorithm is a FIDO2
+// security key, whose private half is held on the token rather than on disk.
+func HardwareKeyType(keyType string) bool {
+	return strings.HasPrefix(keyType, "sk-")
 }
 
 type Keys struct{ db *sql.DB }
@@ -35,7 +47,24 @@ type Keys struct{ db *sql.DB }
 func NewKeys(db *sql.DB) *Keys { return &Keys{db: db} }
 
 func (s *Keys) Create(k Key) (Key, error) {
-	if k.Name == "" || len(k.EncryptedPrivateKey) == 0 || len(k.Nonce) == 0 {
+	if k.Name == "" {
+		return Key{}, errors.New("name required")
+	}
+	// A hardware key has no private material to store by definition; every
+	// other kind must arrive sealed.
+	if k.Hardware {
+		if k.PublicKey == "" {
+			return Key{}, errors.New("a security key needs its public key")
+		}
+		// encrypted_private_key and nonce are NOT NULL, and database/sql sends
+		// a nil []byte as NULL, so empty non-nil slices are required here.
+		if k.EncryptedPrivateKey == nil {
+			k.EncryptedPrivateKey = []byte{}
+		}
+		if k.Nonce == nil {
+			k.Nonce = []byte{}
+		}
+	} else if len(k.EncryptedPrivateKey) == 0 || len(k.Nonce) == 0 {
 		return Key{}, errors.New("name and encrypted material required")
 	}
 	if k.ID == "" {
@@ -43,8 +72,8 @@ func (s *Keys) Create(k Key) (Key, error) {
 	}
 	k.CreatedAt = time.Now().Unix()
 	_, err := s.db.Exec(
-		`INSERT INTO keys (id, name, key_type, public_key, encrypted_private_key, nonce, fingerprint, certificate, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		k.ID, k.Name, k.KeyType, k.PublicKey, k.EncryptedPrivateKey, k.Nonce, k.Fingerprint, k.Certificate, k.CreatedAt,
+		`INSERT INTO keys (id, name, key_type, public_key, encrypted_private_key, nonce, fingerprint, certificate, created_at, hardware) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		k.ID, k.Name, k.KeyType, k.PublicKey, k.EncryptedPrivateKey, k.Nonce, k.Fingerprint, k.Certificate, k.CreatedAt, boolToInt(k.Hardware),
 	)
 	return k, err
 }
@@ -65,24 +94,32 @@ func (s *Keys) Delete(id string) error {
 }
 
 func (s *Keys) Get(id string) (Key, error) {
-	row := s.db.QueryRow(`SELECT id, name, key_type, public_key, encrypted_private_key, nonce, fingerprint, certificate, created_at FROM keys WHERE id = ?`, id)
-	var k Key
-	err := row.Scan(&k.ID, &k.Name, &k.KeyType, &k.PublicKey, &k.EncryptedPrivateKey, &k.Nonce, &k.Fingerprint, &k.Certificate, &k.CreatedAt)
+	row := s.db.QueryRow(`SELECT id, name, key_type, public_key, encrypted_private_key, nonce, fingerprint, certificate, created_at, hardware FROM keys WHERE id = ?`, id)
+	var (
+		k        Key
+		hardware int
+	)
+	err := row.Scan(&k.ID, &k.Name, &k.KeyType, &k.PublicKey, &k.EncryptedPrivateKey, &k.Nonce, &k.Fingerprint, &k.Certificate, &k.CreatedAt, &hardware)
+	k.Hardware = hardware != 0
 	return k, err
 }
 
 func (s *Keys) List() ([]Key, error) {
-	rows, err := s.db.Query(`SELECT id, name, key_type, public_key, fingerprint, certificate, created_at FROM keys ORDER BY name COLLATE NOCASE`)
+	rows, err := s.db.Query(`SELECT id, name, key_type, public_key, fingerprint, certificate, created_at, hardware FROM keys ORDER BY name COLLATE NOCASE`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	out := []Key{}
 	for rows.Next() {
-		var k Key
-		if err := rows.Scan(&k.ID, &k.Name, &k.KeyType, &k.PublicKey, &k.Fingerprint, &k.Certificate, &k.CreatedAt); err != nil {
+		var (
+			k        Key
+			hardware int
+		)
+		if err := rows.Scan(&k.ID, &k.Name, &k.KeyType, &k.PublicKey, &k.Fingerprint, &k.Certificate, &k.CreatedAt, &hardware); err != nil {
 			return nil, err
 		}
+		k.Hardware = hardware != 0
 		out = append(out, k)
 	}
 	return out, rows.Err()

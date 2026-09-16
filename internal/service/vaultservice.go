@@ -50,6 +50,13 @@ func WireSyncService(v *VaultService, sync *SyncService) {
 type VaultStatus struct {
 	Initialized bool `json:"initialized"`
 	Unlocked    bool `json:"unlocked"`
+	// PINAvailable reports that a quick PIN re-unlock is armed for this app
+	// run, so the lock screen can offer the PIN field instead of the
+	// passphrase. Always false after a restart — the PIN is memory-only.
+	PINAvailable bool `json:"pinAvailable"`
+	// PINAttemptsRemaining counts down to the point where the PIN is discarded
+	// and the passphrase becomes mandatory. Zero when no PIN is armed.
+	PINAttemptsRemaining int `json:"pinAttemptsRemaining"`
 }
 
 func (s *VaultService) Status(ctx context.Context) (VaultStatus, error) {
@@ -57,7 +64,68 @@ func (s *VaultService) Status(ctx context.Context) (VaultStatus, error) {
 	if err != nil {
 		return VaultStatus{}, err
 	}
-	return VaultStatus{Initialized: init, Unlocked: s.vault.IsUnlocked()}, nil
+	return VaultStatus{
+		Initialized:          init,
+		Unlocked:             s.vault.IsUnlocked(),
+		PINAvailable:         s.vault.PINAvailable(),
+		PINAttemptsRemaining: s.vault.PINAttemptsRemaining(),
+	}, nil
+}
+
+// EnablePIN arms a quick re-unlock PIN for the rest of this app run. Requires
+// the vault to be unlocked already: the PIN re-opens access that was proven
+// with the passphrase, it never grants it.
+//
+// The wrapped key is held in memory only and is gone on quit, so a short PIN
+// leaves nothing on disk to attack offline. See internal/vault/pin.go.
+func (s *VaultService) EnablePIN(ctx context.Context, pin string) error {
+	if err := s.vault.EnablePIN(pin); err != nil {
+		return err
+	}
+	s.activity.Record(store.Activity{
+		Source: "vault",
+		Kind:   "vault.pin.enabled",
+		Title:  "Quick unlock PIN set for this session",
+	})
+	if s.autoLock != nil {
+		s.autoLock.Touch(ctx)
+	}
+	return nil
+}
+
+func (s *VaultService) DisablePIN(ctx context.Context) error {
+	s.vault.DisablePIN()
+	s.activity.Record(store.Activity{
+		Source: "vault",
+		Kind:   "vault.pin.disabled",
+		Title:  "Quick unlock PIN cleared",
+	})
+	return nil
+}
+
+// UnlockWithPIN re-opens the vault from the armed PIN. Failures are recorded
+// like passphrase failures, and the underlying vault discards the PIN after
+// too many so this cannot be used to grind at the master key.
+func (s *VaultService) UnlockWithPIN(ctx context.Context, pin string) error {
+	if err := s.vault.UnlockWithPIN(pin); err != nil {
+		s.activity.Record(store.Activity{
+			Source: "vault",
+			Kind:   "vault.unlock.pin.failed",
+			Level:  "warn",
+			Title:  "PIN unlock failed",
+			Body:   err.Error(),
+		})
+		return err
+	}
+	s.activity.Record(store.Activity{
+		Source: "vault",
+		Kind:   "vault.unlock.pin",
+		Title:  "Vault unlocked with PIN",
+	})
+	if s.autoLock != nil {
+		s.autoLock.Touch(ctx)
+	}
+	return nil
 }
 
 func (s *VaultService) Setup(ctx context.Context, passphrase string) error {

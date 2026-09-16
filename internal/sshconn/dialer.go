@@ -3,6 +3,7 @@
 package sshconn
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"net"
@@ -316,12 +317,18 @@ func (d *Dialer) keySigners(t Target) ([]ssh.Signer, error) {
 	if t.KeyID == "" {
 		return nil, errors.New("keyID required for key auth")
 	}
-	if !d.Vault.IsUnlocked() {
-		return nil, errors.New("vault is locked — unlock before connecting")
-	}
 	k, err := d.Keys.Get(t.KeyID)
 	if err != nil {
 		return nil, fmt.Errorf("load key: %w", err)
+	}
+	// A security key's private half is on the token, so there is nothing to
+	// decrypt and the agent does the signing. Checked before the vault: a
+	// locked vault is irrelevant when no sealed material is involved.
+	if k.Hardware {
+		return d.hardwareKeySigners(k)
+	}
+	if !d.Vault.IsUnlocked() {
+		return nil, errors.New("vault is locked — unlock before connecting")
 	}
 	plain, err := d.Vault.Decrypt(k.EncryptedPrivateKey, k.Nonce)
 	if err != nil {
@@ -331,6 +338,35 @@ func (d *Dialer) keySigners(t Target) ([]ssh.Signer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse key: %w", err)
 	}
+	return withCertificate(signer, k)
+}
+
+// hardwareKeySigners finds the agent signer matching a registered security key
+// and returns it, with the key's certificate layered on when one is attached.
+//
+// Filtering to the one matching key matters: offering every agent identity
+// would make the server prompt a touch on whichever it tried first, so the
+// user would be tapping their token for the wrong credential.
+func (d *Dialer) hardwareKeySigners(k store.Key) ([]ssh.Signer, error) {
+	want, _, _, _, err := ssh.ParseAuthorizedKey([]byte(k.PublicKey))
+	if err != nil {
+		return nil, fmt.Errorf("parse security key: %w", err)
+	}
+	signers, err := agentSigners()
+	if err != nil {
+		return nil, fmt.Errorf("security keys sign through the SSH agent: %w", err)
+	}
+	wantBlob := want.Marshal()
+	for _, signer := range signers {
+		if bytes.Equal(signer.PublicKey().Marshal(), wantBlob) {
+			return withCertificate(signer, k)
+		}
+	}
+	return nil, fmt.Errorf("the agent does not hold %s — plug in the security key and run `ssh-add -K`", k.Name)
+}
+
+// withCertificate layers a key's attached OpenSSH certificate over its signer.
+func withCertificate(signer ssh.Signer, k store.Key) ([]ssh.Signer, error) {
 	if k.Certificate == "" {
 		return []ssh.Signer{signer}, nil
 	}

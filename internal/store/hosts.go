@@ -157,9 +157,10 @@ func validateEnvVars(vars []EnvVar) error {
 }
 
 // ExportCommand renders env vars as a single shell prefix suitable for sending
-// to an interactive shell. Values are wrapped in single quotes with embedded
-// quotes escaped the POSIX way ('\” closes, escapes, reopens), so no value can
-// break out into the command. Returns "" when there is nothing to export.
+// to an interactive shell. Values are wrapped in single quotes; an embedded
+// single quote is escaped the POSIX way, by closing the quoted run, emitting a
+// backslash-escaped quote, then reopening it. No value can break out into the
+// command. Returns "" when there is nothing to export.
 func ExportCommand(vars []EnvVar) string {
 	if len(vars) == 0 {
 		return ""

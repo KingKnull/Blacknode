@@ -43,6 +43,12 @@ type Vault struct {
 
 	mu        sync.RWMutex
 	masterKey []byte // 32 bytes when unlocked, nil when locked
+
+	// pin holds an optional PIN-wrapped copy of the master key for quick
+	// re-unlock after an idle lock. Memory-only and process-scoped; see pin.go
+	// for why that is what makes a short secret acceptable here. Deliberately
+	// not cleared by Lock — surviving auto-lock is its entire purpose.
+	pin pinStash
 }
 
 func New(db *sql.DB) *Vault {
