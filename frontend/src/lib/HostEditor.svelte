@@ -49,6 +49,33 @@
   let notes = $state(host?.notes ?? "");
   // svelte-ignore state_referenced_locally
   let startupSnippetID = $state(host?.startupSnippetID ?? "");
+  // Environment variables exported into sessions on this host. Copied rather
+  // than bound through, so cancelling the dialog discards the edits.
+  // svelte-ignore state_referenced_locally
+  let envVars = $state<{ name: string; value: string }[]>(
+    (host?.envVars ?? []).map((v) => ({ name: v.name, value: v.value })),
+  );
+
+  function addEnvVar() {
+    envVars = [...envVars, { name: "", value: "" }];
+  }
+  function removeEnvVar(index: number) {
+    envVars = envVars.filter((_, i) => i !== index);
+  }
+  // Mirrors store.envVarName on the Go side. Shown as inline validation so the
+  // rule is visible before saving rather than arriving as a save error.
+  const ENV_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+  function envNameError(index: number): string {
+    const entry = envVars[index];
+    if (!entry.name) return "";
+    if (!ENV_NAME_RE.test(entry.name)) return "Letters, digits and underscores only; cannot start with a digit.";
+    if (envVars.some((other, i) => i !== index && other.name === entry.name)) return "Defined twice.";
+    return "";
+  }
+  // Rows with no name are dropped on save rather than rejected, so an empty
+  // row left behind after clicking Add does not block the dialog.
+  let envVarsToSave = $derived(envVars.filter((v) => v.name.trim() !== ""));
+  let envVarsValid = $derived(envVars.every((_, i) => envNameError(i) === ""));
 
   // Snippets for the "run on connect" picker.
   let snippets = $state<Snippet[]>([]);
@@ -93,6 +120,10 @@
       err = "Name, host, and username are required";
       return;
     }
+    if (!envVarsValid) {
+      err = "Fix the highlighted environment variable names before saving";
+      return;
+    }
     busy = true;
     try {
       // Common protocol fields persisted regardless of transport.
@@ -114,9 +145,10 @@
           proxyJump,
           notes,
           startupSnippetID,
+          envVars: envVarsToSave,
           ...protoFields,
         } as Host);
-        savedHost = { ...host, name, host: hostName, port, username, authMethod, keyID, group, environment, proxyJump, notes, startupSnippetID, ...protoFields } as Host;
+        savedHost = { ...host, name, host: hostName, port, username, authMethod, keyID, group, environment, proxyJump, notes, startupSnippetID, envVars: envVarsToSave, ...protoFields } as Host;
       } else {
         savedHost = (await HostService.Create({
           name,
@@ -130,6 +162,7 @@
           proxyJump,
           notes,
           startupSnippetID,
+          envVars: envVarsToSave,
           ...protoFields,
           tags: [],
         } as unknown as Host)) as Host;
@@ -451,6 +484,55 @@
         </select>
         <p class="mt-1 type-caption text-[var(--color-text-4)]">Sent automatically once the session connects · variable defaults are used</p>
       </label>
+
+      <!-- Environment variables -->
+      <div class="block">
+        <div class="flex items-center gap-2">
+          <span class="type-caption text-[var(--color-text-4)]">Environment variables</span>
+          {#if group}
+            <span class="type-caption text-[var(--color-text-4)]">· merged with the {group} group's</span>
+          {/if}
+        </div>
+        {#each envVars as entry, i (i)}
+          {@const nameError = envNameError(i)}
+          <div class="mt-1.5 flex items-start gap-1.5">
+            <div class="w-2/5">
+              <input
+                class="w-full border hairline bg-[var(--color-surface-3)] px-2 py-1.5 font-mono type-caption text-[var(--color-text-1)] outline-none transition-colors {nameError ? 'border-[var(--color-danger)]/60' : 'focus:border-[var(--color-accent)]/50'}"
+                placeholder="NAME"
+                aria-label="Environment variable {i + 1} name"
+                aria-invalid={nameError ? "true" : undefined}
+                bind:value={entry.name}
+              />
+            </div>
+            <input
+              class="min-w-0 flex-1 border hairline bg-[var(--color-surface-3)] px-2 py-1.5 font-mono type-caption text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50 transition-colors"
+              placeholder="value"
+              aria-label="Environment variable {i + 1} value"
+              bind:value={entry.value}
+            />
+            <button
+              class="shrink-0 border hairline px-2 py-1.5 type-caption text-[var(--color-text-3)] transition-colors hover:border-[var(--color-danger)]/40 hover:text-[var(--color-danger)]"
+              onclick={() => removeEnvVar(i)}
+              title="Remove {entry.name || 'variable'}"
+              aria-label="Remove environment variable {i + 1}"
+            >
+              <X size="11" />
+            </button>
+          </div>
+          {#if nameError}
+            <p role="alert" class="mt-1 type-caption text-[var(--color-danger)]">{nameError}</p>
+          {/if}
+        {/each}
+        <button
+          class="mt-2 border hairline px-3 py-1.5 type-caption text-[var(--color-text-2)] transition-colors hover:border-[var(--color-accent)]/40 hover:text-[var(--color-accent)] disabled:opacity-40"
+          onclick={addEnvVar}
+          disabled={envVars.length >= 64}
+        >+ Add variable</button>
+        <p class="mt-1 type-caption text-[var(--color-text-4)]">
+          Exported into interactive sessions before the startup snippet runs · values cannot contain newlines
+        </p>
+      </div>
 
       <!-- Sudo password -->
       {#if protocol === 'ssh'}

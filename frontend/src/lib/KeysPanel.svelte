@@ -17,15 +17,18 @@
     X,
     BadgeCheck,
     ShieldCheck,
+    Usb,
   } from "@lucide/svelte";
 
   let creating = $state(false);
   let importing = $state(false);
+  let registeringSecurityKey = $state(false);
 
   let newName = $state("");
   let newType = $state("ed25519");
   let importText = $state("");
   let importPass = $state("");
+  let securityKeyText = $state("");
   let busy = $state(false);
   let err = $state("");
 
@@ -33,7 +36,36 @@
     newName = "";
     importText = "";
     importPass = "";
+    securityKeyText = "";
     err = "";
+  }
+
+  // FIDO2 keys are registered from their public half: the private key stays on
+  // the token, so there is nothing to import and signing goes through the SSH
+  // agent. The keypair itself is created by ssh-keygen, not here — this app
+  // has no way to talk to an authenticator directly.
+  async function registerSecurityKey() {
+    err = "";
+    if (!newName) {
+      err = "Name required";
+      return;
+    }
+    if (!securityKeyText.trim()) {
+      err = "Paste the security key's .pub line";
+      return;
+    }
+    busy = true;
+    try {
+      await KeyService.ImportSecurityKey(newName, securityKeyText);
+      await app.refreshKeys();
+      reset();
+      registeringSecurityKey = false;
+      app.toast("ok", "SECURITY KEY REGISTERED", "Add it to the agent with ssh-add -K, then select it on a host.");
+    } catch (e: any) {
+      err = String(e?.message ?? e);
+    } finally {
+      busy = false;
+    }
   }
 
   async function generate() {
@@ -221,8 +253,20 @@
       <button
         class="flex items-center gap-1 rounded-md border hairline-strong px-2.5 py-1 type-caption text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)]"
         onclick={() => {
+          registeringSecurityKey = true;
+          importing = false;
+          creating = false;
+          reset();
+        }}
+      >
+        <Usb size="11" /> security key
+      </button>
+      <button
+        class="flex items-center gap-1 rounded-md border hairline-strong px-2.5 py-1 type-caption text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)]"
+        onclick={() => {
           importing = true;
           creating = false;
+          registeringSecurityKey = false;
           reset();
         }}
       >
@@ -233,6 +277,7 @@
         onclick={() => {
           creating = true;
           importing = false;
+          registeringSecurityKey = false;
           reset();
         }}
       >
@@ -240,6 +285,51 @@
       </button>
     {/snippet}
   </PageHeader>
+
+  {#if registeringSecurityKey}
+    <div class="border-b hairline surface-1 p-4">
+      <div class="flex items-center gap-2">
+        <Usb size="12" class="text-[var(--color-accent)]" />
+        <h3 class="type-caption font-medium text-[var(--color-text-1)]">Register a FIDO2 security key</h3>
+        <button
+          class="ml-auto text-[var(--color-text-4)] hover:text-[var(--color-text-2)]"
+          onclick={() => (registeringSecurityKey = false)}
+          aria-label="Cancel"><X size="12" /></button
+        >
+      </div>
+      <p class="mt-2 type-caption text-[var(--color-text-3)]">
+        The private key never leaves the token, so only its public half is stored here and signing
+        goes through your SSH agent. Create the key with OpenSSH first:
+      </p>
+      <pre class="mt-2 overflow-x-auto rounded surface-3 p-2 font-mono type-caption text-[var(--color-text-2)]">ssh-keygen -t ed25519-sk -O resident -O verify-required</pre>
+      <div class="mt-3 grid gap-2">
+        <input
+          class="w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 type-body text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50"
+          placeholder="Name (e.g. yubikey-5c)"
+          aria-label="Security key name"
+          bind:value={newName}
+        />
+        <textarea
+          class="w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-caption text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50"
+          rows="3"
+          placeholder="sk-ssh-ed25519@openssh.com AAAA... comment"
+          aria-label="Security key public key"
+          bind:value={securityKeyText}
+        ></textarea>
+        {#if err}<p role="alert" class="type-caption text-[var(--color-danger)]">{err}</p>{/if}
+        <div class="flex items-center gap-2">
+          <button
+            class="flex items-center gap-1.5 rounded bg-[var(--color-accent)] px-3 py-1.5 type-caption font-medium text-[var(--color-surface-0)] disabled:opacity-40"
+            disabled={busy}
+            onclick={registerSecurityKey}
+          >
+            {#if busy}<Loader2 size="11" class="animate-spin" />{/if}Register
+          </button>
+          <span class="type-caption text-[var(--color-text-4)]">No vault unlock needed — there is no secret to seal.</span>
+        </div>
+      </div>
+    </div>
+  {/if}
 
   {#if creating}
     <div class="border-b hairline surface-1 p-4">
@@ -379,6 +469,14 @@
               class="border hairline px-1.5 py-0.5 type-micro font-mono text-[var(--color-text-2)]"
               >{k.keyType}</span
             >
+            {#if k.hardware}
+              <span
+                class="flex items-center gap-1 rounded border border-[var(--color-accent)]/40 px-1.5 py-0.5 type-micro font-medium text-[var(--color-accent)]"
+                title="FIDO2 security key — the private key stays on the token and signs through your SSH agent"
+              >
+                <Usb size="9" /> hardware
+              </span>
+            {/if}
             <span
               class="font-mono type-micro text-[var(--color-text-3)]"
               title={k.fingerprint}

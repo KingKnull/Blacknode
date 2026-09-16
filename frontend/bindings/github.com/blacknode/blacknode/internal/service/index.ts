@@ -7,11 +7,13 @@ import * as AuthPromptService from "./authpromptservice.js";
 import * as AutoLockService from "./autolockservice.js";
 import * as AutocompleteService from "./autocompleteservice.js";
 import * as CAService from "./caservice.js";
+import * as CloudImportService from "./cloudimportservice.js";
 import * as ContainerService from "./containerservice.js";
 import * as DBService from "./dbservice.js";
 import * as ExecService from "./execservice.js";
 import * as HTTPService from "./httpservice.js";
 import * as HistoryService from "./historyservice.js";
+import * as HostGroupService from "./hostgroupservice.js";
 import * as HostService from "./hostservice.js";
 import * as KeyService from "./keyservice.js";
 import * as LocalShellService from "./localshellservice.js";
@@ -42,11 +44,13 @@ export {
     AutoLockService,
     AutocompleteService,
     CAService,
+    CloudImportService,
     ContainerService,
     DBService,
     ExecService,
     HTTPService,
     HistoryService,
+    HostGroupService,
     HostService,
     KeyService,
     LocalShellService,
@@ -83,6 +87,7 @@ export {
     CAInfo,
     CastEvent,
     CertInfo,
+    CloudCredentials,
     ConflictItem,
     ConnectionHealth,
     Container,
@@ -92,12 +97,16 @@ export {
     DNSAnswer,
     DNSResult,
     DiagnosticSection,
+    DiscoveredHost,
     ExecProgress,
     ExecResult,
+    GroupSummary,
     HTTPHeader,
     HTTPRequestOptions,
     HTTPResponse,
     HostMetrics,
+    ImportRequest,
+    ImportResult,
     IncidentSnapshot,
     LogLine,
     MetricAlertConfig,

@@ -9,6 +9,22 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
+export function DisablePIN(): $CancellablePromise<void> {
+    return $Call.ByID(4253602353);
+}
+
+/**
+ * EnablePIN arms a quick re-unlock PIN for the rest of this app run. Requires
+ * the vault to be unlocked already: the PIN re-opens access that was proven
+ * with the passphrase, it never grants it.
+ * 
+ * The wrapped key is held in memory only and is gone on quit, so a short PIN
+ * leaves nothing on disk to attack offline. See internal/vault/pin.go.
+ */
+export function EnablePIN(pin: string): $CancellablePromise<void> {
+    return $Call.ByID(101035696, pin);
+}
+
 /**
  * ForgetPassphrase removes the stored remember-me token and its key file.
  */
@@ -50,6 +66,15 @@ export function Unlock(passphrase: string): $CancellablePromise<void> {
  */
 export function UnlockAndRemember(passphrase: string, rememberDays: number): $CancellablePromise<void> {
     return $Call.ByID(647994632, passphrase, rememberDays);
+}
+
+/**
+ * UnlockWithPIN re-opens the vault from the armed PIN. Failures are recorded
+ * like passphrase failures, and the underlying vault discards the PIN after
+ * too many so this cannot be used to grind at the master key.
+ */
+export function UnlockWithPIN(pin: string): $CancellablePromise<void> {
+    return $Call.ByID(2358447617, pin);
 }
 
 // Private type creation functions

@@ -152,6 +152,36 @@ export class ChainStatus {
     }
 }
 
+/**
+ * EnvVar is one exported shell variable. Name is restricted to the POSIX
+ * identifier character set by validateEnvVars — it is interpolated into an
+ * `export` command, so anything else would be a shell injection.
+ */
+export class EnvVar {
+    "name": string;
+    "value": string;
+
+    /** Creates a new EnvVar instance. */
+    constructor($$source: Partial<EnvVar> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("value" in $$source)) {
+            this["value"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new EnvVar instance from a string or object.
+     */
+    static createFrom($$source: any = {}): EnvVar {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new EnvVar($$parsedSource as Partial<EnvVar>);
+    }
+}
+
 export class Forward {
     "id": string;
     "name": string;
@@ -410,6 +440,20 @@ export class Host {
      * session is open, so it should be a deliberate per-host choice.
      */
     "forwardAgent"?: boolean;
+
+    /**
+     * Platform is the detected operating system family or Linux distribution
+     * ID ("ubuntu", "debian", "darwin", "windows", ...), filled in on first
+     * successful connect. Empty until then; purely cosmetic.
+     */
+    "platform"?: string;
+
+    /**
+     * EnvVars are exported into interactive sessions on this host, in order,
+     * before the startup snippet runs. A slice rather than a map so the order
+     * is stable and a later value can reference an earlier one.
+     */
+    "envVars"?: EnvVar[];
     "createdAt": number;
     "updatedAt": number;
     "lastConnectedAt": number;
@@ -458,11 +502,60 @@ export class Host {
      */
     static createFrom($$source: any = {}): Host {
         const $$createField10_0 = $$createType0;
+        const $$createField22_0 = $$createType3;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("tags" in $$parsedSource) {
             $$parsedSource["tags"] = $$createField10_0($$parsedSource["tags"]);
         }
+        if ("envVars" in $$parsedSource) {
+            $$parsedSource["envVars"] = $$createField22_0($$parsedSource["envVars"]);
+        }
         return new Host($$parsedSource as Partial<Host>);
+    }
+}
+
+/**
+ * HostGroup holds connection defaults shared by every host in a group. A host
+ * inherits a field only when it leaves that field empty, so an explicit value
+ * on the host always wins — see ApplyGroupDefaults.
+ * 
+ * Keyed by name rather than an ID because hosts.group_name is already the only
+ * link between a host and its group; adding an ID would create a second source
+ * of truth that the host list's free-text group field could contradict.
+ */
+export class HostGroup {
+    "name": string;
+    "username"?: string;
+    "port"?: number;
+    "authMethod"?: string;
+    "keyID"?: string;
+    "proxyJump"?: string;
+    "forwardAgent"?: boolean;
+    "envVars"?: EnvVar[];
+    "updatedAt": number;
+
+    /** Creates a new HostGroup instance. */
+    constructor($$source: Partial<HostGroup> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("updatedAt" in $$source)) {
+            this["updatedAt"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new HostGroup instance from a string or object.
+     */
+    static createFrom($$source: any = {}): HostGroup {
+        const $$createField7_0 = $$createType3;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("envVars" in $$parsedSource) {
+            $$parsedSource["envVars"] = $$createField7_0($$parsedSource["envVars"]);
+        }
+        return new HostGroup($$parsedSource as Partial<HostGroup>);
     }
 }
 
@@ -721,7 +814,7 @@ export class TeamActivity {
      * Creates a new TeamActivity instance from a string or object.
      */
     static createFrom($$source: any = {}): TeamActivity {
-        const $$createField4_0 = $$createType2;
+        const $$createField4_0 = $$createType4;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("counts" in $$parsedSource) {
             $$parsedSource["counts"] = $$createField4_0($$parsedSource["counts"]);
@@ -733,4 +826,6 @@ export class TeamActivity {
 // Private type creation functions
 const $$createType0 = $Create.Array($Create.Any);
 const $$createType1 = $Create.Map($Create.Any, $Create.Any);
-const $$createType2 = $Create.Map($Create.Any, $Create.Any);
+const $$createType2 = EnvVar.createFrom;
+const $$createType3 = $Create.Array($$createType2);
+const $$createType4 = $Create.Map($Create.Any, $Create.Any);

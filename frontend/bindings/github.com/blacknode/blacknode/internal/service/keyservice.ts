@@ -44,6 +44,24 @@ export function Import(name: string, privatePEM: string, passphrase: string): $C
     });
 }
 
+/**
+ * ImportSecurityKey registers a FIDO2 hardware key from its public half. The
+ * private key lives on the token and is never available to this process, so
+ * nothing is sealed into the vault and signing goes through the SSH agent —
+ * which is what actually talks to the authenticator.
+ * 
+ * Generate the key pair with OpenSSH first:
+ * 
+ * 	ssh-keygen -t ed25519-sk -O resident -O verify-required
+ * 
+ * then paste the resulting .pub line here.
+ */
+export function ImportSecurityKey(name: string, publicKey: string): $CancellablePromise<$models.PublicKeyView> {
+    return $Call.ByID(256602861, name, publicKey).then(($result: any) => {
+        return $$createType0($result);
+    });
+}
+
 export function List(): $CancellablePromise<$models.PublicKeyView[]> {
     return $Call.ByID(3063579717).then(($result: any) => {
         return $$createType1($result);

@@ -59,7 +59,7 @@ class AppState {
       if (!this.isViewVisible(this.view)) this.view = "settings";
     } catch (e) { this.toast("error", "Could not save navigation preferences", String(e)); }
   }
-  vault = $state<VaultStatus>({ initialized: false, unlocked: false });
+  vault = $state<VaultStatus>({ initialized: false, unlocked: false, pinAvailable: false, pinAttemptsRemaining: 0 });
   hosts = $state<Host[]>([]);
   keys = $state<PublicKeyView[]>([]);
   settings = $state<AppSettings>({

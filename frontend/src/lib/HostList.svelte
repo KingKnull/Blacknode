@@ -8,6 +8,7 @@
   import HostEditor from "./HostEditor.svelte";
   import SSHConfigImport from "./SSHConfigImport.svelte";
   import { envBadge } from "./envColor";
+  import { platformBadge } from "./platform";
   import {
     Search,
     Plus,
@@ -21,6 +22,7 @@
     Clock,
     Star,
     Wifi,
+    ChevronRight,
   } from "@lucide/svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
 
@@ -98,6 +100,43 @@
       return acc;
     }, {}),
   );
+
+  // Collapsed group names, persisted so a fleet organised into many groups
+  // does not reopen fully expanded on every launch. Stored as a list of
+  // collapsed names rather than expanded ones, so a newly added group starts
+  // open without needing a migration.
+  const COLLAPSED_KEY = "blacknode.hostlist.collapsedGroups";
+
+  function readCollapsed(): string[] {
+    try {
+      const raw = localStorage.getItem(COLLAPSED_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string") : [];
+    } catch {
+      return [];
+    }
+  }
+
+  let collapsedGroups = $state<string[]>(readCollapsed());
+
+  function toggleGroup(name: string) {
+    collapsedGroups = collapsedGroups.includes(name)
+      ? collapsedGroups.filter((n) => n !== name)
+      : [...collapsedGroups, name];
+    try {
+      localStorage.setItem(COLLAPSED_KEY, JSON.stringify(collapsedGroups));
+    } catch {
+      // A full quota only costs the persistence, not the interaction.
+    }
+  }
+
+  // While a filter is active every match should be visible, or searching would
+  // appear to return nothing for a collapsed group.
+  let filtering = $derived(filter.trim().length > 0);
+  function groupCollapsed(name: string): boolean {
+    return !filtering && collapsedGroups.includes(name);
+  }
 
   // Favorites — pinned hosts, always shown at the very top (respecting the
   // active filter so search still narrows them).
@@ -229,6 +268,7 @@
   {#snippet hostRow(h: Host)}
     {@const Icon = authIcon(h.authMethod)}
     {@const env = envBadge(h.environment)}
+    {@const platform = platformBadge(h.platform)}
     <div
       class="group relative mx-2 my-px flex items-center gap-2 overflow-hidden border px-2 py-2 transition-colors duration-150 {app.connectedHosts.has(h.id)
         ? 'border-[var(--color-accent)]/30 bg-[var(--color-accent-soft)] text-[var(--color-text-1)]'
@@ -262,6 +302,15 @@
         </span>
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-1.5">
+            {#if platform}
+              <span
+                class="shrink-0 rounded border px-1 type-nano font-semibold leading-[1.4] tabular"
+                style:color={platform.color}
+                style:border-color="{platform.color}59"
+                title={platform.label}
+                aria-label="Platform: {platform.label}"
+              >{platform.monogram}</span>
+            {/if}
             <span class="truncate type-body font-medium leading-tight text-[var(--color-text-1)]">{h.name}</span>
             {#if env.label}
               <span
@@ -321,6 +370,26 @@
     </div>
   {/snippet}
 
+  <!-- Group header — the same layout as sectionHeader, but the whole row is a
+       disclosure control for the group beneath it. -->
+  {#snippet groupHeader(label: string, count: number)}
+    {@const collapsed = groupCollapsed(label)}
+    <button
+      class="flex w-full items-center gap-2 px-3 pt-3 pb-1 text-left transition-colors hover:text-[var(--color-text-2)]"
+      onclick={() => toggleGroup(label)}
+      aria-expanded={!collapsed}
+      title={collapsed ? `Expand ${label}` : `Collapse ${label}`}
+    >
+      <ChevronRight
+        size="11"
+        class="shrink-0 text-[var(--color-text-4)] transition-transform duration-150 {collapsed ? '' : 'rotate-90'}"
+      />
+      <span class="type-eyebrow text-[var(--color-text-4)]">{label}</span>
+      <span class="rounded-full bg-[var(--color-surface-3)] px-1.5 type-micro tabular text-[var(--color-text-4)]">{count}</span>
+      <span class="h-px flex-1 bg-[var(--color-line)]"></span>
+    </button>
+  {/snippet}
+
   <!-- Host list -->
   <div class="flex-1 overflow-y-auto pb-2">
     {#if favoriteHosts.length > 0}
@@ -338,10 +407,12 @@
     {/if}
 
     {#each Object.entries(groups) as [name, list] (name)}
-      {@render sectionHeader(name, list.length)}
-      {#each list as h (h.id)}
-        {@render hostRow(h)}
-      {/each}
+      {@render groupHeader(name, list.length)}
+      {#if !groupCollapsed(name)}
+        {#each list as h (h.id)}
+          {@render hostRow(h)}
+        {/each}
+      {/if}
     {/each}
 
     {#if app.hosts.length === 0}

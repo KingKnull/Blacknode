@@ -13,6 +13,7 @@
     TelnetService,
     SerialService,
     HostService,
+    HostGroupService,
     SnippetService,
   } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { Snippet } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
@@ -678,16 +679,27 @@
     else if (mode === "serial" && status === "connected") void SerialService.Write(sessionID, d);
   }
 
-  // If the host defines a startup snippet, render it (using variable defaults)
-  // and send it once the shell is up. A short delay lets the remote prompt
-  // settle before we type into it.
+  // Send the host's environment variables, then its startup snippet, once the
+  // shell is up. A short delay lets the remote prompt settle before we type
+  // into it.
+  //
+  // Both are typed into the shell rather than passed through the SSH env
+  // channel: sshd only accepts variables named in its AcceptEnv, which almost
+  // no default configuration sets. The exports are rendered in Go so group
+  // inheritance and the quoting rules live in one place — see
+  // HostGroupService.EnvPrelude.
   function runStartupSnippet(hostID: string) {
     const host = app.hosts.find((h) => h.id === hostID);
-    if (!host?.startupSnippetID) return;
+    if (!host) return;
     setTimeout(async () => {
       if (disposed) return;
       try {
-        const rendered = await SnippetService.Apply(host.startupSnippetID!, {}, hostID, host.name, false);
+        const prelude = await HostGroupService.EnvPrelude(hostID);
+        if (prelude) writeLocal(prelude.endsWith("\n") ? prelude : prelude + "\n");
+      } catch { /* a host with no env vars is the common case — ignore */ }
+      if (disposed || !host.startupSnippetID) return;
+      try {
+        const rendered = await SnippetService.Apply(host.startupSnippetID, {}, hostID, host.name, false);
         if (rendered) writeLocal(rendered.endsWith("\n") ? rendered : rendered + "\n");
       } catch { /* snippet may have been deleted — ignore */ }
     }, 400);
