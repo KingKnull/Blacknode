@@ -205,7 +205,7 @@ func (s *ContainerService) PodLogs(ctx context.Context, hostID, namespace, pod, 
 // output. kubectl/docker frequently exit non-zero with a useful error message
 // on stderr — we surface that as the body, not an opaque error.
 func (s *ContainerService) runCmd(hostID, cmd string, timeout time.Duration) (string, error) {
-	h, err := s.hosts.Get(hostID)
+	h, err := s.hosts.GetResolved(hostID)
 	if err != nil {
 		return "", fmt.Errorf("load host: %w", err)
 	}

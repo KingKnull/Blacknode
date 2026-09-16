@@ -302,7 +302,7 @@ func (s *RunbookService) Run(ctx context.Context, runID string, book Runbook, ho
 		if seen[id] {
 			continue
 		}
-		host, err := s.exec.hosts.Get(id)
+		host, err := s.exec.hosts.GetResolved(id)
 		if err != nil {
 			return nil, err
 		}

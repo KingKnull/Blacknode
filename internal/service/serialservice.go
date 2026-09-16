@@ -52,7 +52,7 @@ func (s *SerialService) Connect(ctx context.Context, sessionID, hostID string) e
 	if sessionID == "" {
 		return errors.New("sessionID required")
 	}
-	h, err := s.hosts.Get(hostID)
+	h, err := s.hosts.GetResolved(hostID)
 	if err != nil {
 		return fmt.Errorf("load host: %w", err)
 	}

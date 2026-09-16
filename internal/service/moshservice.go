@@ -68,7 +68,7 @@ func (s *MoshService) Connect(ctx context.Context, sessionID, hostID string, col
 		return errors.New("mosh-client not found — install mosh (e.g. brew install mosh / apt install mosh)")
 	}
 
-	h, err := s.hosts.Get(hostID)
+	h, err := s.hosts.GetResolved(hostID)
 	if err != nil {
 		return fmt.Errorf("load host: %w", err)
 	}

@@ -101,7 +101,7 @@ func (s *SSHService) Connect(ctx context.Context, sessionID string, opts SSHConn
 // host is configured for password auth, the runtime password is supplied via
 // the password arg (we never persist passwords).
 func (s *SSHService) ConnectByHost(ctx context.Context, sessionID, hostID, password string, cols, rows int) error {
-	h, err := s.hosts.Get(hostID)
+	h, err := s.hosts.GetResolved(hostID)
 	if err != nil {
 		return fmt.Errorf("load host: %w", err)
 	}
@@ -234,6 +234,10 @@ func (s *SSHService) connectWith(sessionID string, t sshconn.Target, cols, rows 
 
 	if hostID != "" {
 		s.hosts.TouchLastConnected(hostID)
+		// Fill in the platform badge on first connect. Runs on its own
+		// goroutine with its own timeout: the session is already usable and
+		// must not wait on a cosmetic probe.
+		go s.detectPlatform(sessionID, hostID)
 	}
 	return nil
 }

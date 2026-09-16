@@ -65,7 +65,7 @@ func (s *TelnetService) Connect(ctx context.Context, sessionID, hostID string, c
 	if rows <= 0 {
 		rows = 24
 	}
-	h, err := s.hosts.Get(hostID)
+	h, err := s.hosts.GetResolved(hostID)
 	if err != nil {
 		return fmt.Errorf("load host: %w", err)
 	}

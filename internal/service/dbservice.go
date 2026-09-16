@@ -108,7 +108,7 @@ func sniffKind(dsn string) string {
 }
 
 func (s *DBService) connectPostgres(hostID, dsn string) (DBConnectionInfo, error) {
-	h, err := s.hosts.Get(hostID)
+	h, err := s.hosts.GetResolved(hostID)
 	if err != nil {
 		return DBConnectionInfo{}, fmt.Errorf("load host: %w", err)
 	}
@@ -153,7 +153,7 @@ func (s *DBService) connectPostgres(hostID, dsn string) (DBConnectionInfo, error
 // client). That's bounded by the number of distinct DB sessions opened in
 // the app's lifetime — acceptable.
 func (s *DBService) connectMySQL(hostID, dsn string) (DBConnectionInfo, error) {
-	h, err := s.hosts.Get(hostID)
+	h, err := s.hosts.GetResolved(hostID)
 	if err != nil {
 		return DBConnectionInfo{}, fmt.Errorf("load host: %w", err)
 	}
@@ -611,7 +611,7 @@ func (s *DBService) SaveConnection(ctx context.Context, name, kind, hostID, dsn 
 		return SavedConnection{}, err
 	}
 	hostName := ""
-	if h, err := s.hosts.Get(hostID); err == nil {
+	if h, err := s.hosts.GetResolved(hostID); err == nil {
 		hostName = h.Name
 	}
 	return SavedConnection{
@@ -628,7 +628,7 @@ func (s *DBService) ListSavedConnections(ctx context.Context) ([]SavedConnection
 	out := make([]SavedConnection, 0, len(rows))
 	for _, r := range rows {
 		hostName := ""
-		if h, err := s.hosts.Get(r.HostID); err == nil {
+		if h, err := s.hosts.GetResolved(r.HostID); err == nil {
 			hostName = h.Name
 		}
 		out = append(out, SavedConnection{

@@ -187,7 +187,7 @@ func (s *ProcessService) ServiceAction(ctx context.Context, hostID, unit, action
 // run dials via the pool and executes a one-shot command using the
 // centralized sshconn.Run helper.
 func (s *ProcessService) run(hostID, cmd string, timeout time.Duration) (string, error) {
-	h, err := s.hosts.Get(hostID)
+	h, err := s.hosts.GetResolved(hostID)
 	if err != nil {
 		return "", fmt.Errorf("load host: %w", err)
 	}

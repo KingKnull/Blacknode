@@ -101,7 +101,7 @@ func (s *HTTPService) Request(ctx context.Context, hostID string, opts HTTPReque
 		method = "GET"
 	}
 
-	h, err := s.hosts.Get(hostID)
+	h, err := s.hosts.GetResolved(hostID)
 	if err != nil {
 		return HTTPResponse{}, fmt.Errorf("load host: %w", err)
 	}

@@ -104,7 +104,7 @@ func (s *PortForwardService) Start(forwardID string) error {
 	if err != nil {
 		return fmt.Errorf("load forward: %w", err)
 	}
-	host, err := s.hosts.Get(f.HostID)
+	host, err := s.hosts.GetResolved(f.HostID)
 	if err != nil {
 		return fmt.Errorf("load host: %w", err)
 	}

@@ -170,7 +170,7 @@ func (s *ExecService) runOne(ctx context.Context, hostID, command string) ExecRe
 	start := time.Now()
 	res := ExecResult{HostID: hostID, ExitCode: -1}
 
-	h, err := s.hosts.Get(hostID)
+	h, err := s.hosts.GetResolved(hostID)
 	if err != nil {
 		res.Error = err.Error()
 		res.DurationMs = time.Since(start).Milliseconds()

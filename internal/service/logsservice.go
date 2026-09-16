@@ -84,7 +84,7 @@ func (s *LogsService) Start(streamID string, hostIDs []string, command string) e
 	s.mu.Unlock()
 
 	for _, id := range hostIDs {
-		h, err := s.hosts.Get(id)
+		h, err := s.hosts.GetResolved(id)
 		if err != nil {
 			s.emit(streamID, id, "?", fmt.Sprintf("[error: %v]", err), true)
 			continue

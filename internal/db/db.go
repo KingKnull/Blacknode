@@ -249,6 +249,7 @@ func Migrate(conn *sql.DB) error {
 		{"vault remember", schemaVaultRemember},
 		{"sync key", schemaSyncKey},
 		{"ca key", schemaCAKey},
+		{"host groups", schemaHostGroups},
 	} {
 		if s.name == "activity seq backfill" {
 			if err := backfillActivitySeq(conn); err != nil {
@@ -475,7 +476,28 @@ var columnMigrations = []string{
 	`ALTER TABLE activity ADD COLUMN seq INTEGER NOT NULL DEFAULT 0`,
 	`ALTER TABLE activity ADD COLUMN prev_hash TEXT NOT NULL DEFAULT ''`,
 	`ALTER TABLE activity ADD COLUMN hash TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE hosts ADD COLUMN platform TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE hosts ADD COLUMN env_vars TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE keys ADD COLUMN hardware INTEGER NOT NULL DEFAULT 0`,
 }
+
+// schemaHostGroups holds per-group connection defaults that member hosts
+// inherit for any field they leave empty. Keyed by the group name that
+// hosts.group_name already references — there is no group ID, so renaming a
+// group in the host list is the same operation as moving hosts between groups.
+const schemaHostGroups = `
+CREATE TABLE IF NOT EXISTS host_groups (
+    name TEXT PRIMARY KEY,
+    username TEXT NOT NULL DEFAULT '',
+    port INTEGER NOT NULL DEFAULT 0,
+    auth_method TEXT NOT NULL DEFAULT '',
+    key_id TEXT NOT NULL DEFAULT '',
+    proxy_jump TEXT NOT NULL DEFAULT '',
+    forward_agent INTEGER NOT NULL DEFAULT 0,
+    env_vars TEXT NOT NULL DEFAULT '',
+    updated_at INTEGER NOT NULL
+);
+`
 
 // schemaSyncKey holds the sync root key that encrypts sync blobs, sealed with
 // the vault master key. Single row by construction.

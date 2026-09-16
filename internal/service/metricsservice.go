@@ -213,7 +213,7 @@ func (s *MetricsService) maybeAlert(m HostMetrics) {
 
 func (s *MetricsService) collect(hostID string) HostMetrics {
 	m := HostMetrics{HostID: hostID, Timestamp: time.Now().Unix()}
-	h, err := s.hosts.Get(hostID)
+	h, err := s.hosts.GetResolved(hostID)
 	if err != nil {
 		m.Error = err.Error()
 		return m

@@ -183,7 +183,7 @@ func (s *NetworkService) PortScan(ctx context.Context, hostID, target string, po
 		return PortScanResult{}, fmt.Errorf("max 1024 ports per scan")
 	}
 
-	h, err := s.hosts.Get(hostID)
+	h, err := s.hosts.GetResolved(hostID)
 	if err != nil {
 		return PortScanResult{}, fmt.Errorf("load host: %w", err)
 	}
@@ -300,7 +300,7 @@ func (s *NetworkService) SSLCert(ctx context.Context, hostID, target string) (SS
 	}
 	hostPart, _, _ := net.SplitHostPort(target)
 
-	h, err := s.hosts.Get(hostID)
+	h, err := s.hosts.GetResolved(hostID)
 	if err != nil {
 		return SSLResult{}, fmt.Errorf("load host: %w", err)
 	}
@@ -393,7 +393,7 @@ func tlsVersionName(v uint16) string {
 // run is a slim wrapper that dials via the pool and executes a one-shot
 // command using the centralized sshconn.Run helper.
 func (s *NetworkService) run(hostID, cmd string, timeout time.Duration) (string, error) {
-	h, err := s.hosts.Get(hostID)
+	h, err := s.hosts.GetResolved(hostID)
 	if err != nil {
 		return "", fmt.Errorf("load host: %w", err)
 	}

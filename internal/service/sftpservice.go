@@ -73,7 +73,7 @@ func NewSFTPService(pool *sshconn.Pool, h *store.Hosts) *SFTPService {
 }
 
 func (s *SFTPService) withClient(hostID string, fn func(*sftp.Client) error) error {
-	h, err := s.hosts.Get(hostID)
+	h, err := s.hosts.GetResolved(hostID)
 	if err != nil {
 		return fmt.Errorf("load host: %w", err)
 	}

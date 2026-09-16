@@ -52,7 +52,8 @@ func main() {
 		log.Fatalf("db open: %v", err)
 	}
 
-	hosts := store.NewHosts(conn.DB)
+	hostGroups := store.NewHostGroups(conn.DB)
+	hosts := store.NewHosts(conn.DB).WithGroups(hostGroups)
 	keys := store.NewKeys(conn.DB)
 	knownHosts := store.NewKnownHosts(conn.DB)
 	secrets := store.NewSecrets(conn.DB)
@@ -100,6 +101,7 @@ func main() {
 			application.NewService(service.NewKeyService(keys, v)),
 			application.NewService(service.NewCAService(caKeys, keys, v, activityRec)),
 			application.NewService(service.NewHostService(hosts, knownHosts, secrets, v)),
+			application.NewService(service.NewHostGroupService(hostGroups, hosts)),
 			application.NewService(service.NewLocalShellService(recMgr, recordings, settings, dialer)),
 			application.NewService(service.NewSSHService(dialer, hosts, recMgr, recordings, settings)),
 			application.NewService(service.NewSFTPService(pool, hosts)),

@@ -128,7 +128,7 @@ func (s *OpsConsoleService) ConnectionHealth(ctx context.Context, hostID string)
 	if hostID == "" {
 		return health, errors.New("hostID required")
 	}
-	h, err := s.hosts.Get(hostID)
+	h, err := s.hosts.GetResolved(hostID)
 	if err != nil {
 		return health, err
 	}
@@ -186,7 +186,7 @@ func (s *OpsConsoleService) IncidentSnapshot(ctx context.Context, runID string, 
 			sem <- struct{}{}
 			defer func() { <-sem }()
 			snapshot := IncidentSnapshot{RunID: runID, HostID: id, CreatedAt: time.Now().Unix()}
-			if h, err := s.hosts.Get(id); err == nil {
+			if h, err := s.hosts.GetResolved(id); err == nil {
 				snapshot.HostName = h.Name
 			} else {
 				snapshot.Error = err.Error()
@@ -226,7 +226,7 @@ func (s *OpsConsoleService) IncidentSnapshot(ctx context.Context, runID string, 
 func (s *OpsConsoleService) runHostCommand(ctx context.Context, hostID, command string, timeout time.Duration) ExecResult {
 	start := time.Now()
 	result := ExecResult{HostID: hostID, ExitCode: -1}
-	h, err := s.hosts.Get(hostID)
+	h, err := s.hosts.GetResolved(hostID)
 	if err != nil {
 		result.Error = err.Error()
 		result.DurationMs = time.Since(start).Milliseconds()
