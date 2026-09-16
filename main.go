@@ -102,6 +102,7 @@ func main() {
 			application.NewService(service.NewCAService(caKeys, keys, v, activityRec)),
 			application.NewService(service.NewHostService(hosts, knownHosts, secrets, v)),
 			application.NewService(service.NewHostGroupService(hostGroups, hosts)),
+			application.NewService(service.NewCloudImportService(hosts)),
 			application.NewService(service.NewLocalShellService(recMgr, recordings, settings, dialer)),
 			application.NewService(service.NewSSHService(dialer, hosts, recMgr, recordings, settings)),
 			application.NewService(service.NewSFTPService(pool, hosts)),
