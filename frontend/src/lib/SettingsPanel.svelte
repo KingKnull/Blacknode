@@ -7,6 +7,7 @@
     UpdateService,
     SyncService,
     HostService,
+    VaultService,
   } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type {
     NotifyConfig,
@@ -21,6 +22,7 @@
   import PageHeader from "./PageHeader.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
   import EmptyState from "./EmptyState.svelte";
+  import GroupDefaults from "./GroupDefaults.svelte";
   import {
     Settings as SettingsIcon,
     Sparkles,
@@ -63,6 +65,38 @@
   let defaultShellPath = $state("");
   let metricsIntervalSeconds = $state(5);
   let terminalScrollback = $state(5000);
+
+  // Quick-unlock PIN. Never read back from the backend — there is nothing to
+  // read, the wrapped key is memory-only — so the field is write-only and the
+  // armed/not-armed state comes from app.vault.pinAvailable.
+  let newPin = $state("");
+  let savingPin = $state(false);
+  let pinErr = $state("");
+
+  async function savePin() {
+    pinErr = "";
+    savingPin = true;
+    try {
+      await VaultService.EnablePIN(newPin);
+      newPin = "";
+      await app.refreshVault();
+      app.toast("ok", "PIN SET", "It will unlock the vault until you quit the app.");
+    } catch (e: any) {
+      pinErr = String(e?.message ?? e);
+    } finally {
+      savingPin = false;
+    }
+  }
+
+  async function clearPin() {
+    try {
+      await VaultService.DisablePIN();
+      await app.refreshVault();
+      app.toast("ok", "PIN CLEARED", "Unlocking now requires your passphrase.");
+    } catch (e: any) {
+      pinErr = String(e?.message ?? e);
+    }
+  }
 
   // Mirrors ScrollbackMin/Max in internal/service/settingsservice.go, which is
   // authoritative and rejects anything outside them. These only drive the
@@ -574,7 +608,53 @@
               </button>
             </div>
           </label>
+
+          <!-- Quick-unlock PIN -->
+          <div class="mt-5 border-t hairline pt-5">
+            <div class="flex items-center justify-between">
+              <span class="type-caption font-bold text-[var(--color-text-1)]">Quick-unlock PIN</span>
+              <span class="type-micro text-[var(--color-text-3)]">
+                {app.vault.pinAvailable ? "active for this app run" : "not set"}
+              </span>
+            </div>
+            <p class="mt-0.5 type-caption text-[var(--color-text-3)] leading-relaxed">
+              Re-opens the vault after an auto-lock without retyping your passphrase. The PIN wraps a
+              copy of the master key <strong>in memory only</strong> — nothing is written to disk, so
+              there is no file to attack offline, and quitting the app clears it. Five wrong attempts
+              discard it and the passphrase is required again.
+            </p>
+            {#if app.vault.pinAvailable}
+              <div class="mt-2 flex items-center gap-2">
+                <button
+                  class="flex items-center gap-1 border hairline-strong px-3 py-1.5 type-caption text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 transition-colors"
+                  onclick={clearPin}
+                >CLEAR PIN</button>
+                <span class="type-caption text-[var(--color-text-4)]">{app.vault.pinAttemptsRemaining} attempts remaining</span>
+              </div>
+            {:else}
+              <div class="mt-2 flex items-center gap-2">
+                <input
+                  type="password"
+                  inputmode="numeric"
+                  autocomplete="off"
+                  placeholder="4–16 digits"
+                  aria-label="New quick-unlock PIN"
+                  class="w-32 border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-caption outline-none focus:border-[var(--color-accent)]/50 transition-all"
+                  bind:value={newPin}
+                />
+                <button
+                  class="flex items-center gap-1 border hairline-strong px-3 py-1.5 type-caption hover:bg-[var(--color-surface-3)] disabled:opacity-50 transition-colors"
+                  disabled={savingPin || newPin.length < 4}
+                  onclick={savePin}
+                >
+                  {#if savingPin}<Loader2 size="11" class="animate-spin" />{:else}SET PIN{/if}
+                </button>
+              </div>
+              {#if pinErr}<p role="alert" class="mt-2 type-caption text-[var(--color-danger)]">{pinErr}</p>{/if}
+            {/if}
+          </div>
         </section>
+        <GroupDefaults />
 
         <!-- Known Hosts -->
         <section id="section-knownhosts" class="border hairline-strong surface-2 p-6 shadow-xl" style="backdrop-filter: blur(12px) saturate(1.2);">

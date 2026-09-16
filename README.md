@@ -75,6 +75,21 @@ exist. The Wails v3 framework is a prerelease, so expect churn there too. See
 ### Host management
 - SQLite-backed registry; groups, tags, environment tagging
   (`dev / staging / production`).
+- **Group defaults** — set a username, port, auth method, key, bastion, agent
+  forwarding or environment variables once per group. A host inherits each
+  field only when it leaves that field empty, so anything set on the host
+  itself wins. Agent forwarding is one-way: a group can enable it, never
+  disable it on a host that asked for it.
+- **Per-host environment variables** — exported into interactive sessions
+  before the startup snippet, merged with the group's (group first, so host
+  values can reference them).
+- **Platform badges** — the host's OS is detected on first connect and shown
+  as a distro-coloured monogram in the sidebar; groups collapse, and the
+  collapsed set is remembered.
+- **Cloud import** — discover running instances from AWS EC2, DigitalOcean or
+  Azure, review the candidates, then import with a shared group/key. Hosts
+  already saved are flagged and skipped rather than duplicated. Credentials
+  are used for the lookup only and never stored.
 - Production hosts get a colored stripe in the sidebar, a connect-time
   confirmation, and a persistent red `PRODUCTION SESSION` strip across
   the top of the terminal.
@@ -136,6 +151,18 @@ exist. The Wails v3 framework is a prerelease, so expect churn there too. See
 - **SSH certificate authority** — create a vault-sealed CA, copy the
   authorized trust line, issue short-lived user certificates, and delete the CA
   when its certificates should stop verifying.
+- **FIDO2 security keys** — register an `sk-ecdsa-sha2-nistp256@openssh.com` or
+  `sk-ssh-ed25519@openssh.com` key from its public half. The private key stays
+  on the token; signing goes through your SSH agent, filtered to the one
+  matching key so you are never asked to touch the token for a different
+  credential. Generate the key with
+  `ssh-keygen -t ed25519-sk -O resident -O verify-required` first.
+- **Quick-unlock PIN** — re-opens the vault after an idle auto-lock without
+  retyping the passphrase. The PIN wraps a copy of the master key *in memory
+  only*: nothing is written to disk, so there is no file to brute-force
+  offline, and quitting the app clears it. Five wrong attempts discard it.
+  (Real biometrics would need OS keystore APIs — Secure Enclave, Windows
+  Hello, TPM2 — that Wails v3 does not currently expose.)
 - **Global command palette** — search views, hosts, snippets, command history,
   and recordings, plus quick connect and focus-mode actions.
 - **Customizable navigation** — Settings → Navigation shows or hides tools

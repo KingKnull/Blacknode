@@ -10,9 +10,35 @@
 
   let passphrase = $state("");
   let confirmPass = $state("");
+  let pin = $state("");
   let busy = $state(false);
   let err = $state("");
   let rememberMe = $state(true);
+
+  // When a PIN is armed for this app run, offer it instead of the passphrase —
+  // this is the idle-auto-lock case the PIN exists for. Falling back to the
+  // passphrase stays one click away, and becomes the only option once the PIN
+  // is exhausted. pinAvailable is always false after a restart, since the
+  // wrapped key is memory-only.
+  let usePin = $state(true);
+  let pinMode = $derived(usePin && app.vault.pinAvailable);
+
+  async function unlockWithPin() {
+    err = "";
+    busy = true;
+    try {
+      await VaultService.UnlockWithPIN(pin);
+      app.suppressAutoUnlock = false;
+      await app.refreshAll();
+      pin = "";
+    } catch (e: any) {
+      err = String(e?.message ?? e);
+      pin = "";
+      // A lockout clears pinAvailable on the backend; refresh so the form
+      // switches to the passphrase rather than accepting more attempts.
+      await app.refreshVault();
+    } finally { busy = false; }
+  }
 
   // The gate has exactly one job — take a passphrase. Focus it immediately so
   // keystrokes aren't silently swallowed by <body>.
@@ -122,27 +148,59 @@
             <span class="type-eyebrow font-mono type-micro text-[var(--color-text-1)]">Unlock vault</span>
           </div>
           <div class="space-y-4 p-5">
-            <p class="type-caption text-[var(--color-text-3)] leading-relaxed">
-              Enter your passphrase to decrypt keys for this session.
-            </p>
-            <input type="password"
-              class="w-full border hairline bg-[var(--color-surface-3)] px-3 py-2.5 font-mono type-body text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
-              style="border-radius: var(--radius-sm);"
-              placeholder="Passphrase" bind:value={passphrase} use:focusOnMount
-              onkeydown={(e) => e.key === "Enter" && unlock()} />
-            <div class="flex items-center gap-2 px-1">
-              <input id="rememberMe" type="checkbox" bind:checked={rememberMe}
-                class="h-3 w-3 border hairline bg-[var(--color-surface-3)] text-[var(--color-accent)] focus:ring-0" />
-              <label for="rememberMe" class="select-none type-caption text-[var(--color-text-4)] hover:text-[var(--color-text-2)] cursor-pointer transition-colors">
-                Remember for 60 days
-              </label>
-            </div>
-            {#if err}<p class="type-caption text-[var(--color-danger)]">{err}</p>{/if}
-            <button onclick={unlock} disabled={busy || !passphrase}
-              class="flex w-full items-center justify-center gap-2 border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 py-2.5 type-body font-semibold text-[var(--color-accent)] hover:bg-[var(--color-accent)]/18 hover:shadow-[0_0_20px_rgba(59,130,246,0.1)] disabled:opacity-30 transition-all"
-              style="border-radius: var(--radius-sm);">
-              {#if busy}<Loader2 size="14" class="animate-spin" /> Unlocking...{:else}Unlock{/if}
-            </button>
+            {#if pinMode}
+              <p class="type-caption text-[var(--color-text-3)] leading-relaxed">
+                Enter your quick-unlock PIN. It is held in memory for this app run only.
+              </p>
+              <input type="password" inputmode="numeric" autocomplete="off"
+                class="w-full border hairline bg-[var(--color-surface-3)] px-3 py-2.5 text-center font-mono type-body tracking-[0.4em] text-[var(--color-text-1)] outline-none placeholder:tracking-normal placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
+                style="border-radius: var(--radius-sm);"
+                placeholder="PIN" bind:value={pin} use:focusOnMount
+                onkeydown={(e) => e.key === "Enter" && unlockWithPin()} />
+              {#if app.vault.pinAttemptsRemaining <= 2}
+                <p class="type-caption text-[var(--color-warn)]">
+                  {app.vault.pinAttemptsRemaining} attempt{app.vault.pinAttemptsRemaining === 1 ? "" : "s"} left before the PIN is cleared.
+                </p>
+              {/if}
+              {#if err}<p role="alert" class="type-caption text-[var(--color-danger)]">{err}</p>{/if}
+              <button onclick={unlockWithPin} disabled={busy || !pin}
+                class="flex w-full items-center justify-center gap-2 border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 py-2.5 type-body font-semibold text-[var(--color-accent)] hover:bg-[var(--color-accent)]/18 hover:shadow-[0_0_20px_rgba(59,130,246,0.1)] disabled:opacity-30 transition-all"
+                style="border-radius: var(--radius-sm);">
+                {#if busy}<Loader2 size="14" class="animate-spin" /> Unlocking...{:else}Unlock with PIN{/if}
+              </button>
+              <button onclick={() => { usePin = false; err = ""; pin = ""; }}
+                class="w-full type-caption text-[var(--color-text-4)] hover:text-[var(--color-text-2)] transition-colors">
+                Use passphrase instead
+              </button>
+            {:else}
+              <p class="type-caption text-[var(--color-text-3)] leading-relaxed">
+                Enter your passphrase to decrypt keys for this session.
+              </p>
+              <input type="password"
+                class="w-full border hairline bg-[var(--color-surface-3)] px-3 py-2.5 font-mono type-body text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
+                style="border-radius: var(--radius-sm);"
+                placeholder="Passphrase" bind:value={passphrase} use:focusOnMount
+                onkeydown={(e) => e.key === "Enter" && unlock()} />
+              <div class="flex items-center gap-2 px-1">
+                <input id="rememberMe" type="checkbox" bind:checked={rememberMe}
+                  class="h-3 w-3 border hairline bg-[var(--color-surface-3)] text-[var(--color-accent)] focus:ring-0" />
+                <label for="rememberMe" class="select-none type-caption text-[var(--color-text-4)] hover:text-[var(--color-text-2)] cursor-pointer transition-colors">
+                  Remember for 60 days
+                </label>
+              </div>
+              {#if err}<p role="alert" class="type-caption text-[var(--color-danger)]">{err}</p>{/if}
+              <button onclick={unlock} disabled={busy || !passphrase}
+                class="flex w-full items-center justify-center gap-2 border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 py-2.5 type-body font-semibold text-[var(--color-accent)] hover:bg-[var(--color-accent)]/18 hover:shadow-[0_0_20px_rgba(59,130,246,0.1)] disabled:opacity-30 transition-all"
+                style="border-radius: var(--radius-sm);">
+                {#if busy}<Loader2 size="14" class="animate-spin" /> Unlocking...{:else}Unlock{/if}
+              </button>
+              {#if app.vault.pinAvailable}
+                <button onclick={() => { usePin = true; err = ""; passphrase = ""; }}
+                  class="w-full type-caption text-[var(--color-text-4)] hover:text-[var(--color-text-2)] transition-colors">
+                  Use PIN instead
+                </button>
+              {/if}
+            {/if}
           </div>
         {/if}
       </div>
