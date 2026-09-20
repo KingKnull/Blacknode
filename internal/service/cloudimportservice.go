@@ -522,6 +522,11 @@ func (s *CloudImportService) discoverAzure(ctx context.Context, creds CloudCrede
 	payload, err := json.Marshal(map[string]any{
 		"subscriptions": []string{creds.SubscriptionID},
 		"query":         azureResourceGraphQuery,
+		// resultFormat must be set explicitly: the REST API defaults to "table"
+		// (data as {columns, rows}), which azureGraphResponse cannot decode.
+		// objectArray returns data as [{...}], one object per VM — the shape the
+		// parser and the query's `project` list expect.
+		"options": map[string]any{"resultFormat": "objectArray"},
 	})
 	if err != nil {
 		return nil, err

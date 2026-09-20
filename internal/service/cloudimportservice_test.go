@@ -367,3 +367,100 @@ func TestFirstLineTruncatesAndStopsAtNewline(t *testing.T) {
 		t.Errorf("got %q, want a truncated value", got)
 	}
 }
+
+const azureTokenBody = `{"token_type":"Bearer","expires_in":"3599","access_token":"azure-access-token"}`
+
+// A Resource Graph response in objectArray format, trimmed to the projected
+// fields. The REST API only returns this shape when the request asks for it;
+// the default "table" format ({columns, rows}) would not decode.
+const azureGraphBody = `{
+  "totalRecords": 3, "count": 3,
+  "data": [
+    {"name": "vm-web", "location": "eastus", "tags": {"Env": "prod"},
+     "privateIp": "10.0.0.4", "publicIp": "20.1.2.3",
+     "fqdn": "vm-web.eastus.cloudapp.azure.com",
+     "vmSize": "Standard_D2s_v3", "offer": "UbuntuServer",
+     "osType": "Linux", "adminUser": "azureuser"},
+    {"name": "vm-win", "location": "westus2", "tags": {},
+     "privateIp": "10.0.1.4", "publicIp": "20.9.9.9", "fqdn": "",
+     "vmSize": "Standard_B2ms", "offer": "WindowsServer",
+     "osType": "Windows", "adminUser": "azadmin"},
+    {"name": "vm-vpc", "location": "eastus", "tags": {},
+     "privateIp": "10.0.2.4", "publicIp": "", "fqdn": "",
+     "vmSize": "Standard_B1s", "offer": "debian",
+     "osType": "Linux", "adminUser": "azureuser"}
+  ]
+}`
+
+func TestDiscoverAzureParsesObjectArrayAndRequestsIt(t *testing.T) {
+	transport := &stubTransport{responses: map[string]string{
+		"login.microsoftonline.com": azureTokenBody,
+		"management.azure.com":      azureGraphBody,
+	}}
+	svc, _ := newCloudService(t, transport)
+
+	found, err := svc.Discover(context.Background(), CloudCredentials{
+		Provider: "azure", TenantID: "tenant", ClientID: "client",
+		ClientSecret: "secret", SubscriptionID: "sub-123",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(found) != 3 {
+		t.Fatalf("found %d VMs, want 3: %+v", len(found), found)
+	}
+
+	// FQDN is preferred over the public IP: it survives a deallocate/start.
+	web := found[0]
+	if web.Host != "vm-web.eastus.cloudapp.azure.com" {
+		t.Errorf("host = %q, want the FQDN", web.Host)
+	}
+	if web.Username != "azureuser" {
+		t.Errorf("username = %q, want azureuser", web.Username)
+	}
+	if web.Region != "eastus" {
+		t.Errorf("region = %q, want eastus", web.Region)
+	}
+	if len(web.Tags) != 1 || web.Tags[0] != "env:prod" {
+		t.Errorf("tags = %v, want [env:prod]", web.Tags)
+	}
+
+	// Windows VM: no FQDN, so the public IP is used, and the admin user is
+	// cleared — there is no SSH login by convention.
+	win := found[1]
+	if win.Host != "20.9.9.9" {
+		t.Errorf("windows host = %q, want the public IP", win.Host)
+	}
+	if win.Username != "" {
+		t.Errorf("windows username = %q, want empty", win.Username)
+	}
+
+	// VPC-only VM falls back to the private IP.
+	if found[2].Host != "10.0.2.4" {
+		t.Errorf("vpc-only host = %q, want the private IP", found[2].Host)
+	}
+
+	var graphReq *http.Request
+	for _, r := range transport.requests {
+		if strings.Contains(r.URL.String(), "management.azure.com") {
+			graphReq = r
+		}
+	}
+	if graphReq == nil {
+		t.Fatal("no Resource Graph request was made")
+	}
+	// The token fetched by the sign-in call must be presented to the graph call.
+	if got := graphReq.Header.Get("Authorization"); got != "Bearer azure-access-token" {
+		t.Errorf("Authorization = %q, want the fetched bearer token", got)
+	}
+	// Lock the fix: the parser only works with objectArray, which is not the
+	// API default, so a regression to the default must fail here rather than
+	// against a live subscription.
+	body, _ := io.ReadAll(graphReq.Body)
+	if !strings.Contains(string(body), `"resultFormat":"objectArray"`) {
+		t.Errorf("graph request body does not request objectArray: %s", body)
+	}
+	if !strings.Contains(string(body), "sub-123") {
+		t.Errorf("graph request body does not include the subscription: %s", body)
+	}
+}
