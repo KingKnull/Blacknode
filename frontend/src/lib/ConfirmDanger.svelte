@@ -42,19 +42,23 @@
   // most destructive tier, which requires an explicit click, and for callers
   // that opt out because a keystroke opened the dialog.
   function onKey(e: KeyboardEvent) {
-    if (!allowEnterConfirm) return;
-    if (e.key === "Enter" && canConfirm && severity !== "block-without-confirm")
+    // Focused buttons retain their native action. Enter on Cancel must never
+    // also run Proceed, and Enter on Proceed must not run it twice.
+    if (!allowEnterConfirm || e.defaultPrevented || e.repeat) return;
+    if ((e.target as HTMLElement)?.closest('button, a, [role="button"]')) return;
+    if (e.key === "Enter" && canConfirm && severity !== "block-without-confirm") {
+      e.preventDefault();
       onConfirm();
+    }
   }
 </script>
 
-<svelte:window onkeydown={onKey} />
-
 <Dialog
   {portal}
+  onkeydown={onKey}
   onclose={onCancel}
   labelledby="confirm-danger-title"
-  panelClass="w-[520px] overflow-hidden border border-[var(--color-danger)]/40 bg-[var(--color-surface-2)] shadow-2xl"
+  panelClass="w-[520px] overflow-y-auto border border-[var(--color-danger)]/40 bg-[var(--color-surface-2)] shadow-2xl"
   panelStyle="box-shadow: 0 0 0 1px rgba(255,60,60,0.2), 0 0 40px rgba(255,60,60,0.04), 0 40px 80px rgba(0,0,0,0.6);"
 >
   {#snippet children()}

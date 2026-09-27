@@ -1,0 +1,14 @@
+name: SeekAI Kimi K3
+version: 1.0.0
+schema: v1
+
+models:
+  - name: Kimi K3
+    provider: openai
+    model: kimi-k3
+    apiBase: https://seekai.cc/v1
+    apiKey: ${{ secrets.SEEKAI_API_KEY }}
+    roles:
+      - chat
+      - edit
+      - apply

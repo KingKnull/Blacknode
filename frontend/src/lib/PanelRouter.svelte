@@ -62,86 +62,86 @@
   }
 </script>
 
-<div class:hidden={app.view !== 'terminals'}>
+<div class="min-h-0 min-w-0 flex-1 overflow-hidden" class:hidden={app.view !== 'terminals'}>
   {@render children()}
 </div>
 
 {#if app.view === 'exec'}
-  <div class="view-enter h-full w-full">
+  <div class="view-enter min-h-0 min-w-0 flex-1 overflow-hidden">
     <ErrorBoundary name="Multi-host"><ExecPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'ops'}
-  <div class="view-enter h-full w-full">
+  <div class="view-enter min-h-0 min-w-0 flex-1 overflow-hidden">
     <ErrorBoundary name="Ops Console"><OpsConsole /></ErrorBoundary>
   </div>
 {:else if app.view === 'runbooks'}
-  <div class="view-enter h-full w-full">
+  <div class="view-enter min-h-0 min-w-0 flex-1 overflow-hidden">
     <ErrorBoundary name="Runbooks"><RunbooksPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'files'}
-  <div class="view-enter h-full w-full">
+  <div class="view-enter min-h-0 min-w-0 flex-1 overflow-hidden">
     <ErrorBoundary name="Files"><SFTPPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'metrics'}
-  <div class="view-enter h-full w-full">
+  <div class="view-enter min-h-0 min-w-0 flex-1 overflow-hidden">
     <ErrorBoundary name="Metrics"><MetricsPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'logs'}
-  <div class="view-enter h-full w-full">
+  <div class="view-enter min-h-0 min-w-0 flex-1 overflow-hidden">
     <ErrorBoundary name="Logs"><LogsPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'forwards'}
-  <div class="view-enter h-full w-full">
+  <div class="view-enter min-h-0 min-w-0 flex-1 overflow-hidden">
     <ErrorBoundary name="Forwards"><ForwardsPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'recordings'}
-  <div class="view-enter h-full w-full">
+  <div class="view-enter min-h-0 min-w-0 flex-1 overflow-hidden">
     <ErrorBoundary name="Recordings"><RecordingsPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'containers'}
-  <div class="view-enter h-full w-full">
+  <div class="view-enter min-h-0 min-w-0 flex-1 overflow-hidden">
     <ErrorBoundary name="Containers"><ContainersPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'network'}
-  <div class="view-enter h-full w-full">
+  <div class="view-enter min-h-0 min-w-0 flex-1 overflow-hidden">
     <ErrorBoundary name="Network"><NetworkPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'processes'}
-  <div class="view-enter h-full w-full">
+  <div class="view-enter min-h-0 min-w-0 flex-1 overflow-hidden">
     <ErrorBoundary name="Processes"><ProcessesPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'http'}
-  <div class="view-enter h-full w-full">
+  <div class="view-enter min-h-0 min-w-0 flex-1 overflow-hidden">
     <ErrorBoundary name="HTTP"><HTTPPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'database'}
-  <div class="view-enter h-full w-full">
+  <div class="view-enter min-h-0 min-w-0 flex-1 overflow-hidden">
     {#await loadDBPanel() then DBPanel}
       <ErrorBoundary name="Database"><DBPanel /></ErrorBoundary>
     {/await}
   </div>
 {:else if app.view === 'snippets'}
-  <div class="view-enter h-full w-full">
+  <div class="view-enter min-h-0 min-w-0 flex-1 overflow-hidden">
     <ErrorBoundary name="Snippets"><SnippetsPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'history'}
-  <div class="view-enter h-full w-full">
+  <div class="view-enter min-h-0 min-w-0 flex-1 overflow-hidden">
     <ErrorBoundary name="History"><HistoryPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'topology'}
-  <div class="view-enter h-full w-full">
+  <div class="view-enter min-h-0 min-w-0 flex-1 overflow-hidden">
     <ErrorBoundary name="Topology"><TopologyPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'activity'}
-  <div class="view-enter h-full w-full">
+  <div class="view-enter min-h-0 min-w-0 flex-1 overflow-hidden">
     <ErrorBoundary name="Activity"><ActivityPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'plugins'}
-  <div class="view-enter h-full w-full">
+  <div class="view-enter min-h-0 min-w-0 flex-1 overflow-hidden">
     <ErrorBoundary name="Plugins"><PluginsPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'vault'}
-  <div class="view-enter h-full w-full">
+  <div class="view-enter min-h-0 min-w-0 flex-1 overflow-hidden">
     <ErrorBoundary name="Vault"><VaultPanel /></ErrorBoundary>
   </div>
 {:else if typeof app.view === 'string' && app.view.startsWith('plugin:')}
@@ -149,7 +149,7 @@
   {@const pluginID = parts[1]}
   {@const panelID = parts[2]}
   {@const found = app.pluginPanels.find((p) => p.pluginId === pluginID && p.id === panelID)}
-  <div class="view-enter h-full w-full">
+  <div class="view-enter min-h-0 min-w-0 flex-1 overflow-hidden">
     {#if found}
       <iframe
         use:panelOwner={pluginID}
@@ -163,11 +163,11 @@
     {/if}
   </div>
 {:else if app.view === 'keys'}
-  <div class="view-enter h-full w-full">
+  <div class="view-enter min-h-0 min-w-0 flex-1 overflow-hidden">
     <ErrorBoundary name="Keys"><KeysPanel /></ErrorBoundary>
   </div>
 {:else if app.view === 'settings'}
-  <div class="view-enter h-full w-full">
+  <div class="view-enter min-h-0 min-w-0 flex-1 overflow-hidden">
     <ErrorBoundary name="Settings"><SettingsPanel /></ErrorBoundary>
   </div>
 {/if}

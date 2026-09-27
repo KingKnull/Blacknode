@@ -1,5 +1,6 @@
 <script lang="ts">
   import { app } from "./state.svelte";
+  import { shortcutLabel } from "./shortcuts";
   import HostEditor from "./HostEditor.svelte";
   import { Server, KeyRound, TerminalSquare, X, CheckCircle2, ArrowRight, Sparkles } from "@lucide/svelte";
 
@@ -16,12 +17,12 @@
   // honestly instead of relying on a stale "done" flag.
   let hasHost = $derived(app.hosts.length > 0);
   let hasKey = $derived(app.keys.length > 0);
-  let connected = $derived(!!app.selectedHostID);
+  let connected = $derived(app.connectedHosts.size > 0);
   let allDone = $derived(hasHost && connected);
 
   // Progress across the 3 steps (key step is optional but still counts
   // toward the visual fill so the bar doesn't look "stuck" at 66%).
-  let completedCount = $derived([hasHost, hasKey, connected].filter(Boolean).length);
+  let completedCount = $derived(allDone ? 3 : [hasHost, hasKey, connected].filter(Boolean).length);
   let progressPct = $derived(Math.round((completedCount / 3) * 100));
 
   // Brief "all done" celebration state — shown once when allDone flips true,
@@ -32,10 +33,11 @@
     if (allDone && !successShownOnce && !dismissed) {
       successShownOnce = true;
       showSuccess = true;
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         showSuccess = false;
         dismiss();
       }, 2400);
+      return () => clearTimeout(timer);
     }
   });
 
@@ -56,10 +58,10 @@
 
   // A few extra shortcuts beyond the original one-liner footer.
   const SHORTCUTS: [string, string][] = [
-    ["⌘K", "Command palette"],
-    ["⌘I", "AI assistant"],
-    ["⌘T", "New tab"],
-    ["⌘W", "Close tab"],
+    [shortcutLabel("palette"), "Command palette"],
+    [shortcutLabel("ai"), "AI assistant"],
+    [shortcutLabel("newTab"), "New tab"],
+    [shortcutLabel("closeTab"), "Close tab"],
     ["Ctrl+.", "Terminal side panel"],
     ["↓", "Autocomplete (in terminal)"],
     ["?", "Full shortcut list"],
@@ -67,7 +69,7 @@
 </script>
 
 {#if showSuccess}
-  <div class="pointer-events-none absolute inset-0 z-20 flex items-center justify-center p-8">
+  <div class="pointer-events-none absolute inset-0 z-30 flex items-center justify-center p-8">
     <div
       class="scale-in flex items-center gap-3 border border-[var(--color-accent)]/40 bg-[var(--color-accent-soft)] px-5 py-4 shadow-2xl"
       style="box-shadow: 0 0 40px rgba(59,130,246,0.15), 0 24px 48px rgba(0,0,0,0.4);"
@@ -88,10 +90,10 @@
 
 {#if !dismissed && !allDone}
   <div
-    class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-8"
+    class="onboarding-guide pointer-events-none absolute inset-0 z-30 flex items-center justify-center p-4"
   >
     <div
-      class="pointer-events-auto w-full max-w-md overflow-hidden border hairline-strong surface-2 shadow-2xl shadow-black/60"
+      class="pointer-events-auto max-h-full w-full max-w-md overflow-y-auto border hairline-strong surface-2 shadow-2xl shadow-black/60"
       style="box-shadow: 0 0 0 1px var(--color-line-strong), 0 0 40px rgba(59,130,246,0.05), 0 32px 64px rgba(0,0,0,0.5);"
     >
       <!-- Header -->
@@ -131,7 +133,7 @@
           <div class="flex-1">
             <p class="type-body font-semibold text-[var(--color-text-1)]">Add your first host</p>
             <p class="mt-0.5 type-caption text-[var(--color-text-4)] leading-relaxed">
-              Save SSH connection details. Encrypted at rest in your local vault.
+              Save connection details locally. Passwords and keys are encrypted in your vault.
             </p>
           </div>
           {#if !hasHost}
@@ -183,9 +185,9 @@
             {#if connected}✓{:else}03{/if}
           </div>
           <div class="flex-1">
-            <p class="type-body font-semibold text-[var(--color-text-1)]">Click a host to connect</p>
+            <p class="type-body font-semibold text-[var(--color-text-1)]">Connect to your host</p>
             <p class="mt-0.5 type-caption text-[var(--color-text-4)] leading-relaxed">
-              Select a host in the sidebar. An SSH session binds to this tab.
+              Double-click a host in the sidebar, or select it and choose Connect.
             </p>
           </div>
         </li>

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Dialog from "./Dialog.svelte";
+  import { shortcutLabel } from "./shortcuts";
   import { onMount, tick } from "svelte";
   import { app, type View } from "./state.svelte";
   import {
@@ -347,12 +349,15 @@
 
   onMount(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.closest?.('[role="dialog"]')) return;
+      if (e.defaultPrevented) return;
+      const dialog = (e.target as HTMLElement)?.closest?.('[role="dialog"]');
+      if (dialog && (!app.paletteOpen || dialog.getAttribute("aria-label") !== "Command palette")) return;
       const isMod = e.metaKey || e.ctrlKey;
       // Bare mod+K only. Mod+Shift+K is "clear scrollback" inside a terminal
       // pane, and without the shift guard this would fire alongside it.
       if (isMod && !e.shiftKey && e.key.toLowerCase() === "k") {
         e.preventDefault();
+        e.stopPropagation();
         app.paletteOpen = !app.paletteOpen;
         return;
       }
@@ -371,6 +376,7 @@
         highlighted = Math.max(highlighted - 1, 0);
         scrollHighlightedIntoView();
       } else if (e.key === "Enter") {
+        if ((e.target as HTMLElement)?.closest?.("button")) return;
         e.preventDefault();
         const a = filtered[highlighted];
         if (a) {
@@ -379,8 +385,8 @@
         }
       }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   });
 
   // Group filtered into category buckets in input order.
@@ -404,31 +410,29 @@
 </script>
 
 {#if app.paletteOpen}
-  <div
-    class="fixed inset-0 z-50 flex items-start justify-center bg-black/80 pt-[14vh]"
-    role="presentation"
-    onclick={(e) => {
-      if (e.target === e.currentTarget) app.paletteOpen = false;
-    }}
+  <Dialog
+    label="Command palette"
+    onclose={() => (app.paletteOpen = false)}
+    backdropClass="bg-black/80 !items-start pt-[14vh]"
+    panelClass="flex w-[580px] max-h-[72vh] flex-col overflow-hidden border hairline-strong surface-2 shadow-2xl"
+    panelStyle="border-radius: var(--radius-md); box-shadow: 0 0 0 1px var(--color-line-strong), 0 0 60px rgba(59,130,246,0.05), 0 40px 80px rgba(0,0,0,0.6);"
   >
-    <div
-      class="w-[580px] overflow-hidden border hairline-strong surface-2 shadow-2xl"
-      style="border-radius: var(--radius-md); box-shadow: 0 0 0 1px var(--color-line-strong), 0 0 60px rgba(59,130,246,0.05), 0 40px 80px rgba(0,0,0,0.6);"
-    >
       <!-- Search input -->
-      <div class="flex items-center gap-3 border-b hairline px-4 py-3">
+      <div class="flex shrink-0 items-center gap-3 border-b hairline px-4 py-3">
         <span class="font-mono type-caption text-[var(--color-accent)]/60">&gt;_</span>
         <input
           bind:this={inputEl}
           bind:value={input}
-          class="flex-1 bg-transparent type-body text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)]"
+          data-autofocus
+          aria-label="Search commands, hosts, and views"
+          class="min-w-0 flex-1 bg-transparent type-body text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)]"
           placeholder="Type a command, host, or view..."
         />
         <kbd class="border border-[var(--color-line-strong)] px-1.5 py-0.5 font-mono type-micro text-[var(--color-text-4)]" style="border-radius: var(--radius-sm);">ESC</kbd>
       </div>
 
       <!-- Results -->
-      <div class="max-h-[400px] overflow-y-auto">
+      <div class="min-h-0 max-h-[400px] overflow-y-auto">
         {#each grouped() as group (group.name)}
           <div class="type-eyebrow px-4 pt-3 pb-1 type-micro text-[var(--color-text-4)]">
             {group.name}
@@ -457,11 +461,10 @@
       </div>
 
       <!-- Footer -->
-      <div class="flex items-center gap-4 border-t hairline px-4 py-2 font-mono type-micro text-[var(--color-text-4)]">
+      <div class="flex shrink-0 items-center gap-4 border-t hairline px-4 py-2 font-mono type-micro text-[var(--color-text-4)]">
         <span class="flex items-center gap-1.5"><kbd class="border border-[var(--color-line-strong)] px-1" style="border-radius: var(--radius-sm);">↑↓</kbd> navigate</span>
         <span class="flex items-center gap-1.5"><kbd class="border border-[var(--color-line-strong)] px-1" style="border-radius: var(--radius-sm);">↵</kbd> select</span>
-        <span class="ml-auto flex items-center gap-1.5"><kbd class="border border-[var(--color-line-strong)] px-1" style="border-radius: var(--radius-sm);">⌘K</kbd> toggle</span>
+        <span class="ml-auto flex items-center gap-1.5"><kbd class="border border-[var(--color-line-strong)] px-1" style="border-radius: var(--radius-sm);">{shortcutLabel("palette")}</kbd> toggle</span>
       </div>
-    </div>
-  </div>
+  </Dialog>
 {/if}

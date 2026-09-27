@@ -27,7 +27,8 @@
   const loadAIDrawer = () =>
     import("./AIDrawer.svelte").then((m) => m.default);
   import Toaster from "./Toaster.svelte";
-  import Logo from "./logo/Logo.svelte";
+  import LogoMark from "./logo/LogoMark.svelte";
+  import { shortcutLabel } from "./shortcuts";
   import {
     closeLeaf,
     leaves,
@@ -48,6 +49,7 @@
     ShieldCheck,
     Maximize2,
     Minimize2,
+    PanelLeft,
   } from "@lucide/svelte";
 
   type Tab = { id: string; root: PaneNode; activeLeafID: string };
@@ -183,9 +185,9 @@
     // GNOME Terminal / Konsole / Windows Terminal. On macOS the Cmd forms need
     // no Shift — xterm maps only Cmd+A, so Meta is free.
     const onShortcut = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.closest?.('[role="dialog"]')) return;
+      if (app.paletteOpen || (e.target as HTMLElement)?.closest?.('[role="dialog"]')) return;
       // ? opens shortcut overlay (only when not typing in an input)
-      if (e.key === '?' && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
+      if (e.key === '?' && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement) && !(e.target as HTMLElement)?.isContentEditable) {
         e.preventDefault();
         shortcutOpen = !shortcutOpen;
         return;
@@ -197,6 +199,18 @@
       const consume = () => { e.preventDefault(); e.stopPropagation(); };
       // Ctrl has to be shifted to outrank the shell; Cmd doesn't.
       const appMod = e.metaKey || e.shiftKey;
+
+      if (e.ctrlKey && e.shiftKey && k === "h") {
+        consume();
+        sidebarOpen = !sidebarOpen;
+        return;
+      }
+
+      if (e.ctrlKey && e.shiftKey && k === "z") {
+        consume();
+        focusMode = !focusMode;
+        return;
+      }
 
       // Ctrl+Shift+I / Cmd+Shift+I — toggle AI drawer. Bare Ctrl+I is TAB, so
       // the unshifted form could never have worked from inside a pane anyway.
@@ -246,13 +260,6 @@
       // keycodes and still reach the PTY untouched.
       // Ctrl+Shift+Z keeps terminal search (Ctrl+Shift+F), clear (K), and
       // broadcast (B) free while giving focus mode a memorable "zen" shortcut.
-      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "z") {
-        e.preventDefault();
-        e.stopPropagation();
-        focusMode = !focusMode;
-        return;
-      }
-
       const digit = /^Digit([1-9])$/.exec(e.code);
       if (digit) {
         consume();
@@ -664,6 +671,9 @@
   }
 
   let sidebarWidth = $state(previous?.sidebarWidth ?? 252);
+  let sidebarOpen = $state(true);
+  let contentWidth = $state(0);
+  let drawerOverlay = $derived(contentWidth < 760);
   let isResizing = $state(false);
   let shortcutOpen = $state(false);
   let focusMode = $state(false);
@@ -691,10 +701,10 @@
 <div class="flex h-full w-full flex-col bg-[var(--color-surface-0)] text-[var(--color-text-1)]">
   <!-- ── TOP BAR ─────────────────────────────────────────────────────── -->
   {#if !focusMode}
-  <header class="relative flex h-12 shrink-0 items-center gap-3 border-b hairline surface-1 px-4">
-    <div class="flex items-center gap-2 select-none">
+  <header class="relative flex h-12 shrink-0 items-center gap-3 overflow-x-auto border-b hairline surface-1 px-4">
+    <div class="flex shrink-0 items-center gap-2 select-none">
       <div class="flex h-7 w-7 items-center justify-center border border-[var(--color-accent)]/35 bg-[var(--color-accent-soft)]" style="border-radius: var(--radius-sm);">
-        <Logo size={17} />
+        <LogoMark size={17} glow={false} />
       </div>
       <span class="hidden font-mono type-micro font-semibold tracking-[0.16em] text-[var(--color-text-2)] sm:inline">BLACKNODE</span>
     </div>
@@ -702,7 +712,14 @@
     <div class="h-5 w-px bg-[var(--color-line-strong)]"></div>
 
     <!-- Breadcrumb -->
-    <span class="flex items-center gap-2 type-caption font-medium text-[var(--color-text-1)]">
+    <button
+      class="shrink-0 rounded border hairline p-1.5 text-[var(--color-text-3)] hover:text-[var(--color-accent)]"
+      onclick={() => (sidebarOpen = !sidebarOpen)}
+      aria-label={sidebarOpen ? "Hide host sidebar" : "Show host sidebar"}
+      aria-expanded={sidebarOpen}
+      title={`Toggle host sidebar (${shortcutLabel("sidebar")})`}
+    ><PanelLeft size="14" /></button>
+    <span class="flex shrink-0 items-center gap-2 type-caption font-medium text-[var(--color-text-1)]">
       {#if activeViewDef}
         <activeViewDef.Icon size="14" strokeWidth={1.8} class="text-[var(--color-accent)]" />
         {activeViewDef.label}
@@ -711,7 +728,7 @@
       {/if}
     </span>
 
-    <div class="ml-auto flex items-center gap-1.5 type-caption">
+    <div class="ml-auto flex shrink-0 items-center gap-1.5 type-caption">
       {#if workspaceReady}
         <WorkspacesMenu {capture} onopen={openWorkspace} {forwardIDs} onforwards={(ids) => forwardIDs = ids} disabled={reconnectingWorkspace} />
       {/if}
@@ -750,7 +767,7 @@
           ? 'border-[var(--color-accent)]/50 bg-[var(--color-accent)]/8 text-[var(--color-accent)]'
           : 'border-[var(--color-line)] text-[var(--color-text-4)] hover:border-[var(--color-accent)]/30 hover:text-[var(--color-accent)]'}"
         onclick={() => (app.aiOpen = !app.aiOpen)}
-        title="AI assistant (⌘I)"
+        title={`AI assistant (${shortcutLabel("ai")})`}
       >
         <Sparkles size="11" />
         <span>AI</span>
@@ -760,11 +777,11 @@
       <button
         class="flex items-center gap-1.5 border border-[var(--color-line)] px-2.5 py-1 rounded-sm text-[var(--color-text-3)] transition-all hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)]"
         onclick={() => (app.paletteOpen = true)}
-        title="Command palette (⌘K)"
+        title={`Command palette (${shortcutLabel("palette")})`}
       >
         <Command size="11" />
         <span>Palette</span>
-        <kbd class="font-mono border border-[var(--color-line-strong)] bg-[var(--color-surface-2)] px-1.5 py-0.5 type-micro text-[var(--color-text-3)]">⌘K</kbd>
+        <kbd class="font-mono border border-[var(--color-line-strong)] bg-[var(--color-surface-2)] px-1.5 py-0.5 type-micro text-[var(--color-text-3)]">{shortcutLabel("palette")}</kbd>
       </button>
 
       <div class="mx-1 h-3 w-px bg-[var(--color-line-strong)]"></div>
@@ -783,12 +800,12 @@
   {/if}
 
   <!-- ── BODY ─────────────────────────────────────────────────────────── -->
-  <div class="grid flex-1 overflow-hidden" style:grid-template-columns={focusMode ? '1fr' : `64px ${sidebarWidth}px 1fr`}>
+  <div class="grid min-h-0 flex-1 overflow-hidden" style:grid-template-columns={focusMode ? 'minmax(0, 1fr)' : `64px ${sidebarOpen ? `${sidebarWidth}px ` : ''}minmax(0, 1fr)`}>
     <!-- ── SECTION RAIL ─────────────────────────────── -->
     {#if !focusMode}<NavRail sections={visibleSections} activeSectionId={activeSection.id} onSelect={(id) => selectSection(visibleSections.find((s) => s.id === id)!)} />{/if}
 
     <!-- ── SIDEBAR ─────────────────────────────────────── -->
-    {#if !focusMode}
+    {#if !focusMode && sidebarOpen}
     <aside class="relative overflow-hidden border-r hairline group/sidebar">
       <HostList />
       <!-- Resize handle — a separator is the correct role for a drag-to-resize
@@ -812,8 +829,9 @@
 
     <!-- Main + AI drawer -->
     <div
-      class="grid overflow-hidden transition-[grid-template-columns] duration-200"
-      style:grid-template-columns={app.aiOpen ? 'minmax(400px, 1fr) 360px' : '1fr'}
+      bind:clientWidth={contentWidth}
+      class="relative grid min-h-0 min-w-0 overflow-hidden"
+      style:grid-template-columns={app.aiOpen && !drawerOverlay ? 'minmax(0, 1fr) 360px' : 'minmax(0, 1fr)'}
     >
       <main class="relative flex flex-col overflow-hidden">
         {#if reconnectPending}
@@ -877,9 +895,11 @@
       </main>
 
       {#if app.aiOpen}
-        {#await loadAIDrawer() then AIDrawer}
-          <AIDrawer onInsertCommand={aiInsert} />
-        {/await}
+        <div class={drawerOverlay ? "absolute inset-y-0 right-0 z-30 w-[min(360px,100%)] shadow-xl" : "min-h-0 min-w-0"}>
+          {#await loadAIDrawer() then AIDrawer}
+            <AIDrawer onInsertCommand={aiInsert} />
+          {/await}
+        </div>
       {/if}
     </div>
   </div>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { X } from "@lucide/svelte";
   import Dialog from "./Dialog.svelte";
+  import { APP_SHORTCUTS } from "./shortcuts";
 
   type Props = { onclose: () => void };
   let { onclose }: Props = $props();
@@ -13,8 +14,10 @@
       shortcuts: [
         { keys: ["Ctrl", "1–9"],  desc: "Switch to tab N" },
         { keys: ["Ctrl", "Tab"],  desc: "Next tab" },
-        { keys: ["Ctrl", "W"],    desc: "Close tab" },
-        { keys: ["Ctrl", "T"],    desc: "New tab" },
+        { keys: APP_SHORTCUTS.closeTab, desc: "Close tab" },
+        { keys: APP_SHORTCUTS.newTab, desc: "New tab" },
+        { keys: APP_SHORTCUTS.palette, desc: "Command palette" },
+        { keys: APP_SHORTCUTS.focus, desc: "Toggle focus mode" },
         { keys: ["Middle-click"], desc: "Close tab" },
         { keys: ["?"],            desc: "Open this overlay" },
       ],
@@ -24,7 +27,7 @@
       shortcuts: [
         { keys: ["Ctrl", "Shift", "F"], desc: "Search terminal output" },
         { keys: ["Ctrl", "Shift", "S"], desc: "Auto-fill sudo password" },
-        { keys: ["Ctrl", "Shift", "I"], desc: "Toggle AI assistant" },
+        { keys: APP_SHORTCUTS.ai, desc: "Toggle AI assistant" },
         { keys: ["Ctrl", "Shift", "B"], desc: "Toggle pane broadcast" },
         { keys: ["Ctrl", "."],          desc: "Toggle side panel" },
         { keys: ["Right-click"],        desc: "Pane actions menu" },
@@ -44,7 +47,7 @@
     {
       label: "Hosts",
       shortcuts: [
-        { keys: ["Ctrl", "Shift", "H"], desc: "Toggle host sidebar" },
+        { keys: APP_SHORTCUTS.sidebar, desc: "Toggle host sidebar" },
         { keys: ["Double-click"],       desc: "Connect to host" },
         { keys: ["Right-click"],        desc: "Host actions menu" },
       ],

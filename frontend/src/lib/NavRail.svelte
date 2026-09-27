@@ -17,7 +17,7 @@
 {#snippet railButton(s: Section)}
   {@const active = activeSectionId === s.id}
   <button
-    class="group relative flex w-full flex-col items-center justify-center gap-1.5 py-2.5 transition-colors {active
+    class="group relative flex w-full shrink-0 flex-col items-center justify-center gap-1.5 py-2.5 transition-colors {active
       ? 'text-[var(--color-accent)]'
       : 'text-[var(--color-text-4)] hover:text-[var(--color-text-2)]'}"
     onclick={() => onSelect(s.id)}
@@ -34,7 +34,7 @@
   </button>
 {/snippet}
 
-<nav class="flex flex-col items-stretch border-r hairline surface-1 py-2" aria-label="Sections">
+<nav class="flex min-h-0 flex-col items-stretch overflow-y-auto border-r hairline surface-1 py-2" aria-label="Sections">
   {#each mainSections as s (s.id)}
     {@render railButton(s)}
   {/each}

@@ -83,7 +83,8 @@
       "Bash(mkdir -p __TRACKED_VAR__/bn4/blacknode)",
       "Bash(cp ~/.local/share/blacknode/blacknode.db* __TRACKED_VAR__/bn4/blacknode/)",
       "Bash(rm -f __TRACKED_VAR__/bn4/blacknode/blacknode.log)",
-      "Bash(timeout 20 env XDG_DATA_HOME=__TRACKED_VAR__/bn4 ./bin/blacknode)"
+      "Bash(timeout 20 env XDG_DATA_HOME=__TRACKED_VAR__/bn4 ./bin/blacknode)",
+      "Bash(echo \"BUILD_EXIT=$?\")"
     ]
   }
 }

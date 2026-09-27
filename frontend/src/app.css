@@ -194,6 +194,11 @@ html, body {
   cursor: text;
 }
 
+/* The setup guide owns the first-run surface until it is dismissed. */
+main:has(.onboarding-guide) .terminal-welcome {
+  display: none;
+}
+
 body {
   font-family: var(--font-sans);
   font-size: var(--text-body);

@@ -481,7 +481,12 @@
 
     try {
       const webgl = new WebglAddon();
-      webgl.onContextLoss(() => { webgl.dispose(); });
+      const lossListener = webgl.onContextLoss(() => {
+        // Disposal can itself emit context loss when many panes exhaust the
+        // browser's GPU contexts. Remove the callback before disposing.
+        lossListener.dispose();
+        try { webgl.dispose(); } catch { /* DOM renderer remains available */ }
+      });
       term.loadAddon(webgl);
     } catch { /* canvas fallback */ }
 
@@ -1182,7 +1187,7 @@
 
       <!-- Splash screen -->
       {#if !hasTyped && (status === "running" || status === "connected")}
-        <div class="pointer-events-none absolute inset-0 flex items-center justify-center fade-up z-10 bg-[var(--color-surface-0)]/40 backdrop-blur-[2px]">
+        <div class="terminal-welcome pointer-events-none absolute inset-0 flex items-center justify-center fade-up z-10 bg-[var(--color-surface-0)]/40 backdrop-blur-[2px]">
           <div class="pointer-events-auto border hairline-strong surface-2 p-5 shadow-2xl min-w-[320px]">
             <div class="mb-4 flex items-center gap-2">
               {#if mode === "mosh"}
