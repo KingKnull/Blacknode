@@ -34,6 +34,11 @@ jobs:
         with:
           go-version: "1.26"
           cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install build deps
         # GTK4 + webkitgtk-6.0 to match the pkg-config lines Wails compiles
@@ -58,6 +63,18 @@ jobs:
 
       - name: go vet
         run: go vet ./internal/... ./cmd/...
+
+      - name: Build frontend
+        # main.go carries `//go:embed all:frontend/dist` and frontend/dist is
+        # gitignored, so the Go build below cannot compile without this — the
+        # failure is `pattern all:frontend/dist: no matching files found`.
+        # Running the real production build rather than stubbing the directory
+        # also makes this the one place CI checks `vite build` still works: the
+        # frontend job type-checks and tests, but never builds.
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
 
       - name: Build
         # Not `./...`: build/ios/main_ios.go is behind a `//go:build ios` tag,
