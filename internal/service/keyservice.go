@@ -193,6 +193,15 @@ func (s *KeyService) Import(ctx context.Context, name, privatePEM, passphrase st
 	if !s.vault.IsUnlocked() {
 		return PublicKeyView{}, errors.New("vault is locked")
 	}
+	// pemToStore is the private material that gets sealed into the vault. For an
+	// unencrypted key it is the bytes as pasted. For a passphrase-protected key
+	// it must be re-encoded WITHOUT the passphrase before storing: the dialer
+	// unseals this blob and calls ssh.ParsePrivateKey (which takes no
+	// passphrase), and the passphrase itself is never persisted — so keeping the
+	// encrypted PEM would make the imported key impossible to connect with. The
+	// vault supplies the encryption at rest, exactly as it does for Generate.
+	pemToStore := []byte(privatePEM)
+
 	var (
 		signer ssh.Signer
 		err    error
@@ -200,13 +209,22 @@ func (s *KeyService) Import(ctx context.Context, name, privatePEM, passphrase st
 	if passphrase == "" {
 		signer, err = ssh.ParsePrivateKey([]byte(privatePEM))
 	} else {
-		signer, err = ssh.ParsePrivateKeyWithPassphrase([]byte(privatePEM), []byte(passphrase))
+		raw, perr := ssh.ParseRawPrivateKeyWithPassphrase([]byte(privatePEM), []byte(passphrase))
+		if perr != nil {
+			return PublicKeyView{}, fmt.Errorf("parse key: %w", perr)
+		}
+		block, merr := ssh.MarshalPrivateKey(raw, "")
+		if merr != nil {
+			return PublicKeyView{}, fmt.Errorf("re-encode key: %w", merr)
+		}
+		pemToStore = pem.EncodeToMemory(block)
+		signer, err = ssh.ParsePrivateKey(pemToStore)
 	}
 	if err != nil {
 		return PublicKeyView{}, fmt.Errorf("parse key: %w", err)
 	}
 	keyType := signer.PublicKey().Type()
-	return s.persist(name, keyType, []byte(privatePEM), signer.PublicKey())
+	return s.persist(name, keyType, pemToStore, signer.PublicKey())
 }
 
 // ImportSecurityKey registers a FIDO2 hardware key from its public half. The
