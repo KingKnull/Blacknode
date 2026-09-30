@@ -22,7 +22,10 @@
   // svelte-ignore state_referenced_locally
   let hostName = $state(host?.host ?? "");
   // svelte-ignore state_referenced_locally
-  let port = $state(host?.port ?? 22);
+  // Blank means "unset": the host inherits its group's port, and connections
+  // fall back to 22. A stored 0 (unset) or a brand-new host shows blank; an
+  // explicit port shows its value.
+  let port = $state<number | null>(host?.port && host.port > 0 ? host.port : null);
   // svelte-ignore state_referenced_locally
   let serialDevice = $state(host?.serialDevice ?? "");
   // svelte-ignore state_referenced_locally
@@ -136,7 +139,7 @@
           ...host,
           name,
           host: hostName,
-          port,
+          port: port ?? 0,
           username,
           authMethod,
           keyID: authMethod === "key" ? keyID : "",
@@ -148,12 +151,12 @@
           envVars: envVarsToSave,
           ...protoFields,
         } as Host);
-        savedHost = { ...host, name, host: hostName, port, username, authMethod, keyID, group, environment, proxyJump, notes, startupSnippetID, envVars: envVarsToSave, ...protoFields } as Host;
+        savedHost = { ...host, name, host: hostName, port: port ?? 0, username, authMethod, keyID, group, environment, proxyJump, notes, startupSnippetID, envVars: envVarsToSave, ...protoFields } as Host;
       } else {
         savedHost = (await HostService.Create({
           name,
           host: hostName,
-          port,
+          port: port ?? 0,
           username,
           authMethod,
           keyID: authMethod === "key" ? keyID : "",
@@ -354,6 +357,7 @@
               type="number"
               class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-body text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50 transition-colors"
               bind:value={port}
+              placeholder="22 (or group default)"
             />
           </label>
         </div>
@@ -463,7 +467,7 @@
         >
           <option value="">— Direct connect —</option>
           {#each app.hosts.filter((h) => h.id !== host?.id) as h (h.id)}
-            <option value={h.name}>{h.name} ({h.username}@{h.host}:{h.port})</option>
+            <option value={h.name}>{h.name} ({h.username}@{h.host}:{h.port || 22})</option>
           {/each}
         </select>
         <p class="mt-1 type-caption text-[var(--color-text-4)]">Tunnels through selected bastion · cycles detected at connect</p>

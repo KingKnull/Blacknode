@@ -158,8 +158,19 @@ func (s *CloudImportService) Import(ctx context.Context, req ImportRequest) (Imp
 	}
 
 	result := ImportResult{}
+	// markExisting only compares against saved hosts; these track names and
+	// addresses already imported in this same batch so two discovered hosts
+	// sharing a name or address don't both get created.
+	seenName := make(map[string]bool)
+	seenAddr := make(map[string]bool)
 	for _, candidate := range checked {
 		if candidate.AlreadyExists {
+			result.Skipped++
+			continue
+		}
+		lowerName := strings.ToLower(candidate.Name)
+		lowerAddr := strings.ToLower(candidate.Host)
+		if seenName[lowerName] || seenAddr[lowerAddr] {
 			result.Skipped++
 			continue
 		}
@@ -191,6 +202,8 @@ func (s *CloudImportService) Import(ctx context.Context, req ImportRequest) (Imp
 			result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", candidate.Name, err))
 			continue
 		}
+		seenName[lowerName] = true
+		seenAddr[lowerAddr] = true
 		result.Imported++
 	}
 	return result, nil
@@ -485,8 +498,7 @@ const azureResourceGraphQuery = `Resources
     vmSize = tostring(properties.hardwareProfile.vmSize),
     offer = tostring(properties.storageProfile.imageReference.offer),
     osType = tostring(properties.storageProfile.osDisk.osType),
-    adminUser = tostring(properties.osProfile.adminUsername)
-| limit 1000`
+    adminUser = tostring(properties.osProfile.adminUsername)`
 
 type azureTokenResponse struct {
 	AccessToken string `json:"access_token"`
@@ -495,7 +507,10 @@ type azureTokenResponse struct {
 }
 
 type azureGraphResponse struct {
-	Data []struct {
+	// SkipToken is present when the result was paginated; it is passed back in
+	// options.$skipToken to fetch the next page.
+	SkipToken string `json:"$skipToken"`
+	Data      []struct {
 		Name      string            `json:"name"`
 		Location  string            `json:"location"`
 		Tags      map[string]string `json:"tags"`
@@ -519,36 +534,61 @@ func (s *CloudImportService) discoverAzure(ctx context.Context, creds CloudCrede
 		return nil, err
 	}
 
-	payload, err := json.Marshal(map[string]any{
-		"subscriptions": []string{creds.SubscriptionID},
-		"query":         azureResourceGraphQuery,
-		// resultFormat must be set explicitly: the REST API defaults to "table"
-		// (data as {columns, rows}), which azureGraphResponse cannot decode.
-		// objectArray returns data as [{...}], one object per VM — the shape the
-		// parser and the query's `project` list expect.
-		"options": map[string]any{"resultFormat": "objectArray"},
-	})
-	if err != nil {
-		return nil, err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		"https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2021-03-01",
-		strings.NewReader(string(payload)))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
+	out := []DiscoveredHost{}
+	skipToken := ""
+	// Bounded like the other providers: Resource Graph returns pages of $top rows
+	// with a $skipToken to continue. 20 pages × 1000 caps a runaway loop while
+	// still covering large subscriptions (the previous `| limit 1000` in the KQL
+	// silently dropped every VM past the first thousand).
+	for page := 0; page < 20; page++ {
+		options := map[string]any{
+			// resultFormat must be set explicitly: the REST API defaults to "table"
+			// (data as {columns, rows}), which azureGraphResponse cannot decode.
+			// objectArray returns data as [{...}], one object per VM.
+			"resultFormat": "objectArray",
+			"$top":         1000,
+		}
+		if skipToken != "" {
+			options["$skipToken"] = skipToken
+		}
+		payload, err := json.Marshal(map[string]any{
+			"subscriptions": []string{creds.SubscriptionID},
+			"query":         azureResourceGraphQuery,
+			"options":       options,
+		})
+		if err != nil {
+			return nil, err
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+			"https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2021-03-01",
+			strings.NewReader(string(payload)))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
 
-	body, err := s.do(req, "Azure Resource Graph")
-	if err != nil {
-		return nil, err
-	}
-	var parsed azureGraphResponse
-	if err := json.Unmarshal(body, &parsed); err != nil {
-		return nil, fmt.Errorf("parse Azure response: %w", err)
-	}
+		body, err := s.do(req, "Azure Resource Graph")
+		if err != nil {
+			return nil, err
+		}
+		var parsed azureGraphResponse
+		if err := json.Unmarshal(body, &parsed); err != nil {
+			return nil, fmt.Errorf("parse Azure response: %w", err)
+		}
 
+		out = append(out, azureHosts(parsed)...)
+
+		if parsed.SkipToken == "" {
+			break
+		}
+		skipToken = parsed.SkipToken
+	}
+	return out, nil
+}
+
+// azureHosts flattens a Resource Graph page into candidates.
+func azureHosts(parsed azureGraphResponse) []DiscoveredHost {
 	out := []DiscoveredHost{}
 	for _, vm := range parsed.Data {
 		address := vm.FQDN
@@ -582,7 +622,7 @@ func (s *CloudImportService) discoverAzure(ctx context.Context, creds CloudCrede
 			Detail:   vm.VMSize,
 		})
 	}
-	return out, nil
+	return out
 }
 
 func (s *CloudImportService) azureToken(ctx context.Context, creds CloudCredentials) (string, error) {

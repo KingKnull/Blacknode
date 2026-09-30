@@ -128,8 +128,14 @@ func (s *MoshService) Connect(ctx context.Context, sessionID, hostID string, col
 // buildMoshArgs constructs the argument list for mosh-client.
 // We pass --ssh so mosh-client handles server-side bootstrapping itself.
 func buildMoshArgs(h store.Host) []string {
+	// A stored port of 0 means "unset"; fall back to SSH's default (see
+	// store.Hosts.Create), or mosh would run `ssh -p 0`.
+	port := h.Port
+	if port == 0 {
+		port = 22
+	}
 	// Build the ssh command string for --ssh flag.
-	sshParts := []string{"ssh", "-p", fmt.Sprintf("%d", h.Port)}
+	sshParts := []string{"ssh", "-p", fmt.Sprintf("%d", port)}
 
 	// Key-based auth: pass -i if we have a key ID (the user's key is
 	// already in the ssh-agent at this point, or we fall back to agent auth).

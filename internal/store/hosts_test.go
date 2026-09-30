@@ -37,8 +37,10 @@ func TestCreateAndGetHost(t *testing.T) {
 	if saved.ID == "" {
 		t.Fatal("expected generated ID")
 	}
-	if saved.Port != 22 {
-		t.Fatalf("default port = %d want 22", saved.Port)
+	// Port left unset is stored as 0 (not stamped to 22), so it can inherit a
+	// group default; connection paths fall back to 22 at dial time.
+	if saved.Port != 0 {
+		t.Fatalf("unset port = %d want 0 (unset)", saved.Port)
 	}
 	got, err := s.Get(saved.ID)
 	if err != nil {

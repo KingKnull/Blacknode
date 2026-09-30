@@ -132,7 +132,7 @@
       (h): Action => ({
         id: `host:${h.id}`,
         label: `Connect: ${h.name}`,
-        hint: `${h.username}@${h.host}:${h.port}`,
+        hint: `${h.username}@${h.host}:${h.port || 22}`,
         icon: Server,
         category: "Hosts",
         keywords: `${h.host} ${h.username} ${h.group} ${(h.tags ?? []).join(" ")}`,

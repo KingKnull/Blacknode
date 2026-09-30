@@ -297,7 +297,7 @@
       <button
         class="flex min-w-0 flex-1 items-start gap-2.5 text-left"
         onclick={(e) => rowClick(e, h)}
-        aria-label="{h.name} — {h.username}@{h.host}:{h.port}"
+        aria-label="{h.name} — {h.username}@{h.host}:{h.port || 22}"
         title="Click for details · double-click to connect"
       >
         <!-- Status dot -->
@@ -332,7 +332,7 @@
             <Icon size="10" class="shrink-0 text-[var(--color-text-4)]" />
           </div>
           <div class="clamp-1 font-mono type-caption text-[var(--color-text-3)]">
-            {h.username}@{h.host}<span class="text-[var(--color-text-4)]">:{h.port}</span>
+            {h.username}@{h.host}<span class="text-[var(--color-text-4)]">:{h.port || 22}</span>
           </div>
           {#if h.tags && h.tags.length > 0}
             <div class="mt-1 flex flex-wrap gap-1">

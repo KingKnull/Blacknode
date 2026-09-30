@@ -453,9 +453,16 @@ func ForwardAgentTo(client *ssh.Client) error {
 // time. Use FromHostWithPassword only for a password the user just typed for
 // a host that has none saved.
 func FromHost(h store.Host) Target {
+	// A stored port of 0 means "unset" (see store.Hosts.Create). Any group port
+	// default has already been merged by GetResolved before we get here, so a
+	// still-zero port has no configured value and falls back to SSH's default.
+	port := h.Port
+	if port == 0 {
+		port = 22
+	}
 	return Target{
 		Host:         h.Host,
-		Port:         h.Port,
+		Port:         port,
 		User:         h.Username,
 		AuthMethod:   AuthMethod(h.AuthMethod),
 		HostID:       h.ID,
@@ -478,6 +485,9 @@ func FromHostWithPassword(h store.Host, password string) Target {
 func (d *Dialer) HandshakeOver(raw net.Conn, t Target) (*ssh.Client, error) {
 	if t.Host == "" || t.User == "" {
 		return nil, errors.New("host and user required")
+	}
+	if t.Port == 0 {
+		t.Port = 22
 	}
 	auth, err := d.authFor(t)
 	if err != nil {

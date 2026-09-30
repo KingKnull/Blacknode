@@ -188,9 +188,12 @@ func (s *Hosts) Create(h Host) (Host, error) {
 	if h.ID == "" {
 		h.ID = uuid.NewString()
 	}
-	if h.Port == 0 {
-		h.Port = 22
-	}
+	// Port 0 is stored as "unset" rather than stamped to 22 here: that is what
+	// lets a host inherit its group's port (ApplyGroupDefaults only fills a zero
+	// port), and every connection path defaults a still-zero port to 22 at dial
+	// time (sshconn.FromHost / Dial, mosh, telnet→23). Persisting 22 at create
+	// made "unset" and "deliberately 22" indistinguishable, so group port
+	// defaults could never apply.
 	if h.AuthMethod == "" {
 		h.AuthMethod = "password"
 	}
