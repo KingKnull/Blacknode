@@ -1,18 +1,19 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
-  import { AutocompleteService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
+  import { AutocompleteService, PlatformService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { Suggestion } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
 
   type Props = {
     prefix: string;
     hostID: string;
+    cwd?: string;
     x: number;
     y: number;
     onAccept: (text: string) => void;
     onDismiss: () => void;
   };
 
-  let { prefix, hostID, x, y, onAccept, onDismiss }: Props = $props();
+  let { prefix, hostID, cwd = "", x, y, onAccept, onDismiss }: Props = $props();
 
   let suggestions = $state<Suggestion[]>([]);
   let activeIndex = $state(0);
@@ -55,10 +56,10 @@
     loading = true;
     const sequence = ++suggestSequence;
     suggestTimer = setTimeout(() => {
-      AutocompleteService.Suggest(clean, hostID, 8)
-        .then((res) => {
+      Promise.all([AutocompleteService.Suggest(clean, hostID, 8), PlatformService.Complete(hostID, cwd, clean, "", "default").catch(() => [])])
+        .then(([history, contextual]) => {
           if (sequence !== suggestSequence) return;
-          suggestions = (res ?? []) as Suggestion[];
+          suggestions = [...new Map([...(contextual ?? []), ...(history ?? [])].map((s) => [s.text,s])).values()].slice(0,12) as Suggestion[];
           activeIndex = 0;
         })
         .catch(() => {
@@ -68,7 +69,7 @@
         .finally(() => {
           if (sequence === suggestSequence) loading = false;
         });
-    }, 120);
+    }, 220);
 
     return () => {
       clearTimeout(suggestTimer);

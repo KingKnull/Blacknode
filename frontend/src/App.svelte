@@ -3,6 +3,7 @@
   import { app } from "./lib/state.svelte";
   import VaultGate from "./lib/VaultGate.svelte";
   import Workspace from "./lib/Workspace.svelte";
+  import AuthPrompt from "./lib/AuthPrompt.svelte";
 
   onMount(() => {
     void app.refreshVault();
@@ -22,6 +23,10 @@
       <Workspace />
     {/snippet}
   </VaultGate>
+
+  <!-- Global: the keyboard-interactive handshake prompt can fire from any
+       connecting pane and must overlay everything. -->
+  <AuthPrompt />
 
   {#snippet failed(error, reset)}
     <!-- Last-resort guard: a render crash here used to leave a blank page. -->

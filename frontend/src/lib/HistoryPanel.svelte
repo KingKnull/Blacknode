@@ -124,6 +124,7 @@
         bind:value={query}
         onkeydown={(e) => e.key === "Enter" && runSearch()}
         placeholder="search command bodies (case-insensitive)…"
+        aria-label="Search command history"
         class="w-full bg-transparent py-2 pl-9 pr-3 type-body outline-none placeholder:text-[var(--color-text-4)]"
       />
       {#if searching || loading}
@@ -146,6 +147,7 @@
       <select
         class="rounded-md border hairline bg-[var(--color-surface-3)] px-2 py-1 outline-none"
         bind:value={hostFilter}
+        aria-label="Filter history by host"
       >
         <option value="">any host</option>
         {#each app.hosts as h (h.id)}
@@ -155,6 +157,7 @@
       <select
         class="rounded-md border hairline bg-[var(--color-surface-3)] px-2 py-1 outline-none"
         bind:value={sourceFilter}
+        aria-label="Filter history by source"
       >
         <option value="">any source</option>
         <option value="exec">multi-host exec</option>

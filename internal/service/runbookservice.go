@@ -22,14 +22,24 @@ type RunbookStep struct {
 	DependsOn []string `json:"dependsOn,omitempty"`
 	// RollbackCommand runs on the same host when this step fails.
 	RollbackCommand string `json:"rollbackCommand,omitempty"`
+	When            string `json:"when,omitempty"`
+	HealthCheck     string `json:"healthCheck,omitempty"`
+	Retries         int    `json:"retries,omitempty"`
+	RetrySafe       bool   `json:"retrySafe,omitempty"`
+	TimeoutSeconds  int    `json:"timeoutSeconds,omitempty"`
 }
 
 type Runbook struct {
-	ID             string        `json:"id"`
-	Name           string        `json:"name"`
-	Steps          []RunbookStep `json:"steps"`
-	TimeoutSeconds int           `json:"timeoutSeconds"`
-	StopOnFailure  bool          `json:"stopOnFailure"`
+	ID               string        `json:"id"`
+	Name             string        `json:"name"`
+	Steps            []RunbookStep `json:"steps"`
+	TimeoutSeconds   int           `json:"timeoutSeconds"`
+	StopOnFailure    bool          `json:"stopOnFailure"`
+	Revision         int64         `json:"revision,omitempty"`
+	WorkingDirectory string        `json:"workingDirectory,omitempty"`
+	BatchSize        int           `json:"batchSize,omitempty"`
+	CanarySize       int           `json:"canarySize,omitempty"`
+	WorkspaceID      string        `json:"workspaceID,omitempty"`
 }
 
 type RunbookResult struct {
@@ -49,14 +59,26 @@ type RunbookProgress struct {
 }
 
 type RunbookService struct {
-	settings *store.Settings
-	exec     *ExecService
-	mu       sync.Mutex
-	cancels  map[string]context.CancelFunc
+	settings   *store.Settings
+	exec       *ExecService
+	mu         sync.Mutex
+	cancels    map[string]context.CancelFunc
+	operations *store.Operations
 }
 
-func NewRunbookService(settings *store.Settings, exec *ExecService) *RunbookService {
-	return &RunbookService{settings: settings, exec: exec, cancels: make(map[string]context.CancelFunc)}
+func NewRunbookService(settings *store.Settings, exec *ExecService, operations ...*store.Operations) *RunbookService {
+	s := &RunbookService{settings: settings, exec: exec, cancels: make(map[string]context.CancelFunc)}
+	if len(operations) > 0 {
+		s.operations = operations[0]
+		raw, _ := settings.GetPlain(runbooksKey)
+		var books []Runbook
+		if json.Unmarshal([]byte(raw), &books) == nil {
+			for _, book := range books {
+				_, _ = s.operations.Put("runbook", book.ID, 0, book)
+			}
+		}
+	}
+	return s
 }
 
 func validateRunbook(book Runbook) error {
@@ -69,10 +91,19 @@ func validateRunbook(book Runbook) error {
 	if book.TimeoutSeconds < 1 || book.TimeoutSeconds > 3600 {
 		return errors.New("step timeout must be between 1 and 3600 seconds")
 	}
+	if book.BatchSize < 0 || book.BatchSize > 256 || book.CanarySize < 0 || book.CanarySize > 256 || len(book.WorkingDirectory) > 4096 {
+		return errors.New("invalid runbook batch or working directory")
+	}
 	// Step names are the identity used by DependsOn, per-host failure tracking
 	// and result indexing, so duplicates would silently conflate two steps.
 	names := make(map[string]bool, len(book.Steps))
 	for i, step := range book.Steps {
+		if step.Retries < 0 || step.Retries > 5 || (step.Retries > 0 && !step.RetrySafe) || step.TimeoutSeconds < 0 || step.TimeoutSeconds > 3600 {
+			return fmt.Errorf("step %d: retries require a retry-safe command, with at most five retries", i+1)
+		}
+		if len(step.When) > 16384 || len(step.HealthCheck) > 16384 {
+			return errors.New("condition or health check is too long")
+		}
 		if names[step.Name] {
 			return fmt.Errorf("step %d reuses the name %q; step names must be unique", i+1, step.Name)
 		}
@@ -167,6 +198,22 @@ func topologicalRunbookSteps(steps []RunbookStep) ([]RunbookStep, error) {
 }
 
 func (s *RunbookService) List(ctx context.Context) ([]Runbook, error) {
+	if s.operations != nil {
+		docs, err := s.operations.List("runbook", 500)
+		if err != nil {
+			return nil, err
+		}
+		out := []Runbook{}
+		for _, doc := range docs {
+			var book Runbook
+			if err = json.Unmarshal([]byte(doc.Body), &book); err != nil {
+				return nil, err
+			}
+			book.Revision = doc.Revision
+			out = append(out, book)
+		}
+		return out, nil
+	}
 	raw, err := s.settings.GetPlain(runbooksKey)
 	if err != nil {
 		return nil, err
@@ -181,6 +228,14 @@ func (s *RunbookService) List(ctx context.Context) ([]Runbook, error) {
 func (s *RunbookService) Save(ctx context.Context, book Runbook) (Runbook, error) {
 	if err := validateRunbook(book); err != nil {
 		return Runbook{}, err
+	}
+	if s.operations != nil {
+		if book.ID == "" {
+			book.ID = uuid.NewString()
+		}
+		doc, err := s.operations.Put("runbook", book.ID, book.Revision, book)
+		book.Revision = doc.Revision
+		return book, err
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -213,6 +268,13 @@ func (s *RunbookService) Save(ctx context.Context, book Runbook) (Runbook, error
 }
 
 func (s *RunbookService) Delete(ctx context.Context, id string) error {
+	if s.operations != nil {
+		doc, err := s.operations.Get("runbook", id)
+		if err != nil {
+			return err
+		}
+		return s.operations.Delete("runbook", id, doc.Revision)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	books, err := s.List(ctx)
@@ -252,6 +314,16 @@ func (s *RunbookService) Preview(ctx context.Context, book Runbook, values map[s
 			return nil, err
 		}
 		steps[i].RollbackCommand = rollback
+		condition, err := renderRunbookCommand(steps[i].When, values)
+		if err != nil {
+			return nil, err
+		}
+		steps[i].When = condition
+		health, err := renderRunbookCommand(steps[i].HealthCheck, values)
+		if err != nil {
+			return nil, err
+		}
+		steps[i].HealthCheck = health
 	}
 	// Sort here rather than in Run so the review dialog numbers steps in the
 	// same order they will execute in.

@@ -15,6 +15,7 @@ import * as HTTPService from "./httpservice.js";
 import * as HistoryService from "./historyservice.js";
 import * as HostGroupService from "./hostgroupservice.js";
 import * as HostService from "./hostservice.js";
+import * as JobService from "./jobservice.js";
 import * as KeyService from "./keyservice.js";
 import * as LocalShellService from "./localshellservice.js";
 import * as LogsService from "./logsservice.js";
@@ -23,6 +24,7 @@ import * as MoshService from "./moshservice.js";
 import * as NetworkService from "./networkservice.js";
 import * as NotificationService from "./notificationservice.js";
 import * as OpsConsoleService from "./opsconsoleservice.js";
+import * as PlatformService from "./platformservice.js";
 import * as PluginService from "./pluginservice.js";
 import * as PortForwardService from "./portforwardservice.js";
 import * as ProcessService from "./processservice.js";
@@ -35,6 +37,7 @@ import * as SettingsService from "./settingsservice.js";
 import * as SnippetService from "./snippetservice.js";
 import * as SyncService from "./syncservice.js";
 import * as TelnetService from "./telnetservice.js";
+import * as TransferService from "./transferservice.js";
 import * as UpdateService from "./updateservice.js";
 import * as VaultService from "./vaultservice.js";
 export {
@@ -52,6 +55,7 @@ export {
     HistoryService,
     HostGroupService,
     HostService,
+    JobService,
     KeyService,
     LocalShellService,
     LogsService,
@@ -60,6 +64,7 @@ export {
     NetworkService,
     NotificationService,
     OpsConsoleService,
+    PlatformService,
     PluginService,
     PortForwardService,
     ProcessService,
@@ -72,12 +77,14 @@ export {
     SnippetService,
     SyncService,
     TelnetService,
+    TransferService,
     UpdateService,
     VaultService
 };
 
 export {
     AIChunk,
+    AIProviderConfig,
     ActiveForward,
     AppSettings,
     AuditExport,
@@ -87,6 +94,7 @@ export {
     CAInfo,
     CastEvent,
     CertInfo,
+    ChangePlan,
     CloudCredentials,
     ConflictItem,
     ConnectionHealth,
@@ -96,10 +104,15 @@ export {
     DBTable,
     DNSAnswer,
     DNSResult,
+    DeploymentProject,
     DiagnosticSection,
     DiscoveredHost,
+    DynamicGroup,
     ExecProgress,
     ExecResult,
+    FleetDifference,
+    FleetFile,
+    FleetSnapshot,
     GroupSummary,
     HTTPHeader,
     HTTPRequestOptions,
@@ -108,13 +121,25 @@ export {
     ImportRequest,
     ImportResult,
     IncidentSnapshot,
+    Integration,
+    InvestigationRequest,
+    Job,
+    JobSchedule,
+    JobStepState,
+    KubeContext,
+    KubeForward,
+    KubeResource,
+    KubeTarget,
     LogLine,
     MetricAlertConfig,
+    MetricsState,
     MultiplexerSession,
     Notification,
     NotifyConfig,
     NotifyKind,
+    PasswordOptions,
     PingResult,
+    PipelineRun,
     Pod,
     PortScanResult,
     PortStatus,
@@ -137,6 +162,7 @@ export {
     SSLResult,
     SavedConnection,
     SearchHit,
+    ServiceWorkspace,
     SignRequest,
     SnippetValidation,
     SnippetVariable,
@@ -146,7 +172,11 @@ export {
     SystemdUnit,
     TerminalData,
     TerminalExit,
+    TerminalOptions,
+    TerminalSessionInfo,
     TransferProgress,
+    TransferRequest,
+    TransferTask,
     UpdateInfo,
     VaultLockEvent,
     VaultStatus

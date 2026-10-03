@@ -164,6 +164,7 @@
       <input
         bind:value={filter}
         placeholder="filter by name, body, tag…"
+        aria-label="Filter snippets"
         class="w-full bg-transparent py-2 pl-9 pr-3 type-body outline-none placeholder:text-[var(--color-text-4)]"
       />
     </div>

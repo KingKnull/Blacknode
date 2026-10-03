@@ -14,6 +14,8 @@ export {
     HostGroup,
     KnownHost,
     LogQuery,
+    OperationDocument,
+    OperationEvent,
     Recording,
     Snippet,
     Status,

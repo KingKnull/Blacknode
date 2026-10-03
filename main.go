@@ -17,6 +17,7 @@ import (
 	"github.com/blacknode/blacknode/internal/store"
 	"github.com/blacknode/blacknode/internal/vault"
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
 //go:embed all:frontend/dist
@@ -69,6 +70,7 @@ func main() {
 	syncKeys := store.NewSyncKeys(conn.DB)
 	caKeys := store.NewCAKeys(conn.DB)
 	activities := store.NewActivities(conn.DB)
+	operations := store.NewOperations(conn.DB)
 	recMgr := recorder.NewManager()
 	v := vault.New(conn.DB)
 	dialer := sshconn.New(v, keys, knownHosts, secrets)
@@ -86,6 +88,15 @@ func main() {
 	notifySvc := service.NewNotificationService(settings)
 	activityRec := service.NewActivityRecorder(activities)
 	execSvc := service.NewExecService(pool, hosts, history, notifySvc, activityRec)
+	metricsSvc := service.NewMetricsService(pool, hosts, notifySvc)
+	service.WireMetricsOperations(metricsSvc, operations)
+	sftpSvc := service.NewSFTPService(pool, hosts)
+	transferSvc := service.NewTransferService(sftpSvc, operations)
+	opsSvc := service.NewOpsConsoleService(pool, hosts, activityRec)
+	platformSvc := service.NewPlatformService(operations, hosts, pool, execSvc, metricsSvc, opsSvc, sftpSvc, settingsSvc, recordings)
+	runbookSvc := service.NewRunbookService(settings, execSvc, operations)
+	jobSvc := service.NewJobService(operations, runbookSvc, settingsSvc)
+	jobSvc.StartScheduler()
 	syncSvc := service.NewSyncService(settings, hosts, snippets, httpRequests, teamActivity, syncKeys, v, activityRec)
 	dataDir := filepath.Join(xdg.DataHome, "blacknode")
 	vaultSvc := service.NewVaultService(v, conn.DB, dataDir, activityRec, autoLock)
@@ -105,12 +116,15 @@ func main() {
 			application.NewService(service.NewCloudImportService(hosts)),
 			application.NewService(service.NewLocalShellService(recMgr, recordings, settings, dialer)),
 			application.NewService(service.NewSSHService(dialer, hosts, recMgr, recordings, settings)),
-			application.NewService(service.NewSFTPService(pool, hosts)),
+			application.NewService(sftpSvc),
+			application.NewService(transferSvc),
+			application.NewService(platformSvc),
+			application.NewService(jobSvc),
 			application.NewService(authPrompt),
 			application.NewService(execSvc),
-			application.NewService(service.NewRunbookService(settings, execSvc)),
-			application.NewService(service.NewOpsConsoleService(pool, hosts, activityRec)),
-			application.NewService(service.NewMetricsService(pool, hosts, notifySvc)),
+			application.NewService(runbookSvc),
+			application.NewService(opsSvc),
+			application.NewService(metricsSvc),
 			application.NewService(service.NewLogsService(pool, hosts, logQueries)),
 			application.NewService(service.NewAIService(settingsSvc)),
 			application.NewService(autoLock),
@@ -155,6 +169,7 @@ func main() {
 		MinHeight:        500,
 		StartState:       application.WindowStateMaximised,
 		DisableResize:    false,
+		EnableFileDrop:   true,
 		BackgroundColour: application.NewRGB(8, 8, 11),
 		Mac: application.MacWindow{
 			InvisibleTitleBarHeight: 50,
@@ -164,13 +179,19 @@ func main() {
 		URL: "/",
 	})
 
-	_ = win
+	win.OnWindowEvent(events.Common.WindowFilesDropped, func(event *application.WindowEvent) {
+		app.Event.Emit("files:dropped", event.Context().DroppedFiles())
+	})
 
 	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
 
 	pfSvc.StopAll(context.Background())
+	metricsSvc.StopAll(context.Background())
+	transferSvc.StopAll()
+	jobSvc.StopAll()
+	platformSvc.StopKubeForwards()
 	syncSvc.StopAutoSync()
 	pool.Close()
 	close(autoLock.StopChan)

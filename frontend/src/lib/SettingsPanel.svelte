@@ -15,6 +15,7 @@
     SyncStatus,
     AutoSyncConfig,
     ConflictItem,
+    AIProviderConfig,
   } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import type { TeamActivity, KnownHost } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { app } from "./state.svelte";
@@ -46,6 +47,8 @@
     Trash2,
   } from "@lucide/svelte";
 
+  let { initialSection = "ai" }: { initialSection?: string } = $props();
+
   let apiKeyInput = $state("");
   let showKey = $state(false);
   let savingKey = $state(false);
@@ -65,6 +68,26 @@
   let defaultShellPath = $state("");
   let metricsIntervalSeconds = $state(5);
   let terminalScrollback = $state(5000);
+  let sessionMode = $state("auto");
+  let shellIntegration = $state(true);
+  let featureError = $state("");
+  let savingFeatures = $state(false);
+  let provider = $state<AIProviderConfig>({provider: 'anthropic', endpoint: 'http://127.0.0.1:11434', commandModel: 'claude-haiku-4-5', analysisModel: 'claude-sonnet-4-6'});
+  let providerBusy = $state(false);
+  let providerError = $state("");
+
+  async function saveProvider() {
+    providerBusy = true; providerError = "";
+    try { await SettingsService.SetAIProvider($state.snapshot(provider)); app.toast('ok', 'AI provider saved'); }
+    catch (e) { providerError = String(e); }
+    finally { providerBusy = false; }
+  }
+  async function saveTerminalFeatures() {
+    savingFeatures = true; featureError = "";
+    try { await SettingsService.SetTerminalFeatures(sessionMode, shellIntegration); await app.refreshSettings(); }
+    catch (e) { featureError = String(e); }
+    finally { savingFeatures = false; }
+  }
 
   // Quick-unlock PIN. Never read back from the backend — there is nothing to
   // read, the wrapped key is memory-only — so the field is write-only and the
@@ -316,10 +339,15 @@
   }
 
   onMount(async () => {
+    scrollTo(initialSection, "instant");
     autoLockMinutes = app.settings.autoLockMinutes;
     defaultShellPath = app.settings.defaultShellPath;
     metricsIntervalSeconds = app.settings.metricsIntervalSeconds;
     terminalScrollback = app.settings.terminalScrollback;
+    sessionMode = app.settings.terminalSessionMode;
+    shellIntegration = app.settings.shellIntegration;
+    try { provider = await SettingsService.AIProvider(); }
+    catch (e) { providerError = String(e); }
     try {
       notify = (await NotificationService.Config()) as NotifyConfig;
     } catch {
@@ -469,13 +497,14 @@
     { id: "notifications", label: "NOTIFICATIONS", Icon: Bell },
     { id: "shell", label: "LOCAL SHELL", Icon: Activity },
     { id: "sync", label: "CLOUD SYNC", Icon: Cloud },
+    { id: "team", label: "SHARED CONFIG", Icon: Users },
     { id: "about", label: "ABOUT", Icon: Info },
   ];
 
-  function scrollTo(id: string) {
+  function scrollTo(id: string, behavior: ScrollBehavior = "smooth") {
     activeSection = id;
     const el = document.getElementById(`section-${id}`);
-    if (el) el.scrollIntoView({ behavior: "smooth" });
+    if (el) el.scrollIntoView({ behavior });
   }
 </script>
 
@@ -510,12 +539,20 @@
             <h3 class="type-eyebrow text-[var(--color-text-1)]">AI assistant</h3>
           </div>
           <p class="type-caption text-[var(--color-text-3)] leading-relaxed">
-            Powers the side drawer (⌘I) and command-palette translations. Uses
-            <span class="font-mono">claude-haiku-4-5</span> for low-latency
-            suggestions and <span class="font-mono">claude-sonnet-4-6</span> for
-            analyses. Your key is encrypted at rest with the vault — it never
-            leaves your machine in plaintext.
+            Choose the provider for command suggestions, explanations and investigations.
+            Investigation evidence is shown for review before it is sent. API keys are encrypted in the vault.
           </p>
+
+          <div class="ops-form mt-4">
+            <label>Provider<select bind:value={provider.provider} onchange={() => {
+              if (provider.provider === 'ollama') { provider.commandModel = 'qwen2.5-coder:7b'; provider.analysisModel = 'qwen2.5-coder:7b'; }
+              else { provider.commandModel = 'claude-haiku-4-5'; provider.analysisModel = 'claude-sonnet-4-6'; }
+            }}><option value="anthropic">Anthropic</option><option value="ollama">Ollama</option></select></label>
+            {#if provider.provider === 'ollama'}<label>Ollama endpoint<input bind:value={provider.endpoint} placeholder="http://127.0.0.1:11434" /></label>{/if}
+            <div class="ops-grid"><label>Command model<input bind:value={provider.commandModel} /></label><label>Analysis model<input bind:value={provider.analysisModel} /></label></div>
+            <div class="ops-actions"><button onclick={saveProvider} disabled={providerBusy}>Save provider</button><button onclick={testKey} disabled={savingKey}>Test saved provider</button></div>
+            {#if providerError}<p class="ops-error" role="alert">{providerError}</p>{/if}
+          </div>
 
           <div class="mt-4 space-y-2">
             <label class="block">
@@ -819,6 +856,14 @@
           <div class="mb-4 flex items-center gap-2">
             <Activity size="14" class="text-[var(--color-accent)]" />
             <h3 class="type-eyebrow text-[var(--color-text-1)]">Local shell & metrics</h3>
+          </div>
+
+          <div class="ops-form mb-5">
+            <label>Persistent SSH sessions<select bind:value={sessionMode}><option value="auto">Automatic: tmux, then Zellij</option><option value="tmux">tmux</option><option value="zellij">Zellij</option><option value="off">Ordinary shell</option></select></label>
+            <label class="ops-check"><input type="checkbox" bind:checked={shellIntegration} />Bash, Zsh and Fish command integration</label>
+            <p class="ops-muted">New SSH sessions use the selected manager when installed on the host. Saved workspaces reattach to their remote session. Shell integration provides command boundaries and current directory context.</p>
+            <div class="ops-actions"><button onclick={saveTerminalFeatures} disabled={savingFeatures}>Save session preferences</button></div>
+            {#if featureError}<p class="ops-error" role="alert">{featureError}</p>{/if}
           </div>
 
           <label class="block">

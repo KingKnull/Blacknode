@@ -37,7 +37,7 @@
     { id: "incident", label: "Incident", Icon: AlertTriangle },
   ];
 
-  const sshHosts = $derived(app.hosts.filter((h) => !h.protocol || h.protocol === "ssh"));
+  const sshHosts = $derived(app.scopedHosts.filter((h) => !h.protocol || h.protocol === "ssh"));
   let selectedHostID = $state("");
   let selectedHosts = $state<Set<string>>(new Set());
 
@@ -238,6 +238,7 @@
     {/each}
     <div class="ml-auto flex items-center gap-2 type-caption text-[var(--color-text-4)]">
       <select
+        aria-label="Host for operations"
         class="rounded border hairline bg-[var(--color-surface-3)] px-2 py-1 font-mono type-micro text-[var(--color-text-1)]"
         bind:value={selectedHostID}
         onchange={() => {

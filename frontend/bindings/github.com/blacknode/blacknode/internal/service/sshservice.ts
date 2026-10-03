@@ -25,6 +25,12 @@ export function ConnectByHost(sessionID: string, hostID: string, password: strin
     return $Call.ByID(1318833813, sessionID, hostID, password, cols, rows);
 }
 
+export function ConnectSession(sessionID: string, hostID: string, password: string, cols: number, rows: number, options: $models.TerminalOptions): $CancellablePromise<$models.TerminalSessionInfo> {
+    return $Call.ByID(2556295830, sessionID, hostID, password, cols, rows, options).then(($result: any) => {
+        return $$createType0($result);
+    });
+}
+
 export function Disconnect(sessionID: string): $CancellablePromise<void> {
     return $Call.ByID(3621521526, sessionID);
 }
@@ -59,3 +65,6 @@ export function SendSudoPassword(sessionID: string, hostID: string): $Cancellabl
 export function Write(sessionID: string, data: string): $CancellablePromise<void> {
     return $Call.ByID(2904572619, sessionID, data);
 }
+
+// Private type creation functions
+const $$createType0 = $models.TerminalSessionInfo.createFrom;

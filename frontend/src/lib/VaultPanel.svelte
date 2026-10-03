@@ -3,7 +3,7 @@
   import {
     HostService,
   } from "../../bindings/github.com/blacknode/blacknode/internal/service";
-  import { Shield, Key, Lock, Trash2, Edit3, Check, X } from "@lucide/svelte";
+  import { Shield, Key, Lock, Trash2, Edit3, Check, X, Sparkles } from "@lucide/svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
 
   // This panel is deliberately write-only. It can tell you a credential exists
@@ -44,6 +44,17 @@
       app.toast("error", "SAVE FAILED", String(e?.message ?? e));
     }
     editingSecret = null;
+  }
+
+  // Fill the editor with a freshly generated strong password. Saving still
+  // happens through saveEdit → the vault; nothing is persisted until then.
+  async function generateSecret() {
+    if (!editingSecret) return;
+    try {
+      editingSecret.value = await HostService.GeneratePassword({ length: 20, symbols: true });
+    } catch (e: any) {
+      app.toast("error", "COULD NOT GENERATE", String(e?.message ?? e));
+    }
   }
 
   let pendingDelete = $state<{ hostID: string; type: "ssh" | "sudo" } | null>(null);
@@ -126,6 +137,9 @@
                   bind:value={editingSecret.value}
                   onkeydown={(e) => e.key === "Enter" && saveEdit()}
                 />
+                <button class="p-1 text-[var(--color-accent)]/70 hover:text-[var(--color-accent)]" onclick={generateSecret} title="Suggest a strong password">
+                  <Sparkles size="12" />
+                </button>
                 <button class="p-1 text-[var(--color-accent)] hover:text-[var(--color-text-1)] disabled:opacity-30" onclick={saveEdit} disabled={!editingSecret.value} title="Save">
                   <Check size="12" />
                 </button>
@@ -160,6 +174,9 @@
                   bind:value={editingSecret.value}
                   onkeydown={(e) => e.key === "Enter" && saveEdit()}
                 />
+                <button class="p-1 text-[var(--color-accent)]/70 hover:text-[var(--color-accent)]" onclick={generateSecret} title="Suggest a strong password">
+                  <Sparkles size="12" />
+                </button>
                 <button class="p-1 text-[var(--color-accent)] hover:text-[var(--color-text-1)] disabled:opacity-30" onclick={saveEdit} disabled={!editingSecret.value} title="Save">
                   <Check size="12" />
                 </button>

@@ -649,6 +649,88 @@ export class LogQuery {
     }
 }
 
+export class OperationDocument {
+    "kind": string;
+    "id": string;
+    "revision": number;
+    "body": string;
+    "createdAt": number;
+    "updatedAt": number;
+
+    /** Creates a new OperationDocument instance. */
+    constructor($$source: Partial<OperationDocument> = {}) {
+        if (!("kind" in $$source)) {
+            this["kind"] = "";
+        }
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("revision" in $$source)) {
+            this["revision"] = 0;
+        }
+        if (!("body" in $$source)) {
+            this["body"] = "";
+        }
+        if (!("createdAt" in $$source)) {
+            this["createdAt"] = 0;
+        }
+        if (!("updatedAt" in $$source)) {
+            this["updatedAt"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new OperationDocument instance from a string or object.
+     */
+    static createFrom($$source: any = {}): OperationDocument {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new OperationDocument($$parsedSource as Partial<OperationDocument>);
+    }
+}
+
+export class OperationEvent {
+    "seq": number;
+    "scope": string;
+    "kind": string;
+    "title": string;
+    "body": string;
+    "at": number;
+
+    /** Creates a new OperationEvent instance. */
+    constructor($$source: Partial<OperationEvent> = {}) {
+        if (!("seq" in $$source)) {
+            this["seq"] = 0;
+        }
+        if (!("scope" in $$source)) {
+            this["scope"] = "";
+        }
+        if (!("kind" in $$source)) {
+            this["kind"] = "";
+        }
+        if (!("title" in $$source)) {
+            this["title"] = "";
+        }
+        if (!("body" in $$source)) {
+            this["body"] = "";
+        }
+        if (!("at" in $$source)) {
+            this["at"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new OperationEvent instance from a string or object.
+     */
+    static createFrom($$source: any = {}): OperationEvent {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new OperationEvent($$parsedSource as Partial<OperationEvent>);
+    }
+}
+
 export class Recording {
     "id": string;
     "title": string;

@@ -3,7 +3,7 @@
   import type { Host, Snippet } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { app } from "./state.svelte";
   import { onMount } from "svelte";
-  import { Server, X, Loader2, Eye, EyeOff, ShieldCheck } from "@lucide/svelte";
+  import { Server, X, Loader2, Eye, EyeOff, ShieldCheck, Sparkles } from "@lucide/svelte";
   import Dialog from "./Dialog.svelte";
 
   const BAUD_RATES = [9600, 19200, 38400, 57600, 115200];
@@ -106,6 +106,17 @@
   function onProtocolChange() {
     if (protocol === "telnet" && (port === 22 || !port)) port = 23;
     else if (protocol === "ssh" && port === 23) port = 22;
+  }
+
+  // Fill the password field with a generated strong password and reveal it so
+  // the user can see what will be saved. Persisted via SetPassword on host save.
+  async function generatePassword() {
+    try {
+      password = await HostService.GeneratePassword({ length: 20, symbols: true });
+      showPassword = true;
+    } catch (e: any) {
+      app.toast("error", "COULD NOT GENERATE", String(e?.message ?? e));
+    }
   }
 
   async function save() {
@@ -428,7 +439,17 @@
               {#if showPassword}<EyeOff size="12" />{:else}<Eye size="12" />{/if}
             </button>
           </div>
-          <p class="mt-1 type-caption text-[var(--color-text-4)]">AES-256 encrypted · auto-fills at connect time</p>
+          <div class="mt-1 flex items-center justify-between gap-2">
+            <p class="type-caption text-[var(--color-text-4)]">AES-256 encrypted · auto-fills at connect time</p>
+            <button
+              type="button"
+              class="flex shrink-0 items-center gap-1 font-mono type-eyebrow text-[var(--color-accent)]/80 hover:text-[var(--color-accent)] transition-colors"
+              onclick={generatePassword}
+              title="Suggest a strong password"
+            >
+              <Sparkles size="11" /> GENERATE
+            </button>
+          </div>
         </label>
       {/if}
       {/if}

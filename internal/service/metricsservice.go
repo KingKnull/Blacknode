@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -108,6 +109,10 @@ type MetricsService struct {
 	prevNet     map[string]netSample
 	alertConfig MetricAlertConfig
 	alertStates map[string]map[string]metricAlertState
+	intervals   map[string]int
+	history     map[string][]HostMetrics
+	operations  *store.Operations
+	lastSave    map[string]int64
 }
 
 type netSample struct {
@@ -134,12 +139,23 @@ func NewMetricsService(pool *sshconn.Pool, h *store.Hosts, n *NotificationServic
 		cancels:     make(map[string]context.CancelFunc),
 		prevCPU:     make(map[string]struct{ total, idle float64 }),
 		prevNet:     make(map[string]netSample),
+		intervals:   make(map[string]int),
+		history:     make(map[string][]HostMetrics),
+		lastSave:    make(map[string]int64),
 	}
 }
 
 // Start begins a polling loop for the given host. Emits "metrics:update"
 // every intervalSeconds. Idempotent — calling Start twice replaces the loop.
 func (s *MetricsService) Start(hostID string, intervalSeconds int) error {
+	if s.hosts != nil {
+		if _, err := s.hosts.GetResolved(hostID); err != nil {
+			return err
+		}
+	}
+	if hostID == "" {
+		return fmt.Errorf("host ID required")
+	}
 	if intervalSeconds < 2 {
 		intervalSeconds = 5
 	}
@@ -147,6 +163,8 @@ func (s *MetricsService) Start(hostID string, intervalSeconds int) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	s.mu.Lock()
 	s.cancels[hostID] = cancel
+	s.intervals[hostID] = intervalSeconds
+	s.persistPollingLocked()
 	s.mu.Unlock()
 
 	go s.loop(ctx, hostID, time.Duration(intervalSeconds)*time.Second)
@@ -162,6 +180,8 @@ func (s *MetricsService) Stop(hostID string) {
 	delete(s.prevCPU, hostID)
 	delete(s.prevNet, hostID)
 	delete(s.alertStates, hostID)
+	delete(s.intervals, hostID)
+	s.persistPollingLocked()
 	s.mu.Unlock()
 }
 
@@ -196,6 +216,7 @@ func (s *MetricsService) tick(ctx context.Context, hostID string) {
 	if ctx.Err() != nil {
 		return
 	}
+	s.remember(m)
 	if app := application.Get(); app != nil {
 		app.Event.Emit("metrics:update", m)
 	}

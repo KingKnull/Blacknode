@@ -15,6 +15,14 @@ export function GetAlertConfig(): $CancellablePromise<$models.MetricAlertConfig>
     });
 }
 
+/**
+ * Restore is invoked after unlock (or by the unattended runner), never by a
+ * panel mount. Closing a view does not stop monitoring or reset alert timers.
+ */
+export function Restore(): $CancellablePromise<void> {
+    return $Call.ByID(1368273167);
+}
+
 export function SetAlertConfig(cfg: $models.MetricAlertConfig): $CancellablePromise<void> {
     return $Call.ByID(4055041811, cfg);
 }
@@ -27,6 +35,12 @@ export function Start(hostID: string, intervalSeconds: number): $CancellableProm
     return $Call.ByID(2268135661, hostID, intervalSeconds);
 }
 
+export function Status(): $CancellablePromise<$models.MetricsState> {
+    return $Call.ByID(4081828337).then(($result: any) => {
+        return $$createType1($result);
+    });
+}
+
 export function Stop(hostID: string): $CancellablePromise<void> {
     return $Call.ByID(1985082911, hostID);
 }
@@ -37,3 +51,4 @@ export function StopAll(): $CancellablePromise<void> {
 
 // Private type creation functions
 const $$createType0 = $models.MetricAlertConfig.createFrom;
+const $$createType1 = $models.MetricsState.createFrom;

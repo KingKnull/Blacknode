@@ -35,8 +35,8 @@
 
   type Line = LogLine & { id: number };
 
-  let command = $state("tail -F /var/log/syslog");
-  let selectedHosts = $state<Set<string>>(new Set());
+  let command = $state(app.serviceContext?.logCommand || "tail -F /var/log/syslog");
+  let selectedHosts = $state<Set<string>>(new Set(app.serviceContext?.hostIDs ?? []));
   let streamID = $state("");
   let running = $state(false);
   let paused = $state(false);
@@ -260,6 +260,7 @@
         class="flex-1 rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-body outline-none disabled:opacity-50"
         bind:value={command}
         placeholder="tail -F /var/log/syslog"
+        aria-label="Log command"
         disabled={running}
       />
     </div>
@@ -268,6 +269,7 @@
         class="flex-1 rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-1.5 font-mono type-caption outline-none"
         bind:value={filter}
         placeholder={useRegex ? "regex filter (case-insensitive)" : "substring filter"}
+        aria-label={useRegex ? "Filter logs by regular expression" : "Filter logs by text"}
       />
       <label
         class="flex items-center gap-1.5 rounded-md border hairline-strong px-2 py-1 type-caption text-[var(--color-text-2)]"
@@ -287,7 +289,7 @@
       <div class="px-3 py-2 type-eyebrow text-[var(--color-text-4)]">
         Hosts
       </div>
-      {#each app.hosts as h (h.id)}
+      {#each app.scopedHosts as h (h.id)}
         {@const isSel = selectedHosts.has(h.id)}
         <label
           class="flex cursor-pointer items-center gap-2 border-b hairline px-3 py-1.5 type-caption transition-colors hover:bg-[var(--color-surface-2)]"

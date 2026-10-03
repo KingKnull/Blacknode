@@ -19,7 +19,7 @@
     allowEnterConfirm?: boolean;
     portal?: boolean;
     onCancel: () => void;
-    onConfirm: () => void;
+    onConfirm: () => void | Promise<void>;
   };
   let {
     title,
@@ -34,9 +34,25 @@
   }: Props = $props();
 
   let typed = $state("");
+  let submitting = $state(false);
+  let error = $state("");
+  const titleID = $props.id();
   let canConfirm = $derived(
-    !requirePhrase || typed.trim() === requirePhrase.trim(),
+    !submitting && (!requirePhrase || typed.trim() === requirePhrase.trim()),
   );
+
+  function cancel() {
+    if (!submitting) onCancel();
+  }
+
+  async function confirm() {
+    if (!canConfirm) return;
+    submitting = true;
+    error = "";
+    try { await onConfirm(); }
+    catch (e) { error = e instanceof Error ? e.message : String(e); }
+    finally { submitting = false; }
+  }
 
   // Enter-to-confirm (Escape + focus trap handled by Dialog). Disabled for the
   // most destructive tier, which requires an explicit click, and for callers
@@ -48,7 +64,7 @@
     if ((e.target as HTMLElement)?.closest('button, a, [role="button"]')) return;
     if (e.key === "Enter" && canConfirm && severity !== "block-without-confirm") {
       e.preventDefault();
-      onConfirm();
+      void confirm();
     }
   }
 </script>
@@ -56,8 +72,8 @@
 <Dialog
   {portal}
   onkeydown={onKey}
-  onclose={onCancel}
-  labelledby="confirm-danger-title"
+  onclose={cancel}
+  labelledby={titleID}
   panelClass="w-[520px] overflow-y-auto border border-[var(--color-danger)]/40 bg-[var(--color-surface-2)] shadow-2xl"
   panelStyle="box-shadow: 0 0 0 1px rgba(255,60,60,0.2), 0 0 40px rgba(255,60,60,0.04), 0 40px 80px rgba(0,0,0,0.6);"
 >
@@ -71,10 +87,11 @@
       {:else}
         <AlertTriangle size="12" class="text-[var(--color-warn)]" />
       {/if}
-      <span id="confirm-danger-title" class="font-mono type-eyebrow text-[var(--color-danger)]">{title}</span>
+      <span id={titleID} class="font-mono type-eyebrow text-[var(--color-danger)]">{title}</span>
       <button
         class="ml-auto border border-[var(--color-line)] p-1 text-[var(--color-text-4)] hover:border-[var(--color-danger)]/40 hover:text-[var(--color-danger)] transition-all"
-        onclick={onCancel}
+        onclick={cancel}
+        disabled={submitting}
         title="Cancel"
       >
         <X size="11" />
@@ -83,6 +100,7 @@
 
     <div class="space-y-3 p-5">
       <p class="type-body leading-relaxed text-[var(--color-text-2)]">{body}</p>
+      {#if error}<p class="type-caption break-words text-[var(--color-danger)]" role="alert">{error}</p>{/if}
 
       {#if productionHosts.length > 0}
         <div class="border border-[var(--color-danger)]/25 bg-[var(--color-danger)]/8 p-3">
@@ -113,14 +131,14 @@
       class="flex items-center justify-end gap-2 border-t border-[var(--color-danger)]/15 bg-[var(--color-surface-1)] px-5 py-3"
     >
       <button class="border border-[var(--color-line)] px-3 py-1.5 type-body text-[var(--color-text-3)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)] transition-all"
-        onclick={onCancel}>Cancel</button>
+        disabled={submitting} onclick={cancel}>Cancel</button>
       <button
         class="flex items-center gap-1.5 border border-[var(--color-danger)]/50 bg-[var(--color-danger)]/12 px-3 py-1.5 type-body font-semibold text-[var(--color-danger)] hover:bg-[var(--color-danger)]/20 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
         disabled={!canConfirm}
-        onclick={onConfirm}
+        onclick={confirm}
       >
         <ShieldAlert size="12" />
-        Proceed
+        {submitting ? "Working…" : "Proceed"}
       </button>
     </div>
   {/snippet}

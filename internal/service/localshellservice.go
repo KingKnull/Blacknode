@@ -17,9 +17,10 @@ import (
 )
 
 type localSession struct {
-	pty    pty.Pty
-	cmd    *pty.Cmd
-	cancel chan struct{}
+	pty     pty.Pty
+	cmd     *pty.Cmd
+	cancel  chan struct{}
+	cleanup func()
 }
 
 type LocalShellService struct {
@@ -88,17 +89,28 @@ func (s *LocalShellService) Open(ctx context.Context, sessionID string, cols, ro
 		return fmt.Errorf("resize: %w", err)
 	}
 
-	cmd := p.Command(shell)
+	var args, extraEnv []string
+	cleanup := func() {}
+	if enabled, _ := s.settings.GetPlain("shell_integration"); enabled != "false" {
+		args, extraEnv, cleanup, err = prepareLocalIntegration(shell)
+		if err != nil {
+			p.Close()
+			return err
+		}
+	}
+	cmd := p.Command(shell, args...)
 	cmd.Env = ptyEnv()
+	cmd.Env = append(cmd.Env, extraEnv...)
 	if home, err := os.UserHomeDir(); err == nil {
 		cmd.Dir = home
 	}
 	if err := cmd.Start(); err != nil {
 		p.Close()
+		cleanup()
 		return fmt.Errorf("start shell: %w", err)
 	}
 
-	state := &localSession{pty: p, cmd: cmd, cancel: make(chan struct{})}
+	state := &localSession{pty: p, cmd: cmd, cancel: make(chan struct{}), cleanup: cleanup}
 	s.mu.Lock()
 	s.sessions[sessionID] = state
 	s.mu.Unlock()
@@ -206,6 +218,9 @@ func (s *LocalShellService) cleanup(sessionID, reason string) {
 	}
 	close(state.cancel)
 	_ = state.pty.Close()
+	if state.cleanup != nil {
+		state.cleanup()
+	}
 	s.finishRecording(sessionID, "local shell")
 	s.emitExit(sessionID, reason)
 }

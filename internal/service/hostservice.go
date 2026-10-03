@@ -9,10 +9,18 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/blacknode/blacknode/internal/pwgen"
 	"github.com/blacknode/blacknode/internal/store"
 	"github.com/blacknode/blacknode/internal/vault"
 	sshconfig "github.com/kevinburke/ssh_config"
 )
+
+// PasswordOptions controls GeneratePassword. Length 0 means the generator's
+// default; Symbols toggles the server-safe punctuation set.
+type PasswordOptions struct {
+	Length  int  `json:"length"`
+	Symbols bool `json:"symbols"`
+}
 
 type HostService struct {
 	hosts      *store.Hosts
@@ -66,6 +74,14 @@ func (s *HostService) RemoveKnownHost(ctx context.Context, host string, port int
 // The plaintext password is never stored; only AES-256-GCM ciphertext.
 func (s *HostService) SetPassword(ctx context.Context, hostID, password string) error {
 	return s.setSecret(store.KindPassword, hostID, password)
+}
+
+// GeneratePassword returns a strong random password for the user to set on a
+// server (e.g. when a rotation policy forces a change). It never touches the
+// vault — the caller decides whether to save it with SetPassword — so a
+// suggestion the user discards leaves no trace.
+func (s *HostService) GeneratePassword(ctx context.Context, opts PasswordOptions) (string, error) {
+	return pwgen.Generate(pwgen.Options{Length: opts.Length, Symbols: opts.Symbols})
 }
 
 // SetSudoPassword encrypts and persists the sudo/root password for a host in

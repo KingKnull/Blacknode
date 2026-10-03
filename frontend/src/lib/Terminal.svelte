@@ -19,6 +19,8 @@
   import type { Snippet } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { focus } from "./actions";
   import type { CommandBlock } from "./commandBlocks";
+  import { ShellIntegrationParser } from "./shellIntegration";
+  import RemoteEditor from "./RemoteEditor.svelte";
   import { app } from "./state.svelte";
   import { bus } from "./events";
   import SnippetApplyDialog from "./SnippetApplyDialog.svelte";
@@ -132,6 +134,11 @@
   let showAutocomplete = $state(false);
 
   let commandBlocks = $state<CommandBlock[]>([]);
+  const shellParser = new ShellIntegrationParser();
+  let shellIntegrated = $state(false);
+  let shellCwd = $state("");
+  let shellBranch = $state("");
+  let linkedFile = $state<{hostID: string; path: string} | null>(null);
 
   function stripAnsi(s: string): string {
     return s.replace(/\x1b\[[0-9;]*[A-Za-z]/g, "").replace(/\x1b\][^\x07]*\x07/g, "");
@@ -140,7 +147,7 @@
   function updateAcBuffer(d: string) {
     // Newline / carriage return → reset buffer and dismiss.
     if (d === "\r" || d === "\n" || d.includes("\r") || d.includes("\n")) {
-      startCommandBlock(acBuffer);
+      if (!shellIntegrated) startCommandBlock(acBuffer);
       acBuffer = "";
       showAutocomplete = false;
       return;
@@ -189,15 +196,23 @@
   }
 
   function recordCommandOutput(data: string) {
-    const block = commandBlocks.at(-1);
-    if (!block?.running) return;
-    const exitMarker = /\x1b\]133;D;(\d+)(?:\x07|\x1b\\)/.exec(data);
-    const clean = stripAnsi(data).replace(/\x1b\]133;D;\d+(?:\x07|\x1b\\)/g, "");
-    block.output = (block.output + clean).slice(-64 * 1024);
-    if (exitMarker) {
-      block.exitCode = Number(exitMarker[1]);
-      block.running = false;
-      block.endedAt = Date.now();
+    for (const event of shellParser.feed(data)) {
+      if (event.kind === "prompt") shellIntegrated = true;
+      else if (event.kind === "cwd") shellCwd = event.value;
+      else if (event.kind === "branch") shellBranch = event.value;
+      else if (event.kind === "start") {
+        shellIntegrated = true;
+        const previous = commandBlocks.at(-1);
+        if (previous?.running) { previous.running = false; previous.endedAt = Date.now(); }
+        commandBlocks.push({ id: crypto.randomUUID(), command: "", startedAt: Date.now(), running: true, output: "", cwd: shellCwd });
+        if (commandBlocks.length > 100) commandBlocks.shift();
+      } else {
+        const block = commandBlocks.at(-1);
+        if (!block?.running) continue;
+        if (event.kind === "command") block.command = event.value;
+        if (event.kind === "output") block.output = (block.output + stripAnsi(event.value)).slice(-64 * 1024);
+        if (event.kind === "end") { block.exitCode = event.code; block.running = false; block.endedAt = Date.now(); }
+      }
     }
   }
 
@@ -472,6 +487,19 @@
     searchAddon = new SearchAddon();
     term.loadAddon(fit);
     term.loadAddon(new WebLinksAddon());
+    term.registerLinkProvider({ provideLinks(line, callback) {
+      if (!connectedHostID) { callback(undefined); return; }
+      const text = term?.buffer.active.getLine(line - 1)?.translateToString(true) ?? "";
+      const links = [...text.matchAll(/(?:~\/|\/|\.{1,2}\/)[^\s"'<>()[\]{}]+/g)].map((match) => {
+        const raw = match[0].replace(/:\d+(?::\d+)?[:.,]?$/, "").replace(/[.,]$/, "");
+        return { text: raw, range: { start: { x: match.index! + 1, y: line }, end: { x: match.index! + raw.length, y: line } }, activate: () => {
+          if (!connectedHostID) return;
+          const path = raw.startsWith("/") ? raw : raw.startsWith("~/") ? raw.slice(2) : `${shellCwd || "."}/${raw}`;
+          linkedFile = { hostID: connectedHostID, path };
+        } };
+      });
+      callback(links);
+    } });
     term.loadAddon(searchAddon);
 
     searchAddon.onDidChangeResults((e) => { searchResults = e; });
@@ -627,6 +655,7 @@
       if (!intent) return;
       if (intent.via === "mosh") void switchToMosh(intent.hostID);
       else void switchToRemote(intent.hostID);
+      return true;
     }
 
     // The drain waits for openLocal to *finish*, not just start. Both
@@ -638,7 +667,11 @@
     // resets the tab label. openLocal swallows its own errors, so this always
     // runs, and a live pane's intents still arrive via the bus below.
     let localReady = false;
-    void openLocal(false).then(() => { localReady = true; drainConnectIntent(); });
+    void openLocal(false).then(() => {
+      localReady = true;
+      const connecting = drainConnectIntent();
+      if (!connecting && mode === "local" && status === "running") runLaunchCommand();
+    });
 
     const offConnectIntent = bus.on('connect-intent', (detail) => {
       if (detail.sessionID === sessionID) drainConnectIntent();
@@ -665,6 +698,7 @@
     app.unregisterBroadcastSink(sessionID);
     app.forgetSession(sessionID);
     app.forgetConnectIntent(sessionID);
+    app.pendingLaunchCommands.delete(sessionID);
     // xterm can throw here if the WebGL addon already disposed itself after a
     // context loss (hidden/minimized webview) — a throw during onDestroy would
     // abort Svelte's whole unmount and blank the app, so never let it escape.
@@ -711,12 +745,20 @@
   }
 
   function toggleBroadcastMember() { app.toggleBroadcastMember(sessionID); }
+  function runLaunchCommand(): boolean {
+    const command = app.pendingLaunchCommands.get(sessionID);
+    if (!command) return false;
+    app.pendingLaunchCommands.delete(sessionID);
+    writeLocal(command + "\r");
+    return true;
+  }
 
   let inBroadcast = $derived(app.broadcastSet.has(sessionID));
   let broadcastActive = $derived(app.broadcastEnabled && inBroadcast);
 
   async function openLocal(clearTarget = true) {
     if (disposed) return;
+    shellParser.reset(); shellIntegrated = false; shellCwd = ""; shellBranch = "";
     if (clearTarget) app.sessionTargets[sessionID] = null;
     status = "starting"; errorMsg = "";
     try {
@@ -737,7 +779,8 @@
     const host = app.hosts.find((h) => h.id === hostID);
     if (!host) return;
     targetHostID = hostID;
-    app.sessionTargets[sessionID] = { hostID, via: "ssh" };
+    const previousTarget = app.sessionTargets[sessionID];
+    app.sessionTargets[sessionID] = { hostID, via: "ssh", remoteSession: previousTarget?.hostID === hostID ? previousTarget.remoteSession : undefined, manager: previousTarget?.hostID === hostID ? previousTarget.manager : undefined };
     // Production hosts get a first-class confirmation (ConfirmDanger, not the
     // native window.confirm — in a Wails webview that renders as an unstyled
     // OS dialog, jarring for the most dangerous action in the app).
@@ -878,16 +921,41 @@
     await actuallyConnect(hostID);
   }
 
-  async function actuallyConnect(hostID: string) {
+  async function actuallyConnect(hostID: string, afterChange = false) {
+    shellParser.reset(); shellIntegrated = false; shellCwd = ""; shellBranch = "";
     status = "connecting"; errorMsg = "";
     try {
-      await SSHService.ConnectByHost(sessionID, hostID, runtimePassword, term?.cols ?? 80, term?.rows ?? 24);
+      const target = app.sessionTargets[sessionID] ?? { hostID, via: "ssh" as const };
+      target.remoteSession ??= `bn-${crypto.randomUUID()}`;
+      target.manager ??= app.settings.terminalSessionMode;
+      app.sessionTargets[sessionID] = target;
+      const info = await SSHService.ConnectSession(sessionID, hostID, runtimePassword, term?.cols ?? 80, term?.rows ?? 24, { manager: target.manager, remoteSession: target.remoteSession, integration: app.settings.shellIntegration });
+      if (info.manager !== "off") app.sessionTargets[sessionID] = { ...target, manager: info.manager };
       if (disposed) { await SSHService.Disconnect(sessionID); return; }
       status = "connected"; connectedHostID = hostID; if (active) term?.focus();
+      // A forced password change during the handshake left the new value pending;
+      // now that the login succeeded with it, persist it to the vault for this host.
+      const newPw = app.takePendingNewPassword(hostID);
+      if (newPw && app.vault.unlocked) {
+        try {
+          await HostService.SetPassword(hostID, newPw);
+          await app.refreshSecretStatus();
+          app.toast("ok", "PASSWORD UPDATED", "Saved the new password to the vault.");
+        } catch (e: any) {
+          app.toast("warn", "PASSWORD NOT SAVED", String(e?.message ?? e));
+        }
+      }
       bus.emit('session-label', { sessionID, label: app.hosts.find((h) => h.id === hostID)?.name ?? "" });
       startLatencyPolling();
-      runStartupSnippet(hostID);
+      if (!runLaunchCommand() && !info.restored) runStartupSnippet(hostID);
     } catch (e: any) {
+      // Some servers close the connection right after a forced password change.
+      // The new password is now the valid credential, so reconnect once with it.
+      if (!afterChange && app.pendingNewPassword?.hostID === hostID) {
+        runtimePassword = app.pendingNewPassword.password;
+        await actuallyConnect(hostID, true);
+        return;
+      }
       let msg = String(e?.message ?? e);
       if (msg.trimStart().startsWith("{")) {
         try { const p = JSON.parse(msg); if (p.message) msg = p.message; } catch {}
@@ -1145,12 +1213,14 @@
   </div>
 
   <!-- Main area: terminal + optional side panel -->
+  {#if shellCwd || shellBranch}<div class="flex shrink-0 gap-3 border-b hairline px-3 py-1 font-mono type-micro text-[var(--color-text-3)]"><span class="truncate" title={shellCwd}>{shellCwd}</span>{#if shellBranch}<span class="text-[var(--color-accent)]">{shellBranch}</span>{/if}{#if app.sessionTargets[sessionID]?.remoteSession && app.sessionTargets[sessionID]?.manager !== 'off'}<span class="ml-auto">{app.sessionTargets[sessionID]?.manager}</span>{/if}</div>{/if}
   <div class="flex flex-1 overflow-hidden">
     <div bind:this={containerEl} class="relative flex-1 overflow-hidden p-1.5">
 
       <!-- Autocomplete popup -->
       {#if showAutocomplete && (status === "running" || status === "connected")}
         <AutocompletePopup
+          cwd={shellCwd}
           prefix={acBuffer}
           hostID={connectedHostID ?? ""}
           x={8}
@@ -1462,4 +1532,8 @@
       term?.focus();
     }}
   />
+{/if}
+
+{#if linkedFile}
+  <RemoteEditor hostID={linkedFile.hostID} remotePath={linkedFile.path} onClose={() => linkedFile = null} />
 {/if}

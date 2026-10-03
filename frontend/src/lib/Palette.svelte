@@ -72,6 +72,13 @@
   let recordings = $state<Recording[]>([]);
 
   const VIEW_ACTIONS: { id: View; label: string; icon: any }[] = [
+    { id: "service-workspaces", label: "Go to Service workspaces", icon: Share2 },
+    { id: "kubernetes", label: "Go to Kubernetes", icon: Boxes },
+    { id: "fleet", label: "Go to Fleet inventory", icon: Server },
+    { id: "incidents", label: "Go to Incidents", icon: Activity },
+    { id: "deployments", label: "Go to Deployments", icon: Zap },
+    { id: "investigations", label: "Go to AI investigations", icon: Sparkles },
+    { id: "team", label: "Go to Team operations", icon: Share2 },
     { id: "terminals", label: "Go to Terminals", icon: TerminalSquare },
     { id: "exec", label: "Go to Multi-host", icon: Zap },
     { id: "ops", label: "Go to Ops Console", icon: ShieldCheck },

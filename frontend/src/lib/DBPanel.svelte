@@ -96,6 +96,16 @@
   );
 
   onMount(() => {
+    if (app.pendingDBConnectionID) {
+      const id = app.pendingDBConnectionID;
+      app.pendingDBConnectionID = "";
+      void refreshSaved().then(() => {
+        const profile = saved.find((item) => item.id === id);
+        if (profile) void connectSaved(profile);
+        else err = "The database profile saved in this workspace no longer exists.";
+      });
+      return;
+    }
     // If a connection survived a panel remount, pick it back up.
     void DBService.List().then((list) => {
       if (Array.isArray(list) && list.length > 0) {
@@ -109,8 +119,8 @@
   async function refreshSaved() {
     try {
       saved = ((await DBService.ListSavedConnections()) ?? []) as SavedConnection[];
-    } catch {
-      saved = [];
+    } catch (e) {
+      err = String(e);
     }
   }
 
@@ -795,4 +805,3 @@
     onConfirm={deleteSaved}
   />
 {/if}
-

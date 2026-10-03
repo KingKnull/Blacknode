@@ -1,5 +1,6 @@
 // Typed pub/sub event bus replacing window.dispatchEvent(CustomEvent) patterns.
 // Provides compile-time safety for event names and payload types.
+import type { ServiceWorkspace } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
 
 type EventMap = {
   'insert-into-active-terminal': string;
@@ -7,6 +8,8 @@ type EventMap = {
   'toggle-focus-mode': void;
   'connect-host': { hostID: string };
   'connect-host-mosh': { hostID: string };
+  'open-service-workspace': ServiceWorkspace;
+  'open-host-command': { hostID: string; command: string };
   // "Session X has a connect intent waiting." The intent itself lives in app
   // state (AppState.requestConnect) so it survives a pane that hasn't mounted
   // yet; this event only saves an already-live pane from having to poll.

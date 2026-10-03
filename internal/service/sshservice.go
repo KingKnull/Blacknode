@@ -46,6 +46,7 @@ type sshSession struct {
 	stdin      io.WriteCloser
 	cancel     chan struct{}
 	cancelOnce sync.Once
+	info       TerminalSessionInfo
 }
 
 type SSHService struct {
@@ -110,6 +111,27 @@ func (s *SSHService) ConnectByHost(ctx context.Context, sessionID, hostID, passw
 }
 
 func (s *SSHService) connectWith(sessionID string, t sshconn.Target, cols, rows int, hostID string) error {
+	return s.connectWithOptions(sessionID, t, cols, rows, hostID, nil)
+}
+
+func (s *SSHService) ConnectSession(ctx context.Context, sessionID, hostID, password string, cols, rows int, options TerminalOptions) (TerminalSessionInfo, error) {
+	h, err := s.hosts.GetResolved(hostID)
+	if err != nil {
+		return TerminalSessionInfo{}, err
+	}
+	err = s.connectWithOptions(sessionID, sshconn.FromHostWithPassword(h, password), cols, rows, hostID, &options)
+	if err != nil {
+		return TerminalSessionInfo{}, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if state := s.sessions[sessionID]; state != nil {
+		return state.info, nil
+	}
+	return TerminalSessionInfo{}, errors.New("session closed while connecting")
+}
+
+func (s *SSHService) connectWithOptions(sessionID string, t sshconn.Target, cols, rows int, hostID string, options *TerminalOptions) error {
 	if sessionID == "" {
 		return errors.New("sessionID is required")
 	}
@@ -144,6 +166,15 @@ func (s *SSHService) connectWith(sessionID string, t sshconn.Target, cols, rows 
 	client, err := s.dialer.Dial(t)
 	if err != nil {
 		return err
+	}
+	launch := ""
+	info := TerminalSessionInfo{Manager: "off"}
+	if options != nil {
+		launch, info, err = prepareTerminal(client, *options)
+		if err != nil {
+			client.Close()
+			return err
+		}
 	}
 	sess, err := client.NewSession()
 	if err != nil {
@@ -193,13 +224,18 @@ func (s *SSHService) connectWith(sessionID string, t sshconn.Target, cols, rows 
 		client.Close()
 		return fmt.Errorf("stderr pipe: %w", err)
 	}
-	if err := sess.Shell(); err != nil {
+	if launch == "" {
+		err = sess.Shell()
+	} else {
+		err = sess.Start(launch)
+	}
+	if err != nil {
 		sess.Close()
 		client.Close()
 		return fmt.Errorf("start shell: %w", err)
 	}
 
-	state := &sshSession{client: client, session: sess, stdin: stdin, cancel: make(chan struct{})}
+	state := &sshSession{client: client, session: sess, stdin: stdin, cancel: make(chan struct{}), info: info}
 	s.mu.Lock()
 	s.sessions[sessionID] = state
 	title := fmt.Sprintf("%s@%s", t.User, t.Host)

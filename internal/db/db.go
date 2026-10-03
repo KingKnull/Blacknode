@@ -250,6 +250,7 @@ func Migrate(conn *sql.DB) error {
 		{"sync key", schemaSyncKey},
 		{"ca key", schemaCAKey},
 		{"host groups", schemaHostGroups},
+		{"operations", schemaOperations},
 	} {
 		if s.name == "activity seq backfill" {
 			if err := backfillActivitySeq(conn); err != nil {
@@ -263,6 +264,36 @@ func Migrate(conn *sql.DB) error {
 	}
 	return nil
 }
+
+const schemaOperations = `
+CREATE TABLE IF NOT EXISTS ops_documents (
+    kind TEXT NOT NULL,
+    id TEXT NOT NULL,
+    revision INTEGER NOT NULL DEFAULT 1,
+    body TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    PRIMARY KEY(kind, id)
+);
+CREATE INDEX IF NOT EXISTS idx_ops_documents_updated ON ops_documents(kind, updated_at DESC);
+CREATE TABLE IF NOT EXISTS ops_revisions (
+    kind TEXT NOT NULL,
+    id TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    body TEXT NOT NULL,
+    at INTEGER NOT NULL,
+    PRIMARY KEY(kind, id, revision)
+);
+CREATE TABLE IF NOT EXISTS ops_events (
+    seq INTEGER PRIMARY KEY AUTOINCREMENT,
+    scope TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_ops_events_scope ON ops_events(scope, seq);
+`
 
 // activityRow is the part of an activity row the seq planner needs.
 type activityRow struct {

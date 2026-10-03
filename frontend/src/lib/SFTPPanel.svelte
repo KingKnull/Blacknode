@@ -1,5 +1,8 @@
 <script lang="ts">
-  import { SFTPService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
+  import { onMount, untrack } from "svelte";
+  import { Events } from "@wailsio/runtime";
+  import { SFTPService, TransferService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
+  import TransferQueue from "./TransferQueue.svelte";
   import type { SFTPEntry } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
@@ -25,6 +28,13 @@
   let err = $state("");
   let editingPath: string | null = $state(null);
   let isDraggingOver = $state(false);
+  let overwrite = $state(false);
+  let listRequest = 0;
+  onMount(() => {
+    const offDrop = Events.On("files:dropped", (event: any) => { isDraggingOver = false; if (Array.isArray(event.data)) void uploadPaths(event.data); });
+    const offTransfer = Events.On("transfers:changed", (event: any) => { if (event.data?.status === "completed" && event.data.request?.hostID === host?.id) void reload(); });
+    return () => { listRequest++; offDrop(); offTransfer(); };
+  });
 
   let host = $derived(
     app.selectedHostID
@@ -33,13 +43,17 @@
   );
 
   async function reload() {
-    if (!host) return;
+    const target = host;
+    const directory = path;
+    const request = ++listRequest;
+    if (!target) return;
     err = "";
     busy = true;
     try {
-      entries = ((await SFTPService.List(host.id, path)) ??
-        []) as SFTPEntry[];
+      const result = await SFTPService.List(target.id, directory);
+      if (request === listRequest) entries = result ?? [];
     } catch (e: any) {
+      if (request !== listRequest) return;
       let msg = String(e?.message ?? e);
       if (msg.trimStart().startsWith("{")) {
         try {
@@ -49,7 +63,7 @@
       }
       err = msg;
     } finally {
-      busy = false;
+      if (request === listRequest) busy = false;
     }
   }
 
@@ -63,6 +77,8 @@
     if (e.isDir) {
       path = joinPath(path, e.name);
       await reload();
+    } else {
+      editingPath = joinPath(path, e.name);
     }
   }
 
@@ -74,43 +90,43 @@
     await reload();
   }
 
-  async function uploadFile(file: File) {
-    if (!host) return;
-    const buf = await file.arrayBuffer();
-    let bin = "";
-    const bytes = new Uint8Array(buf);
-    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-    const b64 = btoa(bin);
-    await SFTPService.Upload(host.id, path || ".", file.name, b64);
-    await reload();
+  function uploadTarget() {
+    return host ? { hostID: host.id, directory: path || ".", overwrite } : null;
+  }
+
+  async function uploadPaths(paths: string[], target = uploadTarget()) {
+    if (!target) return;
+    for (const localPath of paths) {
+      const name = localPath.replace(/\\/g, "/").split("/").pop()!;
+      try { await TransferService.Enqueue({ hostID: target.hostID, direction: "upload", localPath, remotePath: joinPath(target.directory,name), overwrite: target.overwrite, directory: false }); }
+      catch (e) { err = String(e); }
+    }
+  }
+  async function pickUploads(directory = false) {
+    const target = uploadTarget();
+    if (!target) return;
+    try { await uploadPaths(await TransferService.PickUploads(directory) ?? [], target); }
+    catch (e) { err = String(e); }
   }
 
   async function download(e: SFTPEntry) {
     if (!host) return;
-    const b64 = await SFTPService.Download(
-      host.id,
-      joinPath(path, e.name),
-    );
-    const bin = atob(b64);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    const blob = new Blob([bytes]);
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = e.name;
-    a.click();
-    URL.revokeObjectURL(url);
+    const target = host;
+    const remotePath = joinPath(path,e.name);
+    try {
+      const localPath = await TransferService.PickDownload(e.name,e.isDir);
+      if (localPath) await TransferService.Enqueue({ hostID: target.id, direction: "download", localPath, remotePath, overwrite: true, directory: e.isDir });
+    } catch (e) { err = String(e); }
   }
 
-  let entryToDelete = $state<SFTPEntry | null>(null);
+  let entryToDelete = $state<(SFTPEntry & { hostID: string; remotePath: string }) | null>(null);
   async function remove() {
     if (!entryToDelete || !host) return;
     // Recursive only for directories. Passing it unconditionally would be
     // harmless for files but would turn a mis-click on a directory into an
     // unbounded delete; passing it never would make non-empty directories
     // undeletable from the UI.
-    await SFTPService.Remove(host.id, joinPath(path, entryToDelete.name), entryToDelete.isDir);
+    await SFTPService.Remove(entryToDelete.hostID, entryToDelete.remotePath, entryToDelete.isDir);
     await reload();
     entryToDelete = null;
   }
@@ -118,9 +134,8 @@
   function onDrop(ev: DragEvent) {
     ev.preventDefault();
     isDraggingOver = false;
-    const files = ev.dataTransfer?.files;
-    if (!files) return;
-    for (const f of files) void uploadFile(f);
+    // The native Wails drop event supplies paths without reading file contents
+    // into JavaScript. Uploads use the same queue as the file picker.
   }
 
   function onDragEnter(ev: DragEvent) {
@@ -144,10 +159,17 @@
   }
 
   $effect(() => {
-    if (host) {
+    const hostID = host?.id;
+    untrack(() => {
+      listRequest++;
       path = "";
-      void reload();
-    }
+      entries = [];
+      err = "";
+      busy = false;
+      editingPath = null;
+      entryToDelete = null;
+      if (hostID) void reload();
+    });
   });
 </script>
 
@@ -165,18 +187,19 @@
       description="Pick a host on the left to browse its filesystem."
     />
   {:else}
-    <div class="flex items-center gap-2 border-b hairline surface-1 px-4 py-2">
+    <div class="flex flex-wrap items-center gap-2 border-b hairline surface-1 px-4 py-2">
       <button
         class="rounded p-1.5 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)] disabled:opacity-30"
         onclick={up}
-        disabled={!path}
+        disabled={!path || path === '/'}
         title="Up one directory"
         aria-label="Up one directory"
       >
         <ChevronUp size="14" />
       </button>
       <input
-        class="flex-1 rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-1.5 font-mono type-caption outline-none"
+        class="min-w-0 flex-1 rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-1.5 font-mono type-caption outline-none"
+        aria-label="Remote directory"
         bind:value={path}
         onkeydown={(e) => e.key === "Enter" && reload()}
         placeholder="(home)"
@@ -189,23 +212,18 @@
       >
         <RefreshCw size="13" />
       </button>
-      <label
+      <button onclick={() => pickUploads()}
         class="flex cursor-pointer items-center gap-1 rounded-md border hairline-strong px-2.5 py-1.5 type-caption text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)]"
       >
         <Upload size="12" /> upload
-        <input
-          type="file"
-          class="hidden"
-          onchange={(e) => {
-            const f = (e.currentTarget as HTMLInputElement).files?.[0];
-            if (f) void uploadFile(f);
-          }}
-        />
-      </label>
+      </button>
+      <button class="rounded border hairline px-2 py-1.5 type-caption" onclick={() => pickUploads(true)}>Folder</button>
+      <label class="flex items-center gap-1 type-caption"><input type="checkbox" bind:checked={overwrite} />Replace files</label>
     </div>
 
     <div
       class="relative flex-1 overflow-y-auto"
+      data-file-drop-target
       role="region"
       aria-label="File browser — drop files here to upload"
       ondragover={(e) => { e.preventDefault(); isDraggingOver = true; }}
@@ -238,7 +256,6 @@
             <button
               class="flex min-w-0 items-center gap-2 truncate text-left"
               onclick={() => open(e)}
-              ondblclick={() => open(e)}
             >
               {#if e.isDir}
                 <Folder size="13" class="shrink-0 text-[var(--color-info)]" />
@@ -263,6 +280,7 @@
                 >
                   <FileCode size="11" />
                 </button>
+              {/if}
                 <button
                   class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
                   onclick={() => download(e)}
@@ -271,10 +289,9 @@
                 >
                   <Download size="11" />
                 </button>
-              {/if}
               <button
                 class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)]"
-                onclick={() => (entryToDelete = e)}
+                onclick={() => (entryToDelete = { ...e, hostID: host!.id, remotePath: joinPath(path, e.name) })}
                 title="Delete"
                 aria-label="Delete {e.name}"
               >
@@ -294,6 +311,7 @@
       {/if}
     </div>
   {/if}
+  <TransferQueue />
 </div>
 
 {#if editingPath && host}

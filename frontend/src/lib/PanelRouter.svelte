@@ -29,6 +29,17 @@
   const loadDBPanel = () =>
     import("./DBPanel.svelte").then((m) => m.default);
 
+  const operationsPanels = {
+    "service-workspaces": () => import("./ServiceWorkspacesPanel.svelte"),
+    kubernetes: () => import("./KubernetesPanel.svelte"),
+    fleet: () => import("./FleetPanel.svelte"),
+    incidents: () => import("./IncidentsPanel.svelte"),
+    deployments: () => import("./DeploymentsPanel.svelte"),
+    investigations: () => import("./InvestigationsPanel.svelte"),
+    team: () => import("./TeamPanel.svelte"),
+  };
+  const loadOperations = $derived(operationsPanels[app.view as keyof typeof operationsPanels]);
+
   type Props = {
     /** Slot for the terminals view content (tab bar + panes). */
     children: any;
@@ -66,7 +77,17 @@
   {@render children()}
 </div>
 
-{#if app.view === 'exec'}
+{#if loadOperations}
+  <div class="view-enter min-h-0 min-w-0 flex-1 overflow-hidden">
+    {#await loadOperations()}
+      <p class="p-4 type-caption" role="status">Loading…</p>
+    {:then module}
+      <ErrorBoundary name="Operations"><module.default /></ErrorBoundary>
+    {:catch error}
+      <p class="p-4 ops-error" role="alert">{String(error)}</p>
+    {/await}
+  </div>
+{:else if app.view === 'exec'}
   <div class="view-enter min-h-0 min-w-0 flex-1 overflow-hidden">
     <ErrorBoundary name="Multi-host"><ExecPanel /></ErrorBoundary>
   </div>

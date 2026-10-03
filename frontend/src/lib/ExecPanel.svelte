@@ -180,6 +180,7 @@
         class="flex-1 rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-body outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59,130,246,0.06)] transition-all"
         bind:value={command}
         placeholder="command to run on every selected host"
+        aria-label="Command to run on selected hosts"
         onkeydown={(e) => e.key === "Enter" && run()}
       />
       <button
@@ -207,7 +208,7 @@
 
   <div class="grid h-full grid-cols-[260px_1fr] overflow-hidden">
     <div class="overflow-y-auto border-r hairline">
-      {#each app.hosts as h (h.id)}
+      {#each app.scopedHosts as h (h.id)}
         {@const env = envBadge(h.environment)}
         <label
           class="flex cursor-pointer items-center gap-2.5 border-b hairline px-3 py-2 type-caption transition-colors hover:bg-[var(--color-surface-2)]"
@@ -255,6 +256,7 @@
         <div class="flex items-center gap-2 border-b hairline surface-1 px-4 py-2 type-caption">
           <span class="text-[var(--color-text-3)]">Reference:</span>
           <select
+            aria-label="Reference host for comparison"
             class="rounded border hairline bg-[var(--color-surface-3)] px-2 py-1 font-mono type-micro text-[var(--color-text-1)] outline-none"
             onchange={(e) => referenceHostID = (e.target as HTMLSelectElement).value}
           >

@@ -24,6 +24,7 @@
   let pinMode = $derived(usePin && app.vault.pinAvailable);
 
   async function unlockWithPin() {
+    if (busy) return;
     err = "";
     busy = true;
     try {
@@ -54,6 +55,7 @@
   });
 
   async function setup() {
+    if (busy) return;
     err = "";
     if (passphrase !== confirmPass) { err = "Passphrases do not match"; return; }
     if (passphrase.length < 8) { err = "Use at least 8 characters"; return; }
@@ -68,6 +70,7 @@
   }
 
   async function unlock() {
+    if (busy) return;
     err = "";
     busy = true;
     try {
@@ -126,14 +129,15 @@
               <input type="password"
                 class="w-full border hairline bg-[var(--color-surface-3)] px-3 py-2.5 font-mono type-body text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
                 style="border-radius: var(--radius-sm);"
-                placeholder="Passphrase" bind:value={passphrase} use:focusOnMount />
+                placeholder="Passphrase" aria-label="Passphrase" autocomplete="new-password" bind:value={passphrase} use:focusOnMount />
               <input type="password"
                 class="w-full border hairline bg-[var(--color-surface-3)] px-3 py-2.5 font-mono type-body text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
                 style="border-radius: var(--radius-sm);"
                 placeholder="Confirm passphrase" bind:value={confirmPass}
+                aria-label="Confirm passphrase" autocomplete="new-password"
                 onkeydown={(e) => e.key === "Enter" && setup()} />
             </div>
-            {#if err}<p class="type-caption text-[var(--color-danger)]">{err}</p>{/if}
+            {#if err}<p role="alert" class="type-caption text-[var(--color-danger)]">{err}</p>{/if}
             <button onclick={setup} disabled={busy}
               class="flex w-full items-center justify-center gap-2 border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 py-2.5 type-body font-semibold text-[var(--color-accent)] hover:bg-[var(--color-accent)]/18 hover:shadow-[0_0_20px_rgba(59,130,246,0.1)] disabled:opacity-30 transition-all"
               style="border-radius: var(--radius-sm);">
@@ -156,6 +160,7 @@
                 class="w-full border hairline bg-[var(--color-surface-3)] px-3 py-2.5 text-center font-mono type-body tracking-[0.4em] text-[var(--color-text-1)] outline-none placeholder:tracking-normal placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
                 style="border-radius: var(--radius-sm);"
                 placeholder="PIN" bind:value={pin} use:focusOnMount
+                aria-label="Quick-unlock PIN"
                 onkeydown={(e) => e.key === "Enter" && unlockWithPin()} />
               {#if app.vault.pinAttemptsRemaining <= 2}
                 <p class="type-caption text-[var(--color-warn)]">
@@ -180,6 +185,7 @@
                 class="w-full border hairline bg-[var(--color-surface-3)] px-3 py-2.5 font-mono type-body text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
                 style="border-radius: var(--radius-sm);"
                 placeholder="Passphrase" bind:value={passphrase} use:focusOnMount
+                aria-label="Passphrase" autocomplete="current-password"
                 onkeydown={(e) => e.key === "Enter" && unlock()} />
               <div class="flex items-center gap-2 px-1">
                 <input id="rememberMe" type="checkbox" bind:checked={rememberMe}

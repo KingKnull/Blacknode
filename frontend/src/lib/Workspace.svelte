@@ -5,6 +5,7 @@
     VaultService,
     PluginService,
     PortForwardService,
+    MetricsService,
   } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import { app, type View } from "./state.svelte";
   import HostList from "./HostList.svelte";
@@ -42,6 +43,7 @@
   import { pluginIDForSource, parseHostMessage } from "./pluginBridge";
   import {
     Radio,
+    Layers,
     Lock,
     Server,
     Command,
@@ -276,6 +278,9 @@
       app.suppressAutoUnlock = true;
       void app.refreshVault();
       app.aiOpen = false;
+      // A locked vault can't store a password; drop any captured new password so
+      // a later connect doesn't try to save a now-stale value.
+      app.clearPendingNewPassword();
     });
 
     // Snippets and History panels emit events via the typed bus rather than
@@ -324,6 +329,25 @@
     // Same flow, but via Mosh — opens a fresh tab and tells the Terminal to
     // switch into Mosh mode once mounted.
     const offConnectMosh = bus.on('connect-host-mosh', ({ hostID }) => connectHostMosh(hostID));
+    const offHostCommand = bus.on('open-host-command', ({ hostID, command }) => {
+      const tab = makeTab();
+      if (!addTab(tab)) return;
+      const leaf = leaves(tab.root)[0];
+      app.pendingLaunchCommands.set(leaf.sessionID, command);
+      if (hostID) app.requestConnect(leaf.sessionID,hostID);
+      app.view = "terminals";
+    });
+    const offServiceWorkspace = bus.on('open-service-workspace', (workspace) => {
+      try {
+        if (app.serviceContext) localStorage.setItem(`blacknode.service-layout:${app.serviceContext.id}`,JSON.stringify(capture()));
+        const saved = parseWorkspace(JSON.parse(localStorage.getItem(`blacknode.service-layout:${workspace.id}`) ?? 'null'));
+        const snapshot = saved ?? parseWorkspace({ version: 2, tabs: workspace.hostIDs.slice(0,32).map((hostID) => ({ root: { kind: 'leaf', target: { hostID, via: 'ssh' } }, activeLeaf: 0 })), activeTab: 0, view: 'terminals', sidebarWidth, selectedHostID: workspace.hostIDs[0], forwardIDs: workspace.forwardIDs });
+        if (!snapshot) { app.toast('error','Workspace needs at least one host'); return; }
+        app.activateServiceWorkspace(workspace);
+        openWorkspace(snapshot);
+        for (const id of workspace.metricHostIDs) void MetricsService.Start(id,app.settings.metricsIntervalSeconds).catch((e) => app.toast('error','Monitoring',String(e)));
+      } catch (e) { app.toast('error','Could not open service workspace',String(e)); }
+    });
 
     return () => {
       window.removeEventListener("keydown", onActivity, true);
@@ -335,6 +359,8 @@
       offFocusMode();
       offConnect();
       offConnectMosh();
+      offHostCommand();
+      offServiceWorkspace();
     };
   });
 
@@ -553,6 +579,14 @@
   // tab bar of its views. Keeps Blacknode's wide surface organised without a
   // 20-icon rail.
   const SECTIONS: Section[] = [
+    { id: "operations", label: "Operations", Icon: Layers, views: [
+      { id: "service-workspaces", label: "Services", Icon: Layers },
+      { id: "fleet", label: "Fleet", Icon: Server },
+      { id: "deployments", label: "Deployments", Icon: Zap },
+      { id: "incidents", label: "Incidents", Icon: ActivityIcon },
+      { id: "investigations", label: "Investigations", Icon: Sparkles },
+      { id: "team", label: "Team", Icon: Share2 },
+    ] },
     { id: "sessions", label: "Sessions", Icon: TerminalSquare, views: [
       { id: "terminals", label: "Terminals", Icon: TerminalSquare },
       { id: "exec", label: "Multi-host", Icon: Zap },
@@ -575,6 +609,7 @@
       { id: "topology", label: "Topology", Icon: Share2 },
     ] },
     { id: "workloads", label: "Workloads", Icon: Boxes, views: [
+      { id: "kubernetes", label: "Kubernetes", Icon: Boxes },
       { id: "containers", label: "Containers", Icon: Boxes },
       { id: "database", label: "Database", Icon: Database },
       { id: "http", label: "HTTP", Icon: Globe2 },
@@ -839,6 +874,15 @@
             <span>Workspace restored. Reconnect to reopen its saved hosts and tunnels.</span>
             <button class="ml-auto rounded border border-[var(--color-accent)]/40 bg-[var(--color-accent-soft)] px-2.5 py-1.5 font-medium text-[var(--color-accent)] disabled:opacity-40" disabled={!workspaceReady} onclick={reconnectWorkspace}>Reconnect workspace</button>
             <button class="rounded border hairline px-2.5 py-1.5 text-[var(--color-text-2)] hover:border-[var(--color-line-strong)]" onclick={() => { reconnectPending = false; for (const tab of tabs) for (const leaf of leaves(tab.root)) if (!app.sessionHosts[leaf.sessionID]) app.sessionTargets[leaf.sessionID] = null; forwardIDs = []; }}>Use local shells</button>
+          </div>
+        {/if}
+        {#if app.serviceContext && !focusMode}
+          <div class="flex shrink-0 flex-wrap items-center gap-3 border-b hairline px-3 py-2 type-caption" class:bg-red-950={app.serviceContext.environment === 'production'}>
+            <Layers size="13" /><strong>{app.serviceContext.name}</strong>
+            <span>{app.serviceContext.environment} · {app.scopedHosts.length} hosts</span>
+            {#if app.serviceContext.kubeContext}<span class="text-[var(--color-text-3)]">{app.serviceContext.kubeContext} / {app.serviceContext.kubeNamespace || 'all namespaces'}</span>{/if}
+            <button class="ml-auto rounded border hairline px-2 py-1" onclick={() => app.view = 'service-workspaces'}>Switch service</button>
+            <button class="rounded border hairline px-2 py-1" onclick={() => app.activateServiceWorkspace(null)}>All hosts</button>
           </div>
         {/if}
         {#if sessionSaveError}<p role="alert" class="px-3 py-2 type-caption text-[var(--color-danger)]">Workspace changes could not be saved. Local storage may be full.</p>{/if}

@@ -49,6 +49,16 @@ export function Delete(id: string): $CancellablePromise<void> {
     return $Call.ByID(3372977293, id);
 }
 
+/**
+ * GeneratePassword returns a strong random password for the user to set on a
+ * server (e.g. when a rotation policy forces a change). It never touches the
+ * vault — the caller decides whether to save it with SetPassword — so a
+ * suggestion the user discards leaves no trace.
+ */
+export function GeneratePassword(opts: $models.PasswordOptions): $CancellablePromise<string> {
+    return $Call.ByID(2136127368, opts);
+}
+
 export function Get(id: string): $CancellablePromise<store$0.Host> {
     return $Call.ByID(4085256030, id).then(($result: any) => {
         return $$createType0($result);

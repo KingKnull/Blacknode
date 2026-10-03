@@ -141,6 +141,7 @@
         bind:value={query}
         onkeydown={(e) => e.key === "Enter" && runSearch()}
         placeholder="Search recorded output across every session…"
+        aria-label="Search recording output"
         class="w-full bg-transparent py-2 pl-9 pr-3 type-body outline-none placeholder:text-[var(--color-text-4)]"
       />
       {#if searching}

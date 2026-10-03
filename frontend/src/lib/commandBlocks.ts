@@ -10,6 +10,7 @@ export type CommandBlock = {
   exitCode?: number;
   running: boolean;
   output: string;
+  cwd?: string;
 };
 
 /** Elapsed time for a block. Still-running blocks measure against `now`. */

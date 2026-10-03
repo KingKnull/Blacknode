@@ -65,6 +65,7 @@ func (s *AIService) client() (anthropic.Client, error) {
 
 // IsConfigured is a fast pre-check the UI can use before showing AI affordances.
 func (s *AIService) IsConfigured(ctx context.Context) (bool, error) {
+	config,err:=s.settings.AIProvider(ctx);if err!=nil{return false,err};if config.Provider=="ollama"{_,err=validateEndpoint(config.Endpoint);return err==nil,err}
 	key, err := s.settings.AnthropicAPIKey(context.Background())
 	if err != nil {
 		return false, nil
@@ -78,37 +79,13 @@ func (s *AIService) Translate(ctx context.Context, prompt, shellHint, hostHint s
 	if strings.TrimSpace(prompt) == "" {
 		return "", errors.New("prompt is empty")
 	}
-	c, err := s.client()
-	if err != nil {
-		return "", err
-	}
 	ctxLine := strings.TrimSpace(fmt.Sprintf("Shell: %s\nHost context: %s", shellHint, hostHint))
 	user := prompt
 	if ctxLine != "Shell: \nHost context:" {
 		user = ctxLine + "\n\nRequest: " + prompt
 	}
 
-	resp, err := c.Messages.New(context.Background(), anthropic.MessageNewParams{
-		Model:     modelTranslate,
-		MaxTokens: 512,
-		System: []anthropic.TextBlockParam{
-			{Text: systemTranslate, CacheControl: anthropic.NewCacheControlEphemeralParam()},
-		},
-		Messages: []anthropic.MessageParam{
-			anthropic.NewUserMessage(anthropic.NewTextBlock(user)),
-		},
-	})
-	if err != nil {
-		return "", err
-	}
-
-	var out strings.Builder
-	for _, block := range resp.Content {
-		if t, ok := block.AsAny().(anthropic.TextBlock); ok {
-			out.WriteString(t.Text)
-		}
-	}
-	return strings.TrimSpace(out.String()), nil
+	return s.generate(ctx,systemTranslate,redactEvidence(user),false)
 }
 
 // Explain streams an analysis of pasted output/errors/logs back to the
@@ -121,6 +98,8 @@ func (s *AIService) Explain(ctx context.Context, streamID, content, kind string)
 	if strings.TrimSpace(content) == "" {
 		return errors.New("content is empty")
 	}
+	content=redactEvidence(content)
+	config,err:=s.settings.AIProvider(ctx);if err!=nil{return err};if config.Provider=="ollama"{return s.explainOllama(ctx,config,streamID,content)}
 
 	// Cancel any existing stream with the same ID — the UI can re-ask without
 	// stacking concurrent calls.
@@ -144,7 +123,7 @@ func (s *AIService) Explain(ctx context.Context, streamID, content, kind string)
 	go func() {
 		defer s.cancel(streamID)
 		stream := c.Messages.NewStreaming(ctx, anthropic.MessageNewParams{
-			Model:     modelExplain,
+			Model:     anthropic.Model(config.AnalysisModel),
 			MaxTokens: 4096,
 			System: []anthropic.TextBlockParam{
 				{Text: systemExplain, CacheControl: anthropic.NewCacheControlEphemeralParam()},

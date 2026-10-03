@@ -1,6 +1,6 @@
 import type { PaneNode } from "./panes";
 
-export type ConnectionTarget = { hostID: string; via: "ssh" | "mosh" };
+export type ConnectionTarget = { hostID: string; via: "ssh" | "mosh"; remoteSession?: string; manager?: string };
 export type WorkspaceTab = { id: string; root: PaneNode; activeLeafID: string };
 export type SavedPane =
   | { kind: "leaf"; target: ConnectionTarget | null }
@@ -18,7 +18,7 @@ export type SavedWorkspace = { id: string; name: string; snapshot: WorkspaceSnap
 
 export const SESSION_KEY = "blacknode.session";
 export const WORKSPACES_KEY = "blacknode.workspaces.v1";
-const VIEWS = new Set(["terminals", "exec", "runbooks", "files", "metrics", "logs", "forwards", "recordings", "containers", "network", "processes", "http", "database", "snippets", "history", "topology", "plugins", "activity", "vault", "keys", "settings"]);
+const VIEWS = new Set(["terminals", "exec", "ops", "runbooks", "files", "metrics", "logs", "forwards", "recordings", "containers", "network", "processes", "http", "database", "snippets", "history", "topology", "plugins", "activity", "vault", "keys", "settings", "service-workspaces", "kubernetes", "fleet", "incidents", "deployments", "investigations", "team"]);
 const bounded = (n: unknown, fallback: number, min: number, max: number) =>
   typeof n === "number" && Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback;
 
@@ -32,7 +32,7 @@ export function captureWorkspace(
   function save(node: PaneNode): SavedPane {
     if (node.kind === "leaf") {
       const target = targets[node.sessionID];
-      return { kind: "leaf", target: target ? { hostID: target.hostID, via: target.via } : null };
+      return { kind: "leaf", target: target ? { ...target } : null };
     }
     return { kind: "split", direction: node.direction, ratio: node.ratio, a: save(node.a), b: save(node.b) };
   }
@@ -60,7 +60,10 @@ export function parseWorkspace(value: unknown): WorkspaceSnapshot | null {
     if (!node || depth > 12 || ++count > 256) throw new Error("Invalid workspace layout");
     if (node.kind === "leaf") {
       const t = node.target;
-      return { kind: "leaf", target: t && typeof t.hostID === "string" && t.hostID && (t.via === "ssh" || t.via === "mosh") ? { hostID: t.hostID, via: t.via } : null };
+      const target: ConnectionTarget | null = t && typeof t.hostID === "string" && t.hostID && (t.via === "ssh" || t.via === "mosh") ? { hostID: t.hostID, via: t.via } : null;
+      if (target && typeof t.remoteSession === "string" && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/.test(t.remoteSession)) target.remoteSession = t.remoteSession;
+      if (target && ["auto", "off", "tmux", "zellij"].includes(t.manager)) target.manager = t.manager;
+      return { kind: "leaf", target };
     }
     if (node.kind !== "split" || !["horizontal", "vertical"].includes(node.direction)) throw new Error("Invalid pane");
     return { kind: "split", direction: node.direction, ratio: bounded(node.ratio, 0.5, 0.05, 0.95), a: pane(node.a, depth + 1), b: pane(node.b, depth + 1) };

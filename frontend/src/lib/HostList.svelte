@@ -267,6 +267,7 @@
       <input
         class="w-full bg-transparent py-2 pl-8 pr-10 type-caption text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)]"
         placeholder="Search hosts, tags…"
+        aria-label="Search hosts and tags"
         bind:value={filter}
         bind:this={searchInput}
       />

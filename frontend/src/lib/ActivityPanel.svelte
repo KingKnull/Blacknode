@@ -117,6 +117,7 @@
   <div class="flex items-center gap-2 border-b hairline surface-1 px-4 py-2 type-caption">
     <Filter size="11" class="text-[var(--color-text-3)]" />
     <select
+      aria-label="Filter activity by level"
       class="rounded-md border hairline bg-[var(--color-surface-3)] px-2 py-1 type-caption outline-none"
       bind:value={levelFilter}
     >

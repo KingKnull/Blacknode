@@ -1,6 +1,31 @@
 @import "@fontsource-variable/inter";
 @import "@fontsource-variable/jetbrains-mono";
 @import "tailwindcss";
+
+.ops-body { flex: 1; min-height: 0; overflow: auto; padding: 1rem; }
+.ops-form { display: flex; flex-direction: column; gap: 0.85rem; font-size: 12px; }
+.ops-form label { display: flex; flex-direction: column; gap: 0.35rem; color: var(--color-text-2); }
+.ops-form input:not([type=checkbox]), .ops-form select, .ops-form textarea, .ops-input { border: 1px solid var(--color-line); background: var(--color-surface-3); color: var(--color-text-1); padding: 0.5rem 0.65rem; border-radius: 6px; min-width: 0; outline: none; }
+.ops-form input:focus, .ops-form select:focus, .ops-form textarea:focus { border-color: var(--color-accent); }
+.ops-form button, .ops-button { border: 1px solid var(--color-line); padding: 0.45rem 0.75rem; border-radius: 6px; background: var(--color-surface-2); color: var(--color-text-2); font-size: 12px; }
+.ops-form button:hover, .ops-button:hover { background: var(--color-surface-3); }
+.ops-form button.primary, .ops-button.primary { background: var(--color-accent); color: var(--color-surface-0); border-color: transparent; }
+.ops-form button:disabled, .ops-button:disabled { opacity: 0.45; cursor: default; }
+.ops-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.ops-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 0.8rem; }
+.ops-card { border: 1px solid var(--color-line); background: var(--color-surface-1); padding: 0.85rem; border-radius: 8px; min-width: 0; }
+.ops-card legend { padding: 0 0.3rem; color: var(--color-text-3); }
+.ops-code { font-family: 'JetBrains Mono Variable', monospace; font-size: 11px; white-space: pre-wrap; word-break: break-word; max-height: 28rem; overflow: auto; padding: 0.75rem; background: var(--color-surface-0); border: 1px solid var(--color-line); border-radius: 6px; }
+.ops-hosts { display: flex; flex-wrap: wrap; gap: 0.8rem; }
+.ops-hosts label { flex-direction: row; align-items: center; }
+.ops-hosts small { color: var(--color-text-4); }
+.ops-muted { color: var(--color-text-3); font-size: 12px; }
+.ops-error { color: var(--color-danger); }
+.ops-warning { color: var(--color-warn); }
+.ops-success { color: var(--color-success); }
+.ops-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.ops-table th { text-align: left; color: var(--color-text-3); font-weight: 500; }
+.ops-table td, .ops-table th { padding: 0.6rem; border-bottom: 1px solid var(--color-line); vertical-align: top; }
 @import "@xterm/xterm/css/xterm.css";
 
 @theme {

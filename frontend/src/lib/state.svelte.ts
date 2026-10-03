@@ -6,14 +6,18 @@ import {
   RecordingService,
   PluginService,
   AutoLockService,
+  MetricsService,
+  PlatformService,
 } from "../../bindings/github.com/blacknode/blacknode/internal/service";
 import type { Host } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
 import { Events } from "@wailsio/runtime";
+import { PENDING_PASSWORD_TTL_MS } from "./authprompt";
 import type { PanelView } from "../../bindings/github.com/blacknode/blacknode/internal/plugin/models";
 import type {
   PublicKeyView,
   VaultStatus,
   AppSettings,
+  ServiceWorkspace,
 } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
 import { NotifyKind } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
 import { checkCommand, type Danger } from "./danger";
@@ -44,6 +48,13 @@ type View =
   | "vault"
   | "keys"
   | "settings"
+  | "service-workspaces"
+  | "kubernetes"
+  | "fleet"
+  | "incidents"
+  | "deployments"
+  | "investigations"
+  | "team"
   // Plugin-contributed panel ids are namespaced as `plugin:<pluginId>:<panelId>`.
   | `plugin:${string}:${string}`;
 
@@ -74,8 +85,18 @@ class AppState {
     // with no scrollback at all.
     terminalScrollback: 5000,
     hasAnthropicKey: false,
+    terminalSessionMode: "auto",
+    shellIntegration: true,
   });
   selectedHostID = $state<string | null>(null);
+  serviceContext = $state<ServiceWorkspace | null>(null);
+  scopedHosts = $derived(this.serviceContext ? this.hosts.filter((h) => this.serviceContext!.hostIDs.includes(h.id)) : this.hosts);
+  pendingDBConnectionID = $state("");
+  activateServiceWorkspace(workspace: ServiceWorkspace | null) {
+    this.serviceContext = workspace;
+    if (workspace) { this.selectedHostID = workspace.hostIDs[0] ?? null; this.pendingDBConnectionID = workspace.dbConnectionID; }
+    try { if (workspace) localStorage.setItem("blacknode.service-workspace", workspace.id); else localStorage.removeItem("blacknode.service-workspace"); } catch (e) { this.toast("error", "Workspace preference", String(e)); }
+  }
   hostDetailOpen = $state(false);
   // Which hosts have credentials saved — booleans only. The plaintext lives in
   // the vault and is resolved by the Go connect path; panels pass no password
@@ -130,6 +151,7 @@ class AppState {
   // Intended attachments survive a network failure or a pending auth prompt.
   // sessionHosts continues to describe only live connections.
   sessionTargets = $state<Record<string, ConnectionTarget | null>>({});
+  pendingLaunchCommands = new Map<string, string>();
 
   setSessionHost(sessionID: string, host: { hostID: string; via: "ssh" | "mosh" } | null) {
     // Guarded so panes can report unconditionally on every state change without
@@ -375,6 +397,36 @@ class AppState {
   // passphrase (VaultGate). Remember-me still auto-unlocks on app launch.
   suppressAutoUnlock = $state(false);
 
+  // A new password the user just set through a forced-change (keyboard-
+  // interactive) round, held until the connection that triggered it succeeds —
+  // then saved to the vault for that host. Memory-only and short-lived so a
+  // value whose connection never completes is never persisted.
+  pendingNewPassword = $state<{ hostID: string; password: string; at: number } | null>(null);
+
+  setPendingNewPassword(hostID: string, password: string) {
+    if (!hostID || !password) return;
+    this.pendingNewPassword = { hostID, password, at: Date.now() };
+  }
+
+  // Returns and clears the pending new password iff it belongs to hostID and is
+  // still fresh. A value for a different host is left in place; a stale one is
+  // dropped rather than saved.
+  takePendingNewPassword(hostID: string): string | null {
+    const p = this.pendingNewPassword;
+    if (!p) return null;
+    const stale = Date.now() - p.at > PENDING_PASSWORD_TTL_MS;
+    if (p.hostID !== hostID) {
+      if (stale) this.pendingNewPassword = null;
+      return null;
+    }
+    this.pendingNewPassword = null;
+    return stale ? null : p.password;
+  }
+
+  clearPendingNewPassword() {
+    this.pendingNewPassword = null;
+  }
+
   async refreshVault() {
     this.vault = (await VaultService.Status()) as VaultStatus;
     if (this.vault.initialized && !this.vault.unlocked && !this.suppressAutoUnlock) {
@@ -441,6 +493,12 @@ class AppState {
       await this.refreshKeys();
       await this.refreshSettings();
       await this.refreshSecretStatus();
+      const serviceID = localStorage.getItem("blacknode.service-workspace");
+      if (serviceID && !this.serviceContext) {
+        try { const record = await PlatformService.ReadRecord("workspace", serviceID); this.serviceContext = JSON.parse(record.body); }
+        catch { localStorage.removeItem("blacknode.service-workspace"); }
+      }
+      if (this.vault.unlocked) await MetricsService.Restore();
     } finally {
       this.loading = false;
     }

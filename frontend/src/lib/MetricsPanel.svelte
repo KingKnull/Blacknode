@@ -58,13 +58,20 @@
       s.netMax = Math.max(1024, ...s.netRate);
       history[m.hostID] = s;
     });
+    void MetricsService.Status().then((state) => {
+      polling = new Set(state.polling);
+      for (const [id, samples] of Object.entries(state.history ?? {})) {
+        const recent = samples?.slice(-HISTORY) ?? [];
+        if (!recent.length) continue;
+        latest[id] = recent[recent.length - 1];
+        const rates = recent.map((m) => (m.rxBytesPerSec ?? 0) + (m.txBytesPerSec ?? 0));
+        history[id] = { cpu: recent.map((m) => m.cpuPercent), mem: recent.map((m) => m.memPercent), disk: recent.map((m) => m.diskPercent), netRate: rates, netMax: Math.max(1024, ...rates) };
+      }
+    }).catch((e) => app.toast("error", "Monitoring status", String(e)));
   });
 
   onDestroy(() => {
     off?.();
-    for (const id of polling) {
-      void MetricsService.Stop(id);
-    }
   });
 
   async function start(hostID: string) {
@@ -120,7 +127,7 @@
 
   <MetricAlertSettings />
   <div class="grid min-h-0 flex-1 grid-cols-2 gap-3 overflow-y-auto p-4">
-    {#each app.hosts as h (h.id)}
+    {#each app.scopedHosts as h (h.id)}
       {@const m = latest[h.id]}
       {@const s = history[h.id]}
       {@const isPolling = polling.has(h.id)}

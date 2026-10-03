@@ -68,21 +68,25 @@ func NewSettingsService(s *store.Settings, v *vault.Vault) *SettingsService {
 // AppSettings is the safe shape returned to the frontend — never includes
 // raw secrets, just whether each one is set.
 type AppSettings struct {
-	Theme              string `json:"theme"`
-	AutoLockMinutes    int    `json:"autoLockMinutes"`
-	DefaultShellPath   string `json:"defaultShellPath"`
-	MetricsIntervalSec int    `json:"metricsIntervalSeconds"`
-	TerminalScrollback int    `json:"terminalScrollback"`
-	HasAnthropicKey    bool   `json:"hasAnthropicKey"`
+	Theme               string `json:"theme"`
+	AutoLockMinutes     int    `json:"autoLockMinutes"`
+	DefaultShellPath    string `json:"defaultShellPath"`
+	MetricsIntervalSec  int    `json:"metricsIntervalSeconds"`
+	TerminalScrollback  int    `json:"terminalScrollback"`
+	HasAnthropicKey     bool   `json:"hasAnthropicKey"`
+	TerminalSessionMode string `json:"terminalSessionMode"`
+	ShellIntegration    bool   `json:"shellIntegration"`
 }
 
 func (s *SettingsService) Get(ctx context.Context) (AppSettings, error) {
 	out := AppSettings{
-		Theme:              "dark",
-		AutoLockMinutes:    15,
-		DefaultShellPath:   "",
-		MetricsIntervalSec: 5,
-		TerminalScrollback: ScrollbackDefault,
+		Theme:               "dark",
+		AutoLockMinutes:     15,
+		DefaultShellPath:    "",
+		MetricsIntervalSec:  5,
+		TerminalScrollback:  ScrollbackDefault,
+		TerminalSessionMode: "auto",
+		ShellIntegration:    true,
 	}
 	if v, err := s.settings.GetPlain(SettingTheme); err == nil && v != "" {
 		out.Theme = v
@@ -108,12 +112,28 @@ func (s *SettingsService) Get(ctx context.Context) (AppSettings, error) {
 			out.TerminalScrollback = clampScrollback(n)
 		}
 	}
+	if mode, err := s.settings.GetPlain("terminal_session_mode"); err == nil && mode != "" {
+		out.TerminalSessionMode = mode
+	}
+	if enabled, err := s.settings.GetPlain("shell_integration"); err == nil {
+		out.ShellIntegration = enabled != "false"
+	}
 	has, err := s.settings.HasSecret(SettingAnthropicAPIKey)
 	if err != nil {
 		return out, err
 	}
 	out.HasAnthropicKey = has
 	return out, nil
+}
+
+func (s *SettingsService) SetTerminalFeatures(ctx context.Context, mode string, integration bool) error {
+	if mode != "auto" && mode != "off" && mode != "tmux" && mode != "zellij" {
+		return errors.New("invalid session manager")
+	}
+	if err := s.settings.SetPlain("terminal_session_mode", mode); err != nil {
+		return err
+	}
+	return s.settings.SetPlain("shell_integration", strconv.FormatBool(integration))
 }
 
 func (s *SettingsService) SetTheme(ctx context.Context, theme string) error {
