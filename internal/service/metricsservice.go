@@ -2,7 +2,8 @@ package service
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
+	"math"
 	"strconv"
 	"strings"
 	"sync"
@@ -104,7 +105,9 @@ type MetricsService struct {
 	prevCPU map[string]struct{ total, idle float64 }
 	// prevNet stores the (rx, tx, wall-clock-time) of the previous sample so
 	// the next collect can compute bytes/sec. Cleared on Stop.
-	prevNet map[string]netSample
+	prevNet     map[string]netSample
+	alertConfig MetricAlertConfig
+	alertStates map[string]map[string]metricAlertState
 }
 
 type netSample struct {
@@ -113,19 +116,30 @@ type netSample struct {
 }
 
 func NewMetricsService(pool *sshconn.Pool, h *store.Hosts, n *NotificationService) *MetricsService {
+	cfg := defaultMetricAlerts()
+	if n != nil && n.settings != nil {
+		if raw, err := n.settings.GetPlain(metricAlertsKey); err == nil && raw != "" {
+			var saved MetricAlertConfig
+			if json.Unmarshal([]byte(raw), &saved) == nil && validateMetricAlerts(saved) == nil {
+				cfg = saved
+			}
+		}
+	}
 	return &MetricsService{
-		pool:    pool,
-		hosts:   h,
-		notify:  n,
-		cancels: make(map[string]context.CancelFunc),
-		prevCPU: make(map[string]struct{ total, idle float64 }),
-		prevNet: make(map[string]netSample),
+		alertConfig: cfg,
+		alertStates: make(map[string]map[string]metricAlertState),
+		pool:        pool,
+		hosts:       h,
+		notify:      n,
+		cancels:     make(map[string]context.CancelFunc),
+		prevCPU:     make(map[string]struct{ total, idle float64 }),
+		prevNet:     make(map[string]netSample),
 	}
 }
 
 // Start begins a polling loop for the given host. Emits "metrics:update"
 // every intervalSeconds. Idempotent — calling Start twice replaces the loop.
-func (s *MetricsService) Start(hostID, password string, intervalSeconds int) error {
+func (s *MetricsService) Start(hostID string, intervalSeconds int) error {
 	if intervalSeconds < 2 {
 		intervalSeconds = 5
 	}
@@ -135,7 +149,7 @@ func (s *MetricsService) Start(hostID, password string, intervalSeconds int) err
 	s.cancels[hostID] = cancel
 	s.mu.Unlock()
 
-	go s.loop(ctx, hostID, password, time.Duration(intervalSeconds)*time.Second)
+	go s.loop(ctx, hostID, time.Duration(intervalSeconds)*time.Second)
 	return nil
 }
 
@@ -147,6 +161,7 @@ func (s *MetricsService) Stop(hostID string) {
 	}
 	delete(s.prevCPU, hostID)
 	delete(s.prevNet, hostID)
+	delete(s.alertStates, hostID)
 	s.mu.Unlock()
 }
 
@@ -158,68 +173,54 @@ func (s *MetricsService) StopAll(ctx context.Context) {
 	}
 	s.prevCPU = make(map[string]struct{ total, idle float64 })
 	s.prevNet = make(map[string]netSample)
+	s.alertStates = make(map[string]map[string]metricAlertState)
 	s.mu.Unlock()
 }
 
-func (s *MetricsService) loop(ctx context.Context, hostID, password string, interval time.Duration) {
+func (s *MetricsService) loop(ctx context.Context, hostID string, interval time.Duration) {
 	t := time.NewTicker(interval)
 	defer t.Stop()
-	s.tick(hostID, password)
+	s.tick(ctx, hostID)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			s.tick(hostID, password)
+			s.tick(ctx, hostID)
 		}
 	}
 }
 
-func (s *MetricsService) tick(hostID, password string) {
-	m := s.collect(hostID, password)
+func (s *MetricsService) tick(ctx context.Context, hostID string) {
+	m := s.collect(hostID)
+	if ctx.Err() != nil {
+		return
+	}
 	if app := application.Get(); app != nil {
 		app.Event.Emit("metrics:update", m)
 	}
 	s.maybeAlert(m)
 }
 
-// maybeAlert fires a notification when CPU/MEM/DISK crosses 90%. Debounced
-// per (host, metric) so a sustained spike doesn't spam every poll — see
-// NotificationService.NotifyDebounced.
 func (s *MetricsService) maybeAlert(m HostMetrics) {
-	if s.notify == nil || !m.Online || m.Error != "" {
+	if s.notify == nil {
 		return
 	}
-	check := func(metric string, pct float64, label string) {
-		if pct < 90 {
-			return
-		}
-		s.notify.NotifyDebounced(context.Background(), 
-			fmt.Sprintf("metrics:%s:%s", metric, m.HostID),
-			Notification{
-				Kind:     NotifyWarn,
-				Title:    fmt.Sprintf("%s high on %s", label, m.HostName),
-				Body:     fmt.Sprintf("%s = %.1f%% (threshold 90%%)", label, pct),
-				Source:   "metrics",
-				HostName: m.HostName,
-			},
-		)
+	for _, notification := range s.evaluateAlerts(m, time.Now()) {
+		s.notify.Notify(context.Background(), notification)
 	}
-	check("cpu", m.CPUPercent, "CPU")
-	check("mem", m.MemPercent, "Memory")
-	check("disk", m.DiskPercent, "Disk")
 }
 
-func (s *MetricsService) collect(hostID, password string) HostMetrics {
+func (s *MetricsService) collect(hostID string) HostMetrics {
 	m := HostMetrics{HostID: hostID, Timestamp: time.Now().Unix()}
-	h, err := s.hosts.Get(hostID)
+	h, err := s.hosts.GetResolved(hostID)
 	if err != nil {
 		m.Error = err.Error()
 		return m
 	}
 	m.HostName = h.Name
 
-	client, release, err := s.pool.Get(sshconn.FromHost(h, password))
+	client, release, err := s.pool.Get(sshconn.FromHost(h))
 	if err != nil {
 		m.Error = err.Error()
 		return m
@@ -301,9 +302,21 @@ func parseMetrics(out string) map[string]float64 {
 		k := strings.TrimSpace(line[:eq])
 		v := strings.TrimSpace(line[eq+1:])
 		f, err := strconv.ParseFloat(v, 64)
-		if err == nil {
-			m[k] = f
+		if err != nil {
+			continue
 		}
+		// ParseFloat accepts "NaN", "Inf" and "+Inf", and every value here ends
+		// up in a HostMetrics field that is JSON-marshalled to the frontend.
+		// encoding/json rejects non-finite floats, so a single odd line from a
+		// remote host would fail the whole payload and blank the metrics panel
+		// rather than one number. Infinity is also a hazard on the way to
+		// RxBytesTotal, where float→int64 conversion is implementation-defined
+		// out of range. Dropping the value falls back to the zero default, which
+		// is the same thing a missing line does.
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			continue
+		}
+		m[k] = f
 	}
 	return m
 }

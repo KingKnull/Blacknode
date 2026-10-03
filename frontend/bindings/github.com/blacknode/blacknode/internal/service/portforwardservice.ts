@@ -44,8 +44,8 @@ export function List(): $CancellablePromise<$models.ActiveForward[]> {
  * pool, and begins accepting connections in the background. password is the
  * runtime SSH password for password-auth hosts (transient).
  */
-export function Start(forwardID: string, password: string): $CancellablePromise<void> {
-    return $Call.ByID(3045505486, forwardID, password);
+export function Start(forwardID: string): $CancellablePromise<void> {
+    return $Call.ByID(3045505486, forwardID);
 }
 
 export function Stop(forwardID: string): $CancellablePromise<void> {

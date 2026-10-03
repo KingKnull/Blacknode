@@ -75,6 +75,24 @@ func (s *Recordings) Delete(id string) error {
 	return err
 }
 
+// ForCleanup includes every completed recording in oldest-first order.
+func (s *Recordings) ForCleanup() ([]Recording, error) {
+	rows, err := s.db.Query(`SELECT id, title, host_id, host_name, is_local, path, started_at, ended_at, duration_seconds, size_bytes FROM recordings ORDER BY ended_at ASC, id ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := []Recording{}
+	for rows.Next() {
+		rec, err := scanRecording(rows)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, rec)
+	}
+	return result, rows.Err()
+}
+
 func scanRecording(r rowScanner) (Recording, error) {
 	var rec Recording
 	var isLocal int

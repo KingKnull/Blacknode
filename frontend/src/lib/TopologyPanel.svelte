@@ -293,7 +293,7 @@
           "></div>
           <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
             <div class="h-[800px] w-[800px] rounded-full"
-              style="background: radial-gradient(circle, rgba(59, 130, 246,0.03) 0%, transparent 65%);"></div>
+              style="background: radial-gradient(circle, rgba(59,130,246,0.03) 0%, transparent 65%);"></div>
           </div>
 
           <svg

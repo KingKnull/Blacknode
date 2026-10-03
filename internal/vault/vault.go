@@ -18,12 +18,12 @@ import (
 )
 
 const (
-	saltLen    = 16
-	keyLen     = 32 // AES-256
-	nonceLen   = 12 // GCM standard
-	argonTime  = 3
-	argonMem   = 64 * 1024 // 64 MiB
-	argonPar   = 4
+	saltLen   = 16
+	keyLen    = 32 // AES-256
+	nonceLen  = 12 // GCM standard
+	argonTime = 3
+	argonMem  = 64 * 1024 // 64 MiB
+	argonPar  = 4
 )
 
 // verifierPlaintext is encrypted at setup time and decrypted at unlock time
@@ -32,10 +32,10 @@ const (
 var verifierPlaintext = []byte("blacknode-vault-v1")
 
 var (
-	ErrLocked        = errors.New("vault is locked")
-	ErrNotInitialized = errors.New("vault has not been set up yet")
+	ErrLocked             = errors.New("vault is locked")
+	ErrNotInitialized     = errors.New("vault has not been set up yet")
 	ErrAlreadyInitialized = errors.New("vault is already set up")
-	ErrBadPassphrase = errors.New("incorrect passphrase")
+	ErrBadPassphrase      = errors.New("incorrect passphrase")
 )
 
 type Vault struct {
@@ -43,6 +43,12 @@ type Vault struct {
 
 	mu        sync.RWMutex
 	masterKey []byte // 32 bytes when unlocked, nil when locked
+
+	// pin holds an optional PIN-wrapped copy of the master key for quick
+	// re-unlock after an idle lock. Memory-only and process-scoped; see pin.go
+	// for why that is what makes a short secret acceptable here. Deliberately
+	// not cleared by Lock — surviving auto-lock is its entire purpose.
+	pin pinStash
 }
 
 func New(db *sql.DB) *Vault {
@@ -109,9 +115,9 @@ func (v *Vault) Setup(passphrase string) error {
 // stored verifier, and holds it in memory.
 func (v *Vault) Unlock(passphrase string) error {
 	var (
-		salt     []byte
-		ctext    []byte
-		nonce    []byte
+		salt  []byte
+		ctext []byte
+		nonce []byte
 	)
 	err := v.db.QueryRow(
 		`SELECT salt, verifier_ciphertext, verifier_nonce FROM vault_meta WHERE id = 1`,

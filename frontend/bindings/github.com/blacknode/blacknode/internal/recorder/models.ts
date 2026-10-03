@@ -29,3 +29,39 @@ export class Match {
         return new Match($$parsedSource as Partial<Match>);
     }
 }
+
+/**
+ * SessionState reports actual capture state rather than the global preference.
+ */
+export class SessionState {
+    "recording": boolean;
+    "paused": boolean;
+    "limitReached": boolean;
+    "error": string;
+
+    /** Creates a new SessionState instance. */
+    constructor($$source: Partial<SessionState> = {}) {
+        if (!("recording" in $$source)) {
+            this["recording"] = false;
+        }
+        if (!("paused" in $$source)) {
+            this["paused"] = false;
+        }
+        if (!("limitReached" in $$source)) {
+            this["limitReached"] = false;
+        }
+        if (!("error" in $$source)) {
+            this["error"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SessionState instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SessionState {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SessionState($$parsedSource as Partial<SessionState>);
+    }
+}

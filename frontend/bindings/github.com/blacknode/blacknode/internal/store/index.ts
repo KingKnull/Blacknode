@@ -4,14 +4,18 @@
 export {
     Activity,
     ActivityFilter,
+    ChainStatus,
+    EnvVar,
     Forward,
     ForwardKind,
     HTTPRequest,
     HistoryEntry,
     Host,
+    HostGroup,
     KnownHost,
     LogQuery,
     Recording,
     Snippet,
+    Status,
     TeamActivity
 } from "./models.js";

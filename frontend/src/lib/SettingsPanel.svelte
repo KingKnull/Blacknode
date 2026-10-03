@@ -7,6 +7,7 @@
     UpdateService,
     SyncService,
     HostService,
+    VaultService,
   } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type {
     NotifyConfig,
@@ -17,8 +18,11 @@
   } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import type { TeamActivity, KnownHost } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { app } from "./state.svelte";
+  import { OPTIONAL_VIEWS } from "./navigation";
   import PageHeader from "./PageHeader.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
+  import EmptyState from "./EmptyState.svelte";
+  import GroupDefaults from "./GroupDefaults.svelte";
   import {
     Settings as SettingsIcon,
     Sparkles,
@@ -50,6 +54,8 @@
   let savingLock = $state(false);
   let savingShell = $state(false);
   let savingMetrics = $state(false);
+  let savingScrollback = $state(false);
+  let scrollbackError = $state("");
   let savingTheme = $state(false);
 
   // Confirmation dialog for removing the API key
@@ -58,6 +64,63 @@
   let autoLockMinutes = $state(15);
   let defaultShellPath = $state("");
   let metricsIntervalSeconds = $state(5);
+  let terminalScrollback = $state(5000);
+
+  // Quick-unlock PIN. Never read back from the backend — there is nothing to
+  // read, the wrapped key is memory-only — so the field is write-only and the
+  // armed/not-armed state comes from app.vault.pinAvailable.
+  let newPin = $state("");
+  let savingPin = $state(false);
+  let pinErr = $state("");
+
+  async function savePin() {
+    pinErr = "";
+    savingPin = true;
+    try {
+      await VaultService.EnablePIN(newPin);
+      newPin = "";
+      await app.refreshVault();
+      app.toast("ok", "PIN SET", "It will unlock the vault until you quit the app.");
+    } catch (e: any) {
+      pinErr = String(e?.message ?? e);
+    } finally {
+      savingPin = false;
+    }
+  }
+
+  async function clearPin() {
+    try {
+      await VaultService.DisablePIN();
+      await app.refreshVault();
+      app.toast("ok", "PIN CLEARED", "Unlocking now requires your passphrase.");
+    } catch (e: any) {
+      pinErr = String(e?.message ?? e);
+    }
+  }
+
+  // Mirrors ScrollbackMin/Max in internal/service/settingsservice.go, which is
+  // authoritative and rejects anything outside them. These only drive the
+  // input's affordances and the inline hint.
+  const SCROLLBACK_MIN = 100;
+  const SCROLLBACK_MAX = 50000;
+
+  /**
+   * Rough memory cost of the chosen scrollback, per pane.
+   *
+   * xterm.js retains each line as a typed array of about 12 bytes per cell, so
+   * the figure is lines × columns × 12 at an assumed 120 columns. It is an
+   * estimate and labelled as one — the point is to make an invisible cost
+   * visible before someone types 50000 across eight panes, not to be exact.
+   */
+  const scrollbackEstimateMB = $derived(
+    ((terminalScrollback * 120 * 12) / (1024 * 1024)).toFixed(1),
+  );
+
+  const scrollbackInvalid = $derived(
+    !Number.isInteger(terminalScrollback) ||
+      terminalScrollback < SCROLLBACK_MIN ||
+      terminalScrollback > SCROLLBACK_MAX,
+  );
 
   let notify = $state<NotifyConfig>({
     desktopEnabled: true,
@@ -178,8 +241,14 @@
   }
 
   async function forgetKnownHost(k: KnownHost) {
-    await HostService.RemoveKnownHost(k.host, k.port, k.keyType);
+    // Close the dialog first. Clearing it after the await left it open for the
+    // duration of the call, and stuck open for good if the call threw.
     confirmForget = null;
+    try {
+      await HostService.RemoveKnownHost(k.host, k.port, k.keyType);
+    } catch (e: any) {
+      app.toast("error", "FORGET HOST KEY FAILED", String(e?.message ?? e));
+    }
     await loadKnownHosts();
   }
 
@@ -250,6 +319,7 @@
     autoLockMinutes = app.settings.autoLockMinutes;
     defaultShellPath = app.settings.defaultShellPath;
     metricsIntervalSeconds = app.settings.metricsIntervalSeconds;
+    terminalScrollback = app.settings.terminalScrollback;
     try {
       notify = (await NotificationService.Config()) as NotifyConfig;
     } catch {
@@ -361,6 +431,22 @@
     }
   }
 
+  async function saveScrollback() {
+    savingScrollback = true;
+    scrollbackError = "";
+    try {
+      await SettingsService.SetTerminalScrollback(terminalScrollback);
+      await app.refreshSettings();
+    } catch (e) {
+      // Surfaced rather than swallowed: the backend is the authority on the
+      // bounds, and its message names them. Silently failing here would leave
+      // the input showing a number that never took effect.
+      scrollbackError = e instanceof Error ? e.message : String(e);
+    } finally {
+      savingScrollback = false;
+    }
+  }
+
   async function setTheme(t: "dark" | "light") {
     if (t === app.settings.theme) return;
     savingTheme = true;
@@ -379,10 +465,10 @@
     { id: "security", label: "SECURITY", Icon: Lock },
     { id: "knownhosts", label: "KNOWN HOSTS", Icon: ShieldCheck },
     { id: "appearance", label: "APPEARANCE", Icon: Palette },
+    { id: "navigation", label: "NAVIGATION", Icon: SettingsIcon },
     { id: "notifications", label: "NOTIFICATIONS", Icon: Bell },
     { id: "shell", label: "LOCAL SHELL", Icon: Activity },
     { id: "sync", label: "CLOUD SYNC", Icon: Cloud },
-    { id: "team", label: "TEAM", Icon: Users },
     { id: "about", label: "ABOUT", Icon: Info },
   ];
 
@@ -451,7 +537,7 @@
                   </button>
                 </div>
                 <button
-                  class="flex items-center gap-1 border border-[var(--color-accent)]/60 bg-[var(--color-accent)] px-3 py-2 type-caption font-bold text-[var(--color-surface-0)] hover:opacity-90 hover:shadow-[0_0_20px_rgba(59, 130, 246,0.15)] transition-all disabled:opacity-50"
+                  class="flex items-center gap-1 border border-[var(--color-accent)]/60 bg-[var(--color-accent)] px-3 py-2 type-caption font-bold text-[var(--color-surface-0)] hover:opacity-90 hover:shadow-[0_0_20px_rgba(59,130,246,0.15)] transition-all disabled:opacity-50"
                   disabled={!apiKeyInput || savingKey}
                   onclick={saveAPIKey}
                 >
@@ -501,13 +587,15 @@
             </div>
             <p class="mt-0.5 type-caption text-[var(--color-text-3)] leading-relaxed">
               Locks the vault when the app sees no keystroke or click for this many
-              minutes. The master key is wiped from memory.
+              minutes. The master key is wiped from memory, and you'll need your
+              passphrase to unlock again — "Remember for 60 days" only skips the
+              prompt on app launch, never after an auto-lock.
             </p>
             <div class="mt-2 flex items-center gap-2">
               <input
                 type="number"
                 min="0"
-                class="w-24 border hairline bg-[var(--color-surface-3)] px-3 py-2 type-caption outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59, 130, 246,0.06)] transition-all"
+                class="w-24 border hairline bg-[var(--color-surface-3)] px-3 py-2 type-caption outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59,130,246,0.06)] transition-all"
                 bind:value={autoLockMinutes}
               />
               <span class="type-caption text-[var(--color-text-3)]">minutes</span>
@@ -520,7 +608,53 @@
               </button>
             </div>
           </label>
+
+          <!-- Quick-unlock PIN -->
+          <div class="mt-5 border-t hairline pt-5">
+            <div class="flex items-center justify-between">
+              <span class="type-caption font-bold text-[var(--color-text-1)]">Quick-unlock PIN</span>
+              <span class="type-micro text-[var(--color-text-3)]">
+                {app.vault.pinAvailable ? "active for this app run" : "not set"}
+              </span>
+            </div>
+            <p class="mt-0.5 type-caption text-[var(--color-text-3)] leading-relaxed">
+              Re-opens the vault after an auto-lock without retyping your passphrase. The PIN wraps a
+              copy of the master key <strong>in memory only</strong> — nothing is written to disk, so
+              there is no file to attack offline, and quitting the app clears it. Five wrong attempts
+              discard it and the passphrase is required again.
+            </p>
+            {#if app.vault.pinAvailable}
+              <div class="mt-2 flex items-center gap-2">
+                <button
+                  class="flex items-center gap-1 border hairline-strong px-3 py-1.5 type-caption text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 transition-colors"
+                  onclick={clearPin}
+                >CLEAR PIN</button>
+                <span class="type-caption text-[var(--color-text-4)]">{app.vault.pinAttemptsRemaining} attempts remaining</span>
+              </div>
+            {:else}
+              <div class="mt-2 flex items-center gap-2">
+                <input
+                  type="password"
+                  inputmode="numeric"
+                  autocomplete="off"
+                  placeholder="4–16 digits"
+                  aria-label="New quick-unlock PIN"
+                  class="w-32 border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-caption outline-none focus:border-[var(--color-accent)]/50 transition-all"
+                  bind:value={newPin}
+                />
+                <button
+                  class="flex items-center gap-1 border hairline-strong px-3 py-1.5 type-caption hover:bg-[var(--color-surface-3)] disabled:opacity-50 transition-colors"
+                  disabled={savingPin || newPin.length < 4}
+                  onclick={savePin}
+                >
+                  {#if savingPin}<Loader2 size="11" class="animate-spin" />{:else}SET PIN{/if}
+                </button>
+              </div>
+              {#if pinErr}<p role="alert" class="mt-2 type-caption text-[var(--color-danger)]">{pinErr}</p>{/if}
+            {/if}
+          </div>
         </section>
+        <GroupDefaults />
 
         <!-- Known Hosts -->
         <section id="section-knownhosts" class="border hairline-strong surface-2 p-6 shadow-xl" style="backdrop-filter: blur(12px) saturate(1.2);">
@@ -537,9 +671,12 @@
           {#if knownHostsBusy && knownHosts.length === 0}
             <p class="type-caption text-[var(--color-text-4)]">Loading…</p>
           {:else if knownHosts.length === 0}
-            <p class="type-caption text-[var(--color-text-4)]">
-              No trusted host keys yet. They're added the first time you connect to a host.
-            </p>
+            <EmptyState
+              compact
+              icon={ShieldCheck}
+              title="No trusted host keys yet"
+              description="Keys are added the first time you connect to a host and accept its fingerprint."
+            />
           {:else}
             <div class="divide-y divide-[var(--color-line)] border hairline">
               {#each knownHosts as k (k.host + ":" + k.port + ":" + k.keyType)}
@@ -598,6 +735,19 @@
           </div>
         </section>
 
+        <section id="section-navigation" class="border hairline-strong surface-2 p-6">
+          <h3 class="type-eyebrow text-[var(--color-text-1)]">Navigation</h3>
+          <p class="mt-2 type-caption text-[var(--color-text-3)]">Choose the tools shown in the sidebar, section tabs, and New menu. Hidden tools remain available through the command palette. Terminals, Files, Vault, and Settings always stay visible.</p>
+          <div class="mt-4 grid grid-cols-2 gap-3">
+            {#each OPTIONAL_VIEWS as item (item.id)}
+              <label class="flex items-center gap-2 type-caption">
+                <input type="checkbox" checked={app.isViewVisible(item.id)} onchange={(e) => app.setViewVisible(item.id, e.currentTarget.checked)} />
+                {item.label}
+              </label>
+            {/each}
+          </div>
+        </section>
+
         <!-- Notifications -->
         <section id="section-notifications" class="border hairline-strong surface-2 p-6 shadow-xl" style="backdrop-filter: blur(12px) saturate(1.2);">
           <div class="mb-4 flex items-center gap-2">
@@ -624,7 +774,7 @@
               <input
                 type="number"
                 min="1"
-                class="mt-1 w-32 border hairline bg-[var(--color-surface-3)] px-3 py-2 type-caption outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59, 130, 246,0.06)] transition-all"
+                class="mt-1 w-32 border hairline bg-[var(--color-surface-3)] px-3 py-2 type-caption outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59,130,246,0.06)] transition-all"
                 bind:value={notify.longExecSeconds}
               />
             </label>
@@ -635,7 +785,7 @@
                 POSTs <span class="font-mono">{"{kind, title, body, source, hostName, timestamp}"}</span> on every notification.
               </p>
               <input
-                class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-caption outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59, 130, 246,0.06)] transition-all"
+                class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-caption outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59,130,246,0.06)] transition-all"
                 placeholder="https://hooks.slack.com/services/…"
                 bind:value={notify.webhookURL}
               />
@@ -643,7 +793,7 @@
 
             <div class="flex flex-wrap items-center gap-2">
               <button
-                class="flex items-center gap-1.5 border border-[var(--color-accent)]/60 bg-[var(--color-accent)] px-3 py-1.5 type-caption font-bold text-[var(--color-surface-0)] hover:opacity-90 hover:shadow-[0_0_20px_rgba(59, 130, 246,0.15)] transition-all disabled:opacity-50"
+                class="flex items-center gap-1.5 border border-[var(--color-accent)]/60 bg-[var(--color-accent)] px-3 py-1.5 type-caption font-bold text-[var(--color-surface-0)] hover:opacity-90 hover:shadow-[0_0_20px_rgba(59,130,246,0.15)] transition-all disabled:opacity-50"
                 disabled={notifyBusy}
                 onclick={saveNotify}
               >
@@ -679,7 +829,7 @@
             </p>
             <div class="mt-2 flex items-center gap-2">
               <input
-                class="flex-1 border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-caption outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59, 130, 246,0.06)] transition-all"
+                class="flex-1 border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-caption outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59,130,246,0.06)] transition-all"
                 placeholder="auto"
                 bind:value={defaultShellPath}
               />
@@ -702,7 +852,7 @@
               <input
                 type="number"
                 min="2"
-                class="w-24 border hairline bg-[var(--color-surface-3)] px-3 py-2 type-caption outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59, 130, 246,0.06)] transition-all"
+                class="w-24 border hairline bg-[var(--color-surface-3)] px-3 py-2 type-caption outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59,130,246,0.06)] transition-all"
                 bind:value={metricsIntervalSeconds}
               />
               <span class="type-caption text-[var(--color-text-3)]">seconds</span>
@@ -714,6 +864,44 @@
                 SAVE
               </button>
             </div>
+          </label>
+
+          <label class="mt-4 block">
+            <span class="type-caption font-bold text-[var(--color-text-1)]">Terminal scrollback</span>
+            <p class="mt-0.5 type-caption text-[var(--color-text-3)] leading-relaxed">
+              Lines of history each terminal pane keeps in memory
+              ({SCROLLBACK_MIN.toLocaleString()}–{SCROLLBACK_MAX.toLocaleString()}). The cost is paid
+              per pane, and lowering it discards the oldest lines from panes that are already open.
+              For history that outlives a session, use recordings instead — they spool to disk.
+            </p>
+            <div class="mt-2 flex items-center gap-2">
+              <input
+                type="number"
+                min={SCROLLBACK_MIN}
+                max={SCROLLBACK_MAX}
+                step="100"
+                aria-describedby="scrollback-hint"
+                aria-invalid={scrollbackInvalid}
+                class="w-28 border hairline bg-[var(--color-surface-3)] px-3 py-2 type-caption outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59,130,246,0.06)] transition-all"
+                bind:value={terminalScrollback}
+              />
+              <span class="type-caption text-[var(--color-text-3)]">lines</span>
+              <span id="scrollback-hint" class="type-caption text-[var(--color-text-3)]">
+                ≈ {scrollbackEstimateMB} MB per pane
+              </span>
+              <button
+                class="ml-auto border hairline-strong px-3 py-1.5 type-caption hover:bg-[var(--color-surface-3)] disabled:opacity-50 transition-colors"
+                disabled={savingScrollback ||
+                  scrollbackInvalid ||
+                  terminalScrollback === app.settings.terminalScrollback}
+                onclick={saveScrollback}
+              >
+                SAVE
+              </button>
+            </div>
+            {#if scrollbackError}
+              <p class="mt-2 type-caption text-[var(--color-danger)]" role="alert">{scrollbackError}</p>
+            {/if}
           </label>
         </section>
 
@@ -734,7 +922,7 @@
               <span class="type-eyebrow text-[var(--color-text-3)]">Endpoint</span>
               <input
                 type="text"
-                class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-caption outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59, 130, 246,0.06)] transition-all"
+                class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-caption outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59,130,246,0.06)] transition-all"
                 placeholder="https://sync.example.com/blacknode"
                 bind:value={syncEndpoint}
               />
@@ -743,7 +931,7 @@
               <span class="type-eyebrow text-[var(--color-text-3)]">Bearer token (optional)</span>
               <input
                 type="password"
-                class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-caption outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59, 130, 246,0.06)] transition-all"
+                class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-caption outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59,130,246,0.06)] transition-all"
                 placeholder="leave blank if endpoint is public"
                 bind:value={syncToken}
               />
@@ -757,7 +945,7 @@
                 SAVE CONFIG
               </button>
               <button
-                class="ml-auto flex items-center gap-1.5 border border-[var(--color-accent)]/60 bg-[var(--color-accent)] px-3 py-1.5 type-caption font-bold text-[var(--color-surface-0)] hover:opacity-90 hover:shadow-[0_0_20px_rgba(59, 130, 246,0.15)] transition-all disabled:opacity-50"
+                class="ml-auto flex items-center gap-1.5 border border-[var(--color-accent)]/60 bg-[var(--color-accent)] px-3 py-1.5 type-caption font-bold text-[var(--color-surface-0)] hover:opacity-90 hover:shadow-[0_0_20px_rgba(59,130,246,0.15)] transition-all disabled:opacity-50"
                 disabled={syncBusy || !syncStatus?.configured}
                 onclick={syncPush}
                 title="Encrypt and upload current state"
@@ -887,7 +1075,7 @@
         <section id="section-team" class="border hairline-strong surface-2 p-6 shadow-xl" style="backdrop-filter: blur(12px) saturate(1.2);">
           <div class="mb-4 flex items-center gap-2">
             <Users size="14" class="text-[var(--color-accent)]" />
-            <h3 class="type-eyebrow text-[var(--color-text-1)]">Team</h3>
+            <h3 class="type-eyebrow text-[var(--color-text-1)]">Shared configuration</h3>
           </div>
           <p class="type-caption text-[var(--color-text-3)] leading-relaxed">
             Publishes a curated snapshot to a shared blob
@@ -900,14 +1088,14 @@
               <span class="type-eyebrow text-[var(--color-text-3)]">Display name (for activity log)</span>
               <input
                 type="text"
-                class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 type-caption outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59, 130, 246,0.06)] transition-all"
+                class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 type-caption outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59,130,246,0.06)] transition-all"
                 placeholder="e.g. alice"
                 bind:value={teamActor}
               />
             </label>
             <div class="flex items-center gap-2">
               <button
-                class="ml-auto flex items-center gap-1.5 border border-[var(--color-accent)]/60 bg-[var(--color-accent)] px-3 py-1.5 type-caption font-bold text-[var(--color-surface-0)] hover:opacity-90 hover:shadow-[0_0_20px_rgba(59, 130, 246,0.15)] transition-all disabled:opacity-50"
+                class="ml-auto flex items-center gap-1.5 border border-[var(--color-accent)]/60 bg-[var(--color-accent)] px-3 py-1.5 type-caption font-bold text-[var(--color-surface-0)] hover:opacity-90 hover:shadow-[0_0_20px_rgba(59,130,246,0.15)] transition-all disabled:opacity-50"
                 disabled={teamBusy || !syncStatus?.configured}
                 onclick={teamPublish}
                 title="Push a curated snapshot to the team blob"
@@ -985,7 +1173,7 @@
                     <pre class="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap type-caption text-[var(--color-text-2)]">{updateInfo.notes}</pre>
                   {/if}
                   <button
-                    class="mt-3 border border-[var(--color-accent)]/60 bg-[var(--color-accent)] px-3 py-1.5 type-caption font-bold text-[var(--color-surface-0)] hover:opacity-90 hover:shadow-[0_0_20px_rgba(59, 130, 246,0.15)] transition-all"
+                    class="mt-3 border border-[var(--color-accent)]/60 bg-[var(--color-accent)] px-3 py-1.5 type-caption font-bold text-[var(--color-surface-0)] hover:opacity-90 hover:shadow-[0_0_20px_rgba(59,130,246,0.15)] transition-all"
                     onclick={openReleasePage}
                   >
                     OPEN RELEASE PAGE

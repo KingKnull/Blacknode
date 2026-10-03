@@ -13,6 +13,7 @@ import (
 	"github.com/blacknode/blacknode/internal/store"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/agent"
 )
 
 type TerminalData struct {
@@ -100,11 +101,11 @@ func (s *SSHService) Connect(ctx context.Context, sessionID string, opts SSHConn
 // host is configured for password auth, the runtime password is supplied via
 // the password arg (we never persist passwords).
 func (s *SSHService) ConnectByHost(ctx context.Context, sessionID, hostID, password string, cols, rows int) error {
-	h, err := s.hosts.Get(hostID)
+	h, err := s.hosts.GetResolved(hostID)
 	if err != nil {
 		return fmt.Errorf("load host: %w", err)
 	}
-	target := sshconn.FromHost(h, password)
+	target := sshconn.FromHostWithPassword(h, password)
 	return s.connectWith(sessionID, target, cols, rows, hostID)
 }
 
@@ -149,6 +150,21 @@ func (s *SSHService) connectWith(sessionID string, t sshconn.Target, cols, rows 
 		client.Close()
 		return fmt.Errorf("new session: %w", err)
 	}
+	// Agent forwarding, when the host asks for it. Both halves are needed: the
+	// client-side channel handler that answers the remote's auth-agent requests,
+	// and the session-level request that tells sshd to set SSH_AUTH_SOCK.
+	//
+	// Failures here are reported but not fatal. Plenty of servers run with
+	// AllowAgentForwarding no, and refusing to open a session the user could
+	// otherwise have used is the wrong trade — they lose the onward hop, not
+	// the shell.
+	if t.ForwardAgent {
+		if err := sshconn.ForwardAgentTo(client); err != nil {
+			s.emitData(sessionID, "\r\n\x1b[33magent forwarding unavailable: "+err.Error()+"\x1b[0m\r\n")
+		} else if err := agent.RequestAgentForwarding(sess); err != nil {
+			s.emitData(sessionID, "\r\n\x1b[33mserver refused agent forwarding: "+err.Error()+"\x1b[0m\r\n")
+		}
+	}
 	modes := ssh.TerminalModes{
 		ssh.ECHO:          1,
 		ssh.TTY_OP_ISPEED: 14400,
@@ -191,7 +207,7 @@ func (s *SSHService) connectWith(sessionID string, t sshconn.Target, cols, rows 
 	s.mu.Unlock()
 	removeSentinel = false // session is live; don't clean up the map entry
 
-	if s.recordingEnabled() {
+	if shouldRecord(s.settings, hostID) {
 		_ = s.rec.Start(sessionID, recorder.StartMeta{
 			SessionID: sessionID,
 			Title:     title,
@@ -218,6 +234,10 @@ func (s *SSHService) connectWith(sessionID string, t sshconn.Target, cols, rows 
 
 	if hostID != "" {
 		s.hosts.TouchLastConnected(hostID)
+		// Fill in the platform badge on first connect. Runs on its own
+		// goroutine with its own timeout: the session is already usable and
+		// must not wait on a cosmetic probe.
+		go s.detectPlatform(sessionID, hostID)
 	}
 	return nil
 }
@@ -267,11 +287,6 @@ func (s *SSHService) keepalive(sessionID string, client *ssh.Client, cancel <-ch
 	}
 }
 
-func (s *SSHService) recordingEnabled() bool {
-	v, err := s.settings.GetPlain("record_sessions")
-	return err == nil && v == "1"
-}
-
 func (s *SSHService) finishRecording(sessionID string) {
 	fin := s.rec.Stop(sessionID)
 	if fin == nil {
@@ -298,18 +313,31 @@ func (s *SSHService) Write(ctx context.Context, sessionID string, data string) e
 	s.mu.Lock()
 	state, ok := s.sessions[sessionID]
 	s.mu.Unlock()
-	if !ok {
+	if !ok || state == nil {
 		return fmt.Errorf("session %s not found", sessionID)
 	}
 	_, err := state.stdin.Write([]byte(data))
 	return err
 }
 
+// SendSudoPassword writes the sudo password saved for hostID into the
+// session's PTY. The plaintext is resolved and written entirely in the
+// backend: the UI detects the sudo prompt and asks for the injection by
+// session id, so the password never crosses the bridge.
+//
+// Reports false when no sudo password is stored, which tells the UI to prompt
+// the user inline instead.
+func (s *SSHService) SendSudoPassword(ctx context.Context, sessionID, hostID string) (bool, error) {
+	return injectSudoPassword(s.dialer, hostID, func(data string) error {
+		return s.Write(ctx, sessionID, data)
+	})
+}
+
 func (s *SSHService) Resize(ctx context.Context, sessionID string, cols, rows int) error {
 	s.mu.Lock()
 	state, ok := s.sessions[sessionID]
 	s.mu.Unlock()
-	if !ok {
+	if !ok || state == nil {
 		return fmt.Errorf("session %s not found", sessionID)
 	}
 	return state.session.WindowChange(rows, cols)
@@ -328,7 +356,7 @@ func (s *SSHService) Latency(ctx context.Context, sessionID string) (int, error)
 	s.mu.Lock()
 	state, ok := s.sessions[sessionID]
 	s.mu.Unlock()
-	if !ok {
+	if !ok || state == nil {
 		return 0, fmt.Errorf("session %s not found", sessionID)
 	}
 	start := time.Now()

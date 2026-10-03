@@ -59,7 +59,7 @@ func RunSimple(ctx context.Context, client *ssh.Client, cmd string) (string, err
 	var out strings.Builder
 	sess.Stdout = &out
 	sess.Stderr = &out
-	
+
 	done := make(chan error, 1)
 	go func() { done <- sess.Run(cmd) }()
 

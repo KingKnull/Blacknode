@@ -26,16 +26,18 @@ type LocalShellService struct {
 	rec      *recorder.Manager
 	recStore *store.Recordings
 	settings *store.Settings
+	secrets  secretResolver
 
 	mu       sync.Mutex
 	sessions map[string]*localSession
 }
 
-func NewLocalShellService(rec *recorder.Manager, rs *store.Recordings, settings *store.Settings) *LocalShellService {
+func NewLocalShellService(rec *recorder.Manager, rs *store.Recordings, settings *store.Settings, secrets secretResolver) *LocalShellService {
 	return &LocalShellService{
 		rec:      rec,
 		recStore: rs,
 		settings: settings,
+		secrets:  secrets,
 		sessions: make(map[string]*localSession),
 	}
 }
@@ -87,6 +89,7 @@ func (s *LocalShellService) Open(ctx context.Context, sessionID string, cols, ro
 	}
 
 	cmd := p.Command(shell)
+	cmd.Env = ptyEnv()
 	if home, err := os.UserHomeDir(); err == nil {
 		cmd.Dir = home
 	}
@@ -100,7 +103,7 @@ func (s *LocalShellService) Open(ctx context.Context, sessionID string, cols, ro
 	s.sessions[sessionID] = state
 	s.mu.Unlock()
 
-	if s.recordingEnabled() {
+	if shouldRecord(s.settings, "") {
 		_ = s.rec.Start(sessionID, recorder.StartMeta{
 			SessionID: sessionID,
 			Title:     "local: " + shell,
@@ -140,11 +143,6 @@ func (s *LocalShellService) pump(id string, r io.Reader, cancel <-chan struct{})
 	}
 }
 
-func (s *LocalShellService) recordingEnabled() bool {
-	v, err := s.settings.GetPlain("record_sessions")
-	return err == nil && v == "1"
-}
-
 func (s *LocalShellService) finishRecording(sessionID, title string) {
 	fin := s.rec.Stop(sessionID)
 	if fin == nil {
@@ -170,6 +168,15 @@ func (s *LocalShellService) Write(ctx context.Context, sessionID, data string) e
 	}
 	_, err := state.pty.Write([]byte(data))
 	return err
+}
+
+// SendSudoPassword writes the sudo password saved against the pseudo-host id
+// "local" into this session's PTY. Same contract as the SSH equivalent: the
+// plaintext is resolved in the backend, and false means nothing is stored.
+func (s *LocalShellService) SendSudoPassword(ctx context.Context, sessionID string) (bool, error) {
+	return injectSudoPassword(s.secrets, localSudoHostID, func(data string) error {
+		return s.Write(ctx, sessionID, data)
+	})
 }
 
 func (s *LocalShellService) Resize(ctx context.Context, sessionID string, cols, rows int) error {

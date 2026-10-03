@@ -50,12 +50,41 @@ export function ConflictPreview(): $CancellablePromise<$models.ConflictItem[]> {
 }
 
 /**
+ * ExportSyncKey returns the sync root key as a transferable string, creating
+ * one if this device doesn't have it yet. Enter it on another device with
+ * ImportSyncKey to let both read the same synced data.
+ * 
+ * The value is the actual encryption key: anyone holding it can decrypt every
+ * blob pushed to the configured endpoint.
+ */
+export function ExportSyncKey(): $CancellablePromise<string> {
+    return $Call.ByID(3802528569);
+}
+
+/**
  * GetAutoSyncConfig returns the current auto-sync configuration.
  */
 export function GetAutoSyncConfig(): $CancellablePromise<$models.AutoSyncConfig> {
     return $Call.ByID(2099698475).then(($result: any) => {
         return $$createType3($result);
     });
+}
+
+/**
+ * HasSyncKey reports whether this device has a sync root key yet. Doesn't need
+ * the vault unlocked, so the UI can show enrollment state on the lock screen.
+ */
+export function HasSyncKey(): $CancellablePromise<boolean> {
+    return $Call.ByID(3061143049);
+}
+
+/**
+ * ImportSyncKey adopts a sync root key exported from another device, replacing
+ * whatever this device had. Blobs written under the previous key become
+ * unreadable, so callers should confirm before overwriting an established key.
+ */
+export function ImportSyncKey(encoded: string): $CancellablePromise<void> {
+    return $Call.ByID(3349976436, encoded);
 }
 
 /**

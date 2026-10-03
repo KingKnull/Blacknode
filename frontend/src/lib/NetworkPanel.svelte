@@ -84,18 +84,15 @@
     busy = true;
     clearResults();
     try {
-      const password = app.hostPasswords[host.id] ?? "";
       if (tool === "ping") {
         pingResult = (await NetworkService.Ping(
           host.id,
-          password,
           target,
           pingCount,
         )) as PingResult;
       } else if (tool === "dns") {
         dnsResult = (await NetworkService.DNSLookup(
           host.id,
-          password,
           target,
           dnsType,
         )) as DNSResult;
@@ -107,13 +104,12 @@
         }
         scanResult = (await NetworkService.PortScan(
           host.id,
-          password,
           target,
           ports,
         )) as PortScanResult;
       } else if (tool === "ssl") {
         const t = target.includes(":") ? target : `${target}:${sslPort}`;
-        sslResult = (await NetworkService.SSLCert(host.id, password, t)) as SSLResult;
+        sslResult = (await NetworkService.SSLCert(host.id, t)) as SSLResult;
       }
     } catch (e: any) {
       err = String(e?.message ?? e);

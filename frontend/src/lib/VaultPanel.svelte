@@ -3,39 +3,42 @@
   import {
     HostService,
   } from "../../bindings/github.com/blacknode/blacknode/internal/service";
-  import { Shield, Key, Lock, Trash2, Eye, EyeOff, Edit3, Check, X } from "@lucide/svelte";
+  import { Shield, Key, Lock, Trash2, Edit3, Check, X } from "@lucide/svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
 
-  // Reactive derivation of secrets grouped by host
-  let showPasswords = $state<Record<string, boolean>>({});
+  // This panel is deliberately write-only. It can tell you a credential exists
+  // and let you replace or delete it, but it cannot show you the plaintext —
+  // there's no longer any way for the frontend to ask for one. Secrets are
+  // unsealed in the Go connect path (sshconn.Dialer.ResolveSecret) and never
+  // cross the bridge. A reveal button would mean re-exposing every saved
+  // password to the renderer for the sake of a convenience feature.
   let editingSecret = $state<{ hostID: string; type: "ssh" | "sudo"; value: string } | null>(null);
 
-  let hostsWithSecrets = $derived.by(() => {
-    return app.hosts.map((h) => ({
-      host: h,
-      sshPassword: app.hostPasswords[h.id] ?? null,
-      sudoPassword: app.hostSudoPasswords[h.id] ?? null,
-    })).filter((h) => h.sshPassword || h.sudoPassword);
-  });
+  let hostsWithSecrets = $derived.by(() =>
+    app.hosts
+      .map((h) => ({
+        host: h,
+        hasSSH: app.hasSavedPassword(h.id),
+        hasSudo: app.hasSavedSudoPassword(h.id),
+      }))
+      .filter((h) => h.hasSSH || h.hasSudo),
+  );
 
-  function toggleVisibility(id: string) {
-    showPasswords[id] = !showPasswords[id];
-  }
-
-  function startEdit(hostID: string, type: "ssh" | "sudo", currentValue: string) {
-    editingSecret = { hostID, type, value: currentValue };
+  // Replacing a secret starts from empty — we don't have the old value to
+  // prefill, by design.
+  function startEdit(hostID: string, type: "ssh" | "sudo") {
+    editingSecret = { hostID, type, value: "" };
   }
 
   async function saveEdit() {
-    if (!editingSecret) return;
+    if (!editingSecret || !editingSecret.value) return;
     try {
       if (editingSecret.type === "ssh") {
         await HostService.SetPassword(editingSecret.hostID, editingSecret.value);
-        app.setPassword(editingSecret.hostID, editingSecret.value);
       } else {
         await HostService.SetSudoPassword(editingSecret.hostID, editingSecret.value);
-        app.setSudoPassword(editingSecret.hostID, editingSecret.value);
       }
+      await app.refreshSecretStatus();
       app.toast("ok", "SECRET UPDATED", "Password saved to vault.");
     } catch (e: any) {
       app.toast("error", "SAVE FAILED", String(e?.message ?? e));
@@ -52,20 +55,15 @@
     const label = type === "ssh" ? "SSH password" : "Sudo password";
     try {
       if (type === "ssh") {
-        await HostService.SetPassword(hostID, "");
-        delete app.hostPasswords[hostID];
+        await HostService.ClearPassword(hostID);
       } else {
-        await HostService.SetSudoPassword(hostID, "");
-        delete app.hostSudoPasswords[hostID];
+        await HostService.ClearSudoPassword(hostID);
       }
+      await app.refreshSecretStatus();
       app.toast("ok", "SECRET DELETED", `${label} removed from vault.`);
     } catch (e: any) {
       app.toast("error", "DELETE FAILED", String(e?.message ?? e));
     }
-  }
-
-  function maskPassword(pw: string): string {
-    return "•".repeat(Math.min(pw.length, 20));
   }
 </script>
 
@@ -86,7 +84,8 @@
     <div class="flex items-center gap-2">
       <Lock size="10" class="text-[var(--color-accent)]/50" />
       <span class="font-mono type-nano text-[var(--color-text-3)]">
-        All secrets are encrypted with your vault master key.
+        Encrypted with your vault master key. Saved passwords are never shown —
+        they're decrypted only when connecting.
       </span>
     </div>
   </div>
@@ -114,7 +113,7 @@
           </div>
 
           <!-- SSH Password -->
-          {#if entry.sshPassword}
+          {#if entry.hasSSH}
             <div class="flex items-center gap-2 px-4 py-2.5 hover:bg-[var(--color-surface-2)]/50 transition-colors">
               <Key size="11" class="shrink-0 text-[var(--color-accent)]/60" />
               <span class="shrink-0 font-mono type-eyebrow text-[var(--color-text-3)] w-16">SSH</span>
@@ -122,28 +121,22 @@
               {#if editingSecret?.hostID === entry.host.id && editingSecret?.type === "ssh"}
                 <input
                   type="password"
+                  placeholder="New SSH password"
                   class="flex-1 border hairline bg-[var(--color-surface-3)] px-2 py-1 font-mono type-micro text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50"
                   bind:value={editingSecret.value}
                   onkeydown={(e) => e.key === "Enter" && saveEdit()}
                 />
-                <button class="p-1 text-[var(--color-accent)] hover:text-[var(--color-text-1)]" onclick={saveEdit} title="Save">
+                <button class="p-1 text-[var(--color-accent)] hover:text-[var(--color-text-1)] disabled:opacity-30" onclick={saveEdit} disabled={!editingSecret.value} title="Save">
                   <Check size="12" />
                 </button>
                 <button class="p-1 text-[var(--color-text-4)] hover:text-[var(--color-text-1)]" onclick={() => editingSecret = null} title="Cancel">
                   <X size="12" />
                 </button>
               {:else}
-                <span class="flex-1 font-mono type-micro text-[var(--color-text-2)]">
-                  {showPasswords[`${entry.host.id}:ssh`] ? entry.sshPassword : maskPassword(entry.sshPassword)}
+                <span class="flex-1 font-mono type-micro text-[var(--color-text-3)]">
+                  Saved · hidden
                 </span>
-                <button class="p-1 text-[var(--color-text-4)] hover:text-[var(--color-text-2)] transition-colors" onclick={() => toggleVisibility(`${entry.host.id}:ssh`)} title="Toggle visibility">
-                  {#if showPasswords[`${entry.host.id}:ssh`]}
-                    <EyeOff size="12" />
-                  {:else}
-                    <Eye size="12" />
-                  {/if}
-                </button>
-                <button class="p-1 text-[var(--color-text-4)] hover:text-[var(--color-text-2)] transition-colors" onclick={() => startEdit(entry.host.id, "ssh", entry.sshPassword ?? "")} title="Edit">
+                <button class="p-1 text-[var(--color-text-4)] hover:text-[var(--color-text-2)] transition-colors" onclick={() => startEdit(entry.host.id, "ssh")} title="Replace">
                   <Edit3 size="12" />
                 </button>
                 <button class="p-1 text-[var(--color-text-4)] hover:text-[var(--color-danger)] transition-colors" onclick={() => (pendingDelete = { hostID: entry.host.id, type: "ssh" })} title="Delete" aria-label="Delete SSH password for {entry.host.name}">
@@ -154,7 +147,7 @@
           {/if}
 
           <!-- Sudo Password -->
-          {#if entry.sudoPassword}
+          {#if entry.hasSudo}
             <div class="flex items-center gap-2 px-4 py-2.5 hover:bg-[var(--color-surface-2)]/50 transition-colors">
               <Shield size="11" class="shrink-0 text-[var(--color-warn)]/60" />
               <span class="shrink-0 font-mono type-eyebrow text-[var(--color-text-3)] w-16">SUDO</span>
@@ -162,28 +155,22 @@
               {#if editingSecret?.hostID === entry.host.id && editingSecret?.type === "sudo"}
                 <input
                   type="password"
+                  placeholder="New sudo password"
                   class="flex-1 border hairline bg-[var(--color-surface-3)] px-2 py-1 font-mono type-micro text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50"
                   bind:value={editingSecret.value}
                   onkeydown={(e) => e.key === "Enter" && saveEdit()}
                 />
-                <button class="p-1 text-[var(--color-accent)] hover:text-[var(--color-text-1)]" onclick={saveEdit} title="Save">
+                <button class="p-1 text-[var(--color-accent)] hover:text-[var(--color-text-1)] disabled:opacity-30" onclick={saveEdit} disabled={!editingSecret.value} title="Save">
                   <Check size="12" />
                 </button>
                 <button class="p-1 text-[var(--color-text-4)] hover:text-[var(--color-text-1)]" onclick={() => editingSecret = null} title="Cancel">
                   <X size="12" />
                 </button>
               {:else}
-                <span class="flex-1 font-mono type-micro text-[var(--color-text-2)]">
-                  {showPasswords[`${entry.host.id}:sudo`] ? entry.sudoPassword : maskPassword(entry.sudoPassword)}
+                <span class="flex-1 font-mono type-micro text-[var(--color-text-3)]">
+                  Saved · hidden
                 </span>
-                <button class="p-1 text-[var(--color-text-4)] hover:text-[var(--color-text-2)] transition-colors" onclick={() => toggleVisibility(`${entry.host.id}:sudo`)} title="Toggle visibility">
-                  {#if showPasswords[`${entry.host.id}:sudo`]}
-                    <EyeOff size="12" />
-                  {:else}
-                    <Eye size="12" />
-                  {/if}
-                </button>
-                <button class="p-1 text-[var(--color-text-4)] hover:text-[var(--color-text-2)] transition-colors" onclick={() => startEdit(entry.host.id, "sudo", entry.sudoPassword ?? "")} title="Edit">
+                <button class="p-1 text-[var(--color-text-4)] hover:text-[var(--color-text-2)] transition-colors" onclick={() => startEdit(entry.host.id, "sudo")} title="Replace">
                   <Edit3 size="12" />
                 </button>
                 <button class="p-1 text-[var(--color-text-4)] hover:text-[var(--color-danger)] transition-colors" onclick={() => (pendingDelete = { hostID: entry.host.id, type: "sudo" })} title="Delete" aria-label="Delete sudo password for {entry.host.name}">

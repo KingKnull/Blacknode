@@ -30,13 +30,16 @@ func NewKeyService(k *store.Keys, v *vault.Vault) *KeyService {
 // PublicKeyView is the safe shape returned to the frontend — never the
 // private material.
 type PublicKeyView struct {
-	ID             string `json:"id"`
-	Name           string `json:"name"`
-	KeyType        string `json:"keyType"`
-	PublicKey      string `json:"publicKey"`
-	Fingerprint    string `json:"fingerprint"`
-	CreatedAt      int64  `json:"createdAt"`
-	HasCertificate bool   `json:"hasCertificate"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	KeyType     string `json:"keyType"`
+	PublicKey   string `json:"publicKey"`
+	Fingerprint string `json:"fingerprint"`
+	CreatedAt   int64  `json:"createdAt"`
+	// Hardware marks a FIDO2 security key: the private half stays on the
+	// token, so it authenticates through the SSH agent and cannot be exported.
+	Hardware       bool `json:"hardware"`
+	HasCertificate bool `json:"hasCertificate"`
 	// CertificateInfo is a short human summary (principals + validity) when a
 	// certificate is attached, otherwise empty.
 	CertificateInfo string `json:"certificateInfo,omitempty"`
@@ -46,6 +49,7 @@ func toView(k store.Key) PublicKeyView {
 	v := PublicKeyView{
 		ID: k.ID, Name: k.Name, KeyType: k.KeyType,
 		PublicKey: k.PublicKey, Fingerprint: k.Fingerprint, CreatedAt: k.CreatedAt,
+		Hardware: k.Hardware,
 	}
 	if k.Certificate != "" {
 		v.HasCertificate = true
@@ -189,6 +193,15 @@ func (s *KeyService) Import(ctx context.Context, name, privatePEM, passphrase st
 	if !s.vault.IsUnlocked() {
 		return PublicKeyView{}, errors.New("vault is locked")
 	}
+	// pemToStore is the private material that gets sealed into the vault. For an
+	// unencrypted key it is the bytes as pasted. For a passphrase-protected key
+	// it must be re-encoded WITHOUT the passphrase before storing: the dialer
+	// unseals this blob and calls ssh.ParsePrivateKey (which takes no
+	// passphrase), and the passphrase itself is never persisted — so keeping the
+	// encrypted PEM would make the imported key impossible to connect with. The
+	// vault supplies the encryption at rest, exactly as it does for Generate.
+	pemToStore := []byte(privatePEM)
+
 	var (
 		signer ssh.Signer
 		err    error
@@ -196,13 +209,62 @@ func (s *KeyService) Import(ctx context.Context, name, privatePEM, passphrase st
 	if passphrase == "" {
 		signer, err = ssh.ParsePrivateKey([]byte(privatePEM))
 	} else {
-		signer, err = ssh.ParsePrivateKeyWithPassphrase([]byte(privatePEM), []byte(passphrase))
+		raw, perr := ssh.ParseRawPrivateKeyWithPassphrase([]byte(privatePEM), []byte(passphrase))
+		if perr != nil {
+			return PublicKeyView{}, fmt.Errorf("parse key: %w", perr)
+		}
+		block, merr := ssh.MarshalPrivateKey(raw, "")
+		if merr != nil {
+			return PublicKeyView{}, fmt.Errorf("re-encode key: %w", merr)
+		}
+		pemToStore = pem.EncodeToMemory(block)
+		signer, err = ssh.ParsePrivateKey(pemToStore)
 	}
 	if err != nil {
 		return PublicKeyView{}, fmt.Errorf("parse key: %w", err)
 	}
 	keyType := signer.PublicKey().Type()
-	return s.persist(name, keyType, []byte(privatePEM), signer.PublicKey())
+	return s.persist(name, keyType, pemToStore, signer.PublicKey())
+}
+
+// ImportSecurityKey registers a FIDO2 hardware key from its public half. The
+// private key lives on the token and is never available to this process, so
+// nothing is sealed into the vault and signing goes through the SSH agent —
+// which is what actually talks to the authenticator.
+//
+// Generate the key pair with OpenSSH first:
+//
+//	ssh-keygen -t ed25519-sk -O resident -O verify-required
+//
+// then paste the resulting .pub line here.
+func (s *KeyService) ImportSecurityKey(ctx context.Context, name, publicKey string) (PublicKeyView, error) {
+	if strings.TrimSpace(name) == "" {
+		return PublicKeyView{}, errors.New("name required")
+	}
+	pub, _, _, _, err := ssh.ParseAuthorizedKey([]byte(publicKey))
+	if err != nil {
+		return PublicKeyView{}, fmt.Errorf("parse public key: %w", err)
+	}
+	if _, isCert := pub.(*ssh.Certificate); isCert {
+		return PublicKeyView{}, errors.New("that is a certificate — paste the security key's .pub line instead")
+	}
+	if !store.HardwareKeyType(pub.Type()) {
+		return PublicKeyView{}, fmt.Errorf("%s is not a security key; use Import for a private key file, or generate one with `ssh-keygen -t ed25519-sk`", pub.Type())
+	}
+
+	// No vault unlock check here, unlike Generate and Import: there is no
+	// secret to seal, so requiring the vault would be a lock on nothing.
+	saved, err := s.keys.Create(store.Key{
+		Name:        name,
+		KeyType:     pub.Type(),
+		PublicKey:   string(ssh.MarshalAuthorizedKey(pub)),
+		Fingerprint: store.Fingerprint(pub),
+		Hardware:    true,
+	})
+	if err != nil {
+		return PublicKeyView{}, err
+	}
+	return toView(saved), nil
 }
 
 func (s *KeyService) persist(name, keyType string, privPEM []byte, pub ssh.PublicKey) (PublicKeyView, error) {

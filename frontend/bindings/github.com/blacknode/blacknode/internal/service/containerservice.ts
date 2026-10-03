@@ -21,8 +21,8 @@ import * as $models from "./models.js";
  * ContainerLogs returns the last `lines` of logs for one-shot display. For
  * streaming, use the existing LogsService with `docker logs -f <id>`.
  */
-export function ContainerLogs(hostID: string, password: string, containerID: string, lines: number): $CancellablePromise<string> {
-    return $Call.ByID(2614646323, hostID, password, containerID, lines);
+export function ContainerLogs(hostID: string, containerID: string, lines: number): $CancellablePromise<string> {
+    return $Call.ByID(2614646323, hostID, containerID, lines);
 }
 
 /**
@@ -30,8 +30,8 @@ export function ContainerLogs(hostID: string, password: string, containerID: str
  * docker emits in newer versions. Falls back to a parsed table from
  * `docker ps --format ...` if `--format json` isn't supported.
  */
-export function Containers(hostID: string, password: string, includeStopped: boolean): $CancellablePromise<$models.Container[]> {
-    return $Call.ByID(1663870777, hostID, password, includeStopped).then(($result: any) => {
+export function Containers(hostID: string, includeStopped: boolean): $CancellablePromise<$models.Container[]> {
+    return $Call.ByID(1663870777, hostID, includeStopped).then(($result: any) => {
         return $$createType1($result);
     });
 }
@@ -39,8 +39,8 @@ export function Containers(hostID: string, password: string, includeStopped: boo
 /**
  * Namespaces returns the list of kubernetes namespaces visible on the host.
  */
-export function Namespaces(hostID: string, password: string): $CancellablePromise<string[]> {
-    return $Call.ByID(1658735729, hostID, password).then(($result: any) => {
+export function Namespaces(hostID: string): $CancellablePromise<string[]> {
+    return $Call.ByID(1658735729, hostID).then(($result: any) => {
         return $$createType2($result);
     });
 }
@@ -49,16 +49,16 @@ export function Namespaces(hostID: string, password: string): $CancellablePromis
  * PodLogs returns the last N lines of logs for a pod (optionally a specific
  * container within it). Streaming is via the existing LogsService.
  */
-export function PodLogs(hostID: string, password: string, $namespace: string, pod: string, container: string, lines: number): $CancellablePromise<string> {
-    return $Call.ByID(879136655, hostID, password, $namespace, pod, container, lines);
+export function PodLogs(hostID: string, $namespace: string, pod: string, container: string, lines: number): $CancellablePromise<string> {
+    return $Call.ByID(879136655, hostID, $namespace, pod, container, lines);
 }
 
 /**
  * Pods runs `kubectl get pods -o json` for a namespace and parses the
  * minimal subset we render. Empty namespace = all namespaces.
  */
-export function Pods(hostID: string, password: string, $namespace: string): $CancellablePromise<$models.Pod[]> {
-    return $Call.ByID(3677389221, hostID, password, $namespace).then(($result: any) => {
+export function Pods(hostID: string, $namespace: string): $CancellablePromise<$models.Pod[]> {
+    return $Call.ByID(3677389221, hostID, $namespace).then(($result: any) => {
         return $$createType4($result);
     });
 }

@@ -15,7 +15,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func setupTestContainerService(t *testing.T) (*ContainerService, *mockssh.Server, *store.Hosts, func()) {
+func setupTestContainerService(t *testing.T) (*ContainerService, *mockssh.Server, *store.Hosts, func(string, string), func()) {
 	tmpDir, err := os.MkdirTemp("", "blacknode-container-test-*")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
@@ -38,12 +38,14 @@ func setupTestContainerService(t *testing.T) (*ContainerService, *mockssh.Server
 	knownHosts := store.NewKnownHosts(sqliteDB.DB)
 	knownHosts.Approve("127.0.0.1", server.Port(), server.PublicKey.Type(), base64.StdEncoding.EncodeToString(server.PublicKey.Marshal()), ssh.FingerprintSHA256(server.PublicKey))
 
-	dialer := sshconn.New(v, nil, knownHosts)
+	secrets := store.NewSecrets(sqliteDB.DB)
+	dialer := sshconn.New(v, nil, knownHosts, secrets)
 	pool := sshconn.NewPool(dialer, hosts)
 
 	containerSvc := NewContainerService(pool, hosts)
+	seed := newPasswordSeeder(t, v, secrets)
 
-	return containerSvc, server, hosts, func() {
+	return containerSvc, server, hosts, seed, func() {
 		server.Close()
 		sqliteDB.Close()
 		os.RemoveAll(tmpDir)
@@ -51,7 +53,7 @@ func setupTestContainerService(t *testing.T) (*ContainerService, *mockssh.Server
 }
 
 func TestContainerService_List_Success(t *testing.T) {
-	svc, server, hosts, cleanup := setupTestContainerService(t)
+	svc, server, hosts, seed, cleanup := setupTestContainerService(t)
 	defer cleanup()
 
 	server.Handlers["docker ps"] = func(cmd string) (string, uint32) {
@@ -69,8 +71,10 @@ func TestContainerService_List_Success(t *testing.T) {
 		t.Fatalf("failed to create host: %v", err)
 	}
 
+	seed(host.ID, "password")
+
 	ctx := context.Background()
-	containers, err := svc.Containers(ctx, host.ID, "password", false)
+	containers, err := svc.Containers(ctx, host.ID, false)
 	if err != nil {
 		t.Fatalf("Containers failed: %v", err)
 	}

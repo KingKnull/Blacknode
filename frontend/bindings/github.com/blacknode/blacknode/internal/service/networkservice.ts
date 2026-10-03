@@ -18,14 +18,14 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
-export function DNSLookup(hostID: string, password: string, target: string, recordType: string): $CancellablePromise<$models.DNSResult> {
-    return $Call.ByID(1960944829, hostID, password, target, recordType).then(($result: any) => {
+export function DNSLookup(hostID: string, target: string, recordType: string): $CancellablePromise<$models.DNSResult> {
+    return $Call.ByID(1960944829, hostID, target, recordType).then(($result: any) => {
         return $$createType0($result);
     });
 }
 
-export function Ping(hostID: string, password: string, target: string, count: number): $CancellablePromise<$models.PingResult> {
-    return $Call.ByID(573217668, hostID, password, target, count).then(($result: any) => {
+export function Ping(hostID: string, target: string, count: number): $CancellablePromise<$models.PingResult> {
+    return $Call.ByID(573217668, hostID, target, count).then(($result: any) => {
         return $$createType1($result);
     });
 }
@@ -36,8 +36,8 @@ export function Ping(hostID: string, password: string, target: string, count: nu
  * up to 256 bytes after a successful connect to grab a banner if the service
  * volunteers one (SSH, HTTP servers that send a Server header on connect, etc.).
  */
-export function PortScan(hostID: string, password: string, target: string, ports: number[]): $CancellablePromise<$models.PortScanResult> {
-    return $Call.ByID(1777280254, hostID, password, target, ports).then(($result: any) => {
+export function PortScan(hostID: string, target: string, ports: number[]): $CancellablePromise<$models.PortScanResult> {
+    return $Call.ByID(1777280254, hostID, target, ports).then(($result: any) => {
         return $$createType2($result);
     });
 }
@@ -48,8 +48,8 @@ export function PortScan(hostID: string, password: string, target: string, ports
  * We deliberately accept invalid certs (expired, name-mismatched, self-signed)
  * — the goal is to inspect what the server returns, not to verify it.
  */
-export function SSLCert(hostID: string, password: string, target: string): $CancellablePromise<$models.SSLResult> {
-    return $Call.ByID(1570785132, hostID, password, target).then(($result: any) => {
+export function SSLCert(hostID: string, target: string): $CancellablePromise<$models.SSLResult> {
+    return $Call.ByID(1570785132, hostID, target).then(($result: any) => {
         return $$createType3($result);
     });
 }

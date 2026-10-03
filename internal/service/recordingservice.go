@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"sync"
 
 	"github.com/blacknode/blacknode/internal/recorder"
 	"github.com/blacknode/blacknode/internal/store"
@@ -35,12 +36,20 @@ type SearchHit struct {
 }
 
 type RecordingService struct {
-	store    *store.Recordings
-	settings *store.Settings
+	store           *store.Recordings
+	settings        *store.Settings
+	manager         *recorder.Manager
+	cleanupMu       sync.Mutex
+	stopMaintenance context.CancelFunc
+	maintenanceDone chan struct{}
 }
 
-func NewRecordingService(s *store.Recordings, st *store.Settings) *RecordingService {
-	return &RecordingService{store: s, settings: st}
+func NewRecordingService(s *store.Recordings, st *store.Settings, manager *recorder.Manager) *RecordingService {
+	service := &RecordingService{store: s, settings: st, manager: manager}
+	if cfg, err := readRecordingPolicy(st); err == nil {
+		_ = manager.ConfigureStorageLimit(int64(cfg.MaxStorageMB) * 1024 * 1024)
+	}
+	return service
 }
 
 func (s *RecordingService) IsEnabled(ctx context.Context) (bool, error) {
@@ -85,15 +94,13 @@ func (s *RecordingService) Get(ctx context.Context, id string) (RecordingDetail,
 }
 
 func (s *RecordingService) Delete(ctx context.Context, id string) error {
+	s.cleanupMu.Lock()
+	defer s.cleanupMu.Unlock()
 	rec, err := s.store.Get(id)
 	if err != nil {
 		return err
 	}
-	if err := s.store.Delete(id); err != nil {
-		return err
-	}
-	_ = os.Remove(rec.Path)
-	return nil
+	return s.deleteRecording(rec)
 }
 
 // Search greps every stored recording for the substring (case-insensitive)

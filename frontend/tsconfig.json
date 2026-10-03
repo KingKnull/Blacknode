@@ -16,4 +16,13 @@
     "isolatedModules": true
   },
   "include": ["src/**/*.ts", "src/**/*.js", "src/**/*.svelte", "bindings"],
+  /**
+   * Tests are checked by tsconfig.test.json (`npm run check:test`) instead.
+   * They need two things this config must not grant the app: Node's built-in
+   * module types, and `allowImportingTsExtensions` for the explicit `.ts`
+   * import specifiers that `node --test` requires. Granting either here would
+   * let app code import a `.ts` path that Vite resolves but `tsc` shouldn't
+   * bless, or reference `node:fs` from code that runs in a webview.
+   */
+  "exclude": ["src/**/*.test.ts"]
 }

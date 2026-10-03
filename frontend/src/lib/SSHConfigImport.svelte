@@ -89,7 +89,7 @@
 >
   <div
     class="flex max-h-[80vh] w-[640px] flex-col overflow-hidden border hairline-strong surface-2 shadow-2xl"
-    style="box-shadow: 0 0 0 1px var(--color-line-strong), 0 0 60px rgba(59, 130, 246,0.04), 0 40px 80px rgba(0,0,0,0.6);"
+    style="box-shadow: 0 0 0 1px var(--color-line-strong), 0 0 60px rgba(59,130,246,0.04), 0 40px 80px rgba(0,0,0,0.6);"
   >
     <div class="flex items-center gap-2.5 border-b hairline px-5 py-3">
       <FileText size="12" class="text-[var(--color-accent)]" />

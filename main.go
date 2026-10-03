@@ -26,14 +26,21 @@ var assets embed.FS
 var iconData []byte
 
 func init() {
+	if os.Getenv("WEBKIT_DISABLE_DMABUF_RENDERER") == "" {
+		_ = os.Setenv("WEBKIT_DISABLE_DMABUF_RENDERER", "1")
+	}
+
 	application.RegisterEvent[service.TerminalData]("terminal:data")
 	application.RegisterEvent[service.TerminalExit]("terminal:exit")
 	application.RegisterEvent[service.ExecProgress]("exec:progress")
+	application.RegisterEvent[service.RunbookProgress]("runbook:progress")
 	application.RegisterEvent[service.HostMetrics]("metrics:update")
 	application.RegisterEvent[service.LogLine]("logs:line")
 	application.RegisterEvent[service.AIChunk]("ai:chunk")
 	application.RegisterEvent[service.VaultLockEvent]("vault:locked")
 	application.RegisterEvent[service.Notification]("notification:toast")
+	application.RegisterEvent[service.AuthPromptRequest]("auth:prompt")
+	application.RegisterEvent[service.TransferProgress]("sftp:progress")
 }
 
 func main() {
@@ -45,9 +52,11 @@ func main() {
 		log.Fatalf("db open: %v", err)
 	}
 
-	hosts := store.NewHosts(conn.DB)
+	hostGroups := store.NewHostGroups(conn.DB)
+	hosts := store.NewHosts(conn.DB).WithGroups(hostGroups)
 	keys := store.NewKeys(conn.DB)
 	knownHosts := store.NewKnownHosts(conn.DB)
+	secrets := store.NewSecrets(conn.DB)
 	settings := store.NewSettings(conn.DB)
 	forwards := store.NewForwards(conn.DB)
 	recordings := store.NewRecordings(conn.DB)
@@ -57,10 +66,17 @@ func main() {
 	dbConnections := store.NewDBConnections(conn.DB)
 	httpRequests := store.NewHTTPRequests(conn.DB)
 	teamActivity := store.NewTeamActivities(conn.DB)
+	syncKeys := store.NewSyncKeys(conn.DB)
+	caKeys := store.NewCAKeys(conn.DB)
 	activities := store.NewActivities(conn.DB)
 	recMgr := recorder.NewManager()
 	v := vault.New(conn.DB)
-	dialer := sshconn.New(v, keys, knownHosts)
+	dialer := sshconn.New(v, keys, knownHosts, secrets)
+	// The prompter has to be attached before the pool takes the dialer:
+	// without it the dialer cannot offer keyboard-interactive, which is how
+	// every MFA-protected host expects to be authenticated.
+	authPrompt := service.NewAuthPromptService()
+	dialer.Prompter = authPrompt
 	pool := sshconn.NewPool(dialer, hosts)
 
 	settingsSvc := service.NewSettingsService(settings, v)
@@ -69,9 +85,11 @@ func main() {
 	pfSvc := service.NewPortForwardService(pool, hosts, forwards)
 	notifySvc := service.NewNotificationService(settings)
 	activityRec := service.NewActivityRecorder(activities)
-	syncSvc := service.NewSyncService(settings, hosts, snippets, httpRequests, teamActivity, v, activityRec)
-	vaultSvc := service.NewVaultService(v, conn.DB, activityRec)
-	vaultSvc.SetSyncService(syncSvc)
+	execSvc := service.NewExecService(pool, hosts, history, notifySvc, activityRec)
+	syncSvc := service.NewSyncService(settings, hosts, snippets, httpRequests, teamActivity, syncKeys, v, activityRec)
+	dataDir := filepath.Join(xdg.DataHome, "blacknode")
+	vaultSvc := service.NewVaultService(v, conn.DB, dataDir, activityRec, autoLock)
+	service.WireSyncService(vaultSvc, syncSvc)
 
 	app := application.New(application.Options{
 		Name:        "blacknode",
@@ -81,17 +99,23 @@ func main() {
 			application.NewService(vaultSvc),
 			application.NewService(settingsSvc),
 			application.NewService(service.NewKeyService(keys, v)),
-			application.NewService(service.NewHostService(hosts, knownHosts, v, conn.DB)),
-			application.NewService(service.NewLocalShellService(recMgr, recordings, settings)),
+			application.NewService(service.NewCAService(caKeys, keys, v, activityRec)),
+			application.NewService(service.NewHostService(hosts, knownHosts, secrets, v)),
+			application.NewService(service.NewHostGroupService(hostGroups, hosts)),
+			application.NewService(service.NewCloudImportService(hosts)),
+			application.NewService(service.NewLocalShellService(recMgr, recordings, settings, dialer)),
 			application.NewService(service.NewSSHService(dialer, hosts, recMgr, recordings, settings)),
 			application.NewService(service.NewSFTPService(pool, hosts)),
-			application.NewService(service.NewExecService(pool, hosts, history, notifySvc, activityRec)),
+			application.NewService(authPrompt),
+			application.NewService(execSvc),
+			application.NewService(service.NewRunbookService(settings, execSvc)),
+			application.NewService(service.NewOpsConsoleService(pool, hosts, activityRec)),
 			application.NewService(service.NewMetricsService(pool, hosts, notifySvc)),
 			application.NewService(service.NewLogsService(pool, hosts, logQueries)),
 			application.NewService(service.NewAIService(settingsSvc)),
 			application.NewService(autoLock),
 			application.NewService(pfSvc),
-			application.NewService(service.NewRecordingService(recordings, settings)),
+			application.NewService(service.NewRecordingService(recordings, settings, recMgr)),
 			application.NewService(service.NewContainerService(pool, hosts)),
 			application.NewService(service.NewSnippetService(snippets, history)),
 			application.NewService(service.NewHistoryService(history)),
@@ -103,7 +127,7 @@ func main() {
 			application.NewService(service.NewUpdateService()),
 			application.NewService(service.NewPluginService(notifySvc, activityRec)),
 			application.NewService(syncSvc),
-			application.NewService(service.NewActivityService(activities)),
+			application.NewService(service.NewActivityService(activities, keys, v)),
 			// New services — Feature 1: Autocomplete
 			application.NewService(service.NewAutocompleteService(history, snippets)),
 			// New services — Feature 2: Mosh

@@ -3,9 +3,9 @@ import {
   VaultService,
   KeyService,
   SettingsService,
-  AIService,
   RecordingService,
   PluginService,
+  AutoLockService,
 } from "../../bindings/github.com/blacknode/blacknode/internal/service";
 import type { Host } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
 import { Events } from "@wailsio/runtime";
@@ -16,10 +16,16 @@ import type {
   AppSettings,
 } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
 import { NotifyKind } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
+import { checkCommand, type Danger } from "./danger";
+import { bus } from "./events";
+import { NAVIGATION_KEY, readHiddenViews, viewVisible } from "./navigation";
+import type { ConnectionTarget } from "./workspaces";
 
 type View =
   | "terminals"
   | "exec"
+  | "ops"
+  | "runbooks"
   | "files"
   | "metrics"
   | "logs"
@@ -43,7 +49,17 @@ type View =
 
 class AppState {
   view = $state<View>("terminals");
-  vault = $state<VaultStatus>({ initialized: false, unlocked: false });
+  hiddenViews = $state<string[]>(readHiddenViews(localStorage));
+  isViewVisible(view: string) { return viewVisible(view, this.hiddenViews); }
+  setViewVisible(view: string, visible: boolean) {
+    const next = visible ? this.hiddenViews.filter((id) => id !== view) : [...new Set([...this.hiddenViews, view])];
+    try {
+      localStorage.setItem(NAVIGATION_KEY, JSON.stringify(next));
+      this.hiddenViews = next;
+      if (!this.isViewVisible(this.view)) this.view = "settings";
+    } catch (e) { this.toast("error", "Could not save navigation preferences", String(e)); }
+  }
+  vault = $state<VaultStatus>({ initialized: false, unlocked: false, pinAvailable: false, pinAttemptsRemaining: 0 });
   hosts = $state<Host[]>([]);
   keys = $state<PublicKeyView[]>([]);
   settings = $state<AppSettings>({
@@ -51,12 +67,20 @@ class AppState {
     autoLockMinutes: 15,
     defaultShellPath: "",
     metricsIntervalSeconds: 5,
+    // Mirrors ScrollbackDefault in internal/service/settingsservice.go. Only
+    // used for the moment before the first Get() resolves — the backend clamps
+    // and is authoritative — but it has to be a usable number rather than 0,
+    // because a terminal that mounts in that window would otherwise be built
+    // with no scrollback at all.
+    terminalScrollback: 5000,
     hasAnthropicKey: false,
   });
   selectedHostID = $state<string | null>(null);
   hostDetailOpen = $state(false);
-  hostPasswords = $state<Record<string, string>>({});
-  hostSudoPasswords = $state<Record<string, string>>({});
+  // Which hosts have credentials saved — booleans only. The plaintext lives in
+  // the vault and is resolved by the Go connect path; panels pass no password
+  // at all. See internal/sshconn/dialer.go (ResolveSecret).
+  secretStatus = $state<Record<string, { hasPassword: boolean; hasSudo: boolean }>>({});
   loading = $state(false);
   paletteOpen = $state(false);
   aiOpen = $state(false);
@@ -93,26 +117,42 @@ class AppState {
       delete next[sessionID];
       this.sessionStatus = next;
     }
-  }
-
-  // Track which hosts have active terminal sessions connected
-  connectedHosts = $state<Set<string>>(new Set());
-
-  addConnectedHost(hostID: string) {
-    if (!this.connectedHosts.has(hostID)) {
-      const next = new Set(this.connectedHosts);
-      next.add(hostID);
-      this.connectedHosts = next;
+    if (sessionID in this.sessionHosts) {
+      delete this.sessionHosts[sessionID];
     }
   }
 
-  removeConnectedHost(hostID: string) {
-    if (this.connectedHosts.has(hostID)) {
-      const next = new Set(this.connectedHosts);
-      next.delete(hostID);
-      this.connectedHosts = next;
-    }
+  // What each live pane is attached to, and how. Panes report this as they
+  // connect and disconnect. Two things need it: naming the blast radius of a
+  // broadcast command, and persisting the workspace for session restore.
+  // `null` means the pane is on a local shell.
+  sessionHosts = $state<Record<string, { hostID: string; via: "ssh" | "mosh" } | null>>({});
+  // Intended attachments survive a network failure or a pending auth prompt.
+  // sessionHosts continues to describe only live connections.
+  sessionTargets = $state<Record<string, ConnectionTarget | null>>({});
+
+  setSessionHost(sessionID: string, host: { hostID: string; via: "ssh" | "mosh" } | null) {
+    // Guarded so panes can report unconditionally on every state change without
+    // waking every consumer of this map each time nothing actually moved.
+    const cur = this.sessionHosts[sessionID] ?? null;
+    if (!cur && !host) return;
+    if (cur && host && cur.hostID === host.hostID && cur.via === host.via) return;
+    this.sessionHosts[sessionID] = host;
   }
+
+  // Which hosts have at least one live terminal session. Derived from
+  // sessionHosts rather than kept as its own set: with two panes on the same
+  // host, the pane that disconnected first used to delete the host from a
+  // hand-maintained set while the other pane was still sitting on it. Deriving
+  // makes the refcount true by construction — the host is present exactly as
+  // long as some pane reports it, and forgetSession drops it on unmount.
+  connectedHosts = $derived(
+    new Set(
+      Object.values(this.sessionHosts)
+        .filter((h) => h !== null)
+        .map((h) => h!.hostID),
+    ),
+  );
 
   // Plugin-contributed panels surfaced in the sidebar nav.
   pluginPanels = $state<PanelView[]>([]);
@@ -141,11 +181,34 @@ class AppState {
   // underlying mode (local PTY vs SSH).
   broadcastEnabled = $state(false);
   broadcastSet = $state<Set<string>>(new Set());
-  // svelte-ignore state_referenced_locally
-  broadcastSinks = $state<Record<string, (data: string) => void>>({});
+  // Each pane registers a write function so we can fan out without knowing its
+  // mode. Which host it's pointed at isn't stored here — a pane can disconnect
+  // and reconnect elsewhere while staying a broadcast member, so the danger
+  // confirmation reads `sessionHosts` at prompt time instead of a snapshot.
+  broadcastSinks = $state<Record<string, { write: (data: string) => void }>>({});
+
+  // Line being composed in the broadcast source pane, reconstructed from the
+  // keystrokes flowing through fanOutBroadcast. We need it because the danger
+  // check works on whole commands, and broadcast operates on raw keystrokes:
+  // by the time Enter arrives the command exists only as the sum of what was
+  // typed. Local echo already showed it in every pane; this is a parallel
+  // record, not a second source of truth.
+  #broadcastLine = "";
+
+  // A dangerous command caught on its way out to the broadcast group. The
+  // Workspace renders a confirmation for this; resolving it either fans the
+  // command out to every member or drops it.
+  pendingBroadcastDanger = $state<{
+    id: string;
+    sourceSessionID: string;
+    command: string;
+    danger: Danger;
+    targets: number;
+    productionHosts: string[];
+  } | null>(null);
 
   registerBroadcastSink(sessionID: string, write: (data: string) => void) {
-    this.broadcastSinks[sessionID] = write;
+    this.broadcastSinks[sessionID] = { write };
   }
   unregisterBroadcastSink(sessionID: string) {
     delete this.broadcastSinks[sessionID];
@@ -161,14 +224,107 @@ class AppState {
     else next.add(sessionID);
     this.broadcastSet = next;
   }
+
   // Fan out from a source session to every OTHER session in the group.
+  //
+  // Broadcast is the one path where a single keystroke reaches N hosts at
+  // once, so it gets the same dangerous-command check as multi-host exec —
+  // running `mkfs` on twelve machines simultaneously is exactly the mistake
+  // worth interrupting. The check fires on Enter, against the line assembled
+  // so far; everything else fans out immediately.
   fanOutBroadcast(sourceSessionID: string, data: string) {
     if (!this.broadcastEnabled) return;
     if (!this.broadcastSet.has(sourceSessionID)) return;
+    // Don't stack a second prompt on top of one already awaiting an answer.
+    if (this.pendingBroadcastDanger) return;
+
+    if (this.#isSubmit(data)) {
+      const command = this.#broadcastLine;
+      this.#broadcastLine = "";
+      const danger = checkCommand(command);
+      if (danger) {
+        const targets = [...this.broadcastSet].filter((s) => s !== sourceSessionID);
+        this.pendingBroadcastDanger = {
+          id: crypto.randomUUID(),
+          sourceSessionID,
+          command,
+          danger,
+          targets: targets.length,
+          productionHosts: this.#productionHostNames(targets),
+        };
+        return; // held until the user confirms
+      }
+    } else {
+      this.#trackBroadcastLine(data);
+    }
+
+    this.#writeToBroadcastGroup(sourceSessionID, data);
+  }
+
+  // Release a held command to the rest of the group.
+  confirmBroadcastDanger() {
+    const pending = this.pendingBroadcastDanger;
+    this.pendingBroadcastDanger = null;
+    if (!pending) return;
+    // Members never received the Enter, but they did receive the keystrokes
+    // that preceded it, so the newline alone submits the line they're holding.
+    this.#writeToBroadcastGroup(pending.sourceSessionID, "\r");
+  }
+
+  // Drop a held command, and clear the half-typed line from every member so
+  // they aren't left holding a command the user just declined to run.
+  cancelBroadcastDanger() {
+    const pending = this.pendingBroadcastDanger;
+    this.pendingBroadcastDanger = null;
+    if (!pending) return;
+    this.#writeToBroadcastGroup(pending.sourceSessionID, "\x15"); // Ctrl-U: kill line
+  }
+
+  #writeToBroadcastGroup(sourceSessionID: string, data: string) {
     for (const sid of this.broadcastSet) {
       if (sid === sourceSessionID) continue;
-      const sink = this.broadcastSinks[sid];
-      if (sink) sink(data);
+      this.broadcastSinks[sid]?.write(data);
+    }
+  }
+
+  // Names of production-tagged hosts among the given sessions, deduped.
+  #productionHostNames(sessionIDs: string[]): string[] {
+    const names = new Set<string>();
+    for (const sid of sessionIDs) {
+      const attached = this.sessionHosts[sid];
+      if (!attached) continue;
+      const host = this.hosts.find((h) => h.id === attached.hostID);
+      if (!host) continue;
+      if ((host.environment ?? "").toLowerCase() === "production") names.add(host.name);
+    }
+    return [...names];
+  }
+
+  #isSubmit(data: string): boolean {
+    return data === "\r" || data === "\n" || data === "\r\n";
+  }
+
+  // Maintain the in-flight line: printable input appends, backspace removes,
+  // and the usual line-kill / interrupt controls reset it.
+  #trackBroadcastLine(data: string) {
+    if (data === "\x7f" || data === "\b") {
+      this.#broadcastLine = this.#broadcastLine.slice(0, -1);
+      return;
+    }
+    // Ctrl-C, Ctrl-U, Ctrl-D, Escape — the line is gone as far as the shell
+    // is concerned, so stop tracking it.
+    if (data === "\x03" || data === "\x15" || data === "\x04" || data === "\x1b") {
+      this.#broadcastLine = "";
+      return;
+    }
+    // Ignore other control sequences (arrows, function keys) rather than
+    // letting escape codes pollute the reconstructed command.
+    if (data.length === 1 && data.charCodeAt(0) < 0x20) return;
+    if (data.startsWith("\x1b")) return;
+    this.#broadcastLine += data;
+    // Bound the buffer; a pathological paste shouldn't grow it without limit.
+    if (this.#broadcastLine.length > 4096) {
+      this.#broadcastLine = this.#broadcastLine.slice(-4096);
     }
   }
 
@@ -185,9 +341,43 @@ class AppState {
     };
   }
 
+  // ── Connect intents ───────────────────────────────────────────────
+  // "Session X should connect to host Y." Opening a tab and telling its pane
+  // where to connect are two steps, and the pane doesn't exist yet during the
+  // first one — the bus drops events with no listeners, so a naive emit is
+  // lost. Parking the intent here instead of guessing a mount delay means the
+  // pane picks it up whenever it actually mounts, however long that takes.
+  #connectIntents = new Map<string, { hostID: string; via: "ssh" | "mosh" }>();
+
+  requestConnect(sessionID: string, hostID: string, via: "ssh" | "mosh" = "ssh") {
+    this.#connectIntents.set(sessionID, { hostID, via });
+    // A pane that's already mounted handles this immediately and clears the
+    // intent; one that isn't will find it in takeConnectIntent on mount.
+    bus.emit("connect-intent", { sessionID });
+  }
+
+  takeConnectIntent(sessionID: string): { hostID: string; via: "ssh" | "mosh" } | null {
+    const intent = this.#connectIntents.get(sessionID);
+    if (!intent) return null;
+    this.#connectIntents.delete(sessionID);
+    return intent;
+  }
+
+  // A pane that closes before ever mounting shouldn't leave its intent behind.
+  forgetConnectIntent(sessionID: string) {
+    this.#connectIntents.delete(sessionID);
+  }
+
+  // Set when the vault locks mid-session (idle timeout or the Lock button).
+  // While true, refreshVault will NOT use the remember-me token to
+  // auto-unlock — otherwise locking and remember-me cancel each other out and
+  // the vault never stays locked. Cleared when the user unlocks with their
+  // passphrase (VaultGate). Remember-me still auto-unlocks on app launch.
+  suppressAutoUnlock = $state(false);
+
   async refreshVault() {
     this.vault = (await VaultService.Status()) as VaultStatus;
-    if (this.vault.initialized && !this.vault.unlocked) {
+    if (this.vault.initialized && !this.vault.unlocked && !this.suppressAutoUnlock) {
       try {
         const ok = await VaultService.TryAutoUnlock();
         if (ok) {
@@ -203,43 +393,30 @@ class AppState {
     this.hosts = ((await HostService.List()) ?? []) as Host[];
   }
 
-  async refreshPasswords() {
+  // Which hosts have a saved SSH / sudo password. Booleans only — enough to
+  // render a "saved" dot and to decide whether to prompt at connect.
+  async refreshSecretStatus() {
     if (!this.vault.unlocked) {
-      this.hostPasswords = {};
+      this.secretStatus = {};
       return;
     }
     try {
-      const map = (await HostService.GetAllPasswords()) as Record<string, string> | null;
-      if (map) {
-        // Merge: keep any in-session passwords already set, and fill in saved ones
-        for (const [id, pw] of Object.entries(map)) {
-          if (pw) this.hostPasswords[id] = pw;
-        }
-      }
+      const map = (await HostService.SecretStatus()) as Record<
+        string,
+        { hasPassword: boolean; hasSudo: boolean }
+      > | null;
+      this.secretStatus = map ?? {};
     } catch {
-      // vault may not support this yet — ignore
+      this.secretStatus = {};
     }
   }
 
-  async refreshSudoPasswords() {
-    if (!this.vault.unlocked) {
-      this.hostSudoPasswords = {};
-      return;
-    }
-    try {
-      const map = (await HostService.GetAllSudoPasswords()) as Record<string, string> | null;
-      if (map) {
-        for (const [id, pw] of Object.entries(map)) {
-          if (pw) this.hostSudoPasswords[id] = pw;
-        }
-      }
-    } catch {
-      // ignore
-    }
+  hasSavedPassword(hostID: string): boolean {
+    return this.secretStatus[hostID]?.hasPassword ?? false;
   }
 
-  setSudoPassword(hostID: string, password: string) {
-    this.hostSudoPasswords[hostID] = password;
+  hasSavedSudoPassword(hostID: string): boolean {
+    return this.secretStatus[hostID]?.hasSudo ?? false;
   }
 
   async refreshKeys() {
@@ -263,35 +440,37 @@ class AppState {
       await this.refreshHosts();
       await this.refreshKeys();
       await this.refreshSettings();
-      await this.refreshPasswords();
-      await this.refreshSudoPasswords();
+      await this.refreshSecretStatus();
     } finally {
       this.loading = false;
     }
   }
 
-  setPassword(hostID: string, password: string) {
-    this.hostPasswords[hostID] = password;
-  }
-
   // Cheap debounce for auto-lock activity pings — many DOM events fire fast.
   #lastTouch = 0;
+  #touchWarned = false;
   touchActivity() {
     const now = Date.now();
     if (now - this.#lastTouch < 5_000) return;
     this.#lastTouch = now;
-    void AIService; // ensure tree-shaker keeps the import
     void this.#callTouch();
   }
 
   async #callTouch() {
     try {
-      const { AutoLockService } = await import(
-        "../../bindings/github.com/blacknode/blacknode/internal/service"
-      );
       await AutoLockService.Touch();
+      this.#touchWarned = false;
     } catch {
-      // service unavailable — ignore
+      // If activity pings can't reach the backend, auto-lock will fire while
+      // the user is actively working. Warn once instead of failing silently.
+      if (!this.#touchWarned && this.settings.autoLockMinutes > 0) {
+        this.#touchWarned = true;
+        this.toast(
+          "warn",
+          "Activity tracking unavailable",
+          "The vault may auto-lock while you're still working.",
+        );
+      }
     }
   }
 
@@ -309,6 +488,10 @@ class AppState {
       title,
       body,
       source: "APP",
+      // Required by the generated Notification model: Go's `omitempty` doesn't
+      // make the field optional on the TS side. Frontend toasts aren't tied to
+      // a host, so it's empty rather than absent.
+      hostName: "",
       timestamp: Math.floor(Date.now() / 1000),
     });
   }

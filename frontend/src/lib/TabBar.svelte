@@ -1,7 +1,9 @@
 <script lang="ts">
+  import { onMount, tick } from "svelte";
   import { Plus, X } from "@lucide/svelte";
   import { leaves, type PaneNode } from "./panes";
   import { app } from "./state.svelte";
+  import { shortcutLabel } from "./shortcuts";
 
   type Tab = { id: string; root: PaneNode; activeLeafID: string };
 
@@ -27,6 +29,16 @@
     onSelectTab: (id: string) => void;
   };
   let { tabs, activeTabID, tabLabel, onNewTab, onCloseTab, onCloseOthers, onSelectTab }: Props = $props();
+  let tabList: HTMLDivElement | undefined = $state();
+
+  $effect(() => {
+    // Keep keyboard-selected and newly created tabs visible in a long strip.
+    const active = activeTabID;
+    const count = tabs.length;
+    void tick().then(() => {
+      if (active && count) tabList?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    });
+  });
 
   // Drag-reorder state.
   let dragSourceID = $state<string | null>(null);
@@ -59,14 +71,27 @@
   let tabMenu = $state<{ x: number; y: number; tabID: string } | null>(null);
   function openTabMenu(e: MouseEvent, id: string) {
     e.preventDefault();
-    tabMenu = { x: e.clientX, y: e.clientY, tabID: id };
+    tabMenu = {
+      x: Math.min(e.clientX, window.innerWidth - 170),
+      y: Math.min(e.clientY, window.innerHeight - 90),
+      tabID: id,
+    };
   }
   function closeTabMenu() {
     tabMenu = null;
   }
+
+  onMount(() => {
+    const onKeydown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeTabMenu();
+    };
+    window.addEventListener("keydown", onKeydown);
+    return () => window.removeEventListener("keydown", onKeydown);
+  });
 </script>
 
-<div class="flex h-8 shrink-0 items-center gap-px border-b hairline surface-1 px-2">
+<div class="flex h-9 min-w-0 shrink-0 items-center gap-px border-b hairline surface-1 px-2.5">
+  <div bind:this={tabList} role="tablist" aria-label="Terminal tabs" class="flex min-w-0 flex-1 items-center overflow-x-auto">
   {#each tabs as t (t.id)}
     {@const label = tabLabel(t)}
     {@const isActive = activeTabID === t.id}
@@ -76,13 +101,15 @@
       tabindex="0"
       draggable="true"
       aria-selected={isActive}
-      class="group flex max-w-[180px] cursor-pointer items-center gap-1.5 border-r border-[var(--color-line)] px-3 py-1 type-caption select-none transition-colors {isActive ? 'bg-[var(--color-surface-2)] text-[var(--color-text-1)] border-t border-t-[var(--color-accent)]/60' : 'text-[var(--color-text-4)] hover:bg-[var(--color-surface-2)]/50 hover:text-[var(--color-text-3)]'}"
+      aria-label={label}
+      class="group flex max-w-[190px] shrink-0 cursor-pointer items-center gap-1.5 border-r border-[var(--color-line)] px-3 py-1.5 type-caption select-none transition-colors {isActive ? 'bg-[var(--color-surface-2)] text-[var(--color-text-1)] border-t-2 border-t-[var(--color-accent)]' : 'text-[var(--color-text-4)] hover:bg-[var(--color-surface-2)]/60 hover:text-[var(--color-text-2)]'}"
       class:opacity-40={dragSourceID === t.id}
       class:outline={dragOverID === t.id && dragSourceID !== t.id}
       class:outline-[var(--color-accent)]={dragOverID === t.id && dragSourceID !== t.id}
       onclick={() => onSelectTab(t.id)}
       onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectTab(t.id); } }}
       oncontextmenu={(e) => openTabMenu(e, t.id)}
+      onauxclick={(e) => { if (e.button === 1) { e.preventDefault(); onCloseTab(t.id); } }}
       ondragstart={(e) => tabDragStart(e, t.id)}
       ondragover={(e) => tabDragOver(e, t.id)}
       ondragend={tabDragEnd}
@@ -103,17 +130,19 @@
       <span
         role="button"
         tabindex="0"
-        class="ml-auto shrink-0 p-0.5 opacity-0 group-hover:opacity-40 hover:!opacity-100 hover:text-[var(--color-danger)]"
+        aria-label="Close {label}"
+        class="ml-auto shrink-0 p-0.5 opacity-0 group-hover:opacity-40 group-focus-within:opacity-100 hover:!opacity-100 hover:text-[var(--color-danger)]"
         onclick={(e) => { e.stopPropagation(); onCloseTab(t.id); }}
-        onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); onCloseTab(t.id); } }}
+        onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); onCloseTab(t.id); } }}
       ><X size="9" /></span>
     </div>
   {/each}
+  </div>
   <button
-    class="ml-1 flex h-6 w-6 shrink-0 items-center justify-center border border-[var(--color-line)] text-[var(--color-text-4)] hover:border-[var(--color-accent)]/40 hover:text-[var(--color-accent)] transition-colors"
+    class="ml-1 flex h-6 w-6 shrink-0 items-center justify-center border border-[var(--color-line)] bg-[var(--color-surface-2)] text-[var(--color-text-4)] hover:border-[var(--color-accent)]/40 hover:text-[var(--color-accent)] transition-colors"
     style="border-radius: var(--radius-sm);"
     onclick={onNewTab}
-    title="New terminal (⌘T)"
+    title={`New terminal (${shortcutLabel("newTab")})`}
   >
     <Plus size="10" />
   </button>

@@ -1,10 +1,12 @@
 <script lang="ts">
-  import { HostService, SnippetService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
+  import { HostService, SnippetService, SerialService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { Host, Snippet } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { app } from "./state.svelte";
   import { onMount } from "svelte";
   import { Server, X, Loader2, Eye, EyeOff, ShieldCheck } from "@lucide/svelte";
   import Dialog from "./Dialog.svelte";
+
+  const BAUD_RATES = [9600, 19200, 38400, 57600, 115200];
 
   type Props = {
     host?: Host | null;
@@ -16,9 +18,24 @@
   // svelte-ignore state_referenced_locally
   let name = $state(host?.name ?? "");
   // svelte-ignore state_referenced_locally
+  let protocol = $state(host?.protocol || "ssh");
+  // svelte-ignore state_referenced_locally
   let hostName = $state(host?.host ?? "");
   // svelte-ignore state_referenced_locally
-  let port = $state(host?.port ?? 22);
+  // Blank means "unset": the host inherits its group's port, and connections
+  // fall back to 22. A stored 0 (unset) or a brand-new host shows blank; an
+  // explicit port shows its value.
+  let port = $state<number | null>(host?.port && host.port > 0 ? host.port : null);
+  // svelte-ignore state_referenced_locally
+  let serialDevice = $state(host?.serialDevice ?? "");
+  // svelte-ignore state_referenced_locally
+  let serialBaud = $state(host?.serialBaud || 115200);
+  // svelte-ignore state_referenced_locally
+  let serialDataBits = $state(host?.serialDataBits || 8);
+  // svelte-ignore state_referenced_locally
+  let serialParity = $state(host?.serialParity || "none");
+  // svelte-ignore state_referenced_locally
+  let serialStopBits = $state(host?.serialStopBits || "1");
   // svelte-ignore state_referenced_locally
   let username = $state(host?.username ?? "");
   // svelte-ignore state_referenced_locally
@@ -35,39 +52,94 @@
   let notes = $state(host?.notes ?? "");
   // svelte-ignore state_referenced_locally
   let startupSnippetID = $state(host?.startupSnippetID ?? "");
+  // Environment variables exported into sessions on this host. Copied rather
+  // than bound through, so cancelling the dialog discards the edits.
+  // svelte-ignore state_referenced_locally
+  let envVars = $state<{ name: string; value: string }[]>(
+    (host?.envVars ?? []).map((v) => ({ name: v.name, value: v.value })),
+  );
+
+  function addEnvVar() {
+    envVars = [...envVars, { name: "", value: "" }];
+  }
+  function removeEnvVar(index: number) {
+    envVars = envVars.filter((_, i) => i !== index);
+  }
+  // Mirrors store.envVarName on the Go side. Shown as inline validation so the
+  // rule is visible before saving rather than arriving as a save error.
+  const ENV_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+  function envNameError(index: number): string {
+    const entry = envVars[index];
+    if (!entry.name) return "";
+    if (!ENV_NAME_RE.test(entry.name)) return "Letters, digits and underscores only; cannot start with a digit.";
+    if (envVars.some((other, i) => i !== index && other.name === entry.name)) return "Defined twice.";
+    return "";
+  }
+  // Rows with no name are dropped on save rather than rejected, so an empty
+  // row left behind after clicking Add does not block the dialog.
+  let envVarsToSave = $derived(envVars.filter((v) => v.name.trim() !== ""));
+  let envVarsValid = $derived(envVars.every((_, i) => envNameError(i) === ""));
 
   // Snippets for the "run on connect" picker.
   let snippets = $state<Snippet[]>([]);
+  // Serial devices detected on this machine, for the device picker.
+  let serialPorts = $state<string[]>([]);
   onMount(async () => {
     try { snippets = ((await SnippetService.List()) ?? []) as Snippet[]; } catch { /* ignore */ }
+    try { serialPorts = ((await SerialService.Ports()) ?? []) as string[]; } catch { /* ignore */ }
   });
-  // Password: pre-fill from the in-memory cache if editing an existing host.
-  // svelte-ignore state_referenced_locally
-  let password = $state(host?.id ? (app.hostPasswords[host.id] ?? "") : "");
+  // Passwords are write-only here. We can ask whether one is saved but never
+  // what it is, so the fields always start blank and an empty field means
+  // "leave whatever is in the vault alone" — see the save handler.
+  let password = $state("");
   let showPassword = $state(false);
   // Sudo password: separate from SSH auth password.
-  // svelte-ignore state_referenced_locally
-  let sudoPassword = $state(host?.id ? (app.hostSudoPasswords[host.id] ?? "") : "");
+  let sudoPassword = $state("");
   let showSudoPassword = $state(false);
+  let hasSavedPassword = $derived(host?.id ? app.hasSavedPassword(host.id) : false);
+  let hasSavedSudo = $derived(host?.id ? app.hasSavedSudoPassword(host.id) : false);
   let sudoSameAsSSH = $state(false);
   let busy = $state(false);
   let err = $state("");
 
+  // When switching to telnet, nudge the port off the SSH default to telnet's.
+  function onProtocolChange() {
+    if (protocol === "telnet" && (port === 22 || !port)) port = 23;
+    else if (protocol === "ssh" && port === 23) port = 22;
+  }
+
   async function save() {
     err = "";
-    if (!name || !hostName || !username) {
+    if (!name) {
+      err = "Name is required";
+      return;
+    }
+    if (protocol === "serial") {
+      if (!serialDevice) { err = "A serial device is required"; return; }
+    } else if (!hostName) {
+      err = protocol === "telnet" ? "Host is required" : "Name, host, and username are required";
+      return;
+    } else if (protocol === "ssh" && !username) {
       err = "Name, host, and username are required";
+      return;
+    }
+    if (!envVarsValid) {
+      err = "Fix the highlighted environment variable names before saving";
       return;
     }
     busy = true;
     try {
+      // Common protocol fields persisted regardless of transport.
+      const protoFields = protocol === "serial"
+        ? { protocol, serialDevice, serialBaud, serialDataBits, serialParity, serialStopBits }
+        : { protocol, serialDevice: "", serialBaud: 0, serialDataBits: 0, serialParity: "", serialStopBits: "" };
       let savedHost: Host;
       if (host?.id) {
         await HostService.Update({
           ...host,
           name,
           host: hostName,
-          port,
+          port: port ?? 0,
           username,
           authMethod,
           keyID: authMethod === "key" ? keyID : "",
@@ -76,13 +148,15 @@
           proxyJump,
           notes,
           startupSnippetID,
+          envVars: envVarsToSave,
+          ...protoFields,
         } as Host);
-        savedHost = { ...host, name, host: hostName, port, username, authMethod, keyID, group, environment, proxyJump, notes, startupSnippetID } as Host;
+        savedHost = { ...host, name, host: hostName, port: port ?? 0, username, authMethod, keyID, group, environment, proxyJump, notes, startupSnippetID, envVars: envVarsToSave, ...protoFields } as Host;
       } else {
         savedHost = (await HostService.Create({
           name,
           host: hostName,
-          port,
+          port: port ?? 0,
           username,
           authMethod,
           keyID: authMethod === "key" ? keyID : "",
@@ -91,35 +165,45 @@
           proxyJump,
           notes,
           startupSnippetID,
+          envVars: envVarsToSave,
+          ...protoFields,
           tags: [],
         } as unknown as Host)) as Host;
       }
+      // Telnet/serial have no SSH credentials — skip password & sudo persistence.
+      if (protocol !== "ssh") {
+        await app.refreshHosts();
+        onsaved();
+        return;
+      }
       // Persist the password in the vault if auth method is password.
-      if (authMethod === "password" && savedHost?.id) {
+      //
+      // An empty field means "keep what's already stored", not "clear it" —
+      // we can't prefill the field (the plaintext never leaves the backend),
+      // so a blank box is the normal state when editing an existing host.
+      // Clearing is done from the Vault panel.
+      if (authMethod === "password" && savedHost?.id && password) {
         try {
           await HostService.SetPassword(savedHost.id, password);
-          if (password) {
-            app.setPassword(savedHost.id, password);
-          }
         } catch (pe: any) {
           // Non-fatal for the host record, but the user must know the
           // credential didn't land (e.g. vault locked) so they can retry.
           app.toast('warn', 'PASSWORD NOT SAVED', String(pe?.message ?? pe));
         }
       }
-      // Persist sudo password (works for any auth method).
+      // Persist sudo password (works for any auth method). Same blank rule.
       if (savedHost?.id) {
         const sudoPw = sudoSameAsSSH ? password : sudoPassword;
-        try {
-          await HostService.SetSudoPassword(savedHost.id, sudoPw);
-          if (sudoPw) {
-            app.setSudoPassword(savedHost.id, sudoPw);
+        if (sudoPw) {
+          try {
+            await HostService.SetSudoPassword(savedHost.id, sudoPw);
+          } catch (pe: any) {
+            app.toast('warn', 'SUDO PASSWORD NOT SAVED', String(pe?.message ?? pe));
           }
-        } catch (pe: any) {
-          app.toast('warn', 'SUDO PASSWORD NOT SAVED', String(pe?.message ?? pe));
         }
       }
       await app.refreshHosts();
+      await app.refreshSecretStatus();
       onsaved();
     } catch (e: any) {
       err = String(e?.message ?? e);
@@ -134,7 +218,7 @@
   labelledby="host-editor-title"
   backdropClass="bg-black/[0.82] backdrop-blur-[4px]"
   panelClass="w-[520px] max-h-[85vh] overflow-y-auto overflow-x-hidden border hairline-strong surface-2 shadow-2xl fade-up"
-  panelStyle="box-shadow: 0 0 0 1px var(--color-line-strong), 0 0 60px rgba(59, 130, 246,0.04), 0 40px 80px rgba(0,0,0,0.6);"
+  panelStyle="box-shadow: 0 0 0 1px var(--color-line-strong), 0 0 60px rgba(59,130,246,0.04), 0 40px 80px rgba(0,0,0,0.6);"
 >
   {#snippet children()}
     <!-- Header -->
@@ -165,26 +249,121 @@
         />
       </label>
 
-      <!-- Host + Port -->
-      <div class="grid grid-cols-[1fr_88px] gap-2">
-        <label class="block">
-          <span class="type-caption text-[var(--color-text-4)]">Host</span>
-          <input
-            class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-body text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
-            bind:value={hostName}
-            placeholder="10.0.0.5"
-          />
-        </label>
-        <label class="block">
-          <span class="type-caption text-[var(--color-text-4)]">Port</span>
-          <input
-            type="number"
-            class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-body text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50 transition-colors"
-            bind:value={port}
-          />
-        </label>
-      </div>
+      <!-- Protocol -->
+      <label class="block">
+        <span class="type-caption text-[var(--color-text-4)]">Protocol</span>
+        <select
+          class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 type-body text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50 transition-colors"
+          bind:value={protocol}
+          onchange={onProtocolChange}
+        >
+          <option value="ssh">SSH</option>
+          <option value="telnet">Telnet (unencrypted)</option>
+          <option value="serial">Serial</option>
+        </select>
+      </label>
 
+      {#if protocol === 'serial'}
+        <!-- Serial device + Baud -->
+        <div class="grid grid-cols-[1fr_120px] gap-2">
+          <label class="block">
+            <span class="type-caption text-[var(--color-text-4)]">Serial device</span>
+            {#if serialPorts.length > 0}
+              <select
+                class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-body text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50 transition-colors"
+                bind:value={serialDevice}
+              >
+                <option value="">— Select device —</option>
+                {#each serialPorts as p (p)}
+                  <option value={p}>{p}</option>
+                {/each}
+                {#if serialDevice && !serialPorts.includes(serialDevice)}
+                  <option value={serialDevice}>{serialDevice}</option>
+                {/if}
+              </select>
+            {:else}
+              <input
+                class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-body text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
+                bind:value={serialDevice}
+                placeholder="/dev/ttyUSB0"
+              />
+            {/if}
+          </label>
+          <label class="block">
+            <span class="type-caption text-[var(--color-text-4)]">Baud</span>
+            <select
+              class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-body text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50 transition-colors"
+              bind:value={serialBaud}
+            >
+              {#each BAUD_RATES as b (b)}
+                <option value={b}>{b}</option>
+              {/each}
+            </select>
+          </label>
+        </div>
+        {#if serialPorts.length === 0}
+          <p class="type-caption text-[var(--color-text-4)]">No serial devices detected — type the device path manually.</p>
+        {/if}
+        <!-- Line settings -->
+        <div class="grid grid-cols-3 gap-2">
+          <label class="block">
+            <span class="type-caption text-[var(--color-text-4)]">Data bits</span>
+            <select
+              class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-body text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50 transition-colors"
+              bind:value={serialDataBits}
+            >
+              {#each [8, 7, 6, 5] as d (d)}
+                <option value={d}>{d}</option>
+              {/each}
+            </select>
+          </label>
+          <label class="block">
+            <span class="type-caption text-[var(--color-text-4)]">Parity</span>
+            <select
+              class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 type-body text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50 transition-colors"
+              bind:value={serialParity}
+            >
+              <option value="none">None</option>
+              <option value="odd">Odd</option>
+              <option value="even">Even</option>
+            </select>
+          </label>
+          <label class="block">
+            <span class="type-caption text-[var(--color-text-4)]">Stop bits</span>
+            <select
+              class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-body text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50 transition-colors"
+              bind:value={serialStopBits}
+            >
+              <option value="1">1</option>
+              <option value="1.5">1.5</option>
+              <option value="2">2</option>
+            </select>
+          </label>
+        </div>
+      {:else}
+        <!-- Host + Port -->
+        <div class="grid grid-cols-[1fr_88px] gap-2">
+          <label class="block">
+            <span class="type-caption text-[var(--color-text-4)]">Host</span>
+            <input
+              class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-body text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
+              bind:value={hostName}
+              placeholder="10.0.0.5"
+            />
+          </label>
+          <label class="block">
+            <span class="type-caption text-[var(--color-text-4)]">Port</span>
+            <input
+              type="number"
+              class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-body text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50 transition-colors"
+              bind:value={port}
+              placeholder="22 (or group default)"
+            />
+          </label>
+        </div>
+      {/if}
+
+      {#if protocol === 'ssh'}
       <!-- User + Auth -->
       <div class="grid grid-cols-2 gap-2">
         <label class="block">
@@ -227,13 +406,15 @@
       <!-- Password -->
       {#if authMethod === 'password'}
         <label class="block">
-          <span class="type-caption text-[var(--color-text-4)]">Password <span class="opacity-50">(vault)</span></span>
+          <span class="type-caption text-[var(--color-text-4)]">Password <span class="opacity-50">(vault)</span>
+            {#if hasSavedPassword}<span class="ml-1 text-[var(--color-success)]">· saved</span>{/if}
+          </span>
           <div class="relative mt-1">
             <input
               type={showPassword ? 'text' : 'password'}
               class="w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 pr-9 font-mono type-body text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
               bind:value={password}
-              placeholder="leave blank to keep current"
+              placeholder={hasSavedPassword ? "leave blank to keep saved password" : "SSH password"}
               autocomplete="new-password"
             />
             <button
@@ -250,6 +431,7 @@
           <p class="mt-1 type-caption text-[var(--color-text-4)]">AES-256 encrypted · auto-fills at connect time</p>
         </label>
       {/if}
+      {/if}
 
       <!-- Group + Environment -->
       <div class="grid grid-cols-2 gap-2">
@@ -258,7 +440,7 @@
           <input
             class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-body text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
             bind:value={group}
-            placeholder="web · db · cache"
+            placeholder="e.g. web-fleet"
           />
         </label>
         <label class="block">
@@ -276,6 +458,7 @@
       </div>
 
       <!-- ProxyJump -->
+      {#if protocol === 'ssh'}
       <label class="block">
         <span class="type-caption text-[var(--color-text-4)]">ProxyJump (bastion)</span>
         <select
@@ -284,11 +467,12 @@
         >
           <option value="">— Direct connect —</option>
           {#each app.hosts.filter((h) => h.id !== host?.id) as h (h.id)}
-            <option value={h.name}>{h.name} ({h.username}@{h.host}:{h.port})</option>
+            <option value={h.name}>{h.name} ({h.username}@{h.host}:{h.port || 22})</option>
           {/each}
         </select>
         <p class="mt-1 type-caption text-[var(--color-text-4)]">Tunnels through selected bastion · cycles detected at connect</p>
       </label>
+      {/if}
 
       <!-- Startup snippet -->
       <label class="block">
@@ -305,11 +489,62 @@
         <p class="mt-1 type-caption text-[var(--color-text-4)]">Sent automatically once the session connects · variable defaults are used</p>
       </label>
 
+      <!-- Environment variables -->
+      <div class="block">
+        <div class="flex items-center gap-2">
+          <span class="type-caption text-[var(--color-text-4)]">Environment variables</span>
+          {#if group}
+            <span class="type-caption text-[var(--color-text-4)]">· merged with the {group} group's</span>
+          {/if}
+        </div>
+        {#each envVars as entry, i (i)}
+          {@const nameError = envNameError(i)}
+          <div class="mt-1.5 flex items-start gap-1.5">
+            <div class="w-2/5">
+              <input
+                class="w-full border hairline bg-[var(--color-surface-3)] px-2 py-1.5 font-mono type-caption text-[var(--color-text-1)] outline-none transition-colors {nameError ? 'border-[var(--color-danger)]/60' : 'focus:border-[var(--color-accent)]/50'}"
+                placeholder="NAME"
+                aria-label="Environment variable {i + 1} name"
+                aria-invalid={nameError ? "true" : undefined}
+                bind:value={entry.name}
+              />
+            </div>
+            <input
+              class="min-w-0 flex-1 border hairline bg-[var(--color-surface-3)] px-2 py-1.5 font-mono type-caption text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50 transition-colors"
+              placeholder="value"
+              aria-label="Environment variable {i + 1} value"
+              bind:value={entry.value}
+            />
+            <button
+              class="shrink-0 border hairline px-2 py-1.5 type-caption text-[var(--color-text-3)] transition-colors hover:border-[var(--color-danger)]/40 hover:text-[var(--color-danger)]"
+              onclick={() => removeEnvVar(i)}
+              title="Remove {entry.name || 'variable'}"
+              aria-label="Remove environment variable {i + 1}"
+            >
+              <X size="11" />
+            </button>
+          </div>
+          {#if nameError}
+            <p role="alert" class="mt-1 type-caption text-[var(--color-danger)]">{nameError}</p>
+          {/if}
+        {/each}
+        <button
+          class="mt-2 border hairline px-3 py-1.5 type-caption text-[var(--color-text-2)] transition-colors hover:border-[var(--color-accent)]/40 hover:text-[var(--color-accent)] disabled:opacity-40"
+          onclick={addEnvVar}
+          disabled={envVars.length >= 64}
+        >+ Add variable</button>
+        <p class="mt-1 type-caption text-[var(--color-text-4)]">
+          Exported into interactive sessions before the startup snippet runs · values cannot contain newlines
+        </p>
+      </div>
+
       <!-- Sudo password -->
+      {#if protocol === 'ssh'}
       <div class="border hairline surface-3 p-3">
         <div class="flex items-center gap-2 mb-2">
           <ShieldCheck size="11" class="text-[var(--color-warn)]" />
           <span class="type-caption font-semibold text-[var(--color-text-2)]">Sudo password</span>
+          {#if hasSavedSudo}<span class="type-caption text-[var(--color-success)]">· saved</span>{/if}
         </div>
         <label class="flex items-center gap-2 mb-2">
           <input type="checkbox" class="accent-[var(--color-accent)]" bind:checked={sudoSameAsSSH} />
@@ -321,7 +556,7 @@
               type={showSudoPassword ? 'text' : 'password'}
               class="w-full border hairline bg-[var(--color-surface-2)] px-3 py-2 pr-9 font-mono type-body text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
               bind:value={sudoPassword}
-              placeholder="sudo / root password"
+              placeholder={hasSavedSudo ? "leave blank to keep saved password" : "sudo / root password"}
               autocomplete="new-password"
             />
             <button
@@ -338,6 +573,7 @@
         {/if}
         <p class="mt-1 type-caption text-[var(--color-text-4)]">AES-256 encrypted · auto-fills when sudo prompt detected</p>
       </div>
+      {/if}
 
       <!-- Notes -->
       <label class="block">
@@ -359,7 +595,7 @@
         class="border border-[var(--color-line)] px-3 py-1.5 type-body text-[var(--color-text-3)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)] transition-all"
         onclick={onclose}>Cancel</button>
       <button
-        class="flex items-center gap-1.5 border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 px-3 py-1.5 type-body font-semibold text-[var(--color-accent)] hover:bg-[var(--color-accent)]/18 hover:shadow-[0_0_16px_rgba(59, 130, 246,0.08)] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+        class="flex items-center gap-1.5 border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 px-3 py-1.5 type-body font-semibold text-[var(--color-accent)] hover:bg-[var(--color-accent)]/18 hover:shadow-[0_0_16px_rgba(59,130,246,0.08)] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
         disabled={busy}
         onclick={save}
       >

@@ -43,6 +43,19 @@ export function Resize(sessionID: string, cols: number, rows: number): $Cancella
     return $Call.ByID(2116953300, sessionID, cols, rows);
 }
 
+/**
+ * SendSudoPassword writes the sudo password saved for hostID into the
+ * session's PTY. The plaintext is resolved and written entirely in the
+ * backend: the UI detects the sudo prompt and asks for the injection by
+ * session id, so the password never crosses the bridge.
+ * 
+ * Reports false when no sudo password is stored, which tells the UI to prompt
+ * the user inline instead.
+ */
+export function SendSudoPassword(sessionID: string, hostID: string): $CancellablePromise<boolean> {
+    return $Call.ByID(2817017934, sessionID, hostID);
+}
+
 export function Write(sessionID: string, data: string): $CancellablePromise<void> {
     return $Call.ByID(2904572619, sessionID, data);
 }

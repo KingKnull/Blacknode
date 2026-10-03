@@ -77,23 +77,38 @@ func (s *PortForwardService) Delete(ctx context.Context, id string) error {
 // Start opens the listener (or remote bind), grabs an SSH client from the
 // pool, and begins accepting connections in the background. password is the
 // runtime SSH password for password-auth hosts (transient).
-func (s *PortForwardService) Start(forwardID, password string) error {
+func (s *PortForwardService) Start(forwardID string) error {
+	// Place a nil sentinel under the lock so concurrent callers with the same
+	// ID bail out immediately rather than racing through the long dial below.
 	s.mu.Lock()
 	if _, ok := s.active[forwardID]; ok {
 		s.mu.Unlock()
 		return errors.New("forward already running")
 	}
+	s.active[forwardID] = nil
 	s.mu.Unlock()
+
+	// Remove the sentinel if anything below fails.
+	removeSentinel := true
+	defer func() {
+		if removeSentinel {
+			s.mu.Lock()
+			if s.active[forwardID] == nil {
+				delete(s.active, forwardID)
+			}
+			s.mu.Unlock()
+		}
+	}()
 
 	f, err := s.forwards.Get(forwardID)
 	if err != nil {
 		return fmt.Errorf("load forward: %w", err)
 	}
-	host, err := s.hosts.Get(f.HostID)
+	host, err := s.hosts.GetResolved(f.HostID)
 	if err != nil {
 		return fmt.Errorf("load host: %w", err)
 	}
-	client, release, err := s.pool.Get(sshconn.FromHost(host, password))
+	client, release, err := s.pool.Get(sshconn.FromHost(host))
 	if err != nil {
 		return fmt.Errorf("dial: %w", err)
 	}
@@ -118,6 +133,7 @@ func (s *PortForwardService) Start(forwardID, password string) error {
 	s.mu.Lock()
 	s.active[forwardID] = state
 	s.mu.Unlock()
+	removeSentinel = false
 	return nil
 }
 
@@ -273,6 +289,13 @@ func socks5Handshake(c net.Conn) (string, error) {
 		return "", errors.New("not socks5")
 	}
 	nMethods := int(buf[1])
+	// RFC 1928 requires at least one method octet. Zero is malformed, and
+	// accepting it meant replying "no-auth accepted" to a greeting that never
+	// offered anything — a lax parser facing whatever can reach the local
+	// SOCKS port, which is the one place worth being strict.
+	if nMethods == 0 {
+		return "", errors.New("socks5 greeting offered no methods")
+	}
 	if _, err := io.ReadFull(c, buf[:nMethods]); err != nil {
 		return "", err
 	}
@@ -300,6 +323,14 @@ func socks5Handshake(c net.Conn) (string, error) {
 			return "", err
 		}
 		n := int(buf[0])
+		// A zero-length domain used to yield host "", which JoinHostPort turns
+		// into ":port" — and that dials the *remote* host's own loopback rather
+		// than failing. Not a privilege gain (a client on the SOCKS port could
+		// ask for localhost directly), but a silent redirect is the wrong
+		// answer to a malformed request.
+		if n == 0 {
+			return "", errors.New("socks5 request had an empty domain")
+		}
 		if _, err := io.ReadFull(c, buf[:n]); err != nil {
 			return "", err
 		}

@@ -46,3 +46,5 @@ build/sign/*.pfx.base64.txt
 build/sign/*.p12
 build/sign/*.pem
 TERMIUS_PARITY.md
+PR_BODY.md
+.continue/

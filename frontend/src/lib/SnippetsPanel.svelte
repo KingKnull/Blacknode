@@ -176,8 +176,17 @@
         title={filter ? "No matching snippets" : "No snippets yet"}
         description={filter
           ? `Nothing matches "${filter}".`
-          : 'Click "new" to add one. Use {{name}} or {{name|default}} for variables.'}
-      />
+          : 'Save reusable command templates. Use {{name}} or {{name|default}} for variables prompted on apply.'}
+      >
+        {#snippet action()}
+          {#if !filter}
+            <button
+              class="flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-1.5 type-caption font-medium text-[var(--color-surface-0)] hover:opacity-90 transition-opacity"
+              onclick={startCreate}
+            >+ New snippet</button>
+          {/if}
+        {/snippet}
+      </EmptyState>
     {:else}
       <div class="divide-y divide-[var(--color-line)]">
         {#each visible as s (s.id)}

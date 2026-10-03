@@ -1,12 +1,16 @@
 <script lang="ts">
+  import Dialog from "./Dialog.svelte";
+  import { shortcutLabel } from "./shortcuts";
   import { onMount, tick } from "svelte";
   import { app, type View } from "./state.svelte";
   import {
     VaultService,
     SnippetService,
     HostService,
+    HistoryService,
+    RecordingService,
   } from "../../bindings/github.com/blacknode/blacknode/internal/service";
-  import type { Snippet, Host } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
+  import type { Snippet, Host, HistoryEntry, Recording } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { bus } from "./events";
   import {
     TerminalSquare,
@@ -20,6 +24,7 @@
     Sparkles,
     Lock,
     Search,
+    ShieldCheck,
     Network,
     Film,
     Boxes,
@@ -32,6 +37,8 @@
     LayoutGrid,
     Radio,
     Plug,
+    Share2,
+    Puzzle,
   } from "@lucide/svelte";
 
   type Action = {
@@ -51,12 +58,24 @@
 
   let input = $state("");
   let highlighted = $state(0);
+
+  // Keep the keyboard-highlighted row visible inside the scrolling list.
+  async function scrollHighlightedIntoView() {
+    await tick();
+    document
+      .querySelector(`[data-palette-idx="${highlighted}"]`)
+      ?.scrollIntoView({ block: "nearest" });
+  }
   let inputEl: HTMLInputElement | undefined = $state();
   let snippets = $state<Snippet[]>([]);
+  let historyEntries = $state<HistoryEntry[]>([]);
+  let recordings = $state<Recording[]>([]);
 
   const VIEW_ACTIONS: { id: View; label: string; icon: any }[] = [
     { id: "terminals", label: "Go to Terminals", icon: TerminalSquare },
     { id: "exec", label: "Go to Multi-host", icon: Zap },
+    { id: "ops", label: "Go to Ops Console", icon: ShieldCheck },
+    { id: "runbooks", label: "Go to Runbooks", icon: Bookmark },
     { id: "files", label: "Go to Files", icon: Folder },
     { id: "metrics", label: "Go to Metrics", icon: Activity },
     { id: "logs", label: "Go to Logs", icon: ScrollText },
@@ -69,6 +88,9 @@
     { id: "database", label: "Go to Database", icon: Database },
     { id: "snippets", label: "Go to Snippets", icon: Bookmark },
     { id: "history", label: "Go to History", icon: HistoryIcon },
+    { id: "activity", label: "Go to Activity", icon: Activity },
+    { id: "topology", label: "Go to Topology", icon: Share2 },
+    { id: "plugins", label: "Go to Plugins", icon: Puzzle },
     { id: "keys", label: "Go to Keys", icon: KeyRound },
     { id: "vault", label: "Go to Vault", icon: Lock },
     { id: "settings", label: "Go to Settings", icon: SettingsIcon },
@@ -110,7 +132,7 @@
       (h): Action => ({
         id: `host:${h.id}`,
         label: `Connect: ${h.name}`,
-        hint: `${h.username}@${h.host}:${h.port}`,
+        hint: `${h.username}@${h.host}:${h.port || 22}`,
         icon: Server,
         category: "Hosts",
         keywords: `${h.host} ${h.username} ${h.group} ${(h.tags ?? []).join(" ")}`,
@@ -127,9 +149,19 @@
       icon: Lock,
       category: "System",
       run: async () => {
+        app.suppressAutoUnlock = true;
         await VaultService.Lock();
         await app.refreshAll();
       },
+    },
+    {
+      id: "cmd:focus",
+      label: "Toggle focus mode",
+      hint: "Ctrl+Shift+Z · terminal-only chrome",
+      icon: LayoutGrid,
+      category: "Terminal",
+      keywords: "zen fullscreen focus hide chrome",
+      run: () => bus.emit("toggle-focus-mode"),
     },
     {
       id: "cmd:tile",
@@ -157,6 +189,29 @@
         app.broadcastEnabled = !app.broadcastEnabled;
       },
     },
+    ...historyEntries.slice(0, 200).map((entry): Action => ({
+      id: `history:${entry.id}`,
+      label: `Run: ${entry.command}`,
+      hint: entry.hostName || "history",
+      icon: HistoryIcon,
+      category: "History",
+      keywords: `${entry.command} ${entry.hostName ?? ""} ${entry.source}`,
+      run: () => {
+        bus.emit("insert-into-active-terminal", entry.command);
+        app.view = "terminals";
+      },
+    })),
+    ...recordings.slice(0, 200).map((recording): Action => ({
+      id: `recording:${recording.id}`,
+      label: `Recording: ${recording.title}`,
+      hint: `${Math.round(recording.durationSeconds)}s`,
+      icon: Film,
+      category: "Recordings",
+      keywords: recording.title,
+      run: () => {
+        app.view = "recordings";
+      },
+    })),
     ...snippets.map(
       (s): Action => ({
         id: `snippet:${s.id}`,
@@ -262,14 +317,27 @@
       .map((x) => x.a),
   ]);
 
+  // Typing more characters shrinks `filtered` from under the cursor — a stale
+  // `highlighted` then points past the end and Enter does nothing. Clamp it
+  // whenever the result count changes.
+  $effect(() => {
+    if (highlighted > filtered.length - 1) highlighted = Math.max(0, filtered.length - 1);
+  });
+
   $effect(() => {
     if (app.paletteOpen) {
       input = "";
       highlighted = 0;
       void focusInput();
-      // Refresh snippets on each open so newly-saved ones show up.
+      // Refresh searchable objects on each open so newly-saved items appear.
       void SnippetService.List().then((s) => {
         snippets = (s ?? []) as Snippet[];
+      });
+      void HistoryService.List("", "", 200).then((entries) => {
+        historyEntries = (entries ?? []) as HistoryEntry[];
+      });
+      void RecordingService.List().then((items) => {
+        recordings = (items ?? []) as Recording[];
       });
     }
   });
@@ -281,9 +349,15 @@
 
   onMount(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
+      const dialog = (e.target as HTMLElement)?.closest?.('[role="dialog"]');
+      if (dialog && (!app.paletteOpen || dialog.getAttribute("aria-label") !== "Command palette")) return;
       const isMod = e.metaKey || e.ctrlKey;
-      if (isMod && e.key.toLowerCase() === "k") {
+      // Bare mod+K only. Mod+Shift+K is "clear scrollback" inside a terminal
+      // pane, and without the shift guard this would fire alongside it.
+      if (isMod && !e.shiftKey && e.key.toLowerCase() === "k") {
         e.preventDefault();
+        e.stopPropagation();
         app.paletteOpen = !app.paletteOpen;
         return;
       }
@@ -293,11 +367,16 @@
         app.paletteOpen = false;
       } else if (e.key === "ArrowDown") {
         e.preventDefault();
-        highlighted = Math.min(highlighted + 1, filtered.length - 1);
+        if (filtered.length > 0) {
+          highlighted = Math.min(highlighted + 1, filtered.length - 1);
+          scrollHighlightedIntoView();
+        }
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         highlighted = Math.max(highlighted - 1, 0);
+        scrollHighlightedIntoView();
       } else if (e.key === "Enter") {
+        if ((e.target as HTMLElement)?.closest?.("button")) return;
         e.preventDefault();
         const a = filtered[highlighted];
         if (a) {
@@ -306,8 +385,8 @@
         }
       }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   });
 
   // Group filtered into category buckets in input order.
@@ -331,31 +410,29 @@
 </script>
 
 {#if app.paletteOpen}
-  <div
-    class="fixed inset-0 z-50 flex items-start justify-center bg-black/80 pt-[14vh]"
-    role="presentation"
-    onclick={(e) => {
-      if (e.target === e.currentTarget) app.paletteOpen = false;
-    }}
+  <Dialog
+    label="Command palette"
+    onclose={() => (app.paletteOpen = false)}
+    backdropClass="bg-black/80 !items-start pt-[14vh]"
+    panelClass="flex w-[580px] max-h-[72vh] flex-col overflow-hidden border hairline-strong surface-2 shadow-2xl"
+    panelStyle="border-radius: var(--radius-md); box-shadow: 0 0 0 1px var(--color-line-strong), 0 0 60px rgba(59,130,246,0.05), 0 40px 80px rgba(0,0,0,0.6);"
   >
-    <div
-      class="w-[580px] overflow-hidden border hairline-strong surface-2 shadow-2xl"
-      style="border-radius: var(--radius-md); box-shadow: 0 0 0 1px var(--color-line-strong), 0 0 60px rgba(59, 130, 246,0.05), 0 40px 80px rgba(0,0,0,0.6);"
-    >
       <!-- Search input -->
-      <div class="flex items-center gap-3 border-b hairline px-4 py-3">
+      <div class="flex shrink-0 items-center gap-3 border-b hairline px-4 py-3">
         <span class="font-mono type-caption text-[var(--color-accent)]/60">&gt;_</span>
         <input
           bind:this={inputEl}
           bind:value={input}
-          class="flex-1 bg-transparent type-body text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)]"
+          data-autofocus
+          aria-label="Search commands, hosts, and views"
+          class="min-w-0 flex-1 bg-transparent type-body text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)]"
           placeholder="Type a command, host, or view..."
         />
         <kbd class="border border-[var(--color-line-strong)] px-1.5 py-0.5 font-mono type-micro text-[var(--color-text-4)]" style="border-radius: var(--radius-sm);">ESC</kbd>
       </div>
 
       <!-- Results -->
-      <div class="max-h-[400px] overflow-y-auto">
+      <div class="min-h-0 max-h-[400px] overflow-y-auto">
         {#each grouped() as group (group.name)}
           <div class="type-eyebrow px-4 pt-3 pb-1 type-micro text-[var(--color-text-4)]">
             {group.name}
@@ -363,6 +440,7 @@
           {#each group.items as a (a.id)}
             {@const idx = indexOf(a)}
             <button
+              data-palette-idx={idx}
               class="flex w-full items-center gap-2.5 border-l-2 px-4 py-2 text-left type-body transition-colors {idx === highlighted ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/6 text-[var(--color-text-1)]' : 'border-transparent text-[var(--color-text-2)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-1)]'}"
               onmouseenter={() => (highlighted = idx)}
               onclick={() => { void a.run(); app.paletteOpen = false; }}
@@ -383,11 +461,10 @@
       </div>
 
       <!-- Footer -->
-      <div class="flex items-center gap-4 border-t hairline px-4 py-2 font-mono type-micro text-[var(--color-text-4)]">
+      <div class="flex shrink-0 items-center gap-4 border-t hairline px-4 py-2 font-mono type-micro text-[var(--color-text-4)]">
         <span class="flex items-center gap-1.5"><kbd class="border border-[var(--color-line-strong)] px-1" style="border-radius: var(--radius-sm);">↑↓</kbd> navigate</span>
         <span class="flex items-center gap-1.5"><kbd class="border border-[var(--color-line-strong)] px-1" style="border-radius: var(--radius-sm);">↵</kbd> select</span>
-        <span class="ml-auto flex items-center gap-1.5"><kbd class="border border-[var(--color-line-strong)] px-1" style="border-radius: var(--radius-sm);">⌘K</kbd> toggle</span>
+        <span class="ml-auto flex items-center gap-1.5"><kbd class="border border-[var(--color-line-strong)] px-1" style="border-radius: var(--radius-sm);">{shortcutLabel("palette")}</kbd> toggle</span>
       </div>
-    </div>
-  </div>
+  </Dialog>
 {/if}

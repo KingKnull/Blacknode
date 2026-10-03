@@ -4,6 +4,7 @@
   import {
     VaultService,
     PluginService,
+    PortForwardService,
   } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import { app, type View } from "./state.svelte";
   import HostList from "./HostList.svelte";
@@ -17,13 +18,17 @@
   import PanelRouter from "./PanelRouter.svelte";
   import StatusBar from "./StatusBar.svelte";
   import ShortcutOverlay from "./ShortcutOverlay.svelte";
+  import ConfirmDanger from "./ConfirmDanger.svelte";
+  import WorkspacesMenu from "./WorkspacesMenu.svelte";
+  import { captureWorkspace, parseWorkspace, readWorkspace, restoreWorkspace, SESSION_KEY, type WorkspaceSnapshot } from "./workspaces";
 
   // Heavy panels (AI SDK glue) are lazy-loaded so the code
   // they pull in doesn't sit in the main bundle.
   const loadAIDrawer = () =>
     import("./AIDrawer.svelte").then((m) => m.default);
   import Toaster from "./Toaster.svelte";
-  import Logo from "./logo/Logo.svelte";
+  import LogoMark from "./logo/LogoMark.svelte";
+  import { shortcutLabel } from "./shortcuts";
   import {
     closeLeaf,
     leaves,
@@ -34,12 +39,17 @@
     type PaneNode,
   } from "./panes";
   import { bus } from "./events";
+  import { pluginIDForSource, parseHostMessage } from "./pluginBridge";
   import {
     Radio,
     Lock,
     Server,
     Command,
     Sparkles,
+    ShieldCheck,
+    Maximize2,
+    Minimize2,
+    PanelLeft,
   } from "@lucide/svelte";
 
   type Tab = { id: string; root: PaneNode; activeLeafID: string };
@@ -49,54 +59,109 @@
     return { id: leaf.id + "-tab", root: leaf, activeLeafID: leaf.id };
   }
 
+  // Read before mounting terminals or enabling autosave, so an initial empty
+  // tab cannot overwrite the saved workspace during startup.
+  const previous = readWorkspace(localStorage);
+  const restored = previous ? restoreWorkspace(previous, () => crypto.randomUUID()) : null;
   const firstTab = makeTab();
-  let tabs = $state<Tab[]>([firstTab]);
-  let activeTabID = $state(firstTab.id);
+  let tabs = $state<Tab[]>(restored?.tabs ?? [firstTab]);
+  let activeTabID = $state(restored?.activeTabID ?? firstTab.id);
+  if (restored) app.sessionTargets = restored.targets;
+  if (previous) {
+    app.view = (app.isViewVisible(previous.view) ? previous.view : "terminals") as View;
+    app.selectedHostID = previous.selectedHostID;
+  }
+  let forwardIDs = $state<string[]>(previous?.forwardIDs ?? []);
+  let reconnectPending = $state(!!restored && (Object.values(restored.targets).some(Boolean) || !!previous?.forwardIDs.length));
+  let workspaceReady = $state(false);
+  let reconnectingWorkspace = $state(false);
+  let sessionSaveError = $state(false);
 
-  // Session persistence — save tab layout info to localStorage.
-  // We save tab count, active view, and connected host IDs for restoration.
-  const SESSION_KEY = 'blacknode.session';
-
-  function saveSession() {
-    try {
-      const data = {
-        tabCount: tabs.length,
-        view: app.view,
-        sidebarWidth: sidebarWidth,
-      };
-      localStorage.setItem(SESSION_KEY, JSON.stringify(data));
-    } catch { /* ignore quota errors */ }
+  function capture(): WorkspaceSnapshot {
+    return captureWorkspace(tabs, activeTabID, app.sessionTargets, {
+      view: app.view, sidebarWidth, selectedHostID: app.selectedHostID, forwardIDs,
+    });
   }
 
-  function restoreSession() {
+  function layoutFits(candidate: Tab[]): boolean {
+    const valid = parseWorkspace(captureWorkspace(candidate, activeTabID, app.sessionTargets, {
+      view: app.view, sidebarWidth, selectedHostID: app.selectedHostID, forwardIDs,
+    }));
+    if (!valid) app.toast("warn", "Workspace layout limit reached", "Close a tab or pane before adding another.");
+    return !!valid;
+  }
+
+  function addTab(tab: Tab): boolean {
+    if (!layoutFits([...tabs, tab])) return false;
+    tabs.push(tab);
+    activeTabID = tab.id;
+    return true;
+  }
+
+  $effect(() => {
+    const data = JSON.stringify(capture());
+    // Debounce splitter drags while still tracking all nested pane changes.
+    const timer = setTimeout(() => {
+      try { localStorage.setItem(SESSION_KEY, data); sessionSaveError = false; }
+      catch { sessionSaveError = true; }
+    }, 150);
+    const flush = () => { try { localStorage.setItem(SESSION_KEY, data); } catch { /* visible error on next save */ } };
+    window.addEventListener("pagehide", flush);
+    return () => { clearTimeout(timer); window.removeEventListener("pagehide", flush); };
+  });
+
+  async function reconnectWorkspace() {
+    if (!workspaceReady || reconnectingWorkspace) return;
+    reconnectPending = false;
+    reconnectingWorkspace = true;
     try {
-      const raw = localStorage.getItem(SESSION_KEY);
-      if (!raw) return;
-      const data = JSON.parse(raw);
-      // Restore extra tabs beyond the initial one
-      if (data.tabCount > 1) {
-        for (let i = 1; i < data.tabCount; i++) {
-          tabs.push(makeTab());
+      for (const tab of tabs) for (const leaf of leaves(tab.root)) {
+        const target = app.sessionTargets[leaf.sessionID];
+        if (!target || app.sessionHosts[leaf.sessionID]) continue;
+        const host = app.hosts.find((h) => h.id === target.hostID);
+        if (!host) {
+          app.toast("warn", "Saved host no longer exists", target.hostID);
+          app.sessionTargets[leaf.sessionID] = null;
+          continue;
+        }
+        app.requestConnect(leaf.sessionID, target.hostID, target.via);
+      }
+      if (forwardIDs.length) {
+        const forwards = await PortForwardService.List() ?? [];
+        for (const id of forwardIDs) {
+          const forward = forwards.find((f) => f.id === id);
+          if (!forward) { app.toast("warn", "Saved tunnel no longer exists", id); continue; }
+          if (forward.active) continue;
+          try { await PortForwardService.Start(id); }
+          catch (e) { app.toast("error", `Could not start ${forward.name}`, String(e)); }
         }
       }
-      if (data.view) app.view = data.view;
-      if (data.sidebarWidth) sidebarWidth = data.sidebarWidth;
-    } catch { /* ignore parse errors */ }
+    } catch (e) { app.toast("error", "Could not restore tunnels", String(e)); }
+    finally { reconnectingWorkspace = false; }
   }
 
-  // Save session whenever tabs change
-  $effect(() => {
-    // Access reactive deps
-    tabs.length;
-    app.view;
-    saveSession();
-  });
+  function openWorkspace(snapshot: WorkspaceSnapshot) {
+    const next = restoreWorkspace(snapshot, () => crypto.randomUUID());
+    app.broadcastEnabled = false;
+    app.broadcastSet = new Set();
+    app.pendingBroadcastDanger = null;
+    app.sessionTargets = next.targets;
+    tabs = next.tabs;
+    activeTabID = next.activeTabID;
+    sidebarWidth = snapshot.sidebarWidth;
+    app.selectedHostID = snapshot.selectedHostID;
+    app.view = (app.isViewVisible(snapshot.view) ? snapshot.view : "terminals") as View;
+    forwardIDs = [...snapshot.forwardIDs];
+    reconnectPending = true;
+    void reconnectWorkspace();
+  }
 
   let vaultLockOff: (() => void) | undefined;
 
   onMount(() => {
-    restoreSession();
-    void app.refreshAll();
+    void app.refreshAll().then(() => { workspaceReady = true; }).catch((e) => {
+      app.toast("error", "Could not load workspace hosts", String(e));
+    });
 
     // Activity tracking for vault auto-lock.
     const onActivity = () => app.touchActivity();
@@ -104,9 +169,25 @@
     window.addEventListener("mousedown", onActivity, true);
 
     // Keyboard shortcuts for workspace navigation.
+    //
+    // Registered in the CAPTURE phase deliberately. xterm cancels every key it
+    // maps to a control code, and its cancel() does preventDefault *and*
+    // stopPropagation — so a bubble-phase listener never sees Ctrl+Tab (HT),
+    // Ctrl+T (^T) or Ctrl+3..8 (^[ ^\ ^] ^^ ^_ ^?) while a pane is focused,
+    // which is exactly where these shortcuts are supposed to work. Capture runs
+    // first; each branch then stops the event so the key isn't handled twice,
+    // once as a shortcut and once as terminal input.
+    //
+    // Which keys the app may take is a deliberate line. Bare Ctrl+T and Ctrl+W
+    // belong to the shell (transpose-chars and werase) and are not bound here:
+    // losing the word you were typing is one thing, closing the tab and its SSH
+    // session is another. The app takes the shifted forms instead, matching
+    // GNOME Terminal / Konsole / Windows Terminal. On macOS the Cmd forms need
+    // no Shift — xterm maps only Cmd+A, so Meta is free.
     const onShortcut = (e: KeyboardEvent) => {
+      if (app.paletteOpen || (e.target as HTMLElement)?.closest?.('[role="dialog"]')) return;
       // ? opens shortcut overlay (only when not typing in an input)
-      if (e.key === '?' && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
+      if (e.key === '?' && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement) && !(e.target as HTMLElement)?.isContentEditable) {
         e.preventDefault();
         shortcutOpen = !shortcutOpen;
         return;
@@ -115,10 +196,26 @@
       const mod = e.metaKey || e.ctrlKey;
       if (!mod) return;
       const k = e.key.toLowerCase();
+      const consume = () => { e.preventDefault(); e.stopPropagation(); };
+      // Ctrl has to be shifted to outrank the shell; Cmd doesn't.
+      const appMod = e.metaKey || e.shiftKey;
 
-      // Cmd+I — toggle AI drawer
-      if (k === "i") {
-        e.preventDefault();
+      if (e.ctrlKey && e.shiftKey && k === "h") {
+        consume();
+        sidebarOpen = !sidebarOpen;
+        return;
+      }
+
+      if (e.ctrlKey && e.shiftKey && k === "z") {
+        consume();
+        focusMode = !focusMode;
+        return;
+      }
+
+      // Ctrl+Shift+I / Cmd+Shift+I — toggle AI drawer. Bare Ctrl+I is TAB, so
+      // the unshifted form could never have worked from inside a pane anyway.
+      if (k === "i" && e.shiftKey) {
+        consume();
         app.aiOpen = !app.aiOpen;
         return;
       }
@@ -126,23 +223,24 @@
       // Tab shortcuts only apply in terminals view
       if (app.view !== "terminals") return;
 
-      // Cmd+T — new tab
-      if (k === "t") {
-        e.preventDefault();
+      // Ctrl+Shift+T / Cmd+T — new tab
+      if (k === "t" && appMod) {
+        consume();
         newTab();
         return;
       }
 
-      // Cmd+W — close active tab
-      if (k === "w") {
-        e.preventDefault();
+      // Ctrl+Shift+W / Cmd+W — close active tab
+      if (k === "w" && appMod) {
+        consume();
         closeTab(activeTabID);
         return;
       }
 
-      // Ctrl+Tab / Ctrl+Shift+Tab — cycle tabs
+      // Ctrl+Tab / Ctrl+Shift+Tab — cycle tabs. Bare Tab is untouched (`mod` is
+      // required above), so shell completion still works.
       if (e.key === "Tab") {
-        e.preventDefault();
+        consume();
         const idx = tabs.findIndex((t) => t.id === activeTabID);
         if (e.shiftKey) {
           activeTabID = tabs[(idx - 1 + tabs.length) % tabs.length].id;
@@ -152,18 +250,30 @@
         return;
       }
 
-      // Ctrl+1-9 — jump to tab N
-      const num = parseInt(e.key);
-      if (num >= 1 && num <= 9) {
-        e.preventDefault();
-        const target = tabs[Math.min(num - 1, tabs.length - 1)];
+      // Ctrl+1-9 — jump to tab N. Read from `code`, not `key`: Shift turns "3"
+      // into "#" on a US layout and parseInt would give NaN, so the shifted
+      // form works too and the binding survives non-US layouts.
+      //
+      // This is the one place the app does take keys off the shell — Ctrl+3..8
+      // are alternate encodings of ^[ ^\ ^] ^^ ^_ ^?. The canonical keys for
+      // all of them (Esc, Ctrl+\ for SIGQUIT, Ctrl+], Backspace) are on other
+      // keycodes and still reach the PTY untouched.
+      // Ctrl+Shift+Z keeps terminal search (Ctrl+Shift+F), clear (K), and
+      // broadcast (B) free while giving focus mode a memorable "zen" shortcut.
+      const digit = /^Digit([1-9])$/.exec(e.code);
+      if (digit) {
+        consume();
+        const target = tabs[Math.min(Number(digit[1]) - 1, tabs.length - 1)];
         if (target) activeTabID = target.id;
         return;
       }
     };
-    window.addEventListener("keydown", onShortcut);
+    window.addEventListener("keydown", onShortcut, true);
 
     vaultLockOff = Events.On("vault:locked", () => {
+      // Idle lock must stick: without this flag refreshVault would auto-unlock
+      // via the remember-me token and the vault would never stay locked.
+      app.suppressAutoUnlock = true;
       void app.refreshVault();
       app.aiOpen = false;
     });
@@ -175,26 +285,28 @@
       aiInsert(text);
     });
 
-    // Bridge for plugin iframe → host backchannel. Iframes post messages
-    // to the parent window; we whitelist a handful of methods and route
-    // them through the matching service. Anything else is dropped.
+    // Bridge for plugin iframe → host backchannel. Iframes post messages to
+    // the parent window; we identify the sender, allow-list the method, and
+    // route it through the matching service. Anything else is dropped.
+    //
+    // The plugin id comes from the sending window, not from the message: a
+    // sandboxed panel can put any id it likes in the body, and the backend
+    // permission check is only worth anything if the id it checks is the
+    // sender's own. PanelRouter registers each panel's window; see
+    // pluginBridge.ts for why origin checking cannot do this job.
     const onPluginMessage = (e: MessageEvent) => {
-      const data = e.data;
-      if (!data || typeof data !== "object" || typeof data.type !== "string") {
-        return;
-      }
-      if (!data.type.startsWith("host.")) return;
-      const pluginID =
-        typeof data.pluginId === "string" ? data.pluginId : "";
-      switch (data.type) {
+      const pluginID = pluginIDForSource(e.source);
+      if (!pluginID) return;
+      const msg = parseHostMessage(e.data);
+      if (!msg) return;
+      switch (msg.type) {
         case "host.notify":
-          PluginService.HostNotify(
-            pluginID,
-            String(data.title ?? ""),
-            String(data.body ?? ""),
-          );
+          // Still denied host-side if the manifest didn't request
+          // host.notify — this call is Wails-bound and reachable without us.
+          PluginService.HostNotify(pluginID, msg.title, msg.body);
           break;
-        // Add more allowlisted methods here as the SDK grows.
+        // Add more allowlisted methods here as the SDK grows, and a matching
+        // permission in internal/plugin/permissions.go for each.
       }
     };
     window.addEventListener("message", onPluginMessage);
@@ -203,6 +315,7 @@
 
     // Tile active hosts — build a grid of all connected hosts in one tab.
     const offTile = bus.on('tile-active-hosts', () => tileActiveHosts());
+    const offFocusMode = bus.on('toggle-focus-mode', () => { focusMode = !focusMode; });
 
     // Connect a host from the detail panel / palette — open a fresh terminal
     // tab and route it to the chosen host once the Terminal has mounted.
@@ -215,10 +328,11 @@
     return () => {
       window.removeEventListener("keydown", onActivity, true);
       window.removeEventListener("mousedown", onActivity, true);
-      window.removeEventListener("keydown", onShortcut);
+      window.removeEventListener("keydown", onShortcut, true);
       offInsert();
       window.removeEventListener("message", onPluginMessage);
       offTile();
+      offFocusMode();
       offConnect();
       offConnectMosh();
     };
@@ -248,31 +362,33 @@
   function connectHost(hostID: string) {
     app.view = "terminals";
     const t = makeTab();
-    tabs.push(t);
-    activeTabID = t.id;
+    if (!addTab(t)) return;
     const sid = leaves(t.root)[0]?.sessionID;
     if (!sid) return;
-    // Let the Terminal component mount before routing the connection to it.
-    setTimeout(() => bus.emit("connect-terminal-to-host", { sessionID: sid, hostID }), 200);
+    // The pane for this session hasn't mounted yet. Park the intent; it picks
+    // it up on mount, whenever that is.
+    app.requestConnect(sid, hostID, "ssh");
   }
 
   // Same as connectHost but routes through Mosh instead of plain SSH.
   function connectHostMosh(hostID: string) {
     app.view = "terminals";
     const t = makeTab();
-    tabs.push(t);
-    activeTabID = t.id;
+    if (!addTab(t)) return;
     const sid = leaves(t.root)[0]?.sessionID;
     if (!sid) return;
-    setTimeout(() => bus.emit("connect-terminal-to-host-mosh", { sessionID: sid, hostID }), 200);
+    app.requestConnect(sid, hostID, "mosh");
   }
 
-  onDestroy(() => vaultLockOff?.());
+  onDestroy(() => {
+    // Flush before vault lock unmounts the workspace and tears down its panes.
+    try { localStorage.setItem(SESSION_KEY, JSON.stringify(capture())); } catch { /* save error already surfaced */ }
+    vaultLockOff?.();
+  });
 
   function newTab() {
     const t = makeTab();
-    tabs.push(t);
-    activeTabID = t.id;
+    addTab(t);
   }
 
   function closeTab(id: string) {
@@ -303,7 +419,8 @@
   function onSplit(tabID: string, leafID: string, direction: Direction) {
     const t = tabs.find((t) => t.id === tabID);
     if (!t) return;
-    t.root = splitLeaf(t.root, leafID, direction);
+    const root = splitLeaf(t.root, leafID, direction);
+    if (layoutFits(tabs.map((tab) => tab.id === t.id ? { ...tab, root } : tab))) t.root = root;
   }
 
   function onCloseLeaf(tabID: string, leafID: string) {
@@ -328,6 +445,7 @@
   }
 
   async function lockVault() {
+    app.suppressAutoUnlock = true;
     await VaultService.Lock();
     await app.refreshAll();
   }
@@ -367,8 +485,7 @@
       root,
       activeLeafID: allLeaves[0]?.id ?? '',
     };
-    tabs.push(tab);
-    activeTabID = tab.id;
+    if (!addTab(tab)) return;
 
     // Add all leaf session IDs to the broadcast set and enable broadcast.
     const broadcastSet = new Set(app.broadcastSet);
@@ -378,18 +495,14 @@
     app.broadcastSet = broadcastSet;
     app.broadcastEnabled = true;
 
-    // Dispatch events so each Terminal component knows which host to connect to.
-    // We use a small delay so the Terminal components mount first.
-    setTimeout(() => {
-      allLeaves.forEach((leaf, i) => {
-        if (connectedIDs[i]) {
-          bus.emit('connect-terminal-to-host', {
-            sessionID: leaf.sessionID,
-            hostID: connectedIDs[i],
-          });
-        }
-      });
-    }, 200);
+    // Park a connect intent per pane. Tiling creates several panes at once, so
+    // this is where a mount-delay guess used to hurt most — the slowest pane
+    // set the deadline for all of them.
+    allLeaves.forEach((leaf, i) => {
+      if (connectedIDs[i]) {
+        app.requestConnect(leaf.sessionID, connectedIDs[i], "ssh");
+      }
+    });
 
     app.toast('ok', `TILED ${connectedIDs.length} HOSTS`, 'Broadcast mode enabled. Type once, execute everywhere.');
   }
@@ -443,6 +556,8 @@
     { id: "sessions", label: "Sessions", Icon: TerminalSquare, views: [
       { id: "terminals", label: "Terminals", Icon: TerminalSquare },
       { id: "exec", label: "Multi-host", Icon: Zap },
+      { id: "ops", label: "Ops Console", Icon: ShieldCheck },
+      { id: "runbooks", label: "Runbooks", Icon: Bookmark },
       { id: "files", label: "Files", Icon: Folder },
       { id: "snippets", label: "Snippets", Icon: Bookmark },
       { id: "recordings", label: "Recordings", Icon: Film },
@@ -488,21 +603,40 @@
   }
 
   let activeSection = $derived(sectionOf(app.view));
+  let visibleSections = $derived(SECTIONS.map((s) => ({ ...s, views: s.views.filter((v) => app.isViewVisible(v.id)) })).filter((s) => s.views.length));
 
   // Plugin panels become extra tabs under the Plugins section.
   let sectionViews = $derived.by<ViewDef[]>(() => {
-    if (activeSection.id !== "plugins") return activeSection.views;
+    // An explicitly opened hidden tool remains visible for this visit.
+    const visible = activeSection.views.filter((v) => app.isViewVisible(v.id) || v.id === app.view);
+    if (activeSection.id !== "plugins") return visible;
     const pluginTabs: ViewDef[] = app.pluginPanels.map((p) => ({
       id: `plugin:${p.pluginId}:${p.id}` as View,
       label: p.title,
       Icon: Puzzle,
     }));
-    return [...activeSection.views, ...pluginTabs];
+    return [...visible, ...pluginTabs];
   });
 
   function selectSection(s: Section) {
-    app.view = lastViewPerSection[s.id] ?? s.views[0].id;
+    const last = lastViewPerSection[s.id];
+    app.view = last && app.isViewVisible(last) ? last : s.views[0].id;
   }
+
+  // Breadcrumb should say what you're looking at ("Terminals"), not what the
+  // router calls it ("terminals"). Resolve the active view against SECTIONS;
+  // plugin panels fall back to their registered title.
+  let activeViewDef = $derived.by<ViewDef | null>(() => {
+    for (const s of SECTIONS) {
+      const v = s.views.find((v) => v.id === app.view);
+      if (v) return v;
+    }
+    if (typeof app.view === "string" && app.view.startsWith("plugin:")) {
+      const title = app.pluginPanels.find((p) => app.view === `plugin:${p.pluginId}:${p.id}`)?.title;
+      return { id: app.view, label: title ?? app.view, Icon: Puzzle };
+    }
+    return null;
+  });
 
   $effect(() => {
     lastViewPerSection[activeSection.id] = app.view;
@@ -518,19 +652,31 @@
     const off = bus.on('tab-label', (detail) => {
       if (detail.tabID) tabLabels[detail.tabID] = detail.label;
     });
-    return () => off();
+    // Terminals only know their sessionID — resolve which tab owns the
+    // session so a connected tab shows the host name instead of local-N.
+    const offSession = bus.on('session-label', (detail) => {
+      const tab = tabs.find((t) => leaves(t.root).some((l) => l.sessionID === detail.sessionID));
+      if (tab) tabLabels[tab.id] = detail.label;
+    });
+    return () => { off(); offSession(); };
   });
 
   function tabLabel(t: Tab): string {
     const label = tabLabels[t.id];
     if (label) return label;
+    const target = leaves(t.root).map((l) => app.sessionTargets[l.sessionID]).find(Boolean);
+    if (target) return app.hosts.find((h) => h.id === target.hostID)?.name ?? "Saved host";
     const idx = tabs.indexOf(t) + 1;
     return `local-${idx}`;
   }
 
-  let sidebarWidth = $state(Number(localStorage.getItem('blacknode.sidebar-width') || 252));
+  let sidebarWidth = $state(previous?.sidebarWidth ?? 252);
+  let sidebarOpen = $state(true);
+  let contentWidth = $state(0);
+  let drawerOverlay = $derived(contentWidth < 760);
   let isResizing = $state(false);
   let shortcutOpen = $state(false);
+  let focusMode = $state(false);
 
   function startResize(e: MouseEvent) {
     isResizing = true;
@@ -539,7 +685,7 @@
 
   function onMouseMove(e: MouseEvent) {
     if (!isResizing) return;
-    sidebarWidth = Math.max(160, Math.min(600, e.clientX - 60));
+    sidebarWidth = Math.max(160, Math.min(600, e.clientX - 64));
   }
 
   function onMouseUp() {
@@ -552,26 +698,43 @@
 
 <svelte:window onmousemove={onMouseMove} onmouseup={onMouseUp} />
 
-<div
-  class="flex h-full w-full flex-col bg-[var(--color-surface-0)] text-[var(--color-text-1)]"
->
+<div class="flex h-full w-full flex-col bg-[var(--color-surface-0)] text-[var(--color-text-1)]">
   <!-- ── TOP BAR ─────────────────────────────────────────────────────── -->
-  <header class="relative flex h-10 shrink-0 items-center gap-3 border-b hairline surface-1 px-3">
-    <div class="flex items-center gap-1.5 select-none">
-      <Logo size={16} />
+  {#if !focusMode}
+  <header class="relative flex h-12 shrink-0 items-center gap-3 overflow-x-auto border-b hairline surface-1 px-4">
+    <div class="flex shrink-0 items-center gap-2 select-none">
+      <div class="flex h-7 w-7 items-center justify-center border border-[var(--color-accent)]/35 bg-[var(--color-accent-soft)]" style="border-radius: var(--radius-sm);">
+        <LogoMark size={17} glow={false} />
+      </div>
+      <span class="hidden font-mono type-micro font-semibold tracking-[0.16em] text-[var(--color-text-2)] sm:inline">BLACKNODE</span>
     </div>
 
-    <div class="h-4 w-px bg-[var(--color-line-strong)]"></div>
+    <div class="h-5 w-px bg-[var(--color-line-strong)]"></div>
 
     <!-- Breadcrumb -->
-    <span class="type-caption font-medium capitalize text-[var(--color-text-2)]">
-      {app.view}
+    <button
+      class="shrink-0 rounded border hairline p-1.5 text-[var(--color-text-3)] hover:text-[var(--color-accent)]"
+      onclick={() => (sidebarOpen = !sidebarOpen)}
+      aria-label={sidebarOpen ? "Hide host sidebar" : "Show host sidebar"}
+      aria-expanded={sidebarOpen}
+      title={`Toggle host sidebar (${shortcutLabel("sidebar")})`}
+    ><PanelLeft size="14" /></button>
+    <span class="flex shrink-0 items-center gap-2 type-caption font-medium text-[var(--color-text-1)]">
+      {#if activeViewDef}
+        <activeViewDef.Icon size="14" strokeWidth={1.8} class="text-[var(--color-accent)]" />
+        {activeViewDef.label}
+      {:else}
+        {app.view}
+      {/if}
     </span>
 
-    <div class="ml-auto flex items-center gap-1 type-caption">
+    <div class="ml-auto flex shrink-0 items-center gap-1.5 type-caption">
+      {#if workspaceReady}
+        <WorkspacesMenu {capture} onopen={openWorkspace} {forwardIDs} onforwards={(ids) => forwardIDs = ids} disabled={reconnectingWorkspace} />
+      {/if}
       <!-- Broadcast -->
       <button
-        class="flex items-center gap-1.5 border px-2 py-0.5 rounded-sm transition-all {app.broadcastEnabled
+        class="flex items-center gap-1.5 border px-2.5 py-1 rounded-sm transition-all {app.broadcastEnabled
           ? 'border-[var(--color-warn)]/40 bg-[var(--color-warn)]/8 text-[var(--color-warn)]'
           : 'border-[var(--color-line)] text-[var(--color-text-4)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-2)]'}"
         onclick={() => {
@@ -589,13 +752,22 @@
         {/if}
       </button>
 
+      <!-- Focus mode -->
+      <button
+        class="flex items-center gap-1.5 border border-[var(--color-line)] px-2.5 py-1 rounded-sm text-[var(--color-text-3)] transition-all hover:border-[var(--color-accent)]/30 hover:text-[var(--color-accent)]"
+        onclick={() => (focusMode = true)}
+        title="Focus mode (Ctrl+Shift+Z)"
+      >
+        <Maximize2 size="11" /><span>Focus</span>
+      </button>
+
       <!-- AI -->
       <button
-        class="flex items-center gap-1.5 border px-2 py-0.5 rounded-sm transition-all {app.aiOpen
+        class="flex items-center gap-1.5 border px-2.5 py-1 rounded-sm transition-all {app.aiOpen
           ? 'border-[var(--color-accent)]/50 bg-[var(--color-accent)]/8 text-[var(--color-accent)]'
           : 'border-[var(--color-line)] text-[var(--color-text-4)] hover:border-[var(--color-accent)]/30 hover:text-[var(--color-accent)]'}"
         onclick={() => (app.aiOpen = !app.aiOpen)}
-        title="AI assistant (⌘I)"
+        title={`AI assistant (${shortcutLabel("ai")})`}
       >
         <Sparkles size="11" />
         <span>AI</span>
@@ -603,20 +775,20 @@
 
       <!-- Command palette -->
       <button
-        class="flex items-center gap-1.5 border border-[var(--color-line)] px-2 py-0.5 rounded-sm text-[var(--color-text-4)] transition-all hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-2)]"
+        class="flex items-center gap-1.5 border border-[var(--color-line)] px-2.5 py-1 rounded-sm text-[var(--color-text-3)] transition-all hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)]"
         onclick={() => (app.paletteOpen = true)}
-        title="Command palette (⌘K)"
+        title={`Command palette (${shortcutLabel("palette")})`}
       >
         <Command size="11" />
         <span>Palette</span>
-        <kbd class="font-mono border border-[var(--color-line-strong)] px-1 type-micro opacity-50">⌘K</kbd>
+        <kbd class="font-mono border border-[var(--color-line-strong)] bg-[var(--color-surface-2)] px-1.5 py-0.5 type-micro text-[var(--color-text-3)]">{shortcutLabel("palette")}</kbd>
       </button>
 
       <div class="mx-1 h-3 w-px bg-[var(--color-line-strong)]"></div>
 
       <!-- Vault lock -->
       <button
-        class="flex items-center gap-1.5 border border-[var(--color-line)] px-2 py-0.5 rounded-sm text-[var(--color-text-4)] hover:border-[var(--color-accent)]/30 hover:text-[var(--color-accent)]"
+        class="flex items-center gap-1.5 border border-[var(--color-line)] px-2.5 py-1 rounded-sm text-[var(--color-text-3)] hover:border-[var(--color-accent)]/30 hover:text-[var(--color-accent)]"
         onclick={lockVault}
         title="Vault unlocked — click to lock"
       >
@@ -625,13 +797,15 @@
       </button>
     </div>
   </header>
+  {/if}
 
   <!-- ── BODY ─────────────────────────────────────────────────────────── -->
-  <div class="grid flex-1 overflow-hidden" style="grid-template-columns: 60px {sidebarWidth}px 1fr">
+  <div class="grid min-h-0 flex-1 overflow-hidden" style:grid-template-columns={focusMode ? 'minmax(0, 1fr)' : `64px ${sidebarOpen ? `${sidebarWidth}px ` : ''}minmax(0, 1fr)`}>
     <!-- ── SECTION RAIL ─────────────────────────────── -->
-    <NavRail sections={SECTIONS} activeSectionId={activeSection.id} onSelect={(id) => selectSection(SECTIONS.find((s) => s.id === id)!)} />
+    {#if !focusMode}<NavRail sections={visibleSections} activeSectionId={activeSection.id} onSelect={(id) => selectSection(visibleSections.find((s) => s.id === id)!)} />{/if}
 
     <!-- ── SIDEBAR ─────────────────────────────────────── -->
+    {#if !focusMode && sidebarOpen}
     <aside class="relative overflow-hidden border-r hairline group/sidebar">
       <HostList />
       <!-- Resize handle — a separator is the correct role for a drag-to-resize
@@ -651,20 +825,43 @@
         ></span>
       </div>
     </aside>
+    {/if}
 
     <!-- Main + AI drawer -->
     <div
-      class="grid overflow-hidden transition-[grid-template-columns] duration-200"
-      style:grid-template-columns={app.aiOpen ? 'minmax(400px, 1fr) 360px' : '1fr'}
+      bind:clientWidth={contentWidth}
+      class="relative grid min-h-0 min-w-0 overflow-hidden"
+      style:grid-template-columns={app.aiOpen && !drawerOverlay ? 'minmax(0, 1fr) 360px' : 'minmax(0, 1fr)'}
     >
       <main class="relative flex flex-col overflow-hidden">
+        {#if reconnectPending}
+          <div class="flex shrink-0 items-center gap-3 border-b hairline surface-2 px-3 py-2 type-caption">
+            <span>Workspace restored. Reconnect to reopen its saved hosts and tunnels.</span>
+            <button class="ml-auto rounded border border-[var(--color-accent)]/40 bg-[var(--color-accent-soft)] px-2.5 py-1.5 font-medium text-[var(--color-accent)] disabled:opacity-40" disabled={!workspaceReady} onclick={reconnectWorkspace}>Reconnect workspace</button>
+            <button class="rounded border hairline px-2.5 py-1.5 text-[var(--color-text-2)] hover:border-[var(--color-line-strong)]" onclick={() => { reconnectPending = false; for (const tab of tabs) for (const leaf of leaves(tab.root)) if (!app.sessionHosts[leaf.sessionID]) app.sessionTargets[leaf.sessionID] = null; forwardIDs = []; }}>Use local shells</button>
+          </div>
+        {/if}
+        {#if sessionSaveError}<p role="alert" class="px-3 py-2 type-caption text-[var(--color-danger)]">Workspace changes could not be saved. Local storage may be full.</p>{/if}
+        {#if !focusMode}
         <SectionTabs
           views={sectionViews}
           activeView={app.view}
           onSelect={(id) => (app.view = id)}
           onNew={onNew}
         />
-        <HostDetail />
+        {/if}
+        {#if !focusMode}<HostDetail />{/if}
+        {#if focusMode}
+          <div class="pointer-events-none absolute right-3 top-3 z-30">
+            <button
+              class="pointer-events-auto flex items-center gap-1.5 rounded border hairline-strong bg-[var(--color-surface-2)]/90 px-2.5 py-1 type-caption text-[var(--color-text-2)] hover:text-[var(--color-accent)]"
+              onclick={() => (focusMode = false)}
+              title="Exit focus mode (Ctrl+Shift+Z)"
+            >
+              <Minimize2 size="11" />Exit focus
+            </button>
+          </div>
+        {/if}
         <PanelRouter>
           <!-- terminals view: tab bar + pane grid -->
           <div class="relative flex h-full flex-col">
@@ -683,7 +880,8 @@
                 <div class="h-full w-full" class:hidden={activeTabID !== t.id}>
                   <Pane
                     node={t.root}
-                    activeLeafID={t.activeLeafID}
+                    activeLeafID={activeTabID === t.id ? t.activeLeafID : null}
+                    leafCount={leaves(t.root).length}
                     onactivate={(id) => onActivate(t.id, id)}
                     onsplit={(id, d) => onSplit(t.id, id, d)}
                     onclose={(id) => onCloseLeaf(t.id, id)}
@@ -697,9 +895,11 @@
       </main>
 
       {#if app.aiOpen}
-        {#await loadAIDrawer() then AIDrawer}
-          <AIDrawer onInsertCommand={aiInsert} />
-        {/await}
+        <div class={drawerOverlay ? "absolute inset-y-0 right-0 z-30 w-[min(360px,100%)] shadow-xl" : "min-h-0 min-w-0"}>
+          {#await loadAIDrawer() then AIDrawer}
+            <AIDrawer onInsertCommand={aiInsert} />
+          {/await}
+        </div>
       {/if}
     </div>
   </div>
@@ -711,7 +911,29 @@
     <ShortcutOverlay onclose={() => (shortcutOpen = false)} />
   {/if}
 
-  <!-- ── STATUS BAR ──────────────────────────────────────────────── -->
-  <StatusBar tabCount={tabs.length} {activeLeafCount} />
-</div>
+  <!-- A dangerous command caught on its way into every broadcast pane. Held
+       here rather than in the source Terminal because the command targets the
+       whole group, not one pane — and the answer has to apply to all of them. -->
+  {#if app.pendingBroadcastDanger}
+    {@const p = app.pendingBroadcastDanger}
+    <ConfirmDanger
+      title={p.danger.level === "block-without-confirm"
+        ? `Dangerous broadcast — ${p.danger.reason}`
+        : `Risky broadcast — ${p.danger.reason}`}
+      body={`“${p.command}” matches the pattern “${p.danger.matched}” and will run on ${p.targets} other pane${p.targets === 1 ? "" : "s"} at once. It has already run in the pane you typed it in.`}
+      severity={p.danger.level}
+      productionHosts={p.productionHosts}
+      requirePhrase={p.danger.level === "block-without-confirm"
+        ? p.productionHosts.length > 0
+          ? "destroy production"
+          : "I understand"
+        : undefined}
+      allowEnterConfirm={false}
+      onCancel={() => app.cancelBroadcastDanger()}
+      onConfirm={() => app.confirmBroadcastDanger()}
+    />
+  {/if}
 
+  <!-- ── STATUS BAR ──────────────────────────────────────────────── -->
+  {#if !focusMode}<StatusBar tabCount={tabs.length} {activeLeafCount} />{/if}
+</div>

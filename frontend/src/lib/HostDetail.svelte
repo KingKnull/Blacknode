@@ -196,7 +196,7 @@
           </div>
         {/snippet}
 
-        {@render row(Network, "Address", `${host.host}:${host.port}`, true)}
+        {@render row(Network, "Address", `${host.host}:${host.port || 22}`, true)}
         {@render row(Server, "Username", host.username, true)}
         {@render row(host.authMethod === "key" ? KeyRound : Lock, "Auth", host.authMethod === "key" && keyName ? `SSH key · ${keyName}` : authLabel[host.authMethod] ?? host.authMethod)}
         {#if host.proxyJump}

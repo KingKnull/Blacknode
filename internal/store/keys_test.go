@@ -5,32 +5,25 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/blacknode/blacknode/internal/db"
 	_ "modernc.org/sqlite"
 )
 
-const keysSchema = `
-CREATE TABLE keys (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE,
-    key_type TEXT NOT NULL,
-    public_key TEXT NOT NULL,
-    encrypted_private_key BLOB NOT NULL,
-    nonce BLOB NOT NULL,
-    fingerprint TEXT NOT NULL,
-    certificate TEXT NOT NULL DEFAULT '',
-    created_at INTEGER NOT NULL
-);`
-
+// newKeysDB builds an in-memory database with the real production schema, for
+// the same reason newHostsDB does: the hand-copied CREATE TABLE this replaced
+// drifted every time a column was added, failing these tests on a schema that
+// was correct. db.Migrate is the single source of truth.
 func newKeysDB(t *testing.T) *sql.DB {
 	t.Helper()
-	db, err := sql.Open("sqlite", ":memory:")
+	conn, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(keysSchema); err != nil {
+	if err := db.Migrate(conn); err != nil {
 		t.Fatal(err)
 	}
-	return db
+	t.Cleanup(func() { _ = conn.Close() })
+	return conn
 }
 
 func TestKeyCreateAndGet(t *testing.T) {
@@ -142,5 +135,70 @@ func TestKeyDelete(t *testing.T) {
 	}
 	if _, err := s.Get(k.ID); !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("expected ErrNoRows after delete, got %v", err)
+	}
+}
+
+// A FIDO2 key's secret lives on the token, so the store has to accept a record
+// with no private material — and reject one with no public key, which would be
+// unusable for both auth and authorized_keys.
+func TestKeyCreateHardwareWithoutPrivateMaterial(t *testing.T) {
+	s := NewKeys(newKeysDB(t))
+
+	k, err := s.Create(Key{
+		Name:        "yubikey",
+		KeyType:     "sk-ssh-ed25519@openssh.com",
+		PublicKey:   "sk-ssh-ed25519@openssh.com AAAA...",
+		Fingerprint: "SHA256:hardware",
+		Hardware:    true,
+	})
+	if err != nil {
+		t.Fatalf("create hardware key: %v", err)
+	}
+	if !k.Hardware {
+		t.Error("returned key lost its Hardware flag")
+	}
+
+	got, err := s.Get(k.ID)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if !got.Hardware {
+		t.Error("Hardware flag did not survive a round trip through Get")
+	}
+	if len(got.EncryptedPrivateKey) != 0 {
+		t.Errorf("hardware key stored private material: %q", got.EncryptedPrivateKey)
+	}
+
+	listed, err := s.List()
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(listed) != 1 || !listed[0].Hardware {
+		t.Errorf("Hardware flag missing from List: %+v", listed)
+	}
+
+	if _, err := s.Create(Key{Name: "no-pub", Hardware: true}); err == nil {
+		t.Error("accepted a hardware key with no public key")
+	}
+}
+
+func TestKeyCreateStillRequiresSealedMaterialForSoftwareKeys(t *testing.T) {
+	s := NewKeys(newKeysDB(t))
+	// The hardware branch must not have loosened the rule for normal keys.
+	if _, err := s.Create(Key{Name: "soft", KeyType: "ed25519", PublicKey: "ssh-ed25519 AAAA..."}); err == nil {
+		t.Error("accepted a software key with no encrypted private key")
+	}
+}
+
+func TestHardwareKeyType(t *testing.T) {
+	for _, keyType := range []string{"sk-ssh-ed25519@openssh.com", "sk-ecdsa-sha2-nistp256@openssh.com"} {
+		if !HardwareKeyType(keyType) {
+			t.Errorf("%s should be recognised as a security key", keyType)
+		}
+	}
+	for _, keyType := range []string{"ssh-ed25519", "ssh-rsa", "ecdsa-sha2-nistp256", ""} {
+		if HardwareKeyType(keyType) {
+			t.Errorf("%s is not a security key", keyType)
+		}
 	}
 }

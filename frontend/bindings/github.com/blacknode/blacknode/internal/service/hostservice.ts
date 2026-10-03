@@ -20,12 +20,31 @@ export function ApproveHostKey(host: string, port: number, keyType: string, pubK
     return $Call.ByID(3453783468, host, port, keyType, pubKeyBase64, fingerprint);
 }
 
+/**
+ * ClearPassword forgets the saved SSH password for a host.
+ */
+export function ClearPassword(hostID: string): $CancellablePromise<void> {
+    return $Call.ByID(14931674, hostID);
+}
+
+/**
+ * ClearSudoPassword forgets the saved sudo password for a host.
+ */
+export function ClearSudoPassword(hostID: string): $CancellablePromise<void> {
+    return $Call.ByID(3013266335, hostID);
+}
+
 export function Create(h: store$0.Host): $CancellablePromise<store$0.Host> {
     return $Call.ByID(2715760614, h).then(($result: any) => {
         return $$createType0($result);
     });
 }
 
+/**
+ * Delete removes a host and any credentials saved against it. Leaving the
+ * secrets behind would strand undeletable ciphertext keyed to an id nothing
+ * references.
+ */
 export function Delete(id: string): $CancellablePromise<void> {
     return $Call.ByID(3372977293, id);
 }
@@ -34,43 +53,6 @@ export function Get(id: string): $CancellablePromise<store$0.Host> {
     return $Call.ByID(4085256030, id).then(($result: any) => {
         return $$createType0($result);
     });
-}
-
-/**
- * GetAllPasswords returns a map of hostID → plaintext password for every host
- * that has a saved password. Used at startup to pre-populate the frontend
- * password cache so connecting never prompts.
- */
-export function GetAllPasswords(): $CancellablePromise<{ [_ in string]?: string }> {
-    return $Call.ByID(1458828377).then(($result: any) => {
-        return $$createType1($result);
-    });
-}
-
-/**
- * GetAllSudoPasswords returns a map of hostID → plaintext sudo password for
- * every host that has a saved sudo password.
- */
-export function GetAllSudoPasswords(): $CancellablePromise<{ [_ in string]?: string }> {
-    return $Call.ByID(2510428474).then(($result: any) => {
-        return $$createType1($result);
-    });
-}
-
-/**
- * GetPassword decrypts and returns the saved SSH password for a host, or
- * an empty string if no password has been stored.
- */
-export function GetPassword(hostID: string): $CancellablePromise<string> {
-    return $Call.ByID(3372347491, hostID);
-}
-
-/**
- * GetSudoPassword decrypts and returns the saved sudo password for a host, or
- * an empty string if none has been stored.
- */
-export function GetSudoPassword(hostID: string): $CancellablePromise<string> {
-    return $Call.ByID(1852625642, hostID);
 }
 
 /**
@@ -93,7 +75,7 @@ export function ImportSSHConfigEntries(entries: $models.SSHConfigCandidate[]): $
 
 export function List(): $CancellablePromise<store$0.Host[]> {
     return $Call.ByID(4079717742).then(($result: any) => {
-        return $$createType2($result);
+        return $$createType1($result);
     });
 }
 
@@ -102,7 +84,7 @@ export function List(): $CancellablePromise<store$0.Host[]> {
  */
 export function ListKnownHosts(): $CancellablePromise<store$0.KnownHost[]> {
     return $Call.ByID(1388369876).then(($result: any) => {
-        return $$createType4($result);
+        return $$createType3($result);
     });
 }
 
@@ -121,7 +103,20 @@ export function RemoveKnownHost(host: string, port: number, keyType: string): $C
  */
 export function ScanSSHConfig(): $CancellablePromise<$models.SSHConfigCandidate[]> {
     return $Call.ByID(2959866637).then(($result: any) => {
-        return $$createType6($result);
+        return $$createType5($result);
+    });
+}
+
+/**
+ * SecretStatus reports which hosts have saved credentials, as booleans. This
+ * is deliberately the only credential query the frontend can make: panels
+ * need to know whether a password exists (to show a "saved" affordance and to
+ * decide whether to prompt), never what it is. Unsealing happens in the
+ * connect path — see sshconn.Dialer.ResolveSecret.
+ */
+export function SecretStatus(): $CancellablePromise<{ [_ in string]?: store$0.Status }> {
+    return $Call.ByID(3482900748).then(($result: any) => {
+        return $$createType7($result);
     });
 }
 
@@ -156,9 +151,10 @@ export function Update(h: store$0.Host): $CancellablePromise<void> {
 
 // Private type creation functions
 const $$createType0 = store$0.Host.createFrom;
-const $$createType1 = $Create.Map($Create.Any, $Create.Any);
-const $$createType2 = $Create.Array($$createType0);
-const $$createType3 = store$0.KnownHost.createFrom;
-const $$createType4 = $Create.Array($$createType3);
-const $$createType5 = $models.SSHConfigCandidate.createFrom;
-const $$createType6 = $Create.Array($$createType5);
+const $$createType1 = $Create.Array($$createType0);
+const $$createType2 = store$0.KnownHost.createFrom;
+const $$createType3 = $Create.Array($$createType2);
+const $$createType4 = $models.SSHConfigCandidate.createFrom;
+const $$createType5 = $Create.Array($$createType4);
+const $$createType6 = store$0.Status.createFrom;
+const $$createType7 = $Create.Map($Create.Any, $$createType6);

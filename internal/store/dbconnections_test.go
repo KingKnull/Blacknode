@@ -69,8 +69,8 @@ func TestDBConnectionCreateValidation(t *testing.T) {
 	s := NewDBConnections(newDBConnectionsDB(t))
 
 	cases := []DBSavedConnection{
-		{HostID: "h", DSNCipher: []byte("c"), DSNNonce: []byte("n")},  // missing name
-		{Name: "n", DSNCipher: []byte("c"), DSNNonce: []byte("n")},    // missing hostID
+		{HostID: "h", DSNCipher: []byte("c"), DSNNonce: []byte("n")}, // missing name
+		{Name: "n", DSNCipher: []byte("c"), DSNNonce: []byte("n")},   // missing hostID
 		{Name: "n", HostID: "h", DSNNonce: []byte("n")},              // missing cipher
 		{Name: "n", HostID: "h", DSNCipher: []byte("c")},             // missing nonce
 	}

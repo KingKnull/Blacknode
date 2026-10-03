@@ -23,12 +23,12 @@ import (
 // a stub handler, and counts how many distinct sessions were opened.
 // Used to verify that the Pool actually reuses connections.
 type fakeServer struct {
-	listener  net.Listener
-	addr      string
-	port      int
-	sessions  atomic.Int64
+	listener    net.Listener
+	addr        string
+	port        int
+	sessions    atomic.Int64
 	connections atomic.Int64
-	stop      chan struct{}
+	stop        chan struct{}
 }
 
 func newFakeServer(t *testing.T) *fakeServer {
@@ -113,7 +113,7 @@ func newTestKnownHosts(t *testing.T) *store.KnownHosts {
 // strict TOFU callback is exercised by knownhosts_test.go.
 func dialerFor(t *testing.T) *Dialer {
 	t.Helper()
-	d := New(nil, nil, newTestKnownHosts(t))
+	d := New(nil, nil, newTestKnownHosts(t), nil)
 	d.HostKeyOverride = ssh.InsecureIgnoreHostKey()
 	return d
 }

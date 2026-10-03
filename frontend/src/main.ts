@@ -9,11 +9,25 @@ import App from "./App.svelte";
 function fitRoot() {
   const el = document.getElementById("app");
   if (!el) return;
+  // A hidden/minimized webview can report 0×0; pinning to that would leave the
+  // app invisible until the next resize event. Fall back to the CSS 100vw/100vh
+  // sizing instead and let a real measurement take over later.
+  if (window.innerWidth <= 0 || window.innerHeight <= 0) {
+    el.style.width = "";
+    el.style.height = "";
+    return;
+  }
   el.style.width = window.innerWidth + "px";
   el.style.height = window.innerHeight + "px";
 }
 fitRoot();
 window.addEventListener("resize", fitRoot);
+window.addEventListener("focus", fitRoot);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    fitRoot();
+  }
+});
 
 const app = mount(App, {
   target: document.getElementById("app")!,

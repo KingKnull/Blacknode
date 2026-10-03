@@ -1,14 +1,22 @@
+<script module lang="ts">
+  // Only the most recently opened dialog handles modal keyboard events.
+  const dialogs: HTMLElement[] = [];
+</script>
+
 <script lang="ts">
   import { onMount, tick } from "svelte";
 
   type Props = {
     onclose: () => void;
+    onkeydown?: (event: KeyboardEvent) => void;
     /** Accessible name. Ignored when labelledby is set. */
     label?: string;
     /** id of an element inside the dialog that names it. */
     labelledby?: string;
     /** Click on the backdrop closes the dialog. Default true. */
     closeOnBackdrop?: boolean;
+    /** Escape transformed panel ancestors that would clip a fixed overlay. */
+    portal?: boolean;
     /** Utility classes for the full-screen backdrop layer. */
     backdropClass?: string;
     /** Utility classes for the dialog panel. */
@@ -19,9 +27,11 @@
   };
   let {
     onclose,
+    onkeydown,
     label,
     labelledby,
     closeOnBackdrop = true,
+    portal = false,
     backdropClass = "bg-black/80",
     panelClass = "",
     panelStyle = "",
@@ -31,23 +41,33 @@
   let panelEl: HTMLElement | undefined = $state();
   let prevFocus: HTMLElement | null = null;
 
+  function placeOverlay(node: HTMLDivElement) {
+    if (!portal) return;
+    document.body.appendChild(node);
+    return { destroy: () => node.remove() };
+  }
+
   function focusables(): HTMLElement[] {
     if (!panelEl) return [];
     const sel =
-      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [contenteditable="true"], [tabindex]:not([tabindex="-1"])';
     return Array.from(panelEl.querySelectorAll<HTMLElement>(sel)).filter(
       (el) => el.offsetParent !== null,
     );
   }
 
   function onKeydown(e: KeyboardEvent) {
+    if (!panelEl || dialogs.at(-1) !== panelEl || e.defaultPrevented) return;
     if (e.key === "Escape") {
       e.preventDefault();
-      e.stopPropagation();
+      e.stopImmediatePropagation();
       onclose();
       return;
     }
-    if (e.key !== "Tab") return;
+    if (e.key !== "Tab") {
+      if (panelEl.contains(e.target as Node)) onkeydown?.(e);
+      return;
+    }
     const items = focusables();
     if (items.length === 0) {
       e.preventDefault();
@@ -60,7 +80,7 @@
     if (e.shiftKey && (active === first || !panelEl?.contains(active))) {
       e.preventDefault();
       last.focus();
-    } else if (!e.shiftKey && active === last) {
+    } else if (!e.shiftKey && (active === last || !panelEl?.contains(active))) {
       e.preventDefault();
       first.focus();
     }
@@ -68,17 +88,25 @@
 
   onMount(() => {
     prevFocus = document.activeElement as HTMLElement | null;
+    const panel = panelEl!;
+    dialogs.push(panel);
     void tick().then(() => {
+      if (dialogs.at(-1) !== panel) return;
       const auto = panelEl?.querySelector<HTMLElement>("[data-autofocus]");
       (auto ?? panelEl)?.focus();
     });
-    return () => prevFocus?.focus?.();
+    return () => {
+      const wasTop = dialogs.at(-1) === panel;
+      dialogs.splice(dialogs.indexOf(panel), 1);
+      if (wasTop && prevFocus?.isConnected) prevFocus.focus();
+    };
   });
 </script>
 
 <svelte:window onkeydown={onKeydown} />
 
 <div
+  use:placeOverlay
   class="fixed inset-0 z-50 flex items-center justify-center {backdropClass}"
   role="presentation"
   onclick={(e) => {
@@ -92,7 +120,7 @@
     aria-label={labelledby ? undefined : label}
     aria-labelledby={labelledby}
     tabindex="-1"
-    class="outline-none {panelClass}"
+    class="max-w-[calc(100vw-2rem)] max-h-[calc(100dvh-2rem)] outline-none {panelClass}"
     style={panelStyle}
   >
     {@render children()}

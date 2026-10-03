@@ -54,7 +54,9 @@ const (
 	syncSettingsKey = "sync.settings.v1"
 	syncStatusKey   = "sync.status.v1"
 	syncBlobName    = "blacknode-sync.bin"
-	syncVersion     = 1
+	// syncVersion is the version stamped inside the snapshot payload. The blob
+	// framing version is separate — see syncBlobV1 / syncBlobV2 in synckey.go.
+	syncVersion = 1
 
 	// teamBlobName is the shared object every member of a team writes to /
 	// reads from. Distinct from syncBlobName so a personal sync and a
@@ -74,6 +76,7 @@ type SyncService struct {
 	snippets     *store.Snippets
 	httpRequests *store.HTTPRequests
 	team         *store.TeamActivities
+	syncKeys     *store.SyncKeys
 	v            *vault.Vault
 	activity     *activityRecorder
 }
@@ -84,10 +87,20 @@ func NewSyncService(
 	sn *store.Snippets,
 	hr *store.HTTPRequests,
 	ta *store.TeamActivities,
+	sk *store.SyncKeys,
 	v *vault.Vault,
 	activity *activityRecorder,
 ) *SyncService {
-	return &SyncService{settings: s, hosts: h, snippets: sn, httpRequests: hr, team: ta, v: v, activity: activity}
+	return &SyncService{
+		settings:     s,
+		hosts:        h,
+		snippets:     sn,
+		httpRequests: hr,
+		team:         ta,
+		syncKeys:     sk,
+		v:            v,
+		activity:     activity,
+	}
 }
 
 func (s *SyncService) Configure(ctx context.Context, cfg SyncSettings) error {
@@ -203,7 +216,7 @@ func (s *SyncService) Pull(ctx context.Context) (SyncStatus, error) {
 	return s.Status(context.Background())
 }
 
-// encodeSnapshot: marshal → gzip → vault-encrypt → base64-prefix nonce.
+// encodeSnapshot: marshal → gzip → seal under the sync root key.
 // Layout of the returned blob:
 //
 //	[4 bytes  magic 'BLNS']
@@ -223,29 +236,16 @@ func (s *SyncService) encodeSnapshot(snap SyncSnapshot) ([]byte, error) {
 	if err := w.Close(); err != nil {
 		return nil, fmt.Errorf("gzip close: %w", err)
 	}
-	cipher, nonce, err := s.v.Encrypt(gz.Bytes())
-	if err != nil {
-		return nil, fmt.Errorf("encrypt: %w", err)
-	}
-	out := make([]byte, 0, 5+len(nonce)+len(cipher))
-	out = append(out, 'B', 'L', 'N', 'S', byte(syncVersion))
-	out = append(out, nonce...)
-	out = append(out, cipher...)
-	return out, nil
+	return s.sealSyncBlob(gz.Bytes())
 }
 
 func (s *SyncService) decodeSnapshot(blob []byte) (SyncSnapshot, error) {
 	if len(blob) < 5+12 || !bytes.HasPrefix(blob, []byte("BLNS")) {
 		return SyncSnapshot{}, errors.New("not a blacknode sync blob")
 	}
-	if blob[4] != byte(syncVersion) {
-		return SyncSnapshot{}, fmt.Errorf("unsupported sync version %d", blob[4])
-	}
-	nonce := blob[5:17]
-	cipher := blob[17:]
-	gzBytes, err := s.v.Decrypt(cipher, nonce)
+	gzBytes, err := s.openSyncBlob(blob[4], blob[5:17], blob[17:])
 	if err != nil {
-		return SyncSnapshot{}, fmt.Errorf("decrypt: %w", err)
+		return SyncSnapshot{}, err
 	}
 	r, err := gzip.NewReader(bytes.NewReader(gzBytes))
 	if err != nil {

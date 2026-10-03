@@ -46,8 +46,8 @@ export function ListSavedRequests(): $CancellablePromise<store$0.HTTPRequest[]> 
  * at 1MB to keep the JSON bridge healthy; flagged via Truncated so the UI
  * can warn.
  */
-export function Request(hostID: string, password: string, opts: $models.HTTPRequestOptions): $CancellablePromise<$models.HTTPResponse> {
-    return $Call.ByID(2430279037, hostID, password, opts).then(($result: any) => {
+export function Request(hostID: string, opts: $models.HTTPRequestOptions): $CancellablePromise<$models.HTTPResponse> {
+    return $Call.ByID(2430279037, hostID, opts).then(($result: any) => {
         return $$createType2($result);
     });
 }

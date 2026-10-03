@@ -31,14 +31,14 @@ export function Columns(connID: string, schema: string, table: string): $Cancell
  * detected from the DSN shape — `postgres://` URL → postgres, `@tcp(` →
  * mysql, anything else is an error.
  */
-export function Connect(hostID: string, password: string, kind: string, dsn: string): $CancellablePromise<$models.DBConnectionInfo> {
-    return $Call.ByID(3912168352, hostID, password, kind, dsn).then(($result: any) => {
+export function Connect(hostID: string, kind: string, dsn: string): $CancellablePromise<$models.DBConnectionInfo> {
+    return $Call.ByID(3912168352, hostID, kind, dsn).then(($result: any) => {
         return $$createType2($result);
     });
 }
 
-export function ConnectSaved(savedID: string, password: string): $CancellablePromise<$models.DBConnectionInfo> {
-    return $Call.ByID(4226580571, savedID, password).then(($result: any) => {
+export function ConnectSaved(savedID: string): $CancellablePromise<$models.DBConnectionInfo> {
+    return $Call.ByID(4226580571, savedID).then(($result: any) => {
         return $$createType2($result);
     });
 }

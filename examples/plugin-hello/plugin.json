@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "description": "Sample plugin: completes the init handshake and renders a custom panel.",
   "entrypoint": ["./plugin-hello"],
-  "permissions": ["host.notify"],
+  "permissions": ["host.notify", "ui.panels"],
   "panels": [
     {
       "id": "main",

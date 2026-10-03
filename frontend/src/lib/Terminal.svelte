@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { onDestroy, onMount } from "svelte";
-  import { Events } from "@wailsio/runtime";
+  import { onDestroy, onMount, tick } from "svelte";
+  import { Clipboard as WailsClipboard, Events } from "@wailsio/runtime";
   import { Terminal } from "@xterm/xterm";
   import { FitAddon } from "@xterm/addon-fit";
   import { WebLinksAddon } from "@xterm/addon-web-links";
@@ -10,16 +10,23 @@
     LocalShellService,
     SSHService,
     MoshService,
+    TelnetService,
+    SerialService,
     HostService,
+    HostGroupService,
     SnippetService,
   } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { Snippet } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { focus } from "./actions";
+  import type { CommandBlock } from "./commandBlocks";
   import { app } from "./state.svelte";
   import { bus } from "./events";
   import SnippetApplyDialog from "./SnippetApplyDialog.svelte";
   import AutocompletePopup from "./AutocompletePopup.svelte";
   import TerminalSidePanel from "./TerminalSidePanel.svelte";
+  import Dialog from "./Dialog.svelte";
+  import RecordingButton from "./RecordingButton.svelte";
+  import ConfirmDanger from "./ConfirmDanger.svelte";
   import { envBadge } from "./envColor";
   import {
     TerminalIcon,
@@ -39,13 +46,31 @@
     X,
     BookmarkIcon,
     Wifi,
+    Cable,
     PanelRight,
+    Copy,
+    Clipboard,
+    Eraser,
+    ListRestart,
   } from "@lucide/svelte";
 
-  type Props = { sessionID: string };
-  let { sessionID }: Props = $props();
+  type Props = {
+    sessionID: string;
+    /** Total leaves in the current tab's tree; 1 means this pane is alone and
+     *  its toolbar hides the session-ID chip. */
+    leafCount?: number;
+    active?: boolean;
+  };
+  let { sessionID, leafCount = 1, active = true }: Props = $props();
+  // Auth prompts belong to a pane; several restored panes may prompt at once.
+  let targetHostID = $state<string | null>(null);
+  let disposed = false;
 
-  type Mode = "local" | "remote" | "mosh";
+  $effect(() => {
+    if (active) void tick().then(() => { if (!disposed && active) { fit?.fit(); term?.focus(); } });
+  });
+
+  type Mode = "local" | "remote" | "mosh" | "telnet" | "serial";
   type Status = "starting" | "running" | "connecting" | "connected" | "idle" | "error";
 
   let mode: Mode = $state("local");
@@ -53,11 +78,22 @@
   let errorMsg = $state("");
   let connectedHostID = $state<string | null>(null);
   let promptingPassword = $state(false);
+  // One-shot password typed at the connect prompt. Held only for the duration
+  // of this pane's connect attempts (TOFU approval and auto-reconnect re-use
+  // it), then dropped on disconnect. Saved passwords are never loaded here —
+  // the Go dialer resolves those from the vault itself.
   let runtimePassword = $state("");
+  let rememberPassword = $state(false);
   let showHostPicker = $state(false);
 
   let promptingTofu = $state(false);
   let tofuPayload = $state<{host: string, port: number, keyType: string, presentedFp: string, presentedKey: string} | null>(null);
+
+  // Production connect gate — raised by switchToRemote/switchToMosh, resolved
+  // by ConfirmDanger. `via` records which connection path the user chose, since
+  // both functions return before setting mode and the dialog has to resume the
+  // exact connect it interrupted.
+  let confirmProdHost = $state<{ id: string; name: string; via: "ssh" | "mosh" } | null>(null);
 
   // Splash screen tracking
   let hasTyped = $state(false);
@@ -95,6 +131,8 @@
   let acBuffer = $state("");
   let showAutocomplete = $state(false);
 
+  let commandBlocks = $state<CommandBlock[]>([]);
+
   function stripAnsi(s: string): string {
     return s.replace(/\x1b\[[0-9;]*[A-Za-z]/g, "").replace(/\x1b\][^\x07]*\x07/g, "");
   }
@@ -102,6 +140,7 @@
   function updateAcBuffer(d: string) {
     // Newline / carriage return → reset buffer and dismiss.
     if (d === "\r" || d === "\n" || d.includes("\r") || d.includes("\n")) {
+      startCommandBlock(acBuffer);
       acBuffer = "";
       showAutocomplete = false;
       return;
@@ -131,6 +170,37 @@
     showAutocomplete = clean.length >= 2 && (clean.length <= 60) && (!clean.includes(" ") || afterSpace);
   }
 
+  function startCommandBlock(command: string) {
+    const clean = command.trim();
+    if (commandBlocks.length && commandBlocks.at(-1)?.running) {
+      const previous = commandBlocks.at(-1)!;
+      previous.running = false;
+      previous.endedAt = Date.now();
+    }
+    if (!clean) return;
+    commandBlocks.push({
+      id: crypto.randomUUID(),
+      command: clean,
+      startedAt: Date.now(),
+      running: true,
+      output: "",
+    });
+    if (commandBlocks.length > 100) commandBlocks.shift();
+  }
+
+  function recordCommandOutput(data: string) {
+    const block = commandBlocks.at(-1);
+    if (!block?.running) return;
+    const exitMarker = /\x1b\]133;D;(\d+)(?:\x07|\x1b\\)/.exec(data);
+    const clean = stripAnsi(data).replace(/\x1b\]133;D;\d+(?:\x07|\x1b\\)/g, "");
+    block.output = (block.output + clean).slice(-64 * 1024);
+    if (exitMarker) {
+      block.exitCode = Number(exitMarker[1]);
+      block.running = false;
+      block.endedAt = Date.now();
+    }
+  }
+
   function acceptAutocomplete(text: string) {
     showAutocomplete = false;
     // Replace the current buffer with the accepted text
@@ -138,6 +208,56 @@
     const backspaces = "\x7f".repeat(spaces);
     writeLocal(backspaces + text);
     acBuffer = text;
+  }
+
+  // ── Context menu ────────────────────────────────────────────────────
+  // Right-click inside the pane opens a native-feeling menu: copy, paste,
+  // select-all, clear, broadcast. The browser default (which loses the
+  // xterm selection on right-click) is suppressed entirely.
+  let ctxMenu = $state<{ x: number; y: number } | null>(null);
+  let ctxHasSelection = $state(false);
+
+  function openCtxMenu(e: MouseEvent) {
+    e.preventDefault();
+    ctxHasSelection = !!term?.getSelection();
+    ctxMenu = { x: Math.min(e.clientX, window.innerWidth - 210), y: Math.min(e.clientY, window.innerHeight - 190) };
+  }
+
+  function closeCtxMenu() {
+    ctxMenu = null;
+    term?.focus();
+  }
+
+  async function ctxCopy() {
+    const sel = term?.getSelection();
+    if (!sel) return;
+    closeCtxMenu();
+    try {
+      await WailsClipboard.SetText(sel);
+    } catch {
+      app.toast("error", "COPY FAILED", "Clipboard is unavailable in this webview.");
+    }
+  }
+
+  async function ctxPaste() {
+    closeCtxMenu();
+    try {
+      const text = await WailsClipboard.Text();
+      if (text) term?.paste(text);
+    } catch {
+      app.toast("error", "PASTE FAILED", "Clipboard is unavailable in this webview.");
+    }
+  }
+
+  function ctxSelectAll() {
+    closeCtxMenu();
+    term?.selectAll();
+    term?.focus();
+  }
+
+  function ctxClear() {
+    closeCtxMenu();
+    term?.clear();
   }
 
   // ── Sudo prompt detection ──────────────────────────────────────────
@@ -193,30 +313,50 @@
     if (app.sessionStatus[sessionID] === "needs-input") app.clearSessionStatus(sessionID);
   }
 
-  function getSudoPassword(): string | null {
-    if (mode === "remote" && connectedHostID) return app.hostSudoPasswords[connectedHostID] || null;
-    if (mode === "local") return app.hostSudoPasswords["local"] || null;
-    return null;
+  // Whether a sudo password is on file for whatever this pane is attached to.
+  // A boolean is all the UI needs; the plaintext never comes over the bridge.
+  function hasSudoPassword(): boolean {
+    if (mode === "remote" && connectedHostID) return app.hasSavedSudoPassword(connectedHostID);
+    if (mode === "local") return app.hasSavedSudoPassword("local");
+    return false;
   }
 
-  function sendSudoPassword() {
-    const pw = getSudoPassword();
-    if (!pw) { sudoInlineInput = true; return; }
-    writeLocal(pw + "\n");
+  // Ask the backend to unseal the sudo password and write it into the session
+  // itself. Returns false when nothing is stored, in which case we fall back
+  // to the inline prompt. The renderer never sees the password either way.
+  async function sendSudoPassword() {
+    let sent = false;
+    try {
+      if (mode === "remote" && connectedHostID) {
+        sent = (await SSHService.SendSudoPassword(sessionID, connectedHostID)) ?? false;
+      } else if (mode === "local") {
+        sent = (await LocalShellService.SendSudoPassword(sessionID)) ?? false;
+      }
+    } catch (e: any) {
+      app.toast("error", "SUDO FILL FAILED", String(e?.message ?? e));
+      return;
+    }
+    if (!sent) { sudoInlineInput = true; return; }
     dismissSudoPill();
   }
 
-  function sendInlineSudoPassword() {
+  // The inline prompt is the one place a password legitimately passes through
+  // the renderer — the user just typed it here. We write it straight to the
+  // session and hand it to the vault; it isn't retained in app state.
+  async function sendInlineSudoPassword() {
     if (!sudoInlinePassword) return;
-    writeLocal(sudoInlinePassword + "\n");
-    if (mode === "remote" && connectedHostID) {
-      void HostService.SetSudoPassword(connectedHostID, sudoInlinePassword);
-      app.setSudoPassword(connectedHostID, sudoInlinePassword);
-    } else if (mode === "local") {
-      void HostService.SetSudoPassword("local", sudoInlinePassword);
-      app.setSudoPassword("local", sudoInlinePassword);
-    }
+    const pw = sudoInlinePassword;
     sudoInlinePassword = "";
+    writeLocal(pw + "\n");
+    const target = mode === "remote" && connectedHostID ? connectedHostID : mode === "local" ? "local" : null;
+    if (target) {
+      try {
+        await HostService.SetSudoPassword(target, pw);
+        await app.refreshSecretStatus();
+      } catch (e: any) {
+        app.toast("warn", "SUDO PASSWORD NOT SAVED", String(e?.message ?? e));
+      }
+    }
     dismissSudoPill();
   }
 
@@ -227,6 +367,8 @@
     if (mode === "local" && status === "running") void LocalShellService.Write(sessionID, p.text);
     else if (mode === "remote" && status === "connected") void SSHService.Write(sessionID, p.text);
     else if (mode === "mosh" && status === "connected") void MoshService.Write(sessionID, p.text);
+    else if (mode === "telnet" && status === "connected") void TelnetService.Write(sessionID, p.text);
+    else if (mode === "serial" && status === "connected") void SerialService.Write(sessionID, p.text);
     app.pendingTerminalInsert = null;
   });
 
@@ -236,12 +378,51 @@
     else if (app.sessionStatus[sessionID] === "error") app.clearSessionStatus(sessionID);
   });
 
-  // Keep connected-hosts set in sync
+  // Track the scrollback setting without rebuilding the terminal, which would
+  // cost the buffer, the scroll position and the WebGL context.
+  //
+  // Two paths reach the same value: onMount reads it when constructing the
+  // Terminal, and this keeps it current afterwards — both because the user can
+  // change it in Settings while panes are open, and because the first
+  // SettingsService.Get() resolves after early panes have already mounted on
+  // the client-side default.
+  //
+  // Lowering the limit drops the oldest lines immediately. That is the point of
+  // lowering it, so it is not something to defer or warn about here; the
+  // Settings copy is where the consequence is stated.
   $effect(() => {
-    if ((mode === "remote" || mode === "mosh") && connectedHostID) {
-      if (status === "connected") app.addConnectedHost(connectedHostID);
-      else app.removeConnectedHost(connectedHostID);
+    const lines = app.settings.terminalScrollback;
+    // `term` is a plain binding rather than $state, so this effect does not
+    // re-run when it is assigned. It does not need to: if this runs before
+    // onMount, the constructor reads the same value a moment later.
+    if (!term) return;
+    if (!Number.isInteger(lines) || lines <= 0) return;
+    if (term.options.scrollback === lines) return;
+    term.options.scrollback = lines;
+  });
+
+  // Keep this pane's host attachment in sync. The attachment is what names a
+  // broadcast's blast radius, what the workspace persists for session restore,
+  // and what app.connectedHosts is derived from, so it has to follow
+  // disconnects as closely as connects — a stale entry would restore a pane to
+  // a host it had left, and would keep the host lit as connected.
+  $effect(() => {
+    if (mode === "local" || !connectedHostID) {
+      app.setSessionHost(sessionID, null);
+      return;
     }
+    app.setSessionHost(
+      sessionID,
+      status === "connected"
+        ? {
+            hostID: connectedHostID,
+            // Telnet and serial hosts restore through the same SSH entry point,
+            // which re-reads host.protocol and routes them — only Mosh is a
+            // genuinely separate choice the user made for this pane.
+            via: mode === "mosh" ? "mosh" : "ssh",
+          }
+        : null,
+    );
   });
 
   // Terminal theme themes — updated via TerminalSidePanel theme picker
@@ -267,7 +448,7 @@
     }
     return {
       background: "#0b0e14", foreground: "#e6e9ef", cursor: "#3b82f6", cursorAccent: "#0b0e14",
-      selectionBackground: "rgba(59, 130, 246, 0.22)",
+      selectionBackground: "rgba(59,130,246, 0.22)",
       black: "#0b0e14", brightBlack: "#545d6b", red: "#ef4444", brightRed: "#f87171",
       green: "#22c55e", brightGreen: "#4ade80", yellow: "#f59e0b", brightYellow: "#fbbf24",
       blue: "#3b82f6", brightBlue: "#60a5fa", magenta: "#a78bfa", brightMagenta: "#c4b5fd",
@@ -280,7 +461,11 @@
       fontFamily: '"JetBrains Mono Variable", "Cascadia Mono", Menlo, Consolas, monospace',
       fontSize: 13, lineHeight: 1.25, letterSpacing: 0,
       cursorBlink: true, cursorStyle: "bar",
-      allowProposedApi: true, scrollback: 5000,
+      allowProposedApi: true, scrollback: app.settings.terminalScrollback,
+      // Legibility & feel: raise dim text above the WCAG AA floor so dark
+      // themes stay readable on cheap panels, and ease scrollback flings
+      // instead of snapping.
+      minimumContrastRatio: 4.5, smoothScrollDuration: 100,
       theme: termTheme(),
     });
     fit = new FitAddon();
@@ -296,7 +481,12 @@
 
     try {
       const webgl = new WebglAddon();
-      webgl.onContextLoss(() => { webgl.dispose(); });
+      const lossListener = webgl.onContextLoss(() => {
+        // Disposal can itself emit context loss when many panes exhaust the
+        // browser's GPU contexts. Remove the callback before disposing.
+        lossListener.dispose();
+        try { webgl.dispose(); } catch { /* DOM renderer remains available */ }
+      });
       term.loadAddon(webgl);
     } catch { /* canvas fallback */ }
 
@@ -310,6 +500,29 @@
       // Ctrl+. → toggle side panel
       if (e.type === "keydown" && e.ctrlKey && e.key === ".") {
         e.preventDefault(); showSidePanel = !showSidePanel; return false;
+      }
+      // Clipboard & selection. Ctrl+Shift+<key> is the terminal convention
+      // precisely because the unshifted forms belong to the shell: bare Ctrl+C
+      // is SIGINT and Ctrl+A is beginning-of-line, and stealing either would
+      // break the tools people run in here. Cmd+<key> is also accepted — the
+      // shell never sees Meta — so macOS muscle memory works too.
+      //
+      // stopPropagation is load-bearing: this runs on xterm's helper textarea,
+      // so anything that bubbles reaches the global keydown handlers in
+      // Workspace and Palette too. A key the focused pane has already consumed
+      // must not also fire an unrelated app-level action.
+      if (e.type === "keydown" && (e.metaKey || (e.ctrlKey && e.shiftKey))) {
+        const k = e.key.toLowerCase();
+        const consume = () => { e.preventDefault(); e.stopPropagation(); };
+        if (k === "c" && term?.hasSelection()) { consume(); void ctxCopy(); return false; }
+        if (k === "v") { consume(); void ctxPaste(); return false; }
+        if (k === "a") { consume(); ctxSelectAll(); return false; }
+        // Shift also keeps bare Ctrl+B free — it's tmux's default prefix, and
+        // plenty of these panes are running tmux.
+        if (k === "b") { consume(); toggleBroadcastMember(); return false; }
+        // Shift is required for K even on macOS: bare Cmd+K / Ctrl+K opens the
+        // command palette, which is the more valuable binding to keep.
+        if (k === "k" && e.shiftKey) { consume(); ctxClear(); return false; }
       }
       return true;
     });
@@ -328,6 +541,8 @@
       if (mode === "local" && status === "running") void LocalShellService.Resize(sessionID, cols, rows);
       if (mode === "remote" && status === "connected") void SSHService.Resize(sessionID, cols, rows);
       if (mode === "mosh" && status === "connected") void MoshService.Resize(sessionID, cols, rows);
+      if (mode === "telnet" && status === "connected") void TelnetService.Resize(sessionID, cols, rows);
+      if (mode === "serial" && status === "connected") void SerialService.Resize(sessionID, cols, rows);
     });
 
     resizeObs = new ResizeObserver(() => {
@@ -343,10 +558,20 @@
     });
     containerEl?.addEventListener("focusout", () => { isFocused = false; });
 
+    // Native-feeling context menu. xterm fires `contextmenu` on the helper
+    // textarea, so bind here rather than on the window.
+    containerEl?.addEventListener("contextmenu", openCtxMenu);
+
+    const onGlobalKeydown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && ctxMenu) closeCtxMenu();
+    };
+    window.addEventListener("keydown", onGlobalKeydown);
+
     dataOff = Events.On("terminal:data", (e: any) => {
       const p = e?.data;
       if (!p || p.sessionID !== sessionID) return;
       term?.write(p.data);
+      recordCommandOutput(p.data);
       checkForSudoPrompt(p.data);
       // Output landing on an unfocused pane → flag the tab as having unread output.
       if (!isFocused) app.markSessionUnread(sessionID);
@@ -357,6 +582,8 @@
       if (!p || p.sessionID !== sessionID) return;
       const reason = p.reason ?? "";
       term?.writeln(`\r\n\x1b[90m[session closed: ${reason}]\x1b[0m`);
+      // Drop any open context menu — the selection it was built on is gone.
+      ctxMenu = null;
       if (mode === "remote" && connectedHostID) {
         const hostID = connectedHostID;
         connectedHostID = null;
@@ -383,8 +610,8 @@
           reconnectAttempt = 0;
           status = "idle";
         }
-      } else if (mode === "mosh") {
-        // Mosh handles its own reconnects — just update UI state
+      } else if (mode === "mosh" || mode === "telnet" || mode === "serial") {
+        // Mosh handles its own reconnects; telnet/serial have no auto-reconnect.
         connectedHostID = null;
         status = "idle";
       } else {
@@ -392,14 +619,29 @@
       }
     });
 
-    void openLocal();
+    // Drain any connect intent parked for this session before the pane
+    // existed, then stay subscribed for intents that arrive while it's live.
+    function drainConnectIntent() {
+      if (!localReady || disposed) return;
+      const intent = app.takeConnectIntent(sessionID);
+      if (!intent) return;
+      if (intent.via === "mosh") void switchToMosh(intent.hostID);
+      else void switchToRemote(intent.hostID);
+    }
 
-    const offAutoConnect = bus.on('connect-terminal-to-host', (detail) => {
-      if (detail.sessionID === sessionID) switchToRemote(detail.hostID);
-    });
+    // The drain waits for openLocal to *finish*, not just start. Both
+    // switchToRemote and switchToMosh close the local shell only when they see
+    // status === "running", which openLocal sets after its await — so draining
+    // synchronously leaks the local PTY (it keeps emitting terminal:data under
+    // this same sessionID) and lets openLocal's continuation reset mode/status
+    // after the remote is up, which sends keystrokes to the wrong shell and
+    // resets the tab label. openLocal swallows its own errors, so this always
+    // runs, and a live pane's intents still arrive via the bus below.
+    let localReady = false;
+    void openLocal(false).then(() => { localReady = true; drainConnectIntent(); });
 
-    const offAutoConnectMosh = bus.on('connect-terminal-to-host-mosh', (detail) => {
-      if (detail.sessionID === sessionID) switchToMosh(detail.hostID);
+    const offConnectIntent = bus.on('connect-intent', (detail) => {
+      if (detail.sessionID === sessionID) drainConnectIntent();
     });
 
     // Listen for theme changes from TerminalSidePanel
@@ -409,10 +651,11 @@
     };
     window.addEventListener("terminal:theme-change", onThemeChange);
 
-    return () => { offAutoConnect(); offAutoConnectMosh(); window.removeEventListener("terminal:theme-change", onThemeChange); };
+    return () => { offConnectIntent(); window.removeEventListener("terminal:theme-change", onThemeChange); window.removeEventListener("keydown", onGlobalKeydown); };
   });
 
   onDestroy(() => {
+    disposed = true;
     dataOff?.(); exitOff?.();
     resizeObs?.disconnect();
     stopLatencyPolling();
@@ -421,27 +664,47 @@
     clearTimeout(resizeDebounce);
     app.unregisterBroadcastSink(sessionID);
     app.forgetSession(sessionID);
-    term?.dispose();
+    app.forgetConnectIntent(sessionID);
+    // xterm can throw here if the WebGL addon already disposed itself after a
+    // context loss (hidden/minimized webview) — a throw during onDestroy would
+    // abort Svelte's whole unmount and blank the app, so never let it escape.
+    try { term?.dispose(); } catch { /* already disposed */ }
     if (mode === "local" && status === "running") void LocalShellService.Close(sessionID);
     if (mode === "remote" && status === "connected") void SSHService.Disconnect(sessionID);
     if (mode === "mosh" && status === "connected") void MoshService.Disconnect(sessionID);
+    if (mode === "telnet" && status === "connected") void TelnetService.Disconnect(sessionID);
+    if (mode === "serial" && status === "connected") void SerialService.Disconnect(sessionID);
   });
 
   function writeLocal(d: string) {
     if (mode === "local" && status === "running") void LocalShellService.Write(sessionID, d);
     else if (mode === "remote" && status === "connected") void SSHService.Write(sessionID, d);
     else if (mode === "mosh" && status === "connected") void MoshService.Write(sessionID, d);
+    else if (mode === "telnet" && status === "connected") void TelnetService.Write(sessionID, d);
+    else if (mode === "serial" && status === "connected") void SerialService.Write(sessionID, d);
   }
 
-  // If the host defines a startup snippet, render it (using variable defaults)
-  // and send it once the shell is up. A short delay lets the remote prompt
-  // settle before we type into it.
+  // Send the host's environment variables, then its startup snippet, once the
+  // shell is up. A short delay lets the remote prompt settle before we type
+  // into it.
+  //
+  // Both are typed into the shell rather than passed through the SSH env
+  // channel: sshd only accepts variables named in its AcceptEnv, which almost
+  // no default configuration sets. The exports are rendered in Go so group
+  // inheritance and the quoting rules live in one place — see
+  // HostGroupService.EnvPrelude.
   function runStartupSnippet(hostID: string) {
     const host = app.hosts.find((h) => h.id === hostID);
-    if (!host?.startupSnippetID) return;
+    if (!host) return;
     setTimeout(async () => {
+      if (disposed) return;
       try {
-        const rendered = await SnippetService.Apply(host.startupSnippetID!, {}, hostID, host.name, false);
+        const prelude = await HostGroupService.EnvPrelude(hostID);
+        if (prelude) writeLocal(prelude.endsWith("\n") ? prelude : prelude + "\n");
+      } catch { /* a host with no env vars is the common case — ignore */ }
+      if (disposed || !host.startupSnippetID) return;
+      try {
+        const rendered = await SnippetService.Apply(host.startupSnippetID, {}, hostID, host.name, false);
         if (rendered) writeLocal(rendered.endsWith("\n") ? rendered : rendered + "\n");
       } catch { /* snippet may have been deleted — ignore */ }
     }, 400);
@@ -452,50 +715,96 @@
   let inBroadcast = $derived(app.broadcastSet.has(sessionID));
   let broadcastActive = $derived(app.broadcastEnabled && inBroadcast);
 
-  async function openLocal() {
+  async function openLocal(clearTarget = true) {
+    if (disposed) return;
+    if (clearTarget) app.sessionTargets[sessionID] = null;
     status = "starting"; errorMsg = "";
     try {
       await LocalShellService.Open(sessionID, term?.cols ?? 80, term?.rows ?? 24);
-      mode = "local"; status = "running"; term?.focus();
+      if (disposed) { await LocalShellService.Close(sessionID); return; }
+      mode = "local"; status = "running"; if (active) term?.focus();
+      bus.emit('session-label', { sessionID, label: "" });
     } catch (e: any) { status = "error"; errorMsg = String(e?.message ?? e); }
   }
 
-  async function switchToRemote(hostID: string) {
+  // `confirmed` is set only by the production dialog's own Proceed handler. It
+  // has to exist: the handler re-enters this function to do the connect, and
+  // without a way to say "the gate is already cleared" the production check
+  // below fires a second time, reopens the dialog it was just dismissed from,
+  // and Proceed does nothing no matter how often it is clicked.
+  async function switchToRemote(hostID: string, confirmed = false) {
     showHostPicker = false;
     const host = app.hosts.find((h) => h.id === hostID);
     if (!host) return;
-    if ((host.environment ?? "").toLowerCase() === "production") {
-      const ok = confirm(`⚠️ ${host.name} is tagged PRODUCTION.\n\nConnect anyway?`);
-      if (!ok) return;
+    targetHostID = hostID;
+    app.sessionTargets[sessionID] = { hostID, via: "ssh" };
+    // Production hosts get a first-class confirmation (ConfirmDanger, not the
+    // native window.confirm — in a Wails webview that renders as an unstyled
+    // OS dialog, jarring for the most dangerous action in the app).
+    if (!confirmed && (host.environment ?? "").toLowerCase() === "production") {
+      confirmProdHost = { id: host.id, name: host.name, via: "ssh" };
+      return;
     }
+    // Telnet and serial are plaintext transports with no SSH auth — route them
+    // straight to their own services instead of the SSH connect path.
+    const proto = host.protocol || "ssh";
+    if (proto === "telnet" || proto === "serial") {
+      await connectAltProtocol(host.id, proto);
+      return;
+    }
+    // Tear down whatever this pane is currently attached to. switchToMosh and
+    // connectAltProtocol both do all four; this path used to close only the
+    // local shell, which left a live telnet or serial session streaming into
+    // the pane, and made an SSH-to-SSH switch fail outright — the backend
+    // rejects a sessionID it already holds ("session %s already connected").
+    // Not reachable today, since the host picker is gated to mode === "local"
+    // and every connect intent targets a fresh tab, but the asymmetry is a trap
+    // for the next caller.
     if (mode === "local" && status === "running") await LocalShellService.Close(sessionID);
-    app.selectedHostID = hostID;
+    if (mode === "remote" && status === "connected") await SSHService.Disconnect(sessionID);
+    if (mode === "telnet" && status === "connected") await TelnetService.Disconnect(sessionID);
+    if (mode === "serial" && status === "connected") await SerialService.Disconnect(sessionID);
+    if (active) app.selectedHostID = hostID;
     mode = "remote";
     if (host.authMethod === "password") {
-      const cached = app.hostPasswords[host.id];
-      if (!cached) { promptingPassword = true; return; }
-      runtimePassword = cached;
+      // A saved password is resolved backend-side during the dial, so we only
+      // need to know whether one exists. If not, prompt for a one-shot.
+      if (!app.hasSavedPassword(host.id)) { promptingPassword = true; return; }
+      runtimePassword = "";
     } else {
       runtimePassword = "";
     }
     await actuallyConnect(host.id);
   }
 
-  async function switchToMosh(hostID: string) {
+  // See switchToRemote for why `confirmed` exists.
+  async function switchToMosh(hostID: string, confirmed = false) {
     showHostPicker = false;
     const host = app.hosts.find((h) => h.id === hostID);
     if (!host) return;
+    targetHostID = hostID;
+    app.sessionTargets[sessionID] = { hostID, via: "mosh" };
+    // Mosh is the "roaming" connection path, but it lands on the same
+    // production box — gate it identically to SSH.
+    if (!confirmed && (host.environment ?? "").toLowerCase() === "production") {
+      confirmProdHost = { id: host.id, name: host.name, via: "mosh" };
+      return;
+    }
     if (mode === "local" && status === "running") await LocalShellService.Close(sessionID);
     if (mode === "remote" && status === "connected") await SSHService.Disconnect(sessionID);
-    app.selectedHostID = hostID;
+    if (mode === "telnet" && status === "connected") await TelnetService.Disconnect(sessionID);
+    if (mode === "serial" && status === "connected") await SerialService.Disconnect(sessionID);
+    if (active) app.selectedHostID = hostID;
     mode = "mosh";
     status = "connecting";
     errorMsg = "";
     try {
       await MoshService.Connect(sessionID, hostID, term?.cols ?? 80, term?.rows ?? 24);
+      if (disposed) { await MoshService.Disconnect(sessionID); return; }
       status = "connected";
       connectedHostID = hostID;
-      term?.focus();
+      if (active) term?.focus();
+      bus.emit('session-label', { sessionID, label: app.hosts.find((h) => h.id === hostID)?.name ?? "" });
       runStartupSnippet(hostID);
     } catch (e: any) {
       status = "error";
@@ -505,18 +814,77 @@
     }
   }
 
+  // Connect a telnet or serial host. These transports have no SSH credentials,
+  // TOFU, latency probe, or auto-reconnect — they pipe bytes through the same
+  // terminal:data / terminal:exit events as every other session type.
+  async function connectAltProtocol(hostID: string, proto: "telnet" | "serial") {
+    showHostPicker = false;
+    if (mode === "local" && status === "running") await LocalShellService.Close(sessionID);
+    if (mode === "remote" && status === "connected") await SSHService.Disconnect(sessionID);
+    if (mode === "telnet" && status === "connected") await TelnetService.Disconnect(sessionID);
+    if (mode === "serial" && status === "connected") await SerialService.Disconnect(sessionID);
+    if (active) app.selectedHostID = hostID;
+    mode = proto;
+    status = "connecting";
+    errorMsg = "";
+    try {
+      if (proto === "telnet") {
+        await TelnetService.Connect(sessionID, hostID, term?.cols ?? 80, term?.rows ?? 24);
+      } else {
+        await SerialService.Connect(sessionID, hostID);
+      }
+      if (disposed) {
+        if (proto === "telnet") await TelnetService.Disconnect(sessionID);
+        else await SerialService.Disconnect(sessionID);
+        return;
+      }
+      status = "connected";
+      connectedHostID = hostID;
+      if (active) term?.focus();
+      bus.emit('session-label', { sessionID, label: app.hosts.find((h) => h.id === hostID)?.name ?? "" });
+      runStartupSnippet(hostID);
+    } catch (e: any) {
+      status = "error";
+      errorMsg = String(e?.message ?? e);
+      // Fall back to local shell on connect failure, like Mosh does.
+      await openLocal();
+    }
+  }
+
+  // A password typed here is a one-shot: it goes to this pane's connect call
+  // and nowhere else. It is only persisted if the user asks for it, in which
+  // case it goes straight into the vault rather than into app state.
   async function submitPassword() {
-    if (!runtimePassword || !app.selectedHostID) return;
-    app.setPassword(app.selectedHostID, runtimePassword);
+    if (!runtimePassword || !targetHostID) return;
+    const hostID = targetHostID;
+    // The checkbox is disabled while the vault is locked, but it may have been
+    // ticked before an idle auto-lock fired, so re-check here rather than
+    // letting SetPassword fail and surfacing it as a post-hoc error.
+    if (rememberPassword && !app.vault.unlocked) {
+      app.toast(
+        "warn",
+        "PASSWORD NOT SAVED",
+        "The vault locked before this password could be stored. Connecting anyway.",
+      );
+    } else if (rememberPassword) {
+      try {
+        await HostService.SetPassword(hostID, runtimePassword);
+        await app.refreshSecretStatus();
+      } catch (e: any) {
+        app.toast("warn", "PASSWORD NOT SAVED", String(e?.message ?? e));
+      }
+    }
     promptingPassword = false;
-    await actuallyConnect(app.selectedHostID);
+    await actuallyConnect(hostID);
   }
 
   async function actuallyConnect(hostID: string) {
     status = "connecting"; errorMsg = "";
     try {
       await SSHService.ConnectByHost(sessionID, hostID, runtimePassword, term?.cols ?? 80, term?.rows ?? 24);
-      status = "connected"; connectedHostID = hostID; term?.focus();
+      if (disposed) { await SSHService.Disconnect(sessionID); return; }
+      status = "connected"; connectedHostID = hostID; if (active) term?.focus();
+      bus.emit('session-label', { sessionID, label: app.hosts.find((h) => h.id === hostID)?.name ?? "" });
       startLatencyPolling();
       runStartupSnippet(hostID);
     } catch (e: any) {
@@ -533,12 +901,29 @@
   }
 
   async function approveTofu() {
-    if (!tofuPayload || !app.selectedHostID) return;
+    if (!tofuPayload || !targetHostID) return;
     try {
       await HostService.ApproveHostKey(tofuPayload.host, tofuPayload.port, tofuPayload.keyType, tofuPayload.presentedKey, tofuPayload.presentedFp);
       promptingTofu = false;
-      await actuallyConnect(app.selectedHostID);
+      await actuallyConnect(targetHostID);
     } catch (e: any) { status = "error"; errorMsg = "TOFU approval failed: " + String(e?.message ?? e); }
+  }
+
+  // Declining either prompt drops the pane back to a local shell. Named
+  // functions rather than inline handlers because Dialog routes Escape and the
+  // Cancel button through the same path, and both must clear the typed
+  // password rather than leave it in memory for the next prompt.
+  function cancelPasswordPrompt() {
+    promptingPassword = false;
+    runtimePassword = "";
+    rememberPassword = false;
+    void openLocal();
+  }
+
+  function cancelTofuPrompt() {
+    promptingTofu = false;
+    tofuPayload = null;
+    void openLocal();
   }
 
   function startLatencyPolling() {
@@ -561,11 +946,18 @@
   }
 
   async function disconnectRemote() {
+    // Cancel any pending auto-reconnect before tearing down.
+    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = undefined; }
+    reconnecting = false;
+    reconnectAttempt = 0;
     try {
       if (mode === "mosh") await MoshService.Disconnect(sessionID);
+      else if (mode === "telnet") await TelnetService.Disconnect(sessionID);
+      else if (mode === "serial") await SerialService.Disconnect(sessionID);
       else await SSHService.Disconnect(sessionID);
     } finally {
       connectedHostID = null; status = "idle";
+      runtimePassword = "";
       stopLatencyPolling();
       await openLocal();
     }
@@ -589,7 +981,9 @@
     {#if mode === "local"}
       <TerminalIcon size="14" class="text-[var(--color-text-3)]" />
       <span class="font-mono type-body font-bold tracking-wide text-[var(--color-text-1)]">local</span>
-      <span class="font-mono type-micro text-[var(--color-text-4)]">· {sessionID.slice(0, 6)}</span>
+      {#if leafCount > 1}
+        <span class="font-mono type-micro text-[var(--color-text-4)]" title="Pane {sessionID}">· {sessionID.slice(0, 6)}</span>
+      {/if}
       {#if status === "starting"}
         <Loader2 size="12" class="animate-spin text-[var(--color-text-3)]" />
         <span class="text-[var(--color-text-3)]">starting…</span>
@@ -600,14 +994,28 @@
       {#if mode === "mosh"}
         <Wifi size="14" class="text-[var(--color-success)]" />
         <span class="rounded border border-[var(--color-success)]/40 bg-[var(--color-success)]/10 px-1.5 py-px font-mono type-micro font-bold text-[var(--color-success)]">MOSH</span>
+      {:else if mode === "telnet"}
+        <Plug size="14" class="text-[var(--color-warn)]" />
+        <span class="rounded border border-[var(--color-warn)]/40 bg-[var(--color-warn)]/10 px-1.5 py-px font-mono type-micro font-bold text-[var(--color-warn)]" title="Telnet is unencrypted">TELNET</span>
+      {:else if mode === "serial"}
+        <Cable size="14" class="text-[var(--color-accent)]" />
+        <span class="rounded border border-[var(--color-accent)]/40 bg-[var(--color-accent)]/10 px-1.5 py-px font-mono type-micro font-bold text-[var(--color-accent)]">SERIAL</span>
       {:else}
         <Plug size="14" class="text-[var(--color-accent)]" />
       {/if}
-      {#if connectedHost}
+      {#if connectedHost && mode === "serial"}
+        <span class="font-mono type-body font-bold tracking-wide text-[var(--color-text-1)]">{connectedHost.serialDevice || "serial"}</span>
+        {#if connectedHost.serialBaud}<span class="font-mono type-micro text-[var(--color-text-4)]">@{connectedHost.serialBaud}</span>{/if}
+        <span class="ml-1 h-1.5 w-1.5 rounded-full bg-[var(--color-accent)] pulse-soft"></span>
+      {:else if connectedHost && mode === "telnet"}
+        <span class="font-mono type-body font-bold tracking-wide text-[var(--color-text-1)]">{connectedHost.host}</span>
+        <span class="font-mono type-micro text-[var(--color-text-4)]">:{connectedHost.port || 23}</span>
+        <span class="ml-1 h-1.5 w-1.5 rounded-full bg-[var(--color-accent)] pulse-soft"></span>
+      {:else if connectedHost}
         <span class="font-mono type-body font-bold tracking-wide text-[var(--color-text-1)]">{connectedHost.username}@{connectedHost.host}</span>
         <span class="font-mono type-micro text-[var(--color-text-4)]">:{connectedHost.port}</span>
         <span class="ml-1 h-1.5 w-1.5 rounded-full bg-[var(--color-accent)] pulse-soft"></span>
-        {#if latencyMs !== null && mode !== "mosh"}
+        {#if latencyMs !== null && mode === "remote"}
           {@const tone = latencyMs < 50 ? "text-[var(--color-accent)]" : latencyMs < 200 ? "text-[var(--color-warn)]" : "text-[var(--color-danger)]"}
           <span class="ml-1 inline-flex items-center gap-0.5 rounded border hairline px-1.5 py-0.5 font-mono type-micro {tone}" title="Round-trip time">
             <Activity size="9" />{latencyMs}ms
@@ -630,10 +1038,8 @@
         <span class="truncate font-mono type-nano text-[var(--color-danger)]" title={errorMsg}>ERR: {errorMsg}</span>
       {/if}
 
-      {#if app.recordingsEnabled && (status === "running" || status === "connected")}
-        <span class="flex items-center gap-1 border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/8 px-1.5 py-px font-mono type-eyebrow text-[var(--color-danger)]">
-          <Circle size="6" class="fill-[var(--color-danger)] text-[var(--color-danger)] pulse-soft" />REC
-        </span>
+      {#if (mode === "local" || mode === "remote") && (status === "running" || status === "connected")}
+        <RecordingButton {sessionID} />
       {/if}
 
       <button
@@ -696,7 +1102,7 @@
               <div class="border-b hairline px-3 py-2 font-mono type-eyebrow text-[var(--color-text-2)]">Saved hosts</div>
               <div class="max-h-64 overflow-y-auto">
                 {#each app.hosts as h (h.id)}
-                  {@const hasSavedPw = !!(app.hostPasswords[h.id])}
+                  {@const hasSavedPw = app.hasSavedPassword(h.id)}
                   <button
                     class="flex w-full items-center gap-2.5 px-3 py-2 text-left type-caption hover:bg-[var(--color-surface-3)] transition-colors"
                     onclick={() => switchToRemote(h.id)}
@@ -781,7 +1187,7 @@
 
       <!-- Splash screen -->
       {#if !hasTyped && (status === "running" || status === "connected")}
-        <div class="pointer-events-none absolute inset-0 flex items-center justify-center fade-up z-10 bg-[var(--color-surface-0)]/40 backdrop-blur-[2px]">
+        <div class="terminal-welcome pointer-events-none absolute inset-0 flex items-center justify-center fade-up z-10 bg-[var(--color-surface-0)]/40 backdrop-blur-[2px]">
           <div class="pointer-events-auto border hairline-strong surface-2 p-5 shadow-2xl min-w-[320px]">
             <div class="mb-4 flex items-center gap-2">
               {#if mode === "mosh"}
@@ -790,7 +1196,7 @@
               {:else}
                 <TerminalIcon size="14" class="text-[var(--color-accent)]" />
                 <span class="font-mono type-eyebrow text-[var(--color-text-1)]">
-                  {mode === "remote" ? `Connected to ${connectedHost?.name ?? connectedHostID}` : "Local Shell Ready"}
+                  {mode === "local" ? "Local Shell Ready" : `Connected to ${connectedHost?.name ?? connectedHostID}`}
                 </span>
               {/if}
             </div>
@@ -814,9 +1220,84 @@
       {/if}
     </div>
 
+    <!-- Terminal context menu — fixed-position so overflow-hidden panes
+         can't clip it; same backdrop pattern as HostList's row menu. -->
+    {#if ctxMenu}
+      <div
+        class="fixed inset-0 z-40"
+        role="presentation"
+        onmousedown={() => closeCtxMenu()}
+        oncontextmenu={(e) => { e.preventDefault(); closeCtxMenu(); }}
+      ></div>
+      <div
+        class="fade-up fixed z-50 min-w-[210px] overflow-hidden border hairline-strong surface-2 py-1 font-mono type-caption shadow-xl shadow-black/40"
+        style="left: {ctxMenu.x}px; top: {ctxMenu.y}px; border-radius: var(--radius-md);"
+        role="menu"
+        tabindex="-1"
+        aria-label="Terminal actions"
+        onmousedown={(e) => e.stopPropagation()}
+        oncontextmenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
+      >
+        <button
+          class="flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors {inBroadcast ? 'text-[var(--color-warn)] hover:text-[var(--color-warn)] hover:bg-[var(--color-warn)]/10' : 'text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]'}"
+          role="menuitem"
+          onclick={toggleBroadcastMember}
+          title={inBroadcast ? "Remove this pane from broadcast" : "Echo this pane's keystrokes to all broadcast panes"}
+        >
+          <Radio size="12" class={broadcastActive ? 'pulse-soft' : ''} />
+          <span class="flex-1">Broadcast {inBroadcast ? "on" : "off"}</span>
+          {#if inBroadcast}
+            <Circle size="8" class="fill-[var(--color-warn)] text-[var(--color-warn)]" />
+          {:else}
+            <span class="type-nano text-[var(--color-text-4)]">CTRL+SHIFT+B</span>
+          {/if}
+        </button>
+        <div class="mx-2 my-1 border-t hairline" role="separator"></div>
+        <button
+          class="flex w-full items-center gap-2 px-3 py-1.5 text-left type-caption text-[var(--color-text-2)] transition-colors hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)] disabled:cursor-not-allowed disabled:opacity-40"
+          role="menuitem"
+          disabled={!ctxHasSelection}
+          onclick={ctxCopy}
+        >
+          <Copy size="12" />
+          <span class="flex-1">Copy</span>
+          <span class="type-nano text-[var(--color-text-4)]">CTRL+SHIFT+C</span>
+        </button>
+        <button
+          class="flex w-full items-center gap-2 px-3 py-1.5 text-left type-caption text-[var(--color-text-2)] transition-colors hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
+          role="menuitem"
+          onclick={ctxPaste}
+        >
+          <Clipboard size="12" />
+          <span class="flex-1">Paste</span>
+          <span class="type-nano text-[var(--color-text-4)]">CTRL+SHIFT+V</span>
+        </button>
+        <div class="mx-2 my-1 border-t hairline" role="separator"></div>
+        <button
+          class="flex w-full items-center gap-2 px-3 py-1.5 text-left type-caption text-[var(--color-text-2)] transition-colors hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
+          role="menuitem"
+          onclick={ctxSelectAll}
+        >
+          <ListRestart size="12" />
+          <span class="flex-1">Select All</span>
+          <span class="type-nano text-[var(--color-text-4)]">CTRL+SHIFT+A</span>
+        </button>
+        <button
+          class="flex w-full items-center gap-2 px-3 py-1.5 text-left type-caption text-[var(--color-text-2)] transition-colors hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
+          role="menuitem"
+          onclick={ctxClear}
+        >
+          <Eraser size="12" />
+          <span class="flex-1">Clear scrollback</span>
+          <span class="type-nano text-[var(--color-text-4)]">CTRL+SHIFT+K</span>
+        </button>
+      </div>
+    {/if}
+
     <!-- Side panel -->
     {#if showSidePanel}
       <TerminalSidePanel
+        commandBlocks={commandBlocks}
         hostID={connectedHostID}
         onInsert={(text) => { writeLocal(text); term?.focus(); }}
         onClose={() => (showSidePanel = false)}
@@ -824,15 +1305,26 @@
     {/if}
   </div>
 
-  <!-- Password prompt -->
-  {#if promptingPassword && app.selectedHostID}
-    {@const host = app.hosts.find((h) => h.id === app.selectedHostID)}
+  <!-- Password prompt. Rendered through Dialog, which puts it at window scope
+       rather than inside the pane: an `absolute inset-0` overlay was being
+       clipped by the pane's `min-w-0 overflow-hidden` box, so in a tiled layout
+       the auth prompt could be cut off or invisible. Dialog also brings
+       role/aria-modal, a Tab trap, Escape, and focus restore. -->
+  {#if promptingPassword && targetHostID}
+    {@const host = app.hosts.find((h) => h.id === targetHostID)}
     {#if host}
-      <div class="absolute inset-0 z-20 flex items-center justify-center bg-black/70">
-        <div class="w-80 overflow-hidden border hairline-strong surface-2 shadow-2xl shadow-black/80">
+      {@const vaultLocked = !app.vault.unlocked}
+      <Dialog
+        onclose={cancelPasswordPrompt}
+        labelledby="pw-prompt-title-{sessionID}"
+        closeOnBackdrop={false}
+        backdropClass="bg-black/70"
+        panelClass="w-80 overflow-hidden border hairline-strong surface-2 shadow-2xl shadow-black/80"
+      >
+        {#snippet children()}
           <div class="flex items-center gap-2 border-b hairline px-4 py-2.5">
             <Lock size="11" class="text-[var(--color-accent)]" />
-            <span class="font-mono type-eyebrow text-[var(--color-text-1)]">AUTH REQUIRED</span>
+            <span id="pw-prompt-title-{sessionID}" class="font-mono type-eyebrow text-[var(--color-text-1)]">AUTH REQUIRED</span>
           </div>
           <div class="p-4">
             <div class="mb-3 font-mono type-micro text-[var(--color-text-3)]">
@@ -841,51 +1333,81 @@
             <input
               type="password"
               class="w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-caption outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50"
-              bind:value={runtimePassword} placeholder="•••••••••" use:focus
+              bind:value={runtimePassword} placeholder="•••••••••" data-autofocus
+              aria-label="Password for {host.username}@{host.host}"
               onkeydown={(e) => e.key === "Enter" && submitPassword()}
             />
-            <p class="mt-2 font-mono type-eyebrow text-[var(--color-text-4)]">TIP: Set permanently in Edit Host → Password</p>
+            <label class="mt-2.5 flex items-start gap-2" class:opacity-60={vaultLocked}>
+              <input
+                type="checkbox"
+                class="mt-0.5 accent-[var(--color-accent)] disabled:cursor-not-allowed"
+                bind:checked={rememberPassword}
+                disabled={vaultLocked}
+              />
+              <span class="type-caption text-[var(--color-text-3)]">
+                Save to vault for this host
+                {#if vaultLocked}
+                  <!-- Say so up front instead of accepting the checkbox and
+                       failing with a toast after the password is submitted. -->
+                  <span class="mt-0.5 block type-caption text-[var(--color-text-4)]">
+                    Unlock the vault to save passwords.
+                  </span>
+                {/if}
+              </span>
+            </label>
           </div>
           <div class="flex items-center justify-end gap-2 border-t hairline px-4 py-2.5">
-            <button class="border border-[var(--color-line)] px-3 py-1.5 font-mono type-eyebrow text-[var(--color-text-3)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)] transition-all" onclick={() => { promptingPassword = false; void openLocal(); }}>CANCEL</button>
+            <button class="border border-[var(--color-line)] px-3 py-1.5 font-mono type-eyebrow text-[var(--color-text-3)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)] transition-all" onclick={cancelPasswordPrompt}>CANCEL</button>
             <button class="border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 px-3 py-1.5 font-mono type-eyebrow text-[var(--color-accent)] hover:bg-[var(--color-accent)]/15 disabled:opacity-30 disabled:cursor-not-allowed transition-all" disabled={!runtimePassword} onclick={submitPassword}>CONNECT</button>
           </div>
-        </div>
-      </div>
+        {/snippet}
+      </Dialog>
     {/if}
   {/if}
 
-  <!-- TOFU prompt -->
+  <!-- TOFU prompt. Same reasoning as the password prompt above: a host-key
+       decision is the last thing that should be clipped out of view. Backdrop
+       clicks don't dismiss it — declining is an explicit choice. -->
   {#if promptingTofu && tofuPayload}
-    <div class="absolute inset-0 z-20 flex items-center justify-center bg-black/70">
-      <div class="w-96 overflow-hidden border border-[var(--color-warn)] surface-2 shadow-2xl shadow-black/80">
+    <!-- Bound before the snippet: the {#if} narrows tofuPayload to non-null,
+         but a snippet is its own closure, so the narrowing doesn't reach inside
+         it. Capturing here carries the non-null type across. -->
+    {@const tofu = tofuPayload}
+    <Dialog
+      onclose={cancelTofuPrompt}
+      labelledby="tofu-prompt-title-{sessionID}"
+      closeOnBackdrop={false}
+      backdropClass="bg-black/70"
+      panelClass="w-96 overflow-hidden border border-[var(--color-warn)] surface-2 shadow-2xl shadow-black/80"
+    >
+      {#snippet children()}
         <div class="flex items-center gap-2 border-b hairline px-4 py-2.5 bg-[var(--color-warn)]/10">
           <AlertTriangle size="11" class="text-[var(--color-warn)]" />
-          <span class="font-mono type-eyebrow text-[var(--color-warn)]">UNKNOWN HOST KEY</span>
+          <span id="tofu-prompt-title-{sessionID}" class="font-mono type-eyebrow text-[var(--color-warn)]">UNKNOWN HOST KEY</span>
         </div>
         <div class="p-4 font-mono">
           <p class="mb-3 type-caption text-[var(--color-text-2)] leading-relaxed">
-            The authenticity of host <span class="text-[var(--color-accent)]">{tofuPayload.host}</span> can't be established.
+            The authenticity of host <span class="text-[var(--color-accent)]">{tofu.host}</span> can't be established.
           </p>
           <div class="mb-4 bg-[var(--color-surface-3)] p-3 border hairline type-micro space-y-1.5">
             <div class="text-[var(--color-text-4)]">Key Type</div>
-            <div class="text-[var(--color-text-1)]">{tofuPayload.keyType}</div>
+            <div class="text-[var(--color-text-1)]">{tofu.keyType}</div>
             <div class="text-[var(--color-text-4)] mt-2">Fingerprint</div>
-            <div class="text-[var(--color-text-1)] break-all">{tofuPayload.presentedFp}</div>
+            <div class="text-[var(--color-text-1)] break-all">{tofu.presentedFp}</div>
           </div>
           <p class="type-micro text-[var(--color-text-3)]">Are you sure you want to continue connecting?</p>
         </div>
         <div class="flex items-center justify-end gap-2 border-t hairline px-4 py-2.5">
-          <button class="border border-[var(--color-line)] px-3 py-1.5 font-mono type-eyebrow text-[var(--color-text-3)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)] transition-all" onclick={() => { promptingTofu = false; void openLocal(); }}>CANCEL</button>
-          <button class="border border-[var(--color-warn)]/50 bg-[var(--color-warn)]/10 px-3 py-1.5 font-mono type-eyebrow text-[var(--color-warn)] hover:bg-[var(--color-warn)]/15 transition-all" onclick={approveTofu}>TRUST & CONNECT</button>
+          <button class="border border-[var(--color-line)] px-3 py-1.5 font-mono type-eyebrow text-[var(--color-text-3)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)] transition-all" onclick={cancelTofuPrompt} data-autofocus>CANCEL</button>
+          <button class="border border-[var(--color-warn)]/50 bg-[var(--color-warn)]/10 px-3 py-1.5 font-mono type-eyebrow text-[var(--color-warn)] hover:bg-[var(--color-warn)]/15 transition-all" onclick={approveTofu}>TRUST &amp; CONNECT</button>
         </div>
-      </div>
-    </div>
+      {/snippet}
+    </Dialog>
   {/if}
 
   <!-- Sudo pill -->
   {#if showSudoPill && (status === "running" || status === "connected")}
-    {@const hasPw = !!getSudoPassword()}
+    {@const hasPw = hasSudoPassword()}
     <div class="absolute bottom-3 left-1/2 z-30 -translate-x-1/2 fade-up">
       <div class="flex items-center gap-2 border border-[var(--color-warn)]/50 bg-[var(--color-surface-2)]/95 px-3 py-2 shadow-2xl shadow-black/60" style="backdrop-filter: blur(12px); box-shadow: 0 0 20px rgba(255,170,0,0.08), 0 8px 32px rgba(0,0,0,0.5);">
         <ShieldCheck size="13" class="shrink-0 text-[var(--color-warn)]" />
@@ -907,6 +1429,27 @@
     </div>
   {/if}
 </div>
+
+<!-- Production connect gate — the one confirmation in the app where a
+     single careless Enter can reach live infrastructure. -->
+{#if confirmProdHost}
+  {@const ph = confirmProdHost}
+  <ConfirmDanger
+    title={ph.via === "mosh" ? "CONNECT TO PRODUCTION · MOSH" : "CONNECT TO PRODUCTION"}
+    body={`“${ph.name}” is tagged production. ${ph.via === "mosh" ? "This mosh session " : "This SSH session "}will run on live infrastructure — lockouts, reboots and destructive commands will be real.`}
+    severity="warn"
+    productionHosts={[ph.name]}
+    allowEnterConfirm={true}
+    onCancel={() => { confirmProdHost = null; app.sessionTargets[sessionID] = null; }}
+    onConfirm={() => {
+      const h = confirmProdHost;
+      confirmProdHost = null;
+      // Pass confirmed=true, or the production check reopens this dialog and
+      // Proceed appears to do nothing.
+      if (h) void (h.via === "mosh" ? switchToMosh(h.id, true) : switchToRemote(h.id, true));
+    }}
+  />
+{/if}
 
 {#if applyingSnippet}
   <SnippetApplyDialog

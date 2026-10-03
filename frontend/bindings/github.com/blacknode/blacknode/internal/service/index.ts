@@ -3,13 +3,17 @@
 
 import * as AIService from "./aiservice.js";
 import * as ActivityService from "./activityservice.js";
+import * as AuthPromptService from "./authpromptservice.js";
 import * as AutoLockService from "./autolockservice.js";
 import * as AutocompleteService from "./autocompleteservice.js";
+import * as CAService from "./caservice.js";
+import * as CloudImportService from "./cloudimportservice.js";
 import * as ContainerService from "./containerservice.js";
 import * as DBService from "./dbservice.js";
 import * as ExecService from "./execservice.js";
 import * as HTTPService from "./httpservice.js";
 import * as HistoryService from "./historyservice.js";
+import * as HostGroupService from "./hostgroupservice.js";
 import * as HostService from "./hostservice.js";
 import * as KeyService from "./keyservice.js";
 import * as LocalShellService from "./localshellservice.js";
@@ -18,10 +22,12 @@ import * as MetricsService from "./metricsservice.js";
 import * as MoshService from "./moshservice.js";
 import * as NetworkService from "./networkservice.js";
 import * as NotificationService from "./notificationservice.js";
+import * as OpsConsoleService from "./opsconsoleservice.js";
 import * as PluginService from "./pluginservice.js";
 import * as PortForwardService from "./portforwardservice.js";
 import * as ProcessService from "./processservice.js";
 import * as RecordingService from "./recordingservice.js";
+import * as RunbookService from "./runbookservice.js";
 import * as SFTPService from "./sftpservice.js";
 import * as SSHService from "./sshservice.js";
 import * as SerialService from "./serialservice.js";
@@ -34,13 +40,17 @@ import * as VaultService from "./vaultservice.js";
 export {
     AIService,
     ActivityService,
+    AuthPromptService,
     AutoLockService,
     AutocompleteService,
+    CAService,
+    CloudImportService,
     ContainerService,
     DBService,
     ExecService,
     HTTPService,
     HistoryService,
+    HostGroupService,
     HostService,
     KeyService,
     LocalShellService,
@@ -49,10 +59,12 @@ export {
     MoshService,
     NetworkService,
     NotificationService,
+    OpsConsoleService,
     PluginService,
     PortForwardService,
     ProcessService,
     RecordingService,
+    RunbookService,
     SFTPService,
     SSHService,
     SerialService,
@@ -68,23 +80,37 @@ export {
     AIChunk,
     ActiveForward,
     AppSettings,
+    AuditExport,
+    AuthPromptRequest,
+    AuthQuestion,
     AutoSyncConfig,
+    CAInfo,
     CastEvent,
     CertInfo,
+    CloudCredentials,
     ConflictItem,
+    ConnectionHealth,
     Container,
     DBColumn,
     DBConnectionInfo,
     DBTable,
     DNSAnswer,
     DNSResult,
+    DiagnosticSection,
+    DiscoveredHost,
     ExecProgress,
     ExecResult,
+    GroupSummary,
     HTTPHeader,
     HTTPRequestOptions,
     HTTPResponse,
     HostMetrics,
+    ImportRequest,
+    ImportResult,
+    IncidentSnapshot,
     LogLine,
+    MetricAlertConfig,
+    MultiplexerSession,
     Notification,
     NotifyConfig,
     NotifyKind,
@@ -97,12 +123,21 @@ export {
     QueryColumn,
     QueryResult,
     RecordingDetail,
+    RecordingPolicy,
+    RecordingStorage,
+    RemoteFileSave,
+    RemoteFileSnapshot,
+    Runbook,
+    RunbookProgress,
+    RunbookResult,
+    RunbookStep,
     SFTPEntry,
     SSHConfigCandidate,
     SSHConnectOptions,
     SSLResult,
     SavedConnection,
     SearchHit,
+    SignRequest,
     SnippetValidation,
     SnippetVariable,
     Suggestion,
@@ -111,6 +146,7 @@ export {
     SystemdUnit,
     TerminalData,
     TerminalExit,
+    TransferProgress,
     UpdateInfo,
     VaultLockEvent,
     VaultStatus

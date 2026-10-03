@@ -2,6 +2,7 @@ package sshconn
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -28,6 +29,7 @@ type Pool struct {
 	entries map[string]*pooled
 	idleTTL time.Duration
 	maxSize int
+	done    chan struct{} // closed by Close() to stop the reaper goroutine
 }
 
 type pooled struct {
@@ -44,6 +46,7 @@ func NewPool(d *Dialer, hosts *store.Hosts) *Pool {
 		entries: make(map[string]*pooled),
 		idleTTL: 5 * time.Minute,
 		maxSize: 20,
+		done:    make(chan struct{}),
 	}
 	go p.reaper()
 	return p
@@ -57,12 +60,17 @@ func keyFor(t Target) string {
 	h.Write([]byte{0})
 	h.Write([]byte(string(t.AuthMethod)))
 	h.Write([]byte{0})
+	// HostID distinguishes two saved records that resolve to the same
+	// host:port:user but carry different stored credentials. Password is
+	// normally empty (resolved inside the dialer) and only contributes for
+	// one-shot user-typed credentials.
+	h.Write([]byte(t.HostID))
+	h.Write([]byte{0})
 	h.Write([]byte(t.Password))
 	h.Write([]byte{0})
 	h.Write([]byte(t.KeyID))
-	var port [4]byte
-	port[0] = byte(t.Port)
-	port[1] = byte(t.Port >> 8)
+	var port [2]byte
+	binary.LittleEndian.PutUint16(port[:], uint16(t.Port))
 	h.Write(port[:])
 	return hex.EncodeToString(h.Sum(nil))
 }
@@ -180,7 +188,12 @@ func (p *Pool) discardLocked(key string, entry *pooled) {
 func (p *Pool) reaper() {
 	t := time.NewTicker(60 * time.Second)
 	defer t.Stop()
-	for range t.C {
+	for {
+		select {
+		case <-p.done:
+			return
+		case <-t.C:
+		}
 		now := time.Now()
 		var toClose []*pooled
 		p.mu.Lock()
@@ -223,7 +236,10 @@ func (p *Pool) getThroughProxy(t Target, chain map[string]bool) (*ssh.Client, fu
 	if err != nil {
 		return nil, func() {}, fmt.Errorf("proxy host %q not found: %w", t.ProxyJump, err)
 	}
-	proxyT := FromHost(proxyHost, "")
+	// Bastions with password auth work now that the dialer resolves stored
+	// credentials itself — previously this passed an empty password and any
+	// password-auth jump host failed.
+	proxyT := FromHost(proxyHost)
 
 	// Recurse if the proxy itself has a proxy. Direct proxies use the
 	// regular pooled path so they share connections across callers.
@@ -260,8 +276,9 @@ func (p *Pool) getThroughProxy(t Target, chain map[string]bool) (*ssh.Client, fu
 	return client, release, nil
 }
 
-// Close drops every pooled client; call on app shutdown.
+// Close drops every pooled client and stops the reaper goroutine; call on app shutdown.
 func (p *Pool) Close() {
+	close(p.done)
 	p.mu.Lock()
 	entries := p.entries
 	p.entries = make(map[string]*pooled)

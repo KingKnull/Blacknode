@@ -8,6 +8,16 @@
     severity: "warn" | "block-without-confirm";
     productionHosts: string[]; // names of prod hosts in scope
     requirePhrase?: string; // user must type this exactly to confirm
+    /**
+     * Whether Enter confirms. Default true, which suits the click-triggered
+     * call sites: the user pressed a button, the dialog appeared, and Enter is
+     * a natural "yes". Pass false when the dialog is raised *by* a keystroke —
+     * see the broadcast danger prompt in Workspace.svelte, where the Enter that
+     * submitted the command bubbles to window and would confirm the dialog it
+     * just opened.
+     */
+    allowEnterConfirm?: boolean;
+    portal?: boolean;
     onCancel: () => void;
     onConfirm: () => void;
   };
@@ -17,6 +27,8 @@
     severity,
     productionHosts,
     requirePhrase,
+    allowEnterConfirm = true,
+    portal = false,
     onCancel,
     onConfirm,
   }: Props = $props();
@@ -26,20 +38,27 @@
     !requirePhrase || typed.trim() === requirePhrase.trim(),
   );
 
-  // Enter-to-confirm (Escape + focus trap handled by Dialog). Disabled for
-  // the most destructive tier, which requires an explicit click.
+  // Enter-to-confirm (Escape + focus trap handled by Dialog). Disabled for the
+  // most destructive tier, which requires an explicit click, and for callers
+  // that opt out because a keystroke opened the dialog.
   function onKey(e: KeyboardEvent) {
-    if (e.key === "Enter" && canConfirm && severity !== "block-without-confirm")
+    // Focused buttons retain their native action. Enter on Cancel must never
+    // also run Proceed, and Enter on Proceed must not run it twice.
+    if (!allowEnterConfirm || e.defaultPrevented || e.repeat) return;
+    if ((e.target as HTMLElement)?.closest('button, a, [role="button"]')) return;
+    if (e.key === "Enter" && canConfirm && severity !== "block-without-confirm") {
+      e.preventDefault();
       onConfirm();
+    }
   }
 </script>
 
-<svelte:window onkeydown={onKey} />
-
 <Dialog
+  {portal}
+  onkeydown={onKey}
   onclose={onCancel}
   labelledby="confirm-danger-title"
-  panelClass="w-[520px] overflow-hidden border border-[var(--color-danger)]/40 bg-[var(--color-surface-2)] shadow-2xl"
+  panelClass="w-[520px] overflow-y-auto border border-[var(--color-danger)]/40 bg-[var(--color-surface-2)] shadow-2xl"
   panelStyle="box-shadow: 0 0 0 1px rgba(255,60,60,0.2), 0 0 40px rgba(255,60,60,0.04), 0 40px 80px rgba(0,0,0,0.6);"
 >
   {#snippet children()}

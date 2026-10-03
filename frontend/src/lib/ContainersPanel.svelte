@@ -43,10 +43,8 @@
     loading = true;
     err = "";
     try {
-      const password = app.hostPasswords[host.id] ?? "";
       containers = ((await ContainerService.Containers(
         host.id,
-        password,
         includeStopped,
       )) ?? []) as Container[];
     } catch (e: any) {
@@ -60,8 +58,7 @@
   async function loadNamespaces() {
     if (!host) return;
     try {
-      const password = app.hostPasswords[host.id] ?? "";
-      namespaces = ((await ContainerService.Namespaces(host.id, password)) ??
+      namespaces = ((await ContainerService.Namespaces(host.id)) ??
         []) as string[];
     } catch {
       namespaces = [];
@@ -73,8 +70,7 @@
     loading = true;
     err = "";
     try {
-      const password = app.hostPasswords[host.id] ?? "";
-      pods = ((await ContainerService.Pods(host.id, password, namespace)) ??
+      pods = ((await ContainerService.Pods(host.id, namespace)) ??
         []) as Pod[];
     } catch (e: any) {
       err = String(e?.message ?? e);
@@ -88,10 +84,8 @@
     if (!host) return;
     logs = { title: `${c.name} (${c.id})`, body: "", loading: true };
     try {
-      const password = app.hostPasswords[host.id] ?? "";
       logs.body = (await ContainerService.ContainerLogs(
         host.id,
-        password,
         c.id,
         500,
       )) as string;
@@ -106,10 +100,8 @@
     if (!host) return;
     logs = { title: `${p.namespace}/${p.name}`, body: "", loading: true };
     try {
-      const password = app.hostPasswords[host.id] ?? "";
       logs.body = (await ContainerService.PodLogs(
         host.id,
-        password,
         p.namespace,
         p.name,
         "",

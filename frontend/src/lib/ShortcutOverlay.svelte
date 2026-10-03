@@ -1,6 +1,7 @@
 <script lang="ts">
   import { X } from "@lucide/svelte";
   import Dialog from "./Dialog.svelte";
+  import { APP_SHORTCUTS } from "./shortcuts";
 
   type Props = { onclose: () => void };
   let { onclose }: Props = $props();
@@ -13,8 +14,11 @@
       shortcuts: [
         { keys: ["Ctrl", "1–9"],  desc: "Switch to tab N" },
         { keys: ["Ctrl", "Tab"],  desc: "Next tab" },
-        { keys: ["Ctrl", "W"],    desc: "Close tab" },
-        { keys: ["Ctrl", "T"],    desc: "New tab" },
+        { keys: APP_SHORTCUTS.closeTab, desc: "Close tab" },
+        { keys: APP_SHORTCUTS.newTab, desc: "New tab" },
+        { keys: APP_SHORTCUTS.palette, desc: "Command palette" },
+        { keys: APP_SHORTCUTS.focus, desc: "Toggle focus mode" },
+        { keys: ["Middle-click"], desc: "Close tab" },
         { keys: ["?"],            desc: "Open this overlay" },
       ],
     },
@@ -23,13 +27,29 @@
       shortcuts: [
         { keys: ["Ctrl", "Shift", "F"], desc: "Search terminal output" },
         { keys: ["Ctrl", "Shift", "S"], desc: "Auto-fill sudo password" },
-        { keys: ["Ctrl", "Shift", "I"], desc: "Toggle AI assistant" },
+        { keys: APP_SHORTCUTS.ai, desc: "Toggle AI assistant" },
+        { keys: ["Ctrl", "Shift", "B"], desc: "Toggle pane broadcast" },
+        { keys: ["Ctrl", "."],          desc: "Toggle side panel" },
+        { keys: ["Right-click"],        desc: "Pane actions menu" },
+      ],
+    },
+    {
+      // Shifted deliberately: bare Ctrl+C/Ctrl+A belong to the shell (SIGINT,
+      // beginning-of-line). Cmd also works on macOS.
+      label: "Clipboard",
+      shortcuts: [
+        { keys: ["Ctrl", "Shift", "C"], desc: "Copy selection" },
+        { keys: ["Ctrl", "Shift", "V"], desc: "Paste" },
+        { keys: ["Ctrl", "Shift", "A"], desc: "Select all" },
+        { keys: ["Ctrl", "Shift", "K"], desc: "Clear scrollback" },
       ],
     },
     {
       label: "Hosts",
       shortcuts: [
-        { keys: ["Ctrl", "Shift", "H"], desc: "Toggle host sidebar" },
+        { keys: APP_SHORTCUTS.sidebar, desc: "Toggle host sidebar" },
+        { keys: ["Double-click"],       desc: "Connect to host" },
+        { keys: ["Right-click"],        desc: "Host actions menu" },
       ],
     },
   ];
@@ -50,7 +70,7 @@
   label="Keyboard shortcuts"
   backdropClass="bg-black/60 backdrop-blur-[3px]"
   panelClass="fade-up w-[480px] max-h-[80vh] overflow-y-auto border hairline-strong surface-2 shadow-2xl shadow-black/60"
-  panelStyle="box-shadow: 0 0 40px rgba(59, 130, 246,0.04), 0 20px 60px rgba(0,0,0,0.6);"
+  panelStyle="box-shadow: 0 0 40px rgba(59,130,246,0.04), 0 20px 60px rgba(0,0,0,0.6);"
 >
   {#snippet children()}
 

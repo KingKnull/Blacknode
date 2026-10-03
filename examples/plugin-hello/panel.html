@@ -19,9 +19,11 @@
   <button id="btn">Send a host notification</button>
   <script>
     document.getElementById("btn").onclick = function() {
+      // No plugin id in the payload: the host identifies the sender by which
+      // panel window the message came from, and ignores any id you supply.
+      // Reaching the host at all needs "host.notify" in plugin.json.
       window.parent.postMessage({
         type: "host.notify",
-        pluginId: "hello",
         title: "Hello from a plugin",
         body: "Sent via window.parent.postMessage from panel.html.",
       }, "*");

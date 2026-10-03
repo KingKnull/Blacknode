@@ -41,12 +41,12 @@ type TelnetService struct {
 }
 
 type telnetSession struct {
-	conn     net.Conn
-	cancel   chan struct{}
-	writeMu  sync.Mutex // serialises writes to conn (negotiation replies + user input)
-	cols     int
-	rows     int
-	naws     bool // server asked us to report window size
+	conn    net.Conn
+	cancel  chan struct{}
+	writeMu sync.Mutex // serialises writes to conn (negotiation replies + user input)
+	cols    int
+	rows    int
+	naws    bool // server asked us to report window size
 }
 
 func NewTelnetService(h *store.Hosts) *TelnetService {
@@ -65,7 +65,7 @@ func (s *TelnetService) Connect(ctx context.Context, sessionID, hostID string, c
 	if rows <= 0 {
 		rows = 24
 	}
-	h, err := s.hosts.Get(hostID)
+	h, err := s.hosts.GetResolved(hostID)
 	if err != nil {
 		return fmt.Errorf("load host: %w", err)
 	}

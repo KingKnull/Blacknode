@@ -4,12 +4,18 @@
 type EventMap = {
   'insert-into-active-terminal': string;
   'tile-active-hosts': void;
-  'connect-terminal-to-host': { sessionID: string; hostID: string };
-  'connect-terminal-to-host-mosh': { sessionID: string; hostID: string };
+  'toggle-focus-mode': void;
   'connect-host': { hostID: string };
   'connect-host-mosh': { hostID: string };
+  // "Session X has a connect intent waiting." The intent itself lives in app
+  // state (AppState.requestConnect) so it survives a pane that hasn't mounted
+  // yet; this event only saves an already-live pane from having to poll.
+  'connect-intent': { sessionID: string };
   'new-host': void;
   'tab-label': { tabID: string; label: string };
+  // Emitted by Terminal when a session connects/disconnects; Workspace maps
+  // the session to its tab and renames it (empty label = back to local-N).
+  'session-label': { sessionID: string; label: string };
 };
 
 type Listener<T> = (data: T) => void;

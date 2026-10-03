@@ -5,37 +5,24 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/blacknode/blacknode/internal/db"
 	"github.com/blacknode/blacknode/internal/store"
 	_ "modernc.org/sqlite"
 )
 
+// newTestHosts builds a store over the real schema rather than a local copy of
+// the hosts DDL — see the note in store/hosts_test.go.
 func newTestHosts(t *testing.T) *store.Hosts {
 	t.Helper()
-	db, err := sql.Open("sqlite", ":memory:")
+	conn, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
-	const ddl = `CREATE TABLE hosts (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        host TEXT NOT NULL,
-        port INTEGER NOT NULL DEFAULT 22,
-        username TEXT NOT NULL,
-        auth_method TEXT NOT NULL,
-        key_id TEXT,
-        group_name TEXT NOT NULL DEFAULT '',
-        environment TEXT NOT NULL DEFAULT '',
-        proxy_jump TEXT NOT NULL DEFAULT '',
-        tags TEXT NOT NULL DEFAULT '[]',
-        notes TEXT NOT NULL DEFAULT '',
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL,
-        last_connected_at INTEGER NOT NULL DEFAULT 0
-    );`
-	if _, err := db.Exec(ddl); err != nil {
+	if err := db.Migrate(conn); err != nil {
 		t.Fatal(err)
 	}
-	return store.NewHosts(db)
+	t.Cleanup(func() { _ = conn.Close() })
+	return store.NewHosts(conn)
 }
 
 func TestKeyFor_StableForSameTarget(t *testing.T) {

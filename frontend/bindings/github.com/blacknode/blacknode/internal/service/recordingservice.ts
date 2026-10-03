@@ -7,11 +7,18 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as recorder$0 from "../recorder/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as store$0 from "../store/models.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
+
+export function Cleanup(): $CancellablePromise<void> {
+    return $Call.ByID(2972194539);
+}
 
 export function Delete(id: string): $CancellablePromise<void> {
     return $Call.ByID(893854882, id);
@@ -42,6 +49,12 @@ export function List(): $CancellablePromise<store$0.Recording[]> {
     });
 }
 
+export function Policy(): $CancellablePromise<$models.RecordingPolicy> {
+    return $Call.ByID(145306727).then(($result: any) => {
+        return $$createType3($result);
+    });
+}
+
 /**
  * ReadCastFile streams the raw cast bytes for a smaller-export case (e.g.
  * SOC2 evidence bundles). 50MB cap to keep the bridge sane.
@@ -57,7 +70,13 @@ export function ReadCastFile(id: string): $CancellablePromise<string> {
  */
 export function Search(query: string): $CancellablePromise<$models.SearchHit[]> {
     return $Call.ByID(1725092161, query).then(($result: any) => {
-        return $$createType4($result);
+        return $$createType5($result);
+    });
+}
+
+export function SessionState(sessionID: string): $CancellablePromise<recorder$0.SessionState> {
+    return $Call.ByID(626234160, sessionID).then(($result: any) => {
+        return $$createType6($result);
     });
 }
 
@@ -65,9 +84,26 @@ export function SetEnabled(on: boolean): $CancellablePromise<void> {
     return $Call.ByID(1284823040, on);
 }
 
+export function SetPaused(sessionID: string, paused: boolean): $CancellablePromise<void> {
+    return $Call.ByID(4180518389, sessionID, paused);
+}
+
+export function SetPolicy(cfg: $models.RecordingPolicy): $CancellablePromise<void> {
+    return $Call.ByID(1200296925, cfg);
+}
+
+export function Storage(): $CancellablePromise<$models.RecordingStorage> {
+    return $Call.ByID(3033908366).then(($result: any) => {
+        return $$createType7($result);
+    });
+}
+
 // Private type creation functions
 const $$createType0 = $models.RecordingDetail.createFrom;
 const $$createType1 = store$0.Recording.createFrom;
 const $$createType2 = $Create.Array($$createType1);
-const $$createType3 = $models.SearchHit.createFrom;
-const $$createType4 = $Create.Array($$createType3);
+const $$createType3 = $models.RecordingPolicy.createFrom;
+const $$createType4 = $models.SearchHit.createFrom;
+const $$createType5 = $Create.Array($$createType4);
+const $$createType6 = recorder$0.SessionState.createFrom;
+const $$createType7 = $models.RecordingStorage.createFrom;

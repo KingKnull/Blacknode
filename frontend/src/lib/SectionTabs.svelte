@@ -1,5 +1,6 @@
 <script lang="ts">
-  import type { View } from "./state.svelte";
+  import { onMount } from "svelte";
+  import { app, type View } from "./state.svelte";
   import { Plus, Server, TerminalSquare, SquareTerminal, Database, Globe2 } from "@lucide/svelte";
 
   type ViewDef = { id: View; label: string; Icon: any };
@@ -21,14 +22,22 @@
     { id: "database", label: "New DB connection", Icon: Database },
     { id: "http", label: "New HTTP request", Icon: Globe2 },
   ];
+
+  onMount(() => {
+    const onKeydown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && menuOpen) menuOpen = false;
+    };
+    window.addEventListener("keydown", onKeydown);
+    return () => window.removeEventListener("keydown", onKeydown);
+  });
 </script>
 
-<div class="flex h-9 shrink-0 items-center gap-1 border-b hairline surface-1 px-2">
+<div class="flex h-10 shrink-0 items-center gap-1 border-b hairline surface-1 px-3">
   <div class="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
     {#each views as v (v.id)}
       {@const active = activeView === v.id}
       <button
-        class="flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 type-caption transition-colors {active
+        class="relative flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 type-caption transition-colors {active
           ? 'bg-[var(--color-surface-3)] text-[var(--color-text-1)]'
           : 'text-[var(--color-text-3)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-1)]'}"
         onclick={() => onSelect(v.id)}
@@ -36,6 +45,7 @@
       >
         <v.Icon size="13" strokeWidth={active ? 2 : 1.6} />
         {v.label}
+        {#if active}<span class="absolute inset-x-2 -bottom-[9px] h-0.5 rounded-full bg-[var(--color-accent)]"></span>{/if}
       </button>
     {/each}
   </div>
@@ -43,7 +53,7 @@
   <!-- + New -->
   <div class="relative shrink-0">
     <button
-      class="flex items-center gap-1 rounded-md bg-[var(--color-accent)] px-2.5 py-1 type-caption font-medium text-white transition-opacity hover:opacity-90"
+      class="flex items-center gap-1 rounded-md bg-[var(--color-accent)] px-2.5 py-1.5 type-caption font-semibold text-[var(--color-surface-0)] transition-opacity hover:opacity-90"
       onclick={() => (menuOpen = !menuOpen)}
     >
       <Plus size="13" /> New
@@ -51,7 +61,7 @@
     {#if menuOpen}
       <button class="fixed inset-0 z-40 cursor-default" aria-label="Close menu" onclick={() => (menuOpen = false)}></button>
       <div class="fade-up absolute right-0 top-full z-50 mt-1 min-w-[190px] overflow-hidden border hairline-strong surface-2 py-1 shadow-xl shadow-black/40" style="border-radius: var(--radius-md);">
-        {#each NEW_ITEMS as item (item.id)}
+        {#each NEW_ITEMS.filter((item) => app.isViewVisible(item.id)) as item (item.id)}
           <button
             class="flex w-full items-center gap-2.5 px-3 py-1.5 text-left type-caption text-[var(--color-text-2)] transition-colors hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
             onclick={() => { menuOpen = false; onNew(item.id); }}

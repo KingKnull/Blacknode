@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/blacknode/blacknode/internal/sshconn"
 	"github.com/blacknode/blacknode/internal/store"
@@ -78,7 +79,7 @@ func NewDBService(pool *sshconn.Pool, h *store.Hosts, saved *store.DBConnections
 // Connect dispatches on `kind` ("postgres" or "mysql"). Empty kind is auto-
 // detected from the DSN shape — `postgres://` URL → postgres, `@tcp(` →
 // mysql, anything else is an error.
-func (s *DBService) Connect(ctx context.Context, hostID, password, kind, dsn string) (DBConnectionInfo, error) {
+func (s *DBService) Connect(ctx context.Context, hostID, kind, dsn string) (DBConnectionInfo, error) {
 	if strings.TrimSpace(dsn) == "" {
 		return DBConnectionInfo{}, errors.New("dsn required")
 	}
@@ -87,9 +88,9 @@ func (s *DBService) Connect(ctx context.Context, hostID, password, kind, dsn str
 	}
 	switch kind {
 	case "postgres":
-		return s.connectPostgres(hostID, password, dsn)
+		return s.connectPostgres(hostID, dsn)
 	case "mysql":
-		return s.connectMySQL(hostID, password, dsn)
+		return s.connectMySQL(hostID, dsn)
 	default:
 		return DBConnectionInfo{}, fmt.Errorf("unsupported kind: %q (expected postgres or mysql)", kind)
 	}
@@ -106,12 +107,12 @@ func sniffKind(dsn string) string {
 	return ""
 }
 
-func (s *DBService) connectPostgres(hostID, password, dsn string) (DBConnectionInfo, error) {
-	h, err := s.hosts.Get(hostID)
+func (s *DBService) connectPostgres(hostID, dsn string) (DBConnectionInfo, error) {
+	h, err := s.hosts.GetResolved(hostID)
 	if err != nil {
 		return DBConnectionInfo{}, fmt.Errorf("load host: %w", err)
 	}
-	sshClient, release, err := s.pool.Get(sshconn.FromHost(h, password))
+	sshClient, release, err := s.pool.Get(sshconn.FromHost(h))
 	if err != nil {
 		return DBConnectionInfo{}, err
 	}
@@ -151,12 +152,12 @@ func (s *DBService) connectPostgres(hostID, password, dsn string) (DBConnectionI
 // the driver; we leak one entry per connection (a closure capturing the SSH
 // client). That's bounded by the number of distinct DB sessions opened in
 // the app's lifetime — acceptable.
-func (s *DBService) connectMySQL(hostID, password, dsn string) (DBConnectionInfo, error) {
-	h, err := s.hosts.Get(hostID)
+func (s *DBService) connectMySQL(hostID, dsn string) (DBConnectionInfo, error) {
+	h, err := s.hosts.GetResolved(hostID)
 	if err != nil {
 		return DBConnectionInfo{}, fmt.Errorf("load host: %w", err)
 	}
-	sshClient, release, err := s.pool.Get(sshconn.FromHost(h, password))
+	sshClient, release, err := s.pool.Get(sshconn.FromHost(h))
 	if err != nil {
 		return DBConnectionInfo{}, err
 	}
@@ -610,7 +611,7 @@ func (s *DBService) SaveConnection(ctx context.Context, name, kind, hostID, dsn 
 		return SavedConnection{}, err
 	}
 	hostName := ""
-	if h, err := s.hosts.Get(hostID); err == nil {
+	if h, err := s.hosts.GetResolved(hostID); err == nil {
 		hostName = h.Name
 	}
 	return SavedConnection{
@@ -627,7 +628,7 @@ func (s *DBService) ListSavedConnections(ctx context.Context) ([]SavedConnection
 	out := make([]SavedConnection, 0, len(rows))
 	for _, r := range rows {
 		hostName := ""
-		if h, err := s.hosts.Get(r.HostID); err == nil {
+		if h, err := s.hosts.GetResolved(r.HostID); err == nil {
 			hostName = h.Name
 		}
 		out = append(out, SavedConnection{
@@ -642,7 +643,7 @@ func (s *DBService) DeleteSavedConnection(ctx context.Context, id string) error 
 	return s.saved.Delete(id)
 }
 
-func (s *DBService) ConnectSaved(ctx context.Context, savedID, password string) (DBConnectionInfo, error) {
+func (s *DBService) ConnectSaved(ctx context.Context, savedID string) (DBConnectionInfo, error) {
 	if !s.vault.IsUnlocked() {
 		return DBConnectionInfo{}, errors.New("vault must be unlocked")
 	}
@@ -654,7 +655,7 @@ func (s *DBService) ConnectSaved(ctx context.Context, savedID, password string) 
 	if err != nil {
 		return DBConnectionInfo{}, fmt.Errorf("decrypt dsn: %w", err)
 	}
-	return s.Connect(context.Background(), rec.HostID, password, rec.Kind, string(plain))
+	return s.Connect(context.Background(), rec.HostID, rec.Kind, string(plain))
 }
 
 func formatValue(v any) string {
@@ -663,20 +664,36 @@ func formatValue(v any) string {
 	}
 	switch x := v.(type) {
 	case []byte:
-		s := string(x)
-		if len(s) > 200 {
-			return s[:200] + "…"
-		}
-		return s
+		return truncateRunes(string(x), 200)
 	case time.Time:
 		return x.Format(time.RFC3339Nano)
 	default:
-		s := fmt.Sprintf("%v", v)
-		if len(s) > 1000 {
-			return s[:1000] + "…"
-		}
+		return truncateRunes(fmt.Sprintf("%v", v), 1000)
+	}
+}
+
+// truncateRunes cuts s to at most max bytes without splitting a rune.
+//
+// Slicing at a byte offset was the obvious version and it is wrong for any
+// non-ASCII column: a cut through the middle of a multi-byte rune produces
+// invalid UTF-8, which encoding/json then rewrites as U+FFFD on the way to the
+// frontend. The user sees a replacement character and has no way to tell it
+// apart from one that was really in their data.
+//
+// The limit stays a byte count rather than a rune count because it exists to
+// bound the payload, not the visible length.
+func truncateRunes(s string, max int) string {
+	if len(s) <= max {
 		return s
 	}
+	// Walk back to the start of the rune that straddles the cut. A UTF-8
+	// continuation byte is 0b10xxxxxx, and a rune is at most 4 bytes, so this
+	// steps back at most 3 times.
+	end := max
+	for end > 0 && !utf8.RuneStart(s[end]) {
+		end--
+	}
+	return s[:end] + "…"
 }
 
 func pgTypeName(oid uint32) string {

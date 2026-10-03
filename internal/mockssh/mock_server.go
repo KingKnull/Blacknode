@@ -11,8 +11,8 @@ import (
 
 // Server is an in-memory SSH server for integration testing.
 type Server struct {
-	Listener net.Listener
-	Config   *ssh.ServerConfig
+	Listener  net.Listener
+	Config    *ssh.ServerConfig
 	PublicKey ssh.PublicKey
 
 	// Handlers map command prefixes to an output and an exit status

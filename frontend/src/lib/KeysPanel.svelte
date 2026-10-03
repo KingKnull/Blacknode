@@ -1,9 +1,12 @@
 <script lang="ts">
-  import { KeyService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
+  import { onMount } from "svelte";
+  import { Clipboard as WailsClipboard } from "@wailsio/runtime";
+  import { CAService, KeyService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
   import EmptyState from "./EmptyState.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
+  import Dialog from "./Dialog.svelte";
   import {
     KeyRound,
     Plus,
@@ -13,15 +16,19 @@
     Loader2,
     X,
     BadgeCheck,
+    ShieldCheck,
+    Usb,
   } from "@lucide/svelte";
 
   let creating = $state(false);
   let importing = $state(false);
+  let registeringSecurityKey = $state(false);
 
   let newName = $state("");
   let newType = $state("ed25519");
   let importText = $state("");
   let importPass = $state("");
+  let securityKeyText = $state("");
   let busy = $state(false);
   let err = $state("");
 
@@ -29,7 +36,36 @@
     newName = "";
     importText = "";
     importPass = "";
+    securityKeyText = "";
     err = "";
+  }
+
+  // FIDO2 keys are registered from their public half: the private key stays on
+  // the token, so there is nothing to import and signing goes through the SSH
+  // agent. The keypair itself is created by ssh-keygen, not here — this app
+  // has no way to talk to an authenticator directly.
+  async function registerSecurityKey() {
+    err = "";
+    if (!newName) {
+      err = "Name required";
+      return;
+    }
+    if (!securityKeyText.trim()) {
+      err = "Paste the security key's .pub line";
+      return;
+    }
+    busy = true;
+    try {
+      await KeyService.ImportSecurityKey(newName, securityKeyText);
+      await app.refreshKeys();
+      reset();
+      registeringSecurityKey = false;
+      app.toast("ok", "SECURITY KEY REGISTERED", "Add it to the agent with ssh-add -K, then select it on a host.");
+    } catch (e: any) {
+      err = String(e?.message ?? e);
+    } finally {
+      busy = false;
+    }
   }
 
   async function generate() {
@@ -89,6 +125,85 @@
     app.toast('ok', 'COPIED', 'Public key copied to clipboard.');
   }
 
+  // ── SSH certificate authority ────────────────────────────────────────
+  let caInfo = $state<{ exists: boolean; publicKey?: string; fingerprint?: string; createdAt?: number } | null>(null);
+  let caBusy = $state(false);
+  let caErr = $state("");
+  let caDeleteConfirm = $state(false);
+  let caSignKeyID = $state("");
+  let caPrincipals = $state("");
+  let caTTLHours = $state(8);
+
+  async function loadCA() {
+    try {
+      caInfo = await CAService.Info();
+    } catch {
+      caInfo = { exists: false };
+    }
+  }
+
+  async function setupCA() {
+    caBusy = true;
+    caErr = "";
+    try {
+      caInfo = await CAService.Setup();
+      app.toast("ok", "CA CREATED", "Copy the trust line into each host's sshd_config.");
+    } catch (e: any) {
+      caErr = String(e?.message ?? e);
+    } finally {
+      caBusy = false;
+    }
+  }
+
+  async function deleteCA() {
+    caDeleteConfirm = false;
+    caBusy = true;
+    try {
+      await CAService.Delete();
+      caInfo = { exists: false };
+      app.toast("ok", "CA DELETED", "Certificates it issued no longer verify.");
+    } catch (e: any) {
+      app.toast("error", "CA DELETE FAILED", String(e?.message ?? e));
+    } finally {
+      caBusy = false;
+    }
+  }
+
+  async function copyTrustLine() {
+    try {
+      const line = await CAService.AuthorizedCALine();
+      await WailsClipboard.SetText(line);
+      app.toast("ok", "TRUST LINE COPIED", "Add it to sshd_config or authorized_principals.");
+    } catch (e: any) {
+      app.toast("error", "COPY FAILED", String(e?.message ?? e));
+    }
+  }
+
+  async function issueCertificate() {
+    const principals = caPrincipals.split(/[\s,]+/).filter(Boolean);
+    if (!caSignKeyID || !principals.length) return;
+    caBusy = true;
+    caErr = "";
+    try {
+      await CAService.SignUserKey({
+        keyID: caSignKeyID,
+        principals,
+        ttlSeconds: caTTLHours * 3600,
+      });
+      await app.refreshKeys();
+      app.toast("ok", "CERTIFICATE ISSUED", "The selected key now carries a short-lived certificate.");
+    } catch (e: any) {
+      caErr = String(e?.message ?? e);
+    } finally {
+      caBusy = false;
+    }
+  }
+
+  onMount(() => {
+    loadCA();
+    caSignKeyID = app.keys[0]?.id ?? "";
+  });
+
   // ── Certificate attach / detach ──────────────────────────────────────
   let certTarget = $state<{ id: string; name: string } | null>(null);
   let certText = $state("");
@@ -138,8 +253,20 @@
       <button
         class="flex items-center gap-1 rounded-md border hairline-strong px-2.5 py-1 type-caption text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)]"
         onclick={() => {
+          registeringSecurityKey = true;
+          importing = false;
+          creating = false;
+          reset();
+        }}
+      >
+        <Usb size="11" /> security key
+      </button>
+      <button
+        class="flex items-center gap-1 rounded-md border hairline-strong px-2.5 py-1 type-caption text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)]"
+        onclick={() => {
           importing = true;
           creating = false;
+          registeringSecurityKey = false;
           reset();
         }}
       >
@@ -150,6 +277,7 @@
         onclick={() => {
           creating = true;
           importing = false;
+          registeringSecurityKey = false;
           reset();
         }}
       >
@@ -157,6 +285,51 @@
       </button>
     {/snippet}
   </PageHeader>
+
+  {#if registeringSecurityKey}
+    <div class="border-b hairline surface-1 p-4">
+      <div class="flex items-center gap-2">
+        <Usb size="12" class="text-[var(--color-accent)]" />
+        <h3 class="type-caption font-medium text-[var(--color-text-1)]">Register a FIDO2 security key</h3>
+        <button
+          class="ml-auto text-[var(--color-text-4)] hover:text-[var(--color-text-2)]"
+          onclick={() => (registeringSecurityKey = false)}
+          aria-label="Cancel"><X size="12" /></button
+        >
+      </div>
+      <p class="mt-2 type-caption text-[var(--color-text-3)]">
+        The private key never leaves the token, so only its public half is stored here and signing
+        goes through your SSH agent. Create the key with OpenSSH first:
+      </p>
+      <pre class="mt-2 overflow-x-auto rounded surface-3 p-2 font-mono type-caption text-[var(--color-text-2)]">ssh-keygen -t ed25519-sk -O resident -O verify-required</pre>
+      <div class="mt-3 grid gap-2">
+        <input
+          class="w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 type-body text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50"
+          placeholder="Name (e.g. yubikey-5c)"
+          aria-label="Security key name"
+          bind:value={newName}
+        />
+        <textarea
+          class="w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-caption text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50"
+          rows="3"
+          placeholder="sk-ssh-ed25519@openssh.com AAAA... comment"
+          aria-label="Security key public key"
+          bind:value={securityKeyText}
+        ></textarea>
+        {#if err}<p role="alert" class="type-caption text-[var(--color-danger)]">{err}</p>{/if}
+        <div class="flex items-center gap-2">
+          <button
+            class="flex items-center gap-1.5 rounded bg-[var(--color-accent)] px-3 py-1.5 type-caption font-medium text-[var(--color-surface-0)] disabled:opacity-40"
+            disabled={busy}
+            onclick={registerSecurityKey}
+          >
+            {#if busy}<Loader2 size="11" class="animate-spin" />{/if}Register
+          </button>
+          <span class="type-caption text-[var(--color-text-4)]">No vault unlock needed — there is no secret to seal.</span>
+        </div>
+      </div>
+    </div>
+  {/if}
 
   {#if creating}
     <div class="border-b hairline surface-1 p-4">
@@ -166,6 +339,7 @@
         </h3>
         <button
           class="ml-auto rounded p-0.5 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)]"
+          aria-label="Close generate form"
           onclick={() => (creating = false)}><X size="12" /></button
         >
       </div>
@@ -204,6 +378,7 @@
         </h3>
         <button
           class="ml-auto rounded p-0.5 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)]"
+          aria-label="Close import form"
           onclick={() => (importing = false)}><X size="12" /></button
         >
       </div>
@@ -241,6 +416,45 @@
   {/if}
 
   <div class="flex-1 overflow-y-auto p-4">
+    <section class="mb-4 rounded border hairline-strong surface-2 p-4">
+      <div class="flex items-center gap-2">
+        <ShieldCheck size="14" class="text-[var(--color-accent)]" />
+        <h3 class="type-body font-medium text-[var(--color-text-1)]">SSH certificate authority</h3>
+        <span class="ml-auto font-mono type-micro text-[var(--color-text-4)]">
+          {caInfo?.exists ? caInfo.fingerprint ?? "configured" : "not configured"}
+        </span>
+      </div>
+      {#if caInfo?.exists}
+        <div class="mt-3 flex flex-wrap gap-2">
+          <button class="rounded border hairline px-3 py-1.5 type-caption hover:text-[var(--color-accent)]" onclick={copyTrustLine}>Copy host trust line</button>
+          <button class="rounded border border-[var(--color-danger)]/40 px-3 py-1.5 type-caption text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10" onclick={() => (caDeleteConfirm = true)}>Delete CA</button>
+        </div>
+        <div class="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_140px_auto]">
+          <select class="rounded border hairline bg-[var(--color-surface-3)] px-2 py-2 type-caption" bind:value={caSignKeyID}>
+            <option value="">Select key…</option>
+            {#each app.keys as key (key.id)}<option value={key.id}>{key.name}</option>{/each}
+          </select>
+          <input class="rounded border hairline bg-[var(--color-surface-3)] px-2 py-2 font-mono type-caption" placeholder="user1,user2" bind:value={caPrincipals} />
+          <input class="rounded border hairline bg-[var(--color-surface-3)] px-2 py-2 font-mono type-caption" type="number" min="1" max="2160" bind:value={caTTLHours} />
+        </div>
+        <div class="mt-2 flex items-center gap-2">
+          <span class="type-micro text-[var(--color-text-4)]">TTL hours</span>
+          <button class="ml-auto rounded bg-[var(--color-accent)] px-3 py-1.5 type-caption text-[var(--color-surface-0)] disabled:opacity-40" disabled={caBusy || !caSignKeyID || !caPrincipals.trim()} onclick={issueCertificate}>
+            {#if caBusy}<Loader2 size="11" class="animate-spin" />{:else}Issue certificate{/if}
+          </button>
+        </div>
+      {:else}
+        <p class="mt-2 type-caption text-[var(--color-text-3)]">
+          Generate a sealed CA, trust its public key on hosts, then issue short-lived user certificates instead of managing authorized_keys everywhere.
+        </p>
+        <button class="mt-3 rounded bg-[var(--color-accent)] px-3 py-1.5 type-caption text-[var(--color-surface-0)] disabled:opacity-40" disabled={caBusy || !app.vault.unlocked} onclick={setupCA}>
+          {#if caBusy}<Loader2 size="11" class="animate-spin" />{:else}Create CA{/if}
+        </button>
+        {#if !app.vault.unlocked}<p class="mt-2 type-micro text-[var(--color-warn)]">Unlock the vault first.</p>{/if}
+      {/if}
+      {#if caErr}<p class="mt-2 type-caption text-[var(--color-danger)]">{caErr}</p>{/if}
+    </section>
+
     <div class="space-y-2">
       {#each app.keys as k (k.id)}
         <div
@@ -255,6 +469,14 @@
               class="border hairline px-1.5 py-0.5 type-micro font-mono text-[var(--color-text-2)]"
               >{k.keyType}</span
             >
+            {#if k.hardware}
+              <span
+                class="flex items-center gap-1 rounded border border-[var(--color-accent)]/40 px-1.5 py-0.5 type-micro font-medium text-[var(--color-accent)]"
+                title="FIDO2 security key — the private key stays on the token and signs through your SSH agent"
+              >
+                <Usb size="9" /> hardware
+              </span>
+            {/if}
             <span
               class="font-mono type-micro text-[var(--color-text-3)]"
               title={k.fingerprint}
@@ -321,19 +543,29 @@
   />
 {/if}
 
+{#if caDeleteConfirm}
+  <ConfirmDanger
+    title="DELETE CERTIFICATE AUTHORITY"
+    body="Every certificate this CA issued stops verifying immediately. Host trust lines remain, but new certificates cannot be issued until a new CA is created."
+    severity="block-without-confirm"
+    requirePhrase="delete ca"
+    productionHosts={[]}
+    onCancel={() => (caDeleteConfirm = false)}
+    onConfirm={deleteCA}
+  />
+{/if}
+
 {#if certTarget}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="presentation" onclick={() => (certTarget = null)}>
-    <div
-      class="w-full max-w-lg border hairline-strong surface-1 p-4 shadow-2xl"
-      style="border-radius: var(--radius-md);"
-      role="dialog"
-      tabindex="-1"
-      onclick={(e) => e.stopPropagation()}
-      onkeydown={() => {}}
-    >
+  <Dialog
+    onclose={() => (certTarget = null)}
+    labelledby="attach-cert-title"
+    backdropClass="bg-black/50 p-4"
+    panelClass="w-full max-w-lg border hairline-strong surface-1 p-4 shadow-2xl"
+    panelStyle="border-radius: var(--radius-md);"
+  >
       <div class="mb-3 flex items-center gap-2">
         <BadgeCheck size="14" class="text-[var(--color-accent)]" />
-        <span class="type-body font-medium text-[var(--color-text-1)]">Attach certificate to {certTarget.name}</span>
+        <span id="attach-cert-title" class="type-body font-medium text-[var(--color-text-1)]">Attach certificate to {certTarget.name}</span>
         <button class="ml-auto text-[var(--color-text-4)] hover:text-[var(--color-text-1)]" onclick={() => (certTarget = null)} aria-label="Close"><X size="14" /></button>
       </div>
       <p class="mb-2 type-caption text-[var(--color-text-4)]">
@@ -343,6 +575,7 @@
         class="h-28 w-full resize-none border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-micro text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50"
         bind:value={certText}
         placeholder="ssh-ed25519-cert-v01@openssh.com AAAA…"
+        data-autofocus
       ></textarea>
       {#if certErr}
         <p class="mt-2 type-caption text-[var(--color-danger)]">{certErr}</p>
@@ -358,6 +591,5 @@
           Attach
         </button>
       </div>
-    </div>
-  </div>
+  </Dialog>
 {/if}

@@ -34,8 +34,8 @@ export function SaveQuery(q: store$0.LogQuery): $CancellablePromise<store$0.LogQ
  * streaming lines back as `logs:line` events. Idempotent — calling Start with
  * an existing streamID kills the old run first.
  */
-export function Start(streamID: string, hostIDs: string[], passwords: { [_ in string]?: string }, command: string): $CancellablePromise<void> {
-    return $Call.ByID(3270114617, streamID, hostIDs, passwords, command);
+export function Start(streamID: string, hostIDs: string[], command: string): $CancellablePromise<void> {
+    return $Call.ByID(3270114617, streamID, hostIDs, command);
 }
 
 export function Stop(streamID: string): $CancellablePromise<void> {

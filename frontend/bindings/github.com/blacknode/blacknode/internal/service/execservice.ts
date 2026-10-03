@@ -9,8 +9,8 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
-export function Run(runID: string, command: string, hostIDs: string[], passwords: { [_ in string]?: string }, timeoutSeconds: number): $CancellablePromise<$models.ExecResult[]> {
-    return $Call.ByID(1863424458, runID, command, hostIDs, passwords, timeoutSeconds).then(($result: any) => {
+export function Run(runID: string, command: string, hostIDs: string[], timeoutSeconds: number): $CancellablePromise<$models.ExecResult[]> {
+    return $Call.ByID(1863424458, runID, command, hostIDs, timeoutSeconds).then(($result: any) => {
         return $$createType1($result);
     });
 }

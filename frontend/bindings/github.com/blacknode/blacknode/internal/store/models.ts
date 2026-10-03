@@ -23,6 +23,15 @@ export class Activity {
     "hostName"?: string;
     "at": number;
 
+    /**
+     * Seq is the position in the append-only chain, starting at 1. PrevHash and
+     * Hash form the tamper-evidence: Hash covers PrevHash along with every field
+     * above, so editing or deleting any row invalidates every hash after it.
+     */
+    "seq": number;
+    "prevHash"?: string;
+    "hash"?: string;
+
     /** Creates a new Activity instance. */
     constructor($$source: Partial<Activity> = {}) {
         if (!("id" in $$source)) {
@@ -42,6 +51,9 @@ export class Activity {
         }
         if (!("at" in $$source)) {
             this["at"] = 0;
+        }
+        if (!("seq" in $$source)) {
+            this["seq"] = 0;
         }
 
         Object.assign(this, $$source);
@@ -88,6 +100,85 @@ export class ActivityFilter {
             $$parsedSource["levels"] = $$createField1_0($$parsedSource["levels"]);
         }
         return new ActivityFilter($$parsedSource as Partial<ActivityFilter>);
+    }
+}
+
+/**
+ * ChainStatus reports the result of verifying the log.
+ */
+export class ChainStatus {
+    "valid": boolean;
+    "rows": number;
+
+    /**
+     * Head is the hash of the last row — the single value that commits to the
+     * entire history. Record it somewhere outside this database and any later
+     * rewrite of the rows before it becomes detectable.
+     */
+    "head"?: string;
+
+    /**
+     * BrokenAtSeq and Detail describe the first failure, if any.
+     */
+    "brokenAtSeq"?: number;
+    "detail"?: string;
+
+    /**
+     * FirstVerifiableSeq is where checking began. Rows written before the chain
+     * existed have no hash and cannot be verified; they are reported rather
+     * than treated as either valid or broken.
+     */
+    "firstVerifiableSeq"?: number;
+    "unchainedLegacy"?: number;
+
+    /** Creates a new ChainStatus instance. */
+    constructor($$source: Partial<ChainStatus> = {}) {
+        if (!("valid" in $$source)) {
+            this["valid"] = false;
+        }
+        if (!("rows" in $$source)) {
+            this["rows"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ChainStatus instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ChainStatus {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ChainStatus($$parsedSource as Partial<ChainStatus>);
+    }
+}
+
+/**
+ * EnvVar is one exported shell variable. Name is restricted to the POSIX
+ * identifier character set by validateEnvVars — it is interpolated into an
+ * `export` command, so anything else would be a shell injection.
+ */
+export class EnvVar {
+    "name": string;
+    "value": string;
+
+    /** Creates a new EnvVar instance. */
+    constructor($$source: Partial<EnvVar> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("value" in $$source)) {
+            this["value"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new EnvVar instance from a string or object.
+     */
+    static createFrom($$source: any = {}): EnvVar {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new EnvVar($$parsedSource as Partial<EnvVar>);
     }
 }
 
@@ -323,6 +414,46 @@ export class Host {
     "protocol"?: string;
     "serialDevice"?: string;
     "serialBaud"?: number;
+
+    /**
+     * Serial line settings. Defaults applied at connect time when unset:
+     * SerialDataBits 8, SerialParity "none", SerialStopBits "1". (Flow control
+     * is not configurable — the serial library hard-disables RTS/CTS.)
+     */
+    "serialDataBits"?: number;
+
+    /**
+     * "none" | "odd" | "even"
+     */
+    "serialParity"?: string;
+
+    /**
+     * "1" | "1.5" | "2"
+     */
+    "serialStopBits"?: string;
+
+    /**
+     * ForwardAgent requests SSH agent forwarding on sessions to this host, so
+     * a further hop from it can authenticate with the local agent instead of a
+     * private key copied onto the intermediate machine. Off by default: it
+     * lets anyone with root on the remote use your agent for as long as the
+     * session is open, so it should be a deliberate per-host choice.
+     */
+    "forwardAgent"?: boolean;
+
+    /**
+     * Platform is the detected operating system family or Linux distribution
+     * ID ("ubuntu", "debian", "darwin", "windows", ...), filled in on first
+     * successful connect. Empty until then; purely cosmetic.
+     */
+    "platform"?: string;
+
+    /**
+     * EnvVars are exported into interactive sessions on this host, in order,
+     * before the startup snippet runs. A slice rather than a map so the order
+     * is stable and a later value can reference an earlier one.
+     */
+    "envVars"?: EnvVar[];
     "createdAt": number;
     "updatedAt": number;
     "lastConnectedAt": number;
@@ -371,11 +502,60 @@ export class Host {
      */
     static createFrom($$source: any = {}): Host {
         const $$createField10_0 = $$createType0;
+        const $$createField22_0 = $$createType3;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("tags" in $$parsedSource) {
             $$parsedSource["tags"] = $$createField10_0($$parsedSource["tags"]);
         }
+        if ("envVars" in $$parsedSource) {
+            $$parsedSource["envVars"] = $$createField22_0($$parsedSource["envVars"]);
+        }
         return new Host($$parsedSource as Partial<Host>);
+    }
+}
+
+/**
+ * HostGroup holds connection defaults shared by every host in a group. A host
+ * inherits a field only when it leaves that field empty, so an explicit value
+ * on the host always wins — see ApplyGroupDefaults.
+ * 
+ * Keyed by name rather than an ID because hosts.group_name is already the only
+ * link between a host and its group; adding an ID would create a second source
+ * of truth that the host list's free-text group field could contradict.
+ */
+export class HostGroup {
+    "name": string;
+    "username"?: string;
+    "port"?: number;
+    "authMethod"?: string;
+    "keyID"?: string;
+    "proxyJump"?: string;
+    "forwardAgent"?: boolean;
+    "envVars"?: EnvVar[];
+    "updatedAt": number;
+
+    /** Creates a new HostGroup instance. */
+    constructor($$source: Partial<HostGroup> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("updatedAt" in $$source)) {
+            this["updatedAt"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new HostGroup instance from a string or object.
+     */
+    static createFrom($$source: any = {}): HostGroup {
+        const $$createField7_0 = $$createType3;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("envVars" in $$parsedSource) {
+            $$parsedSource["envVars"] = $$createField7_0($$parsedSource["envVars"]);
+        }
+        return new HostGroup($$parsedSource as Partial<HostGroup>);
     }
 }
 
@@ -571,6 +751,35 @@ export class Snippet {
 }
 
 /**
+ * Status reports which credentials exist, as booleans. This is what the UI
+ * gets — enough to render a "password saved" affordance, never the secret.
+ */
+export class Status {
+    "hasPassword": boolean;
+    "hasSudo": boolean;
+
+    /** Creates a new Status instance. */
+    constructor($$source: Partial<Status> = {}) {
+        if (!("hasPassword" in $$source)) {
+            this["hasPassword"] = false;
+        }
+        if (!("hasSudo" in $$source)) {
+            this["hasSudo"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Status instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Status {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Status($$parsedSource as Partial<Status>);
+    }
+}
+
+/**
  * TeamActivity is a row in the local audit log of team-snapshot
  * publishes and pulls. Kind is "publish" or "pull"; counts is a small
  * JSON map of resource→count (e.g. {"hosts":12,"snippets":4}).
@@ -605,7 +814,7 @@ export class TeamActivity {
      * Creates a new TeamActivity instance from a string or object.
      */
     static createFrom($$source: any = {}): TeamActivity {
-        const $$createField4_0 = $$createType2;
+        const $$createField4_0 = $$createType4;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("counts" in $$parsedSource) {
             $$parsedSource["counts"] = $$createField4_0($$parsedSource["counts"]);
@@ -617,4 +826,6 @@ export class TeamActivity {
 // Private type creation functions
 const $$createType0 = $Create.Array($Create.Any);
 const $$createType1 = $Create.Map($Create.Any, $Create.Any);
-const $$createType2 = $Create.Map($Create.Any, $Create.Any);
+const $$createType2 = EnvVar.createFrom;
+const $$createType3 = $Create.Array($$createType2);
+const $$createType4 = $Create.Map($Create.Any, $Create.Any);

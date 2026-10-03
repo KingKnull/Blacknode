@@ -258,10 +258,8 @@
     connecting = true;
     err = "";
     try {
-      const password = app.hostPasswords[host.id] ?? "";
       conn = (await DBService.Connect(
         host.id,
-        password,
         kind,
         dsn,
       )) as DBConnectionInfo;
@@ -313,11 +311,10 @@
     connecting = true;
     err = "";
     try {
-      const password = app.hostPasswords[s.hostID] ?? "";
       // Set the active host so the rest of the panel reflects the saved
       // connection's tunnel.
       app.selectedHostID = s.hostID;
-      conn = (await DBService.ConnectSaved(s.id, password)) as DBConnectionInfo;
+      conn = (await DBService.ConnectSaved(s.id)) as DBConnectionInfo;
       await tick();
       mountEditor(
         conn.kind === "mysql"

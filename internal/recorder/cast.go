@@ -7,6 +7,7 @@ package recorder
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -60,7 +61,6 @@ type Writer struct {
 	mu        sync.Mutex
 	f         *os.File
 	bw        *bufio.Writer
-	enc       *json.Encoder
 	startedAt time.Time
 	closed    bool
 	bytes     int64
@@ -72,39 +72,53 @@ func NewWriter(path string, header CastHeader) (*Writer, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return nil, err
 	}
-	f, err := os.Create(path)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
 		return nil, err
 	}
 	bw := bufio.NewWriterSize(f, 16*1024)
-	enc := json.NewEncoder(bw)
-	if err := enc.Encode(header); err != nil {
+	headerBytes, err := json.Marshal(header)
+	if err != nil {
 		_ = f.Close()
 		return nil, err
 	}
-	return &Writer{f: f, bw: bw, enc: enc, startedAt: time.Now()}, nil
+	headerBytes = append(headerBytes, '\n')
+	if _, err := bw.Write(headerBytes); err != nil {
+		_ = f.Close()
+		return nil, err
+	}
+	return &Writer{f: f, bw: bw, bytes: int64(len(headerBytes)), startedAt: time.Now()}, nil
 }
 
 // WriteOutput appends an "o" event for bytes coming back from the shell.
 // The chunk is sent as-is — caller doesn't need to validate UTF-8; the cast
 // format expects strings but xterm tolerates control sequences fine.
-func (w *Writer) WriteOutput(data []byte) {
+func (w *Writer) WriteOutput(data []byte) { _, _ = w.writeOutput(data, -1) }
+
+var errStorageLimit = errors.New("recording storage limit reached")
+
+// Budget is the remaining space for encoded bytes, including JSON escaping
+// and newlines. A refused event is never partially written.
+func (w *Writer) writeOutput(data []byte, budget int64) (int64, error) {
 	if len(data) == 0 {
-		return
+		return 0, nil
 	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.closed {
-		return
+		return 0, os.ErrClosed
 	}
-	ev := CastEvent{
-		Offset: time.Since(w.startedAt).Seconds(),
-		Kind:   "o",
-		Data:   string(data),
+	encoded, err := json.Marshal(CastEvent{Offset: time.Since(w.startedAt).Seconds(), Kind: "o", Data: string(data)})
+	if err != nil {
+		return 0, err
 	}
-	if err := w.enc.Encode(ev); err == nil {
-		w.bytes += int64(len(data))
+	encoded = append(encoded, '\n')
+	if budget >= 0 && int64(len(encoded)) > budget {
+		return 0, errStorageLimit
 	}
+	n, err := w.bw.Write(encoded)
+	w.bytes += int64(n)
+	return int64(n), err
 }
 
 // Close flushes the buffered writer and closes the underlying file. Safe to
@@ -124,7 +138,7 @@ func (w *Writer) Close() error {
 	return closeErr
 }
 
-// BytesWritten reports the total payload size for metadata.
+// BytesWritten reports the encoded file size, including the header.
 func (w *Writer) BytesWritten() int64 {
 	w.mu.Lock()
 	defer w.mu.Unlock()

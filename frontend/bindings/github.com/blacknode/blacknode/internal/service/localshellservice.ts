@@ -21,6 +21,15 @@ export function Resize(sessionID: string, cols: number, rows: number): $Cancella
     return $Call.ByID(541092799, sessionID, cols, rows);
 }
 
+/**
+ * SendSudoPassword writes the sudo password saved against the pseudo-host id
+ * "local" into this session's PTY. Same contract as the SSH equivalent: the
+ * plaintext is resolved in the backend, and false means nothing is stored.
+ */
+export function SendSudoPassword(sessionID: string): $CancellablePromise<boolean> {
+    return $Call.ByID(3340653857, sessionID);
+}
+
 export function Write(sessionID: string, data: string): $CancellablePromise<void> {
     return $Call.ByID(3314545546, sessionID, data);
 }

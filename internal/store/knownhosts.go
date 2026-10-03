@@ -19,11 +19,11 @@ func NewKnownHosts(db *sql.DB) *KnownHosts { return &KnownHosts{db: db} }
 
 // HostKeyMismatchError signals a key mismatch — refuse to connect.
 type HostKeyMismatchError struct {
-	Host         string
-	Port         int
-	KeyType      string
-	StoredFP     string
-	PresentedFP  string
+	Host        string
+	Port        int
+	KeyType     string
+	StoredFP    string
+	PresentedFP string
 }
 
 func (e *HostKeyMismatchError) Error() string {
@@ -99,14 +99,16 @@ func fingerprint(marshalled []byte) string {
 // rawKey lets us reuse Fingerprint without re-implementing it.
 type rawKey []byte
 
-func (rawKey) Type() string         { return "" }
-func (k rawKey) Marshal() []byte    { return []byte(k) }
+func (rawKey) Type() string                        { return "" }
+func (k rawKey) Marshal() []byte                   { return []byte(k) }
 func (rawKey) Verify([]byte, *ssh.Signature) error { return nil }
 
 // Approve explicitly trusts a new host key and saves it to the database.
+// If an entry for the same (host, port, key_type) already exists it is
+// replaced — double-clicking "Trust" must never return an error.
 func (s *KnownHosts) Approve(host string, port int, keyType, pubKeyBase64, fingerprint string) error {
 	_, err := s.db.Exec(
-		`INSERT INTO known_hosts (host, port, key_type, public_key, fingerprint, added_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		`INSERT OR REPLACE INTO known_hosts (host, port, key_type, public_key, fingerprint, added_at) VALUES (?, ?, ?, ?, ?, ?)`,
 		host, port, keyType, pubKeyBase64, fingerprint, time.Now().Unix(),
 	)
 	return err

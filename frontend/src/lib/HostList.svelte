@@ -7,7 +7,9 @@
   import { bus } from "./events";
   import HostEditor from "./HostEditor.svelte";
   import SSHConfigImport from "./SSHConfigImport.svelte";
+  import CloudImport from "./CloudImport.svelte";
   import { envBadge } from "./envColor";
+  import { platformBadge } from "./platform";
   import {
     Search,
     Plus,
@@ -21,13 +23,17 @@
     Clock,
     Star,
     Wifi,
+    ChevronRight,
+    Cloud,
   } from "@lucide/svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
 
   let editing: Host | null = $state(null);
   let creating = $state(false);
   let importing = $state(false);
+  let cloudImporting = $state(false);
   let filter = $state("");
+  let searchInput: HTMLInputElement;
 
   // Mosh availability — checked once, gates the context-menu entry.
   let moshAvailable = $state(false);
@@ -40,13 +46,39 @@
   let menuPos = $state<{ x: number; y: number }>({ x: 0, y: 0 });
 
   function openMenu(e: MouseEvent, h: Host) {
+    e.preventDefault();
     e.stopPropagation();
     menuHostID = h.id;
-    menuPos = { x: e.clientX, y: e.clientY };
+    // Clamp so a right-click near the bottom-right edge doesn't push the menu
+    // off-screen (it's fixed-position, so there's nothing to scroll it back).
+    menuPos = {
+      x: Math.min(e.clientX, window.innerWidth - 170),
+      y: Math.min(e.clientY, window.innerHeight - 190),
+    };
   }
 
   function closeMenu() {
     menuHostID = null;
+  }
+
+  // Single-click opens the details panel, double-click connects (SSH). Both
+  // click events fire before dblclick, so the panel is opened deferentially —
+  // a double-click cancels the pending open and connects instead.
+  let detailTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function rowClick(e: MouseEvent, h: Host) {
+    if (detailTimer) { clearTimeout(detailTimer); detailTimer = null; }
+    app.selectedHostID = h.id;
+    if (e.detail === 2) {
+      bus.emit("connect-host", { hostID: h.id });
+      return;
+    }
+    detailTimer = setTimeout(() => { app.hostDetailOpen = true; }, 220);
+  }
+
+  function rowContextMenu(e: MouseEvent, h: Host) {
+    if (detailTimer) { clearTimeout(detailTimer); detailTimer = null; }
+    openMenu(e, h);
   }
 
   let visible = $derived(
@@ -62,6 +94,8 @@
     }),
   );
 
+  let connectedCount = $derived(app.connectedHosts.size);
+
   let groups = $derived(
     visible.reduce<Record<string, Host[]>>((acc, h) => {
       const g = h.group || "Ungrouped";
@@ -69,6 +103,43 @@
       return acc;
     }, {}),
   );
+
+  // Collapsed group names, persisted so a fleet organised into many groups
+  // does not reopen fully expanded on every launch. Stored as a list of
+  // collapsed names rather than expanded ones, so a newly added group starts
+  // open without needing a migration.
+  const COLLAPSED_KEY = "blacknode.hostlist.collapsedGroups";
+
+  function readCollapsed(): string[] {
+    try {
+      const raw = localStorage.getItem(COLLAPSED_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string") : [];
+    } catch {
+      return [];
+    }
+  }
+
+  let collapsedGroups = $state<string[]>(readCollapsed());
+
+  function toggleGroup(name: string) {
+    collapsedGroups = collapsedGroups.includes(name)
+      ? collapsedGroups.filter((n) => n !== name)
+      : [...collapsedGroups, name];
+    try {
+      localStorage.setItem(COLLAPSED_KEY, JSON.stringify(collapsedGroups));
+    } catch {
+      // A full quota only costs the persistence, not the interaction.
+    }
+  }
+
+  // While a filter is active every match should be visible, or searching would
+  // appear to return nothing for a collapsed group.
+  let filtering = $derived(filter.trim().length > 0);
+  function groupCollapsed(name: string): boolean {
+    return !filtering && collapsedGroups.includes(name);
+  }
 
   // Favorites — pinned hosts, always shown at the very top (respecting the
   // active filter so search still narrows them).
@@ -101,10 +172,14 @@
 
   async function deleteHost() {
     if (!hostToDelete) return;
-    await HostService.Delete(hostToDelete.id);
-    if (app.selectedHostID === hostToDelete.id) app.selectedHostID = null;
-    await app.refreshHosts();
-    hostToDelete = null;
+    try {
+      await HostService.Delete(hostToDelete.id);
+      if (app.selectedHostID === hostToDelete.id) app.selectedHostID = null;
+      await app.refreshHosts();
+      hostToDelete = null;
+    } catch (e: any) {
+      app.toast("error", "Couldn't delete host", String(e?.message ?? e));
+    }
   }
 
   const authIcon = (m: string) => {
@@ -126,9 +201,19 @@
     });
     // "+ New → New host" from the section tab bar opens the editor here.
     const offNewHost = bus.on("new-host", () => (creating = true));
+    const onKeydown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeMenu();
+      if (e.key === "/" && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
+        e.preventDefault();
+        searchInput?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKeydown);
     return () => {
       offMetrics();
       offNewHost();
+      window.removeEventListener("keydown", onKeydown);
+      if (detailTimer) clearTimeout(detailTimer);
     };
   });
 
@@ -141,15 +226,30 @@
 
 <div class="flex h-full w-full flex-col">
   <!-- Header -->
-  <div class="flex items-center gap-2 border-b hairline px-3 py-2.5">
-    <span class="type-title text-[var(--color-text-1)]">Hosts</span>
-    <span class="rounded-full bg-[var(--color-surface-3)] px-1.5 type-micro tabular text-[var(--color-text-4)]">{app.hosts.length}</span>
+  <div class="flex items-center gap-2 border-b hairline px-3 py-3">
+    <div class="min-w-0">
+      <div class="flex items-center gap-2">
+        <span class="type-title text-[var(--color-text-1)]">Hosts</span>
+        <span class="rounded-full bg-[var(--color-surface-3)] px-1.5 type-micro tabular text-[var(--color-text-3)]">{app.hosts.length}</span>
+      </div>
+      <div class="mt-0.5 flex items-center gap-1.5 type-micro text-[var(--color-text-4)]">
+        <span class="h-1.5 w-1.5 rounded-full {connectedCount > 0 ? 'bg-[var(--color-success)]' : 'bg-[var(--color-text-4)]'}"></span>
+        {connectedCount > 0 ? `${connectedCount} connected` : 'Ready to connect'}
+      </div>
+    </div>
     <button
       class="ml-auto flex h-6 w-6 items-center justify-center rounded-md text-[var(--color-text-4)] transition-colors hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-2)]"
       onclick={() => (importing = true)}
       title="Import from ~/.ssh/config"
     >
       <FileText size="14" />
+    </button>
+    <button
+      class="flex h-6 w-6 items-center justify-center rounded-md text-[var(--color-text-4)] transition-colors hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-2)]"
+      onclick={() => (cloudImporting = true)}
+      title="Import from AWS, DigitalOcean or Azure"
+    >
+      <Cloud size="14" />
     </button>
     <button
       class="flex h-6 w-6 items-center justify-center rounded-md bg-[var(--color-accent)] text-white transition-opacity hover:opacity-90"
@@ -161,14 +261,16 @@
   </div>
 
   <!-- Search -->
-  <div class="px-2 py-2">
+  <div class="px-2.5 py-2.5">
     <div class="relative flex items-center rounded-md border hairline bg-[var(--color-surface-2)] transition-colors focus-within:border-[var(--color-accent)]/60">
       <Search size="13" class="absolute left-2.5 text-[var(--color-text-4)]" />
       <input
-        class="w-full bg-transparent py-1.5 pl-8 pr-2 type-caption text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)]"
+        class="w-full bg-transparent py-2 pl-8 pr-10 type-caption text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)]"
         placeholder="Search hosts, tags…"
         bind:value={filter}
+        bind:this={searchInput}
       />
+      <kbd class="absolute right-2 border hairline bg-[var(--color-surface-3)] px-1.5 py-0.5 font-mono type-micro text-[var(--color-text-4)]">/</kbd>
     </div>
   </div>
 
@@ -176,6 +278,7 @@
   {#snippet hostRow(h: Host)}
     {@const Icon = authIcon(h.authMethod)}
     {@const env = envBadge(h.environment)}
+    {@const platform = platformBadge(h.platform)}
     <div
       class="group relative mx-2 my-px flex items-center gap-2 overflow-hidden border px-2 py-2 transition-colors duration-150 {app.connectedHosts.has(h.id)
         ? 'border-[var(--color-accent)]/30 bg-[var(--color-accent-soft)] text-[var(--color-text-1)]'
@@ -183,6 +286,8 @@
         ? 'border-[var(--color-accent)]/40 bg-[var(--color-accent-soft)] text-[var(--color-text-1)]'
         : 'border-transparent text-[var(--color-text-2)] hover:bg-[var(--color-surface-2)]'}"
       style="border-radius: var(--radius-md);"
+      role="presentation"
+      oncontextmenu={(e) => rowContextMenu(e, h)}
     >
       <!-- Env stripe -->
       {#if env.label}
@@ -191,7 +296,9 @@
 
       <button
         class="flex min-w-0 flex-1 items-start gap-2.5 text-left"
-        onclick={() => { app.selectedHostID = h.id; app.hostDetailOpen = true; }}
+        onclick={(e) => rowClick(e, h)}
+        aria-label="{h.name} — {h.username}@{h.host}:{h.port || 22}"
+        title="Click for details · double-click to connect"
       >
         <!-- Status dot -->
         <span class="mt-1.5 shrink-0">
@@ -205,6 +312,15 @@
         </span>
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-1.5">
+            {#if platform}
+              <span
+                class="shrink-0 rounded border px-1 type-nano font-semibold leading-[1.4] tabular"
+                style:color={platform.color}
+                style:border-color="{platform.color}59"
+                title={platform.label}
+                aria-label="Platform: {platform.label}"
+              >{platform.monogram}</span>
+            {/if}
             <span class="truncate type-body font-medium leading-tight text-[var(--color-text-1)]">{h.name}</span>
             {#if env.label}
               <span
@@ -216,7 +332,7 @@
             <Icon size="10" class="shrink-0 text-[var(--color-text-4)]" />
           </div>
           <div class="clamp-1 font-mono type-caption text-[var(--color-text-3)]">
-            {h.username}@{h.host}<span class="text-[var(--color-text-4)]">:{h.port}</span>
+            {h.username}@{h.host}<span class="text-[var(--color-text-4)]">:{h.port || 22}</span>
           </div>
           {#if h.tags && h.tags.length > 0}
             <div class="mt-1 flex flex-wrap gap-1">
@@ -245,6 +361,8 @@
       <button
         class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-transparent text-[var(--color-text-4)] transition-colors hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-2)] focus-visible:border-[var(--color-accent)]/50"
         onclick={(e) => openMenu(e, h)}
+        oncontextmenu={(e) => openMenu(e, h)}
+        ondblclick={(e) => { e.stopPropagation(); }}
         title="Actions"
         aria-label="Host actions"
       >
@@ -260,6 +378,26 @@
       <span class="rounded-full bg-[var(--color-surface-3)] px-1.5 type-micro tabular text-[var(--color-text-4)]">{count}</span>
       <span class="h-px flex-1 bg-[var(--color-line)]"></span>
     </div>
+  {/snippet}
+
+  <!-- Group header — the same layout as sectionHeader, but the whole row is a
+       disclosure control for the group beneath it. -->
+  {#snippet groupHeader(label: string, count: number)}
+    {@const collapsed = groupCollapsed(label)}
+    <button
+      class="flex w-full items-center gap-2 px-3 pt-3 pb-1 text-left transition-colors hover:text-[var(--color-text-2)]"
+      onclick={() => toggleGroup(label)}
+      aria-expanded={!collapsed}
+      title={collapsed ? `Expand ${label}` : `Collapse ${label}`}
+    >
+      <ChevronRight
+        size="11"
+        class="shrink-0 text-[var(--color-text-4)] transition-transform duration-150 {collapsed ? '' : 'rotate-90'}"
+      />
+      <span class="type-eyebrow text-[var(--color-text-4)]">{label}</span>
+      <span class="rounded-full bg-[var(--color-surface-3)] px-1.5 type-micro tabular text-[var(--color-text-4)]">{count}</span>
+      <span class="h-px flex-1 bg-[var(--color-line)]"></span>
+    </button>
   {/snippet}
 
   <!-- Host list -->
@@ -279,21 +417,23 @@
     {/if}
 
     {#each Object.entries(groups) as [name, list] (name)}
-      {@render sectionHeader(name, list.length)}
-      {#each list as h (h.id)}
-        {@render hostRow(h)}
-      {/each}
+      {@render groupHeader(name, list.length)}
+      {#if !groupCollapsed(name)}
+        {#each list as h (h.id)}
+          {@render hostRow(h)}
+        {/each}
+      {/if}
     {/each}
 
     {#if app.hosts.length === 0}
-      <div class="px-4 py-10 text-center">
-        <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-lg border hairline bg-[var(--color-surface-2)] text-[var(--color-text-4)]">
+      <div class="px-4 py-12 text-center">
+        <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg border border-[var(--color-accent)]/25 bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
           <Server size="20" />
         </div>
         <p class="type-body font-medium text-[var(--color-text-2)]">No hosts yet</p>
-        <p class="mt-1 type-caption text-[var(--color-text-4)]">Add your first server to get started</p>
+        <p class="mt-1 type-caption text-[var(--color-text-3)]">Add a server to make it available across your workspace.</p>
         <button
-          class="mt-4 rounded-md bg-[var(--color-accent)] px-3 py-1.5 type-caption font-medium text-white transition-opacity hover:opacity-90"
+          class="mt-5 rounded-md bg-[var(--color-accent)] px-3.5 py-2 type-caption font-semibold text-[var(--color-surface-0)] transition-opacity hover:opacity-90"
           onclick={() => (creating = true)}
         >+ Add host</button>
       </div>
@@ -382,6 +522,9 @@
       }
     }}
   />
+{/if}
+{#if cloudImporting}
+  <CloudImport onclose={() => (cloudImporting = false)} />
 {/if}
 
 {#if hostToDelete}

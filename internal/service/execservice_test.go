@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -18,22 +19,26 @@ import (
 
 // noopNotify is a dummy implementation of the notification interface if needed
 type noopNotify struct{}
-func (n noopNotify) Notify(ctx context.Context, msg Notification) {}
+
+func (n noopNotify) Notify(ctx context.Context, msg Notification)                      {}
 func (n noopNotify) NotifyDebounced(ctx context.Context, key string, msg Notification) {}
 
 // noopActivityRecorder is a dummy implementation
 type noopActivityRecorder struct{}
+
 func (n noopActivityRecorder) Record(ctx context.Context, actType string, meta map[string]any) {}
 
-func setupTestExecService(t *testing.T) (*ExecService, *mockssh.Server, *store.Hosts, func()) {
-	// Ensure tests use an isolated database in a temporary directory
+func setupTestExecService(t *testing.T) (*ExecService, *mockssh.Server, *store.Hosts, func(string, string), func()) {
+	// Isolated database in a temp dir. Note this must be an explicit path:
+	// setting XDG_DATA_HOME here would be too late to matter, since xdg
+	// resolves the data home once at package init — db.Open() would land in
+	// the developer's real blacknode.db.
 	tmpDir, err := os.MkdirTemp("", "blacknode-test-*")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	os.Setenv("XDG_DATA_HOME", tmpDir)
 
-	sqliteDB, err := db.Open()
+	sqliteDB, err := db.OpenPath(filepath.Join(tmpDir, "test.db"))
 	if err != nil {
 		t.Fatalf("failed to open test db: %v", err)
 	}
@@ -52,19 +57,22 @@ func setupTestExecService(t *testing.T) (*ExecService, *mockssh.Server, *store.H
 	// Approve mock server host key
 	knownHosts.Approve("127.0.0.1", server.Port(), server.PublicKey.Type(), base64.StdEncoding.EncodeToString(server.PublicKey.Marshal()), ssh.FingerprintSHA256(server.PublicKey))
 
-	dialer := sshconn.New(v, keys, knownHosts)
+	secrets := store.NewSecrets(sqliteDB.DB)
+	dialer := sshconn.New(v, keys, knownHosts, secrets)
 	pool := sshconn.NewPool(dialer, hosts)
 
 	execSvc := NewExecService(pool, hosts, history, nil, nil)
+	seed := newPasswordSeeder(t, v, secrets)
 
-	return execSvc, server, hosts, func() {
+	return execSvc, server, hosts, seed, func() {
 		server.Close()
 		sqliteDB.Close()
+		os.RemoveAll(tmpDir)
 	}
 }
 
 func TestExecService_Run_Success(t *testing.T) {
-	svc, server, hosts, cleanup := setupTestExecService(t)
+	svc, server, hosts, seed, cleanup := setupTestExecService(t)
 	defer cleanup()
 
 	server.Handlers["echo"] = func(cmd string) (string, uint32) {
@@ -82,10 +90,12 @@ func TestExecService_Run_Success(t *testing.T) {
 		t.Fatalf("failed to create host: %v", err)
 	}
 
+	seed(host.ID, "password")
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	results, err := svc.Run(ctx, "run-1", "echo 'hello world'", []string{host.ID}, map[string]string{host.ID: "password"}, 10)
+	results, err := svc.Run(ctx, "run-1", "echo 'hello world'", []string{host.ID}, 10)
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -107,7 +117,7 @@ func TestExecService_Run_Success(t *testing.T) {
 }
 
 func TestExecService_Run_Failure(t *testing.T) {
-	svc, server, hosts, cleanup := setupTestExecService(t)
+	svc, server, hosts, seed, cleanup := setupTestExecService(t)
 	defer cleanup()
 
 	server.Handlers["false"] = func(cmd string) (string, uint32) {
@@ -125,10 +135,12 @@ func TestExecService_Run_Failure(t *testing.T) {
 		t.Fatalf("failed to create host: %v", err)
 	}
 
+	seed(host.ID, "password")
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	results, err := svc.Run(ctx, "run-2", "false", []string{host.ID}, map[string]string{host.ID: "password"}, 10)
+	results, err := svc.Run(ctx, "run-2", "false", []string{host.ID}, 10)
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}

@@ -22,9 +22,29 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 // @ts-ignore: Unused imports
 import * as store$0 from "../store/models.js";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as $models from "./models.js";
+
+/**
+ * ExportSigned writes the activity log to dir as a JSON document, optionally
+ * with a detached OpenSSH signature made by one of the user's stored keys.
+ * 
+ * Signing is optional because the document is self-verifying either way: the
+ * hash chain is internal to it. What the signature adds is attribution — proof
+ * that this export came from the holder of a known key and hasn't been edited
+ * since — which is the difference between a log you can check and a log someone
+ * else will accept. keyID may be empty to skip it.
+ */
+export function ExportSigned(dir: string, keyID: string, identity: string, fromSeq: number, toSeq: number): $CancellablePromise<$models.AuditExport> {
+    return $Call.ByID(3093233171, dir, keyID, identity, fromSeq, toSeq).then(($result: any) => {
+        return $$createType0($result);
+    });
+}
+
 export function List(f: store$0.ActivityFilter): $CancellablePromise<store$0.Activity[]> {
     return $Call.ByID(830005245, f).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType2($result);
     });
 }
 
@@ -32,6 +52,9 @@ export function List(f: store$0.ActivityFilter): $CancellablePromise<store$0.Act
  * PurgeOlderThanDays drops rows older than the given window. Called from
  * the UI as a manual cleanup; a 30-day window covers most observability
  * needs and keeps the DB tidy.
+ * 
+ * This truncates the front of the hash chain — see store.PurgeOlderThan. The UI
+ * should offer an export first when the log is being kept for audit reasons.
  */
 export function PurgeOlderThanDays(days: number): $CancellablePromise<number> {
     return $Call.ByID(208106498, days);
@@ -46,17 +69,30 @@ export function PurgeOlderThanDays(days: number): $CancellablePromise<number> {
  */
 export function Record(a: store$0.Activity): $CancellablePromise<store$0.Activity> {
     return $Call.ByID(1297198736, a).then(($result: any) => {
-        return $$createType0($result);
+        return $$createType1($result);
     });
 }
 
 export function Sources(): $CancellablePromise<string[]> {
     return $Call.ByID(3542878669).then(($result: any) => {
-        return $$createType2($result);
+        return $$createType3($result);
+    });
+}
+
+/**
+ * VerifyChain recomputes the whole hash chain and reports the first break.
+ * Cheap enough to run on demand from the UI: it's one sequential scan and a
+ * SHA-256 per row.
+ */
+export function VerifyChain(): $CancellablePromise<store$0.ChainStatus> {
+    return $Call.ByID(968122017).then(($result: any) => {
+        return $$createType4($result);
     });
 }
 
 // Private type creation functions
-const $$createType0 = store$0.Activity.createFrom;
-const $$createType1 = $Create.Array($$createType0);
-const $$createType2 = $Create.Array($Create.Any);
+const $$createType0 = $models.AuditExport.createFrom;
+const $$createType1 = store$0.Activity.createFrom;
+const $$createType2 = $Create.Array($$createType1);
+const $$createType3 = $Create.Array($Create.Any);
+const $$createType4 = store$0.ChainStatus.createFrom;

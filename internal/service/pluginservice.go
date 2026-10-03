@@ -85,14 +85,34 @@ func (s *PluginService) Panels(ctx context.Context) []plugin.PanelView {
 	return out
 }
 
-// HostNotify is the host-RPC backchannel surfaced to plugin iframes:
-// they postMessage `{type: "host.notify", title, body}` to the parent
-// window, the workspace bridge calls this method, and we route it
-// through the existing NotificationService. Routed methods are an
-// allowlist — anything else gets dropped, matching the Permissions
-// model from the manifest.
+// HostNotify is the host-RPC backchannel surfaced to plugin iframes: they
+// postMessage `{type: "host.notify", ...}` to the parent window, the
+// workspace bridge calls this method, and we route it through the existing
+// NotificationService.
+//
+// pluginID is attested by the bridge, which resolves it from the MessageEvent
+// source against its registry of mounted panel iframes — it is not a field
+// the iframe fills in, because a panel could name any plugin it liked. We
+// still re-check it here: this method is Wails-bound, so the browser context
+// can call it directly, and the frontend check is a filter rather than a
+// boundary.
+//
+// Denials are recorded rather than dropped. A plugin trying to use a
+// capability it never declared is either broken or probing, and both are
+// things the user should be able to see in the activity feed.
 func (s *PluginService) HostNotify(ctx context.Context, pluginID, title, body string) {
 	if s.notify == nil {
+		return
+	}
+	if !s.mgr.Allowed(pluginID, plugin.PermHostNotify) {
+		s.activity.Record(store.Activity{
+			Source: "plugin",
+			Kind:   "plugin.permission.denied",
+			Level:  "warn",
+			Title:  "Plugin blocked: " + displayPluginID(pluginID),
+			Body: "Tried to raise a notification without the " +
+				plugin.PermHostNotify + " permission.",
+		})
 		return
 	}
 	s.notify.Notify(context.Background(), Notification{
@@ -101,4 +121,17 @@ func (s *PluginService) HostNotify(ctx context.Context, pluginID, title, body st
 		Body:   body,
 		Source: "plugin:" + pluginID,
 	})
+}
+
+// displayPluginID keeps an untrusted id from rendering as a blank or
+// sprawling string in the activity feed. The id reaching HostNotify may not
+// correspond to an installed plugin at all, so it is data, not a name.
+func displayPluginID(id string) string {
+	if id == "" {
+		return "(unidentified)"
+	}
+	if len(id) > 64 {
+		return id[:64] + "…"
+	}
+	return id
 }

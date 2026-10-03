@@ -1,0 +1,30 @@
+{
+  /**
+   * Type-checking for the test suite only.
+   *
+   * The tests run under `node --test` using Node's native TypeScript support
+   * (type stripping), which is why they exist at all: the project has no test
+   * framework installed, and this arrangement needs zero new runtime
+   * dependencies. Two consequences show up as compiler settings:
+   *
+   *   - `allowImportingTsExtensions` — Node's ESM resolver does not map
+   *     `./danger` to `./danger.ts`, so the imports carry the extension. That
+   *     is illegal under the app's config, hence the split.
+   *   - `types: ["node"]` — the tests import `node:test`, `node:assert/strict`
+   *     and `node:fs`, none of which the app is allowed to see.
+   *
+   * `noEmit` is required by `allowImportingTsExtensions` and is correct anyway;
+   * nothing here is built.
+   */
+  "extends": "@tsconfig/svelte/tsconfig.json",
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "isolatedModules": true,
+    "types": ["node"]
+  },
+  "include": ["src/**/*.test.ts"]
+}

@@ -104,12 +104,14 @@
     subtitle="Auto-captured from Multi-host runs, AI translations, and snippet applies"
   >
     {#snippet actions()}
-      <button
-        class="flex items-center gap-1 rounded-md border hairline-strong px-2.5 py-1 type-caption text-[var(--color-text-3)] hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)]"
-        onclick={() => (confirmClear = true)}
-      >
-        <Trash2 size="11" /> clear all
-      </button>
+      {#if entries.length > 0}
+        <button
+          class="flex items-center gap-1 rounded-md border hairline-strong px-2.5 py-1 type-caption text-[var(--color-text-3)] hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)]"
+          onclick={() => (confirmClear = true)}
+        >
+          <Trash2 size="11" /> clear all
+        </button>
+      {/if}
     {/snippet}
   </PageHeader>
 

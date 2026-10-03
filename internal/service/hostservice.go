@@ -2,14 +2,12 @@ package service
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/blacknode/blacknode/internal/store"
 	"github.com/blacknode/blacknode/internal/vault"
@@ -19,12 +17,12 @@ import (
 type HostService struct {
 	hosts      *store.Hosts
 	knownHosts *store.KnownHosts
+	secrets    *store.Secrets
 	vault      *vault.Vault
-	db         *sql.DB
 }
 
-func NewHostService(h *store.Hosts, kh *store.KnownHosts, v *vault.Vault, db *sql.DB) *HostService {
-	return &HostService{hosts: h, knownHosts: kh, vault: v, db: db}
+func NewHostService(h *store.Hosts, kh *store.KnownHosts, secrets *store.Secrets, v *vault.Vault) *HostService {
+	return &HostService{hosts: h, knownHosts: kh, secrets: secrets, vault: v}
 }
 
 func (s *HostService) List(ctx context.Context) ([]store.Host, error)         { return s.hosts.List() }
@@ -33,7 +31,16 @@ func (s *HostService) Create(ctx context.Context, h store.Host) (store.Host, err
 	return s.hosts.Create(h)
 }
 func (s *HostService) Update(ctx context.Context, h store.Host) error { return s.hosts.Update(h) }
-func (s *HostService) Delete(ctx context.Context, id string) error    { return s.hosts.Delete(id) }
+
+// Delete removes a host and any credentials saved against it. Leaving the
+// secrets behind would strand undeletable ciphertext keyed to an id nothing
+// references.
+func (s *HostService) Delete(ctx context.Context, id string) error {
+	if err := s.hosts.Delete(id); err != nil {
+		return err
+	}
+	return s.secrets.DeleteAll(id)
+}
 
 // SetFavorite toggles a host's favorite flag.
 func (s *HostService) SetFavorite(ctx context.Context, id string, favorite bool) error {
@@ -58,76 +65,7 @@ func (s *HostService) RemoveKnownHost(ctx context.Context, host string, port int
 // SetPassword encrypts and persists the SSH password for a host in the vault.
 // The plaintext password is never stored; only AES-256-GCM ciphertext.
 func (s *HostService) SetPassword(ctx context.Context, hostID, password string) error {
-	if s.vault == nil || s.db == nil {
-		return errors.New("vault not available")
-	}
-	if password == "" {
-		// Deleting the saved password is a valid no-op.
-		_, err := s.db.Exec(`DELETE FROM host_secrets WHERE host_id = ?`, hostID)
-		return err
-	}
-	ciphertext, nonce, err := s.vault.Encrypt([]byte(password))
-	if err != nil {
-		return fmt.Errorf("encrypt: %w", err)
-	}
-	_, err = s.db.Exec(
-		`INSERT INTO host_secrets (host_id, ciphertext, nonce, updated_at)
-		 VALUES (?, ?, ?, ?)
-		 ON CONFLICT(host_id) DO UPDATE SET ciphertext=excluded.ciphertext, nonce=excluded.nonce, updated_at=excluded.updated_at`,
-		hostID, ciphertext, nonce, time.Now().Unix(),
-	)
-	return err
-}
-
-// GetPassword decrypts and returns the saved SSH password for a host, or
-// an empty string if no password has been stored.
-func (s *HostService) GetPassword(ctx context.Context, hostID string) (string, error) {
-	if s.vault == nil || s.db == nil {
-		return "", nil
-	}
-	var ciphertext, nonce []byte
-	err := s.db.QueryRow(
-		`SELECT ciphertext, nonce FROM host_secrets WHERE host_id = ?`, hostID,
-	).Scan(&ciphertext, &nonce)
-	if errors.Is(err, sql.ErrNoRows) {
-		return "", nil
-	}
-	if err != nil {
-		return "", err
-	}
-	plain, err := s.vault.Decrypt(ciphertext, nonce)
-	if err != nil {
-		return "", fmt.Errorf("decrypt: %w", err)
-	}
-	return string(plain), nil
-}
-
-// GetAllPasswords returns a map of hostID → plaintext password for every host
-// that has a saved password. Used at startup to pre-populate the frontend
-// password cache so connecting never prompts.
-func (s *HostService) GetAllPasswords(ctx context.Context) (map[string]string, error) {
-	out := map[string]string{}
-	if s.vault == nil || s.db == nil {
-		return out, nil
-	}
-	rows, err := s.db.Query(`SELECT host_id, ciphertext, nonce FROM host_secrets`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var hostID string
-		var ciphertext, nonce []byte
-		if err := rows.Scan(&hostID, &ciphertext, &nonce); err != nil {
-			continue
-		}
-		plain, err := s.vault.Decrypt(ciphertext, nonce)
-		if err != nil {
-			continue // skip entries we can't decrypt (e.g. vault re-initialized)
-		}
-		out[hostID] = string(plain)
-	}
-	return out, rows.Err()
+	return s.setSecret(store.KindPassword, hostID, password)
 }
 
 // SetSudoPassword encrypts and persists the sudo/root password for a host in
@@ -135,74 +73,44 @@ func (s *HostService) GetAllPasswords(ctx context.Context) (map[string]string, e
 // use a different password for privilege escalation (or the same user password
 // but need it at sudo time).
 func (s *HostService) SetSudoPassword(ctx context.Context, hostID, password string) error {
-	if s.vault == nil || s.db == nil {
+	return s.setSecret(store.KindSudo, hostID, password)
+}
+
+// ClearPassword forgets the saved SSH password for a host.
+func (s *HostService) ClearPassword(ctx context.Context, hostID string) error {
+	return s.secrets.Delete(store.KindPassword, hostID)
+}
+
+// ClearSudoPassword forgets the saved sudo password for a host.
+func (s *HostService) ClearSudoPassword(ctx context.Context, hostID string) error {
+	return s.secrets.Delete(store.KindSudo, hostID)
+}
+
+// SecretStatus reports which hosts have saved credentials, as booleans. This
+// is deliberately the only credential query the frontend can make: panels
+// need to know whether a password exists (to show a "saved" affordance and to
+// decide whether to prompt), never what it is. Unsealing happens in the
+// connect path — see sshconn.Dialer.ResolveSecret.
+func (s *HostService) SecretStatus(ctx context.Context) (map[string]store.Status, error) {
+	return s.secrets.Status()
+}
+
+func (s *HostService) setSecret(kind store.Kind, hostID, password string) error {
+	if s.vault == nil || s.secrets == nil {
 		return errors.New("vault not available")
 	}
+	if hostID == "" {
+		return errors.New("hostID required")
+	}
 	if password == "" {
-		_, err := s.db.Exec(`DELETE FROM host_sudo_secrets WHERE host_id = ?`, hostID)
-		return err
+		// Clearing the saved password is a valid request.
+		return s.secrets.Delete(kind, hostID)
 	}
 	ciphertext, nonce, err := s.vault.Encrypt([]byte(password))
 	if err != nil {
 		return fmt.Errorf("encrypt: %w", err)
 	}
-	_, err = s.db.Exec(
-		`INSERT INTO host_sudo_secrets (host_id, ciphertext, nonce, updated_at)
-		 VALUES (?, ?, ?, ?)
-		 ON CONFLICT(host_id) DO UPDATE SET ciphertext=excluded.ciphertext, nonce=excluded.nonce, updated_at=excluded.updated_at`,
-		hostID, ciphertext, nonce, time.Now().Unix(),
-	)
-	return err
-}
-
-// GetSudoPassword decrypts and returns the saved sudo password for a host, or
-// an empty string if none has been stored.
-func (s *HostService) GetSudoPassword(ctx context.Context, hostID string) (string, error) {
-	if s.vault == nil || s.db == nil {
-		return "", nil
-	}
-	var ciphertext, nonce []byte
-	err := s.db.QueryRow(
-		`SELECT ciphertext, nonce FROM host_sudo_secrets WHERE host_id = ?`, hostID,
-	).Scan(&ciphertext, &nonce)
-	if errors.Is(err, sql.ErrNoRows) {
-		return "", nil
-	}
-	if err != nil {
-		return "", err
-	}
-	plain, err := s.vault.Decrypt(ciphertext, nonce)
-	if err != nil {
-		return "", fmt.Errorf("decrypt: %w", err)
-	}
-	return string(plain), nil
-}
-
-// GetAllSudoPasswords returns a map of hostID → plaintext sudo password for
-// every host that has a saved sudo password.
-func (s *HostService) GetAllSudoPasswords(ctx context.Context) (map[string]string, error) {
-	out := map[string]string{}
-	if s.vault == nil || s.db == nil {
-		return out, nil
-	}
-	rows, err := s.db.Query(`SELECT host_id, ciphertext, nonce FROM host_sudo_secrets`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var hostID string
-		var ciphertext, nonce []byte
-		if err := rows.Scan(&hostID, &ciphertext, &nonce); err != nil {
-			continue
-		}
-		plain, err := s.vault.Decrypt(ciphertext, nonce)
-		if err != nil {
-			continue
-		}
-		out[hostID] = string(plain)
-	}
-	return out, rows.Err()
+	return s.secrets.Set(kind, hostID, store.Sealed{Ciphertext: ciphertext, Nonce: nonce})
 }
 
 // SSHConfigCandidate is one Host block from the user's ~/.ssh/config that

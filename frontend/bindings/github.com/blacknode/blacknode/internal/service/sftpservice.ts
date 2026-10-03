@@ -10,47 +10,155 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 import * as $models from "./models.js";
 
 /**
- * Download fetches a remote file and returns it base64-encoded. Suitable for
- * the spike's small-file UI; large files will need a streaming path.
+ * Cancel aborts an in-flight transfer. Unknown IDs are not an error: the
+ * transfer may have finished between the UI rendering a cancel button and the
+ * user clicking it.
  */
-export function Download(hostID: string, password: string, remotePath: string): $CancellablePromise<string> {
-    return $Call.ByID(2487137113, hostID, password, remotePath);
+export function Cancel(transferID: string): $CancellablePromise<void> {
+    return $Call.ByID(3324725115, transferID);
+}
+
+/**
+ * Chmod sets permissions from an octal string ("644", "0755"). The string form
+ * is deliberate: it's what the user typed and what ls showed them, and parsing
+ * it here keeps the frontend from having to model Unix mode bits.
+ */
+export function Chmod(hostID: string, remotePath: string, mode: string): $CancellablePromise<void> {
+    return $Call.ByID(2727755314, hostID, remotePath, mode);
+}
+
+/**
+ * Download fetches a small remote file and returns it base64-encoded, for the
+ * in-app editor.
+ * 
+ * It refuses anything over maxInlineBytes rather than returning a prefix. The
+ * first implementation read through io.LimitReader, which returns io.EOF at
+ * the cap — io.ReadAll treats that as a clean end of file, so an oversized
+ * download silently produced a truncated result that the UI reported as a
+ * success. Use DownloadTo for real files.
+ * 
+ * The Stat is a fast rejection, not the enforcement: it describes the file as
+ * it was before the Open, and a remote log being appended to is bigger by the
+ * time it is read. readCapped is what actually holds the line.
+ */
+export function Download(hostID: string, remotePath: string): $CancellablePromise<string> {
+    return $Call.ByID(2487137113, hostID, remotePath);
+}
+
+/**
+ * DownloadTo streams a remote file to a local path. transferID is chosen by the
+ * caller and is the handle passed to Cancel.
+ */
+export function DownloadTo(hostID: string, remotePath: string, localPath: string, transferID: string): $CancellablePromise<void> {
+    return $Call.ByID(2753891528, hostID, remotePath, localPath, transferID);
 }
 
 /**
  * List returns the entries of a remote directory. If `dir` is empty, the
- * remote home directory is used.
+ * remote home directory is used. Directories sort before files, then by name,
+ * so the UI doesn't have to re-sort a payload it just received.
  */
-export function List(hostID: string, password: string, dir: string): $CancellablePromise<$models.SFTPEntry[]> {
-    return $Call.ByID(353307361, hostID, password, dir).then(($result: any) => {
+export function List(hostID: string, dir: string): $CancellablePromise<$models.SFTPEntry[]> {
+    return $Call.ByID(353307361, hostID, dir).then(($result: any) => {
         return $$createType1($result);
     });
 }
 
-export function Mkdir(hostID: string, password: string, dir: string): $CancellablePromise<void> {
-    return $Call.ByID(790964408, hostID, password, dir);
-}
-
-export function Remove(hostID: string, password: string, target: string): $CancellablePromise<void> {
-    return $Call.ByID(223589213, hostID, password, target);
+export function Mkdir(hostID: string, dir: string): $CancellablePromise<void> {
+    return $Call.ByID(790964408, hostID, dir);
 }
 
 /**
- * Upload writes base64-encoded payload to remoteDir/<filename>.
+ * ReadForEdit returns a revision of the exact bytes read, including line endings.
  */
-export function Upload(hostID: string, password: string, remoteDir: string, filename: string, payloadB64: string): $CancellablePromise<void> {
-    return $Call.ByID(1381401788, hostID, password, remoteDir, filename, payloadB64);
+export function ReadForEdit(hostID: string, remotePath: string): $CancellablePromise<$models.RemoteFileSnapshot> {
+    return $Call.ByID(3094968948, hostID, remotePath).then(($result: any) => {
+        return $$createType2($result);
+    });
+}
+
+/**
+ * ReadLink resolves a symlink's target.
+ */
+export function ReadLink(hostID: string, remotePath: string): $CancellablePromise<string> {
+    return $Call.ByID(1735975849, hostID, remotePath);
+}
+
+/**
+ * Remove deletes a file, an empty directory, or — when recursive is true — a
+ * directory tree. RemoveDirectory fails on a non-empty directory, which is why
+ * deleting a populated folder needs the explicit walk.
+ */
+export function Remove(hostID: string, target: string, recursive: boolean): $CancellablePromise<void> {
+    return $Call.ByID(223589213, hostID, target, recursive);
+}
+
+/**
+ * Rename moves or renames a remote path. Falls back to PosixRename when the
+ * plain rename fails, since OpenSSH's SFTP server rejects rename onto an
+ * existing target while the posix-rename@openssh.com extension allows it —
+ * that difference is why "move onto an existing file" appears broken.
+ */
+export function Rename(hostID: string, oldPath: string, newPath: string): $CancellablePromise<void> {
+    return $Call.ByID(3014939955, hostID, oldPath, newPath);
+}
+
+/**
+ * SaveForEdit checks the revision, optionally backs up the original, and stages
+ * a complete replacement before an atomic rename. It never truncates the live
+ * file. Servers without POSIX rename support fail without changing the target.
+ * SFTP has no compare-and-swap: a concurrent external write after the last
+ * revision check cannot be excluded. The mutex serializes this app's editors.
+ */
+export function SaveForEdit(hostID: string, remotePath: string, payloadBase64: string, expectedRevision: string, backup: boolean): $CancellablePromise<$models.RemoteFileSave> {
+    return $Call.ByID(2696463547, hostID, remotePath, payloadBase64, expectedRevision, backup).then(($result: any) => {
+        return $$createType3($result);
+    });
+}
+
+/**
+ * Stat returns metadata for a single remote path. The UI uses it to decide
+ * whether a file is small enough to open in the editor before fetching it.
+ */
+export function Stat(hostID: string, remotePath: string): $CancellablePromise<$models.SFTPEntry> {
+    return $Call.ByID(3679277559, hostID, remotePath).then(($result: any) => {
+        return $$createType0($result);
+    });
+}
+
+/**
+ * Symlink creates a symbolic link at linkPath pointing at target.
+ */
+export function Symlink(hostID: string, target: string, linkPath: string): $CancellablePromise<void> {
+    return $Call.ByID(2322292020, hostID, target, linkPath);
+}
+
+/**
+ * Upload writes base64-encoded payload to remoteDir/<filename>. Inline path,
+ * same size ceiling as Download — UploadFrom is the streaming equivalent.
+ */
+export function Upload(hostID: string, remoteDir: string, filename: string, payloadB64: string): $CancellablePromise<void> {
+    return $Call.ByID(1381401788, hostID, remoteDir, filename, payloadB64);
+}
+
+/**
+ * UploadFrom streams a local file (or directory tree) to a remote path.
+ */
+export function UploadFrom(hostID: string, localPath: string, remotePath: string, transferID: string): $CancellablePromise<void> {
+    return $Call.ByID(2045897156, hostID, localPath, remotePath, transferID);
 }
 
 /**
  * WriteFile overwrites a remote file at an absolute path. Used by the
  * in-app editor — Upload (which appends a filename onto a directory) is the
- * wrong shape there. Capped at 50MB to mirror the Download cap.
+ * wrong shape there.
  */
-export function WriteFile(hostID: string, password: string, remotePath: string, payloadB64: string): $CancellablePromise<void> {
-    return $Call.ByID(2043285130, hostID, password, remotePath, payloadB64);
+export function WriteFile(hostID: string, remotePath: string, payloadB64: string): $CancellablePromise<void> {
+    return $Call.ByID(2043285130, hostID, remotePath, payloadB64);
 }
 
 // Private type creation functions
 const $$createType0 = $models.SFTPEntry.createFrom;
 const $$createType1 = $Create.Array($$createType0);
+const $$createType2 = $models.RemoteFileSnapshot.createFrom;
+const $$createType3 = $models.RemoteFileSave.createFrom;

@@ -37,8 +37,7 @@
     err = "";
     busy = true;
     try {
-      const password = app.hostPasswords[host.id] ?? "";
-      entries = ((await SFTPService.List(host.id, password, path)) ??
+      entries = ((await SFTPService.List(host.id, path)) ??
         []) as SFTPEntry[];
     } catch (e: any) {
       let msg = String(e?.message ?? e);
@@ -82,17 +81,14 @@
     const bytes = new Uint8Array(buf);
     for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
     const b64 = btoa(bin);
-    const password = app.hostPasswords[host.id] ?? "";
-    await SFTPService.Upload(host.id, password, path || ".", file.name, b64);
+    await SFTPService.Upload(host.id, path || ".", file.name, b64);
     await reload();
   }
 
   async function download(e: SFTPEntry) {
     if (!host) return;
-    const password = app.hostPasswords[host.id] ?? "";
     const b64 = await SFTPService.Download(
       host.id,
-      password,
       joinPath(path, e.name),
     );
     const bin = atob(b64);
@@ -110,8 +106,11 @@
   let entryToDelete = $state<SFTPEntry | null>(null);
   async function remove() {
     if (!entryToDelete || !host) return;
-    const password = app.hostPasswords[host.id] ?? "";
-    await SFTPService.Remove(host.id, password, joinPath(path, entryToDelete.name));
+    // Recursive only for directories. Passing it unconditionally would be
+    // harmless for files but would turn a mis-click on a directory into an
+    // unbounded delete; passing it never would make non-empty directories
+    // undeletable from the UI.
+    await SFTPService.Remove(host.id, joinPath(path, entryToDelete.name), entryToDelete.isDir);
     await reload();
     entryToDelete = null;
   }
@@ -310,9 +309,11 @@
 
 {#if entryToDelete}
   <ConfirmDanger
-    title="DELETE FILE"
-    body="Are you sure you want to delete '{entryToDelete.name}'? This action cannot be undone and will permanently remove the item from the remote server."
-    severity="warn"
+    title={entryToDelete.isDir ? "DELETE FOLDER" : "DELETE FILE"}
+    body={entryToDelete.isDir
+      ? `Delete the folder '${entryToDelete.name}' and everything inside it? This removes all contents recursively and cannot be undone.`
+      : `Are you sure you want to delete '${entryToDelete.name}'? This action cannot be undone and will permanently remove the item from the remote server.`}
+    severity={entryToDelete.isDir ? "block-without-confirm" : "warn"}
     productionHosts={host?.environment === 'production' ? [host.name] : []}
     onCancel={() => (entryToDelete = null)}
     onConfirm={remove}

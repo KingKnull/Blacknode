@@ -24,7 +24,7 @@
         ></span>
         <div
           class="relative flex h-12 w-12 items-center justify-center border hairline-strong surface-2"
-          style="border-radius: var(--radius-md); box-shadow: 0 0 24px rgba(59, 130, 246, 0.06), inset 0 1px 0 rgba(255,255,255,0.03);"
+          style="border-radius: var(--radius-md); box-shadow: 0 0 24px rgba(59,130,246, 0.06), inset 0 1px 0 rgba(255,255,255,0.03);"
         >
           <Icon size="20" class="text-[var(--color-text-3)] glow-pulse" />
         </div>

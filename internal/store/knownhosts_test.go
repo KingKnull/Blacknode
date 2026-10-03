@@ -8,8 +8,8 @@ import (
 	"net"
 	"testing"
 
-	_ "modernc.org/sqlite"
 	"golang.org/x/crypto/ssh"
+	_ "modernc.org/sqlite"
 )
 
 const khSchema = `
