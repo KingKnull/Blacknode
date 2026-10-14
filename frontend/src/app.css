@@ -26,8 +26,6 @@
 .ops-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .ops-table th { text-align: left; color: var(--color-text-3); font-weight: 500; }
 .ops-table td, .ops-table th { padding: 0.6rem; border-bottom: 1px solid var(--color-line); vertical-align: top; }
-@import "@xterm/xterm/css/xterm.css";
-
 @theme {
   /* Inter for UI chrome; JetBrains Mono reserved for terminal/code/paths */
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
@@ -201,22 +199,14 @@ html, body {
   height: 100vh;
 }
 
-/* The body is a desktop app frame, not a document — no text cursor, ever.
-   Interactive elements and both terminal surfaces get their own cursors:
-   xterm's own .xterm-helper-textarea is a real input, and buttons/links get
-   the default pointer from the Tailwind base layer. */
+/* The body is a desktop app frame, not a document — no text cursor, ever. */
 html, body {
   cursor: default;
 }
 
-/* Terminal panes: a native terminal shows a block or beam caret, not an
-   I-beam. Let xterm draw its selection cursor and keep the pane chrome on
-   the default arrow. */
-.xterm {
+/* Terminal canvases draw their own caret; keep the pane chrome on the arrow. */
+canvas {
   cursor: default;
-}
-.xterm .xterm-helper-textarea {
-  cursor: text;
 }
 
 /* The setup guide owns the first-run surface until it is dismissed. */
@@ -262,8 +252,6 @@ button:active:not(:disabled) {
 *::-webkit-scrollbar-track { background: transparent; }
 *::-webkit-scrollbar-thumb { background: var(--color-line-strong); border-radius: 2px; }
 *::-webkit-scrollbar-thumb:hover { background: var(--color-accent-strong); }
-.xterm-viewport::-webkit-scrollbar { width: 5px; }
-
 input, textarea, select, button {
   font-family: inherit;
   font-size: inherit;

@@ -3,7 +3,7 @@ import { svelte } from "@sveltejs/vite-plugin-svelte";
 import tailwindcss from "@tailwindcss/vite";
 import wails from "@wailsio/runtime/plugins/vite";
 
-// Manual chunk splits for CodeMirror and xterm so the main bundle stays
+// Manual chunk splits for CodeMirror and Ghostty Web so the main bundle stays
 // small and these heavy editors get their own cacheable chunks. Browsers
 // fetch them in parallel, and once cached they survive across refreshes
 // even when the app code changes.
@@ -17,8 +17,8 @@ export default defineConfig({
             if (id.includes("codemirror") || id.includes("@codemirror")) {
               return "codemirror";
             }
-            if (id.includes("xterm") || id.includes("@xterm")) {
-              return "xterm";
+            if (id.includes("ghostty-web")) {
+              return "ghostty-web";
             }
             if (id.includes("@lucide/svelte")) {
               return "icons";
