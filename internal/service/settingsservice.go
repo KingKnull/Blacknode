@@ -19,16 +19,10 @@ const (
 	SettingTerminalScrollback = "terminal_scrollback"
 )
 
-// Scrollback bounds. xterm.js keeps every retained line as a typed array of
-// roughly 12 bytes per cell, so the cost is lines × columns and it is paid per
-// pane, not per app: at 120 columns each 1,000 lines is about 1.5 MB, and a
-// workspace with eight panes multiplies whatever is chosen here by eight.
-//
-// The maximum is therefore a real limit rather than a formality — 50,000 lines
-// across eight wide panes is already most of a gigabyte, and "unlimited" is
-// deliberately not offered, because the failure mode is the whole app being
-// killed rather than a truncated buffer. Users who need durable history should
-// reach for session recordings, which spool to disk instead of RAM.
+// Scrollback bounds prevent an unbounded terminal buffer from exhausting
+// memory. The limit is applied per pane, so large values across many panes can
+// consume substantial memory. Users who need durable history should use
+// session recordings, which spool to disk instead of RAM.
 //
 // The minimum is above zero so that a mistyped value cannot leave a terminal
 // with no scrollback at all, which reads as a broken app rather than a setting.

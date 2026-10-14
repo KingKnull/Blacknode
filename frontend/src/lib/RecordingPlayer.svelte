@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onDestroy, onMount, tick } from "svelte";
-  import { Terminal } from "@xterm/xterm";
-  import { FitAddon } from "@xterm/addon-fit";
+  import { FitAddon, Terminal } from "ghostty-web";
   import { RecordingService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { RecordingDetail } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
+  import { initializeTerminalEngine } from "./terminalEngine";
   import { Play, Pause, RotateCcw, Gauge, X, Loader2 } from "@lucide/svelte";
 
   type Props = {
@@ -44,6 +44,13 @@
       loading = false;
       return;
     }
+    try {
+      await initializeTerminalEngine();
+    } catch (e: any) {
+      err = `Terminal initialization failed: ${String(e?.message ?? e)}`;
+      loading = false;
+      return;
+    }
     loading = false;
     await tick();
     if (!detail) return;
@@ -55,7 +62,6 @@
       cols: detail.width || 80,
       rows: detail.height || 24,
       cursorBlink: false,
-      allowProposedApi: true,
       theme: {
         background: "#08080b",
         foreground: "#ededf3",

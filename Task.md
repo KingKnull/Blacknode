@@ -50,7 +50,7 @@
 
 ## Terminal Integration
 
-* [ ] Integrate xterm.js
+* [x] Integrate Ghostty Web
 * [ ] Bind SSH session ↔ terminal
 * [ ] Handle:
 

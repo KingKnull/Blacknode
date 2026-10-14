@@ -92,7 +92,7 @@ func NewWriter(path string, header CastHeader) (*Writer, error) {
 
 // WriteOutput appends an "o" event for bytes coming back from the shell.
 // The chunk is sent as-is — caller doesn't need to validate UTF-8; the cast
-// format expects strings but xterm tolerates control sequences fine.
+// format expects strings; terminal control sequences are stored as-is.
 func (w *Writer) WriteOutput(data []byte) { _, _ = w.writeOutput(data, -1) }
 
 var errStorageLimit = errors.New("recording storage limit reached")

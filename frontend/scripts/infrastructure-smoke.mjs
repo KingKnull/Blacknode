@@ -168,8 +168,8 @@ try {
   assert.equal(await evaluate("window.auditMutations.filter(m=>m.name==='platformservice.ts:ExecuteChange').length"),0,'preview must not execute');
   await click('Execute reviewed change'); await waitFor("document.body.innerText.includes('Fixture applied')"); await click('Close');
   await view('ssm'); await field('Session profile','fixture-ssm'); await click('Connect saved profile');
-  await waitFor("document.body.innerText.includes('Connected') && document.querySelector('.xterm-helper-textarea')");
-  await evaluate("document.querySelector('.xterm-helper-textarea').focus()"); await call('Input.insertText',{text:'fixture input'});
+  await waitFor("document.body.innerText.includes('Connected') && document.querySelector('textarea[aria-label=\"Terminal input\"]')");
+  await evaluate("document.querySelector('textarea[aria-label=\"Terminal input\"]').focus()"); await call('Input.insertText',{text:'fixture input'});
   await waitFor("window.auditMutations.some(m=>m.name==='ssmservice.ts:Write' && m.args[1]==='fixture input')");
   await click('Disconnect');
   assert.deepEqual(exceptions,[],'browser exceptions');

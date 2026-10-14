@@ -172,20 +172,17 @@
 
     // Keyboard shortcuts for workspace navigation.
     //
-    // Registered in the CAPTURE phase deliberately. xterm cancels every key it
-    // maps to a control code, and its cancel() does preventDefault *and*
-    // stopPropagation — so a bubble-phase listener never sees Ctrl+Tab (HT),
-    // Ctrl+T (^T) or Ctrl+3..8 (^[ ^\ ^] ^^ ^_ ^?) while a pane is focused,
-    // which is exactly where these shortcuts are supposed to work. Capture runs
-    // first; each branch then stops the event so the key isn't handled twice,
-    // once as a shortcut and once as terminal input.
+    // Registered in the CAPTURE phase so workspace shortcuts run before the
+    // focused terminal handles Ctrl+Tab (HT), Ctrl+T (^T) or Ctrl+3..8
+    // (^[ ^\ ^] ^^ ^_ ^?). Each branch stops the event so the key isn't handled
+    // twice, once as a shortcut and once as terminal input.
     //
     // Which keys the app may take is a deliberate line. Bare Ctrl+T and Ctrl+W
     // belong to the shell (transpose-chars and werase) and are not bound here:
     // losing the word you were typing is one thing, closing the tab and its SSH
     // session is another. The app takes the shifted forms instead, matching
     // GNOME Terminal / Konsole / Windows Terminal. On macOS the Cmd forms need
-    // no Shift — xterm maps only Cmd+A, so Meta is free.
+    // no Shift — the app handles Cmd shortcuts before terminal input.
     const onShortcut = (e: KeyboardEvent) => {
       if (app.paletteOpen || (e.target as HTMLElement)?.closest?.('[role="dialog"]')) return;
       // ? opens shortcut overlay (only when not typing in an input)

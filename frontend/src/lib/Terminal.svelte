@@ -1,11 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount, tick } from "svelte";
   import { Clipboard as WailsClipboard, Events } from "@wailsio/runtime";
-  import { Terminal } from "@xterm/xterm";
-  import { FitAddon } from "@xterm/addon-fit";
-  import { WebLinksAddon } from "@xterm/addon-web-links";
-  import { SearchAddon } from "@xterm/addon-search";
-  import { WebglAddon } from "@xterm/addon-webgl";
+  import { FitAddon, Terminal, UrlRegexProvider } from "ghostty-web";
   import {
     LocalShellService,
     SSHService,
@@ -21,6 +17,8 @@
   import type { CommandBlock } from "./commandBlocks";
   import { ShellIntegrationParser } from "./shellIntegration";
   import { createTerminalInputQueue } from "./terminalInput";
+  import { initializeTerminalEngine } from "./terminalEngine";
+  import { findTerminalMatches, type TerminalSearchMatch } from "./terminalSearch";
   import RemoteEditor from "./RemoteEditor.svelte";
   import { app } from "./state.svelte";
   import { bus } from "./events";
@@ -117,10 +115,12 @@
   let containerEl: HTMLDivElement | undefined = $state();
   let term: Terminal | undefined;
   let fit: FitAddon | undefined;
-  let searchAddon: SearchAddon | undefined;
   let dataOff: (() => void) | undefined;
   let exitOff: (() => void) | undefined;
   let resizeObs: ResizeObserver | undefined;
+  let globalKeydown: ((e: KeyboardEvent) => void) | undefined;
+  let offConnectIntent: (() => void) | undefined;
+  let onThemeChange: ((e: Event) => void) | undefined;
 
   let latencyMs = $state<number | null>(null);
   let latencyTimer: ReturnType<typeof setInterval> | undefined;
@@ -213,7 +213,7 @@
   // ── Context menu ────────────────────────────────────────────────────
   // Right-click inside the pane opens a native-feeling menu: copy, paste,
   // select-all, clear, broadcast. The browser default (which loses the
-  // xterm selection on right-click) is suppressed entirely.
+  // terminal selection on right-click) is suppressed entirely.
   let ctxMenu = $state<{ x: number; y: number } | null>(null);
   let ctxHasSelection = $state(false);
 
@@ -270,6 +270,35 @@
   let showSearch = $state(false);
   let searchQuery = $state("");
   let searchResults = $state({ resultIndex: 0, resultCount: 0 });
+  let searchMatches: TerminalSearchMatch[] = [];
+  let activeSearchIndex = -1;
+  let lastSearchQuery = "";
+
+  function searchTerminal(query: string, direction: 1 | -1, advance: boolean) {
+    searchMatches = findTerminalMatches(term?.buffer.active, query);
+    if (!searchMatches.length) {
+      activeSearchIndex = -1;
+      lastSearchQuery = query;
+      searchResults = { resultIndex: 0, resultCount: 0 };
+      term?.clearSelection();
+      return;
+    }
+
+    if (query !== lastSearchQuery || !advance || activeSearchIndex < 0) {
+      activeSearchIndex = direction > 0 ? 0 : searchMatches.length - 1;
+    } else {
+      activeSearchIndex = (activeSearchIndex + direction + searchMatches.length) % searchMatches.length;
+    }
+    lastSearchQuery = query;
+    searchResults = { resultIndex: activeSearchIndex, resultCount: searchMatches.length };
+
+    const match = searchMatches[activeSearchIndex];
+    const scrollbackLength = Math.max(0, term!.buffer.active.length - term!.rows);
+    const viewportRow = Math.floor(term!.rows / 2);
+    const viewportY = Math.max(0, Math.min(scrollbackLength, scrollbackLength + viewportRow - match.row));
+    term!.scrollToLine(viewportY);
+    term!.select(match.column, match.row - scrollbackLength + viewportY, match.length);
+  }
 
   // ── Snippets state ─────────────────────────────────────────────────
   let showSnippets = $state(false);
@@ -374,29 +403,6 @@
     else if (app.sessionStatus[sessionID] === "error") app.clearSessionStatus(sessionID);
   });
 
-  // Track the scrollback setting without rebuilding the terminal, which would
-  // cost the buffer, the scroll position and the WebGL context.
-  //
-  // Two paths reach the same value: onMount reads it when constructing the
-  // Terminal, and this keeps it current afterwards — both because the user can
-  // change it in Settings while panes are open, and because the first
-  // SettingsService.Get() resolves after early panes have already mounted on
-  // the client-side default.
-  //
-  // Lowering the limit drops the oldest lines immediately. That is the point of
-  // lowering it, so it is not something to defer or warn about here; the
-  // Settings copy is where the consequence is stated.
-  $effect(() => {
-    const lines = app.settings.terminalScrollback;
-    // `term` is a plain binding rather than $state, so this effect does not
-    // re-run when it is assigned. It does not need to: if this runs before
-    // onMount, the constructor reads the same value a moment later.
-    if (!term) return;
-    if (!Number.isInteger(lines) || lines <= 0) return;
-    if (term.options.scrollback === lines) return;
-    term.options.scrollback = lines;
-  });
-
   // Keep this pane's host attachment in sync. The attachment is what names a
   // broadcast's blast radius, what the workspace persists for session restore,
   // and what app.connectedHosts is derived from, so it has to follow
@@ -423,7 +429,8 @@
 
   // Terminal theme themes — updated via TerminalSidePanel theme picker
   function applyTermTheme(themeObj: { bg: string; fg: string; cur: string }) {
-    term?.options.theme && (term.options.theme = {
+    if (!term?.renderer) return;
+    term.renderer.setTheme({
       ...term.options.theme,
       background: themeObj.bg,
       foreground: themeObj.fg,
@@ -452,28 +459,25 @@
     };
   }
 
-  onMount(() => {
+  function mountTerminal() {
+
     term = new Terminal({
       fontFamily: '"JetBrains Mono Variable", "Cascadia Mono", Menlo, Consolas, monospace',
-      fontSize: 13, lineHeight: 1.25, letterSpacing: 0,
+      fontSize: 13,
       cursorBlink: true, cursorStyle: "bar",
-      allowProposedApi: true, scrollback: app.settings.terminalScrollback,
-      // Legibility: raise dim text above the WCAG AA floor so dark themes
-      // stay readable on cheap panels. smoothScrollDuration stays at 0 so
-      // keystroke echo and fast output aren't softened by scroll easing.
-      minimumContrastRatio: 4.5, smoothScrollDuration: 0,
+      scrollback: app.settings.terminalScrollback,
+      smoothScrollDuration: 0,
       theme: termTheme(),
     });
     fit = new FitAddon();
-    searchAddon = new SearchAddon();
     term.loadAddon(fit);
-    term.loadAddon(new WebLinksAddon());
+    term.registerLinkProvider(new UrlRegexProvider(term));
     term.registerLinkProvider({ provideLinks(line, callback) {
       if (!connectedHostID) { callback(undefined); return; }
-      const text = term?.buffer.active.getLine(line - 1)?.translateToString(true) ?? "";
+      const text = term?.buffer.active.getLine(line)?.translateToString(true) ?? "";
       const links = [...text.matchAll(/(?:~\/|\/|\.{1,2}\/)[^\s"'<>()[\]{}]+/g)].map((match) => {
         const raw = match[0].replace(/:\d+(?::\d+)?[:.,]?$/, "").replace(/[.,]$/, "");
-        return { text: raw, range: { start: { x: match.index! + 1, y: line }, end: { x: match.index! + raw.length, y: line } }, activate: () => {
+        return { text: raw, range: { start: { x: match.index!, y: line }, end: { x: match.index! + raw.length - 1, y: line } }, activate: () => {
           if (!connectedHostID) return;
           const path = raw.startsWith("/") ? raw : raw.startsWith("~/") ? raw.slice(2) : `${shellCwd || "."}/${raw}`;
           linkedFile = { hostID: connectedHostID, path };
@@ -481,34 +485,20 @@
       });
       callback(links);
     } });
-    term.loadAddon(searchAddon);
-
-    searchAddon.onDidChangeResults((e) => { searchResults = e; });
 
     term.open(containerEl!);
     fit.fit();
 
-    try {
-      const webgl = new WebglAddon();
-      const lossListener = webgl.onContextLoss(() => {
-        // Disposal can itself emit context loss when many panes exhaust the
-        // browser's GPU contexts. Remove the callback before disposing.
-        lossListener.dispose();
-        try { webgl.dispose(); } catch { /* DOM renderer remains available */ }
-      });
-      term.loadAddon(webgl);
-    } catch { /* canvas fallback */ }
-
     term.attachCustomKeyEventHandler((e) => {
       if (e.type === "keydown" && e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "s") {
-        e.preventDefault(); sendSudoPassword(); return false;
+        e.preventDefault(); sendSudoPassword(); return true;
       }
       if (e.type === "keydown" && e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "f") {
-        e.preventDefault(); showSearch = true; return false;
+        e.preventDefault(); showSearch = true; return true;
       }
       // Ctrl+. → toggle side panel
       if (e.type === "keydown" && e.ctrlKey && e.key === ".") {
-        e.preventDefault(); showSidePanel = !showSidePanel; return false;
+        e.preventDefault(); showSidePanel = !showSidePanel; return true;
       }
       // Clipboard & selection. Ctrl+Shift+<key> is the terminal convention
       // precisely because the unshifted forms belong to the shell: bare Ctrl+C
@@ -516,24 +506,24 @@
       // break the tools people run in here. Cmd+<key> is also accepted — the
       // shell never sees Meta — so macOS muscle memory works too.
       //
-      // stopPropagation is load-bearing: this runs on xterm's helper textarea,
+      // stopPropagation is load-bearing: this runs on the terminal input,
       // so anything that bubbles reaches the global keydown handlers in
       // Workspace and Palette too. A key the focused pane has already consumed
       // must not also fire an unrelated app-level action.
       if (e.type === "keydown" && (e.metaKey || (e.ctrlKey && e.shiftKey))) {
         const k = e.key.toLowerCase();
         const consume = () => { e.preventDefault(); e.stopPropagation(); };
-        if (k === "c" && term?.hasSelection()) { consume(); void ctxCopy(); return false; }
-        if (k === "v") { consume(); void ctxPaste(); return false; }
-        if (k === "a") { consume(); ctxSelectAll(); return false; }
+        if (k === "c" && term?.hasSelection()) { consume(); void ctxCopy(); return true; }
+        if (k === "v") { consume(); void ctxPaste(); return true; }
+        if (k === "a") { consume(); ctxSelectAll(); return true; }
         // Shift also keeps bare Ctrl+B free — it's tmux's default prefix, and
         // plenty of these panes are running tmux.
-        if (k === "b") { consume(); toggleBroadcastMember(); return false; }
+        if (k === "b") { consume(); toggleBroadcastMember(); return true; }
         // Shift is required for K even on macOS: bare Cmd+K / Ctrl+K opens the
         // command palette, which is the more valuable binding to keep.
-        if (k === "k" && e.shiftKey) { consume(); ctxClear(); return false; }
+        if (k === "k" && e.shiftKey) { consume(); ctxClear(); return true; }
       }
-      return true;
+      return false;
     });
 
     term.onData((d) => {
@@ -560,21 +550,20 @@
     });
     resizeObs.observe(containerEl!);
 
-    // Focus tracking — focusin/focusout bubble up from xterm's helper textarea.
+    // Focus tracking — focusin/focusout bubble up from the terminal input.
     containerEl?.addEventListener("focusin", () => {
       isFocused = true;
       app.clearSessionStatus(sessionID);
     });
     containerEl?.addEventListener("focusout", () => { isFocused = false; });
 
-    // Native-feeling context menu. xterm fires `contextmenu` on the helper
-    // textarea, so bind here rather than on the window.
+    // Native-feeling context menu, bound to the terminal surface.
     containerEl?.addEventListener("contextmenu", openCtxMenu);
 
-    const onGlobalKeydown = (e: KeyboardEvent) => {
+    globalKeydown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && ctxMenu) closeCtxMenu();
     };
-    window.addEventListener("keydown", onGlobalKeydown);
+    window.addEventListener("keydown", globalKeydown);
 
     dataOff = Events.On("terminal:data", (e: any) => {
       const p = e?.data;
@@ -660,18 +649,32 @@
       if (!connecting && mode === "local" && status === "running") runLaunchCommand();
     });
 
-    const offConnectIntent = bus.on('connect-intent', (detail) => {
+    offConnectIntent = bus.on('connect-intent', (detail) => {
       if (detail.sessionID === sessionID) drainConnectIntent();
     });
 
     // Listen for theme changes from TerminalSidePanel
-    const onThemeChange = (e: Event) => {
+    onThemeChange = (e: Event) => {
       const t = (e as CustomEvent).detail;
       if (t) applyTermTheme(t);
     };
     window.addEventListener("terminal:theme-change", onThemeChange);
+  }
 
-    return () => { offConnectIntent(); window.removeEventListener("terminal:theme-change", onThemeChange); window.removeEventListener("keydown", onGlobalKeydown); };
+  onMount(() => {
+    void initializeTerminalEngine().then(() => {
+      if (!disposed) mountTerminal();
+    }).catch((e) => {
+      if (!disposed) {
+        status = "error";
+        errorMsg = `Terminal initialization failed: ${String(e)}`;
+      }
+    });
+    return () => {
+      offConnectIntent?.();
+      if (onThemeChange) window.removeEventListener("terminal:theme-change", onThemeChange);
+      if (globalKeydown) window.removeEventListener("keydown", globalKeydown);
+    };
   });
 
   onDestroy(() => {
@@ -687,9 +690,6 @@
     app.forgetSession(sessionID);
     app.forgetConnectIntent(sessionID);
     app.pendingLaunchCommands.delete(sessionID);
-    // xterm can throw here if the WebGL addon already disposed itself after a
-    // context loss (hidden/minimized webview) — a throw during onDestroy would
-    // abort Svelte's whole unmount and blank the app, so never let it escape.
     try { term?.dispose(); } catch { /* already disposed */ }
     if (mode === "local" && status === "running") void LocalShellService.Close(sessionID);
     if (mode === "remote" && status === "connected") void SSHService.Disconnect(sessionID);
@@ -1229,17 +1229,17 @@
             placeholder="Find..."
             bind:value={searchQuery}
             use:focus
-            oninput={() => searchAddon?.findNext(searchQuery)}
+            oninput={() => searchTerminal(searchQuery, 1, false)}
             onkeydown={(e) => {
               if (e.key === "Escape") { showSearch = false; term?.focus(); }
-              else if (e.key === "Enter") { if (e.shiftKey) searchAddon?.findPrevious(searchQuery); else searchAddon?.findNext(searchQuery); }
+              else if (e.key === "Enter") { searchTerminal(searchQuery, e.shiftKey ? -1 : 1, true); }
             }}
           />
           <span class="px-1 font-mono type-micro text-[var(--color-text-4)]">
             {searchResults.resultCount > 0 ? `${searchResults.resultIndex + 1}/${searchResults.resultCount}` : '0/0'}
           </span>
-          <button class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]" onclick={() => searchAddon?.findPrevious(searchQuery)}><ChevronUp size="12" /></button>
-          <button class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]" onclick={() => searchAddon?.findNext(searchQuery)}><ChevronDown size="12" /></button>
+          <button class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]" onclick={() => searchTerminal(searchQuery, -1, true)}><ChevronUp size="12" /></button>
+          <button class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]" onclick={() => searchTerminal(searchQuery, 1, true)}><ChevronDown size="12" /></button>
           <div class="h-4 w-px bg-[var(--color-line)]"></div>
           <button class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]" onclick={() => { showSearch = false; term?.focus(); }}><X size="12" /></button>
         </div>

@@ -358,7 +358,7 @@ class AppState {
   }
 
   // Cross-component channel: AIDrawer/palette set this; the matching Terminal
-  // sees the change via $effect and writes the text to its xterm/PTY.
+  // sees the change via $effect and writes the text to its terminal/PTY.
   pendingTerminalInsert = $state<
     { id: string; sessionID: string; text: string } | null
   >(null);

@@ -61,8 +61,8 @@ exist. The Wails v3 framework is a prerelease, so expect churn there too. See
 - **Port forwarding** — local, remote, and dynamic SOCKS5 (hand-rolled,
   no-auth) tunnels persisted in the DB; one-click presets for Postgres /
   MySQL / Redis / SOCKS.
-- **xterm.js** rendering with proper ANSI color, scrollback, JetBrains
-  Mono Variable bundled for offline use.
+- **Ghostty Web** terminal emulation with proper ANSI color, scrollback,
+  JetBrains Mono Variable bundled for offline use.
 - **Focus mode** — `Ctrl+Shift+Z` hides app chrome and leaves only terminal
   tabs, panes, and a compact exit control.
 - **Command blocks** — the terminal side panel records each submitted command,
@@ -312,7 +312,7 @@ entry in `Workspace.svelte`. Every existing panel is a working template.
 | Storage | SQLite (`modernc.org/sqlite`, no CGo) + on-disk cast files |
 | Crypto | Argon2id + AES-256-GCM (`crypto/aes`, `crypto/cipher`, `crypto/x/crypto/argon2`) |
 | Frontend | Svelte 5 (runes), Tailwind v4, `@tailwindcss/vite` |
-| Terminal | xterm.js + addon-fit + addon-web-links |
+| Terminal | [ghostty-web](https://github.com/coder/ghostty-web) |
 | Editor | CodeMirror 6 + per-language packs |
 | AI | `anthropic-sdk-go` — Claude Haiku 4.5 + Sonnet 4.6 with prompt caching |
 | Notifications | `gen2brain/beeep` (cross-platform) |
@@ -427,8 +427,7 @@ MIT — see [LICENSE](LICENSE).
 ## Acknowledgements
 
 - [Wails v3](https://v3.wails.io/) for the desktop runtime.
-- [xterm.js](https://xtermjs.org/), [CodeMirror 6](https://codemirror.net/),
+- [ghostty-web](https://github.com/coder/ghostty-web), [CodeMirror 6](https://codemirror.net/),
   [Lucide](https://lucide.dev/) for the UI primitives.
 - [asciinema](https://asciinema.org/) for the cast v2 format.
 - [Anthropic](https://www.anthropic.com/) for the Claude API.
-

@@ -128,18 +128,6 @@
   const SCROLLBACK_MIN = 100;
   const SCROLLBACK_MAX = 50000;
 
-  /**
-   * Rough memory cost of the chosen scrollback, per pane.
-   *
-   * xterm.js retains each line as a typed array of about 12 bytes per cell, so
-   * the figure is lines × columns × 12 at an assumed 120 columns. It is an
-   * estimate and labelled as one — the point is to make an invisible cost
-   * visible before someone types 50000 across eight panes, not to be exact.
-   */
-  const scrollbackEstimateMB = $derived(
-    ((terminalScrollback * 120 * 12) / (1024 * 1024)).toFixed(1),
-  );
-
   const scrollbackInvalid = $derived(
     !Number.isInteger(terminalScrollback) ||
       terminalScrollback < SCROLLBACK_MIN ||
@@ -656,7 +644,7 @@
               <span class="type-caption font-bold text-[var(--color-text-1)]">Auto-lock vault after</span>
               <span class="type-micro text-[var(--color-text-3)]">0 = never lock</span>
             </div>
-            <p class="mt-0.5 type-caption text-[var(--color-text-3)] leading-relaxed">
+            <p id="scrollback-hint" class="mt-0.5 type-caption text-[var(--color-text-3)] leading-relaxed">
               Locks the vault when the app sees no keystroke or click for this many
               minutes. The master key is wiped from memory, and you'll need your
               passphrase to unlock again — "Remember for 60 days" only skips the
@@ -988,8 +976,9 @@
             <span class="type-caption font-bold text-[var(--color-text-1)]">Terminal scrollback</span>
             <p class="mt-0.5 type-caption text-[var(--color-text-3)] leading-relaxed">
               Lines of history each terminal pane keeps in memory
-              ({SCROLLBACK_MIN.toLocaleString()}–{SCROLLBACK_MAX.toLocaleString()}). The cost is paid
-              per pane, and lowering it discards the oldest lines from panes that are already open.
+              ({SCROLLBACK_MIN.toLocaleString()}–{SCROLLBACK_MAX.toLocaleString()}). Memory use is
+              paid per pane and depends on the terminal contents. Changes apply to newly opened
+              panes; reopen existing panes to apply them.
               For history that outlives a session, use recordings instead — they spool to disk.
             </p>
             <div class="mt-2 flex items-center gap-2">
@@ -1004,9 +993,6 @@
                 bind:value={terminalScrollback}
               />
               <span class="type-caption text-[var(--color-text-3)]">lines</span>
-              <span id="scrollback-hint" class="type-caption text-[var(--color-text-3)]">
-                ≈ {scrollbackEstimateMB} MB per pane
-              </span>
               <button
                 class="ml-auto border hairline-strong px-3 py-1.5 type-caption hover:bg-[var(--color-surface-3)] disabled:opacity-50 transition-colors"
                 disabled={savingScrollback ||

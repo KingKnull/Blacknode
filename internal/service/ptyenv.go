@@ -5,10 +5,10 @@ import (
 	"strings"
 )
 
-// termType is the terminal emulation the frontend actually provides. xterm.js
-// implements xterm-256color, and the SSH path already requests it in
-// RequestPty (see sshservice.go) — local PTYs must agree or the same shell
-// behaves differently depending on which transport opened it.
+// termType selects the xterm-256color terminal definition supported by the
+// Ghostty Web frontend. The SSH path requests the same definition in
+// RequestPty (see sshservice.go), so shells behave consistently across
+// transports.
 const termType = "xterm-256color"
 
 // ptyEnv returns the environment for a locally-spawned PTY process.
@@ -35,6 +35,6 @@ func ptyEnv() []string {
 		}
 		out = append(out, kv)
 	}
-	// COLORTERM is what programs check for 24-bit colour; xterm.js renders it.
+	// COLORTERM is what programs check for 24-bit colour; the frontend supports it.
 	return append(out, "TERM="+termType, "COLORTERM=truecolor")
 }
