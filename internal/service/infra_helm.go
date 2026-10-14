@@ -120,6 +120,9 @@ func (s *InfrastructureService) helmRevision(ctx context.Context, t KubeTarget, 
 	return n, nil
 }
 func (s *InfrastructureService) PreviewHelmRollback(ctx context.Context, t KubeTarget, name string, revision int) (ChangePlan, error) {
+	if t.Context == "" || t.Namespace == "" {
+		return ChangePlan{}, errors.New("select an explicit Kubernetes context and namespace before reviewing a Helm change")
+	}
 	base, err := helmBase(t)
 	if err != nil {
 		return ChangePlan{}, err
@@ -157,6 +160,9 @@ func (s *InfrastructureService) PreviewHelmRollback(ctx context.Context, t KubeT
 	return s.platform.prepare(t.HostID, t.WorkspaceID, "Roll back Helm release "+name, command, "", redactEvidence(preview), 360, verify)
 }
 func (s *InfrastructureService) PreviewHelmUpgrade(ctx context.Context, t KubeTarget, name, chart, version, values string) (ChangePlan, error) {
+	if t.Context == "" || t.Namespace == "" {
+		return ChangePlan{}, errors.New("select an explicit Kubernetes context and namespace before reviewing a Helm change")
+	}
 	base, err := helmBase(t)
 	if err != nil {
 		return ChangePlan{}, err

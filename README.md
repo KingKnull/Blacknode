@@ -235,6 +235,11 @@ task darwin:build       # bin/blacknode (macOS)
 
 ### Run tests
 
+The infrastructure tools and standalone runner are documented in
+[Infrastructure guide](docs/infrastructure.md), including monitoring, directory
+sync, service maps, Trivy, Git runbooks, team access, Helm, and AWS Session Manager.
+Build the runner with `task build:runner`.
+
 ```bash
 go test ./internal/...
 cd frontend

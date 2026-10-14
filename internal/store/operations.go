@@ -57,9 +57,9 @@ func (s *Operations) Put(kind, id string, expected int64, value any) (OperationD
 // OperationSecret is encrypted before entering the transaction. A nil cipher
 // removes the value. Document CAS and credential changes commit together.
 type OperationSecret struct {
-	Key string
+	Key    string
 	Cipher []byte
-	Nonce []byte
+	Nonce  []byte
 }
 
 func (s *Operations) PutWithSecrets(kind, id string, expected int64, value any, secrets []OperationSecret) (OperationDocument, error) {
@@ -81,7 +81,7 @@ func (s *Operations) PutWithSecrets(kind, id string, expected int64, value any, 
 	defer tx.Rollback()
 	now := time.Now().UnixMilli()
 	if expected == 0 {
-		_, err = tx.Exec(`INSERT INTO ops_documents(kind,id,revision,body,created_at,updated_at) VALUES(?,?,1,?,?,?) ON CONFLICT(kind,id) DO NOTHING`, kind, id, string(encoded), now, now)
+		_, err = tx.Exec(`INSERT INTO ops_documents(kind,id,revision,body,created_at,updated_at) VALUES(?,?,(SELECT COALESCE(MAX(revision),0)+1 FROM ops_revisions WHERE kind=? AND id=?),?,?,?) ON CONFLICT(kind,id) DO NOTHING`, kind, id, kind, id, string(encoded), now, now)
 		if err != nil {
 			return d, err
 		}
@@ -105,7 +105,7 @@ func (s *Operations) PutWithSecrets(kind, id string, expected int64, value any, 
 			return d, ErrRevisionConflict
 		}
 	} else {
-		_, err = tx.Exec(`INSERT INTO ops_documents(kind,id,revision,body,created_at,updated_at) VALUES(?,?,1,?,?,?) ON CONFLICT(kind,id) DO UPDATE SET body=excluded.body,revision=ops_documents.revision+1,updated_at=excluded.updated_at`, kind, id, string(encoded), now, now)
+		_, err = tx.Exec(`INSERT INTO ops_documents(kind,id,revision,body,created_at,updated_at) VALUES(?,?,(SELECT COALESCE(MAX(revision),0)+1 FROM ops_revisions WHERE kind=? AND id=?),?,?,?) ON CONFLICT(kind,id) DO UPDATE SET body=excluded.body,revision=ops_documents.revision+1,updated_at=excluded.updated_at`, kind, id, kind, id, string(encoded), now, now)
 		if err != nil {
 			return d, err
 		}
@@ -123,7 +123,9 @@ func (s *Operations) PutWithSecrets(kind, id string, expected int64, value any, 
 		} else {
 			_, err = tx.Exec(`INSERT INTO settings(key,value,encrypted,nonce,updated_at) VALUES(?,'',?,?,?) ON CONFLICT(key) DO UPDATE SET value='',encrypted=excluded.encrypted,nonce=excluded.nonce,updated_at=excluded.updated_at`, secret.Key, secret.Cipher, secret.Nonce, now/1000)
 		}
-		if err != nil { return d, err }
+		if err != nil {
+			return d, err
+		}
 	}
 	// Execution results and transfers are high-frequency state, not editable
 	// documents. Their event histories are kept separately.
@@ -178,7 +180,19 @@ func (s *Operations) Revisions(kind, id string) ([]OperationDocument, error) {
 }
 
 func (s *Operations) Delete(kind, id string, revision int64) error {
-	result, err := s.db.Exec(`DELETE FROM ops_documents WHERE kind=? AND id=? AND revision=?`, kind, id, revision)
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	// Preserve the last revision even for high-frequency documents. Restoring
+	// an ID must continue its sequence, so an editor holding an old revision
+	// cannot overwrite a recreated record and Git imports keep their history.
+	_, err = tx.Exec(`INSERT INTO ops_revisions(kind,id,revision,body,at) SELECT kind,id,revision,body,updated_at FROM ops_documents WHERE kind=? AND id=? AND revision=? ON CONFLICT(kind,id,revision) DO NOTHING`, kind, id, revision)
+	if err != nil {
+		return err
+	}
+	result, err := tx.Exec(`DELETE FROM ops_documents WHERE kind=? AND id=? AND revision=?`, kind, id, revision)
 	if err != nil {
 		return err
 	}
@@ -189,7 +203,7 @@ func (s *Operations) Delete(kind, id string, revision int64) error {
 	if n == 0 {
 		return ErrRevisionConflict
 	}
-	return nil
+	return tx.Commit()
 }
 
 func (s *Operations) Append(scope, kind, title string, body any) (OperationEvent, error) {

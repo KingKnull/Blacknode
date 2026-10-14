@@ -1003,7 +1003,7 @@ func (r *RunnerHTTP) manageTriggers(w http.ResponseWriter, req *http.Request, ac
 		runnerError(w, 400, err)
 		return
 	}
-	if t.Name == "" || len(t.Name) > 120 || len(t.HostIDs) == 0 || t.ExpiresAt <= time.Now().UnixMilli() || t.ExpiresAt > time.Now().Add(365*24*time.Hour).UnixMilli() || t.CooldownSeconds < 60 {
+	if t.Name == "" || len(t.Name) > 120 || len(t.HostIDs) == 0 || len(t.HostIDs) > 256 || t.ExpiresAt <= time.Now().UnixMilli() || t.ExpiresAt > time.Now().Add(365*24*time.Hour).UnixMilli() || t.CooldownSeconds < 60 || t.CooldownSeconds > 365*24*3600 {
 		runnerError(w, 400, errors.New("trigger name, hosts, expiry within one year and cooldown of at least 60 seconds required"))
 		return
 	}

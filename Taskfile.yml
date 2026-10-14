@@ -60,6 +60,11 @@ tasks:
     cmds:
       - task: common:build:electron
 
+  build:runner:
+    summary: Builds the standalone authenticated infrastructure runner
+    cmds:
+      - task: common:build:runner
+
   package:electron:
     summary: Packages the application with Electron desktop shell into native installers
     cmds:

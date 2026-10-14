@@ -14,6 +14,8 @@
   let results = $state<SyncOutcome[]>([]); let error = $state(''); let busy = $state(false); let phrase = $state('');
   const production = $derived(app.hosts.find(h => h.id === plan?.profile.hostID)?.environment === 'production');
   const unresolved = $derived(Object.values(choices).some(v => v === 'conflict'));
+  const completed = $derived(results.filter(r => !r.error && r.action !== 'stopped').length);
+  const failed = $derived(results.some(r => !!r.error));
   async function refresh() { profiles = (await PlatformService.ListRecords('sync-profile')).map(r => unpack<DirectorySyncProfile>(r)); }
   function select(id: string) { const p = profiles.find(p => p.id === id); draft = p ? { ...p } : blank(); revision = p?.revision ?? 0; excludes = draft.excludes.join('\n'); results = []; }
   async function action(fn: () => Promise<unknown>) { busy = true; error = ''; try { await fn(); } catch(e) { error = String(e); } finally { busy = false; } }
@@ -29,7 +31,7 @@
   {#if draft.direction !== 'both'}<label class="ops-check"><input type="checkbox" bind:checked={draft.mirror} />Mirror: include destination-only files for deletion in the review</label>{/if}
   <p class="ops-muted">Both directories must exist. Comparisons hash file contents. Symbolic links must be excluded. Two-way sync keeps missing files and asks you to resolve files changed on both sides.</p>
   <div class="ops-actions"><button class="primary" type="submit" disabled={busy}>Save profile</button><button type="button" disabled={busy || !draft.id} onclick={compare}>{busy ? 'Working…' : 'Compare saved profile'}</button>{#if draft.id}<button type="button" disabled={busy} onclick={() => action(async () => { await PlatformService.DeleteRecord('sync-profile',draft.id,revision); await refresh(); select(''); })}>Delete profile</button>{/if}</div></form>
-  {#if results.length}<p class="ops-success">Applied {results.length} file changes.</p>{#each results as result}<p>{result.action} · {result.path}{#if result.error}<span class="ops-error"> {result.error}</span>{/if}</p>{/each}{/if}
+  {#if results.length}<p class={failed ? 'ops-warning' : 'ops-success'}>{completed} file changes completed.{failed ? ' Sync stopped; compare again before continuing.' : ''}</p>{#each results as result}<p>{result.action} · {result.path}{#if result.error}<span class="ops-error"> {result.error}</span>{/if}</p>{/each}{/if}
 </div></div>
 {#if plan}<Dialog portal label="Review directory synchronization" onclose={() => { if (!busy) plan = null; }} panelClass="ops-form w-[min(95vw,1000px)] overflow-auto rounded-xl border hairline surface-2 p-5">
   <h2>Review {plan.profile.name}</h2><p>{plan.profile.localPath} ↔ {app.hosts.find(h => h.id === plan?.profile.hostID)?.name}: {plan.profile.remotePath}</p>

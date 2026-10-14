@@ -152,6 +152,11 @@ tasks:
     cmds:
       - ./{{.BIN_DIR}}/{{.APP_NAME}}-server{{exeExt}}
 
+  build:runner:
+    summary: Builds the standalone runner without frontend or desktop dependencies
+    cmds:
+      - go build -tags server -trimpath -buildvcs=false -o {{.BIN_DIR}}/{{.APP_NAME}}-runner{{exeExt}} ./cmd/blacknode-runner
+
   install:electron:deps:
     summary: Install Electron dependencies
     dir: electron

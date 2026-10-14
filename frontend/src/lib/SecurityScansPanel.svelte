@@ -5,6 +5,7 @@
   import { unpack, downloadText, type Versioned } from './operationRecords';
   import { app } from './state.svelte';
   import PageHeader from './PageHeader.svelte';
+  import ToolAvailability from './ToolAvailability.svelte';
   import { ShieldCheck } from '@lucide/svelte';
   const blank = (): ScanProfile => ({id:'',name:'',hostID:app.selectedHostID ?? '',kind:'image',target:''});
   let profiles = $state<Versioned<ScanProfile>[]>([]); let scans = $state<Versioned<VulnerabilityScan>[]>([]); let draft = $state(blank()); let revision = $state(0);
@@ -18,6 +19,7 @@
 </script>
 <div class="flex h-full min-h-0 flex-col"><PageHeader icon={ShieldCheck} title="Security scans" subtitle="Vulnerabilities, configuration findings and secret locations" /><div class="ops-body ops-form">
   {#if error}<p class="ops-error" role="alert">{error}</p>{/if}
+  <ToolAvailability hostID={draft.hostID} tools={['trivy','sh']} />
   <p class="ops-muted">Install Trivy on the selected machine. Scans can download vulnerability databases. Secret findings retain locations and rule names; matched secret values are discarded.</p>
   <label>Scan profile<select value={draft.id} onchange={e => choose(e.currentTarget.value)}><option value="">New profile</option>{#each profiles as p (p.id)}<option value={p.id}>{p.name}</option>{/each}</select></label>
   <div class="ops-grid"><label>Name<input bind:value={draft.name} /></label><label>Machine<select bind:value={draft.hostID}><option value="">Local machine</option>{#each app.hosts.filter(h => !h.protocol || h.protocol === 'ssh') as h (h.id)}<option value={h.id}>{h.name} · {h.host}</option>{/each}</select></label><label>Scan type<select bind:value={draft.kind}><option value="image">Container image</option><option value="fs">Project filesystem</option><option value="rootfs">Host root filesystem</option></select></label><label>Target<input bind:value={draft.target} placeholder={draft.kind === 'image' ? 'nginx:1.27' : '/srv/app'} /></label></div>

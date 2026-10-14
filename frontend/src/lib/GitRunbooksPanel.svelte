@@ -6,6 +6,7 @@
   import PageHeader from './PageHeader.svelte';
   import HostSelection from './HostSelection.svelte';
   import ChangeReview from './ChangeReview.svelte';
+  import ToolAvailability from './ToolAvailability.svelte';
   import ConfirmDanger from './ConfirmDanger.svelte';
   import { GitBranch } from '@lucide/svelte';
   const blank = (): GitRunbookRepository => ({id:'',name:'',directory:'',file:'runbooks.yaml',remote:'origin',branch:'main'});
@@ -21,6 +22,7 @@
 </script>
 <div class="flex h-full min-h-0 flex-col"><PageHeader icon={GitBranch} title="Runbooks in Git" subtitle="Review definitions, preserve versions and run exact commits" /><div class="ops-body ops-form">
   {#if error}<p class="ops-error" role="alert">{error}</p>{/if}{#if result}<p class="ops-success">{result}</p>{/if}
+  <ToolAvailability tools={['git']} />
   <p class="ops-muted">Use an existing local Git checkout. Fetch and push use your Git credentials. Export commits only the runbook YAML file; other working files stay untouched.</p>
   <label>Repository<select value={draft.id} onchange={e => select(e.currentTarget.value)}><option value="">New repository</option>{#each repositories as r (r.id)}<option value={r.id}>{r.name}</option>{/each}</select></label>
   <div class="ops-grid"><label>Name<input bind:value={draft.name} /></label><label>Repository root<input bind:value={draft.directory} placeholder="/home/user/operations" /></label><label>Runbook YAML path<input bind:value={draft.file} /></label><label>Remote<input bind:value={draft.remote} /></label><label>Publish branch<input bind:value={draft.branch} /></label></div>
@@ -34,5 +36,5 @@
     <HostSelection bind:selected={hosts} /><label>Variables (JSON string values)<textarea rows="3" bind:value={values}></textarea></label><div><button class="primary" disabled={busy || !bookID || !hosts.length} onclick={() => action(async () => plan = await InfrastructureService.PreviewGitExecution(draft.id,current!.commit,bookID,hosts,variables()))}>Review execution at this commit</button></div>
   {/if}
 </div></div>
-{#if plan}<ChangeReview {plan} onClose={() => plan = null} onComplete={() => {result = 'Operation completed. Started jobs appear in Runbooks → execution history.';}} />{/if}
+{#if plan}<ChangeReview {plan} onClose={() => plan = null} onComplete={outcome => {result = outcome.exitCode === 0 && !outcome.error ? 'Operation completed. Started jobs appear in Runbooks → execution history.' : '';}} />{/if}
 {#if publish}<ConfirmDanger title="Push runbook branch" body={`Push the current commit to ${draft.remote}/${draft.branch} from ${draft.directory}?`} severity="warn" productionHosts={[]} onCancel={() => publish = false} onConfirm={async () => {publish = false;await action(async () => {await InfrastructureService.PublishGitRunbooks(draft.id);result = 'Branch pushed.';});}} />{/if}

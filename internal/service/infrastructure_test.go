@@ -188,9 +188,13 @@ func TestInfrastructureSyncConflictBaselineAndMirror(t *testing.T) {
 	if !reflect.DeepEqual(actions, map[string]string{"a": "conflict", "new": "upload", "old": "download"}) {
 		t.Fatal(actions)
 	}
-	baseline := syncBaseline{Local: map[string]syncFileInfo{"a": {Hash: "local"}}, Remote: map[string]syncFileInfo{"a": {Hash: "previous"}}}
+	baseline := syncBaseline{Local: map[string]syncFileInfo{"a": {Hash: "local"}}, Remote: map[string]syncFileInfo{"a": {Hash: "local"}}}
 	if got := planDirectorySync(p, local, remote, baseline)[0].Action; got != "download" {
 		t.Fatal(got)
+	}
+	baseline.Remote["a"] = syncFileInfo{Hash: "skipped conflict"}
+	if got := planDirectorySync(p, local, remote, baseline)[0].Action; got != "conflict" {
+		t.Fatalf("skipped conflict became an automatic overwrite: %s", got)
 	}
 	p.Direction = "upload"
 	p.Mirror = true

@@ -31,9 +31,19 @@ export function CheckMonitor(id: string): $CancellablePromise<$models.MonitorSam
     });
 }
 
+/**
+ * CheckTools only checks executable availability. It never starts a scan,
+ * contacts a cluster, or invokes an AWS credential provider.
+ */
+export function CheckTools(hostID: string, names: string[]): $CancellablePromise<{ [_ in string]?: boolean }> {
+    return $Call.ByID(2564347372, hostID, names).then(($result: any) => {
+        return $$createType3($result);
+    });
+}
+
 export function CompareSecurityScans(beforeID: string, afterID: string): $CancellablePromise<$models.ScanComparison> {
     return $Call.ByID(903863018, beforeID, afterID).then(($result: any) => {
-        return $$createType3($result);
+        return $$createType4($result);
     });
 }
 
@@ -46,7 +56,7 @@ export function DeleteMonitor(id: string, revision: number): $CancellablePromise
  */
 export function DiscoverServiceGraph(integrationID: string): $CancellablePromise<$models.ServiceGraph> {
     return $Call.ByID(1894106785, integrationID).then(($result: any) => {
-        return $$createType4($result);
+        return $$createType5($result);
     });
 }
 
@@ -60,19 +70,19 @@ export function FetchGitRunbooks(id: string): $CancellablePromise<string> {
 
 export function GitRunbooks(id: string, ref: string): $CancellablePromise<$models.GitRunbookState> {
     return $Call.ByID(846859312, id, ref).then(($result: any) => {
-        return $$createType5($result);
+        return $$createType6($result);
     });
 }
 
 export function HelmHistory(target: $models.KubeTarget, name: string): $CancellablePromise<$models.HelmRevision[]> {
     return $Call.ByID(222227209, target, name).then(($result: any) => {
-        return $$createType7($result);
+        return $$createType8($result);
     });
 }
 
 export function HelmReleases(target: $models.KubeTarget): $CancellablePromise<$models.HelmRelease[]> {
     return $Call.ByID(967691789, target).then(($result: any) => {
-        return $$createType9($result);
+        return $$createType10($result);
     });
 }
 
@@ -82,43 +92,43 @@ export function HelmValues(target: $models.KubeTarget, name: string): $Cancellab
 
 export function Monitors(): $CancellablePromise<$models.MonitorView[]> {
     return $Call.ByID(3194797184).then(($result: any) => {
-        return $$createType11($result);
+        return $$createType12($result);
     });
 }
 
 export function PreviewDirectorySync(id: string): $CancellablePromise<$models.DirectorySyncPlan> {
     return $Call.ByID(523402307, id).then(($result: any) => {
-        return $$createType12($result);
+        return $$createType13($result);
     });
 }
 
 export function PreviewGitExecution(id: string, commit: string, bookID: string, hostIDs: string[], values: { [_ in string]?: string }): $CancellablePromise<$models.ChangePlan> {
     return $Call.ByID(1782094779, id, commit, bookID, hostIDs, values).then(($result: any) => {
-        return $$createType13($result);
+        return $$createType14($result);
     });
 }
 
 export function PreviewGitExport(id: string, message: string): $CancellablePromise<$models.ChangePlan> {
     return $Call.ByID(252175361, id, message).then(($result: any) => {
-        return $$createType13($result);
+        return $$createType14($result);
     });
 }
 
 export function PreviewGitImport(id: string, commit: string, bookID: string): $CancellablePromise<$models.ChangePlan> {
     return $Call.ByID(1935474, id, commit, bookID).then(($result: any) => {
-        return $$createType13($result);
+        return $$createType14($result);
     });
 }
 
 export function PreviewHelmRollback(t: $models.KubeTarget, name: string, revision: number): $CancellablePromise<$models.ChangePlan> {
     return $Call.ByID(66057273, t, name, revision).then(($result: any) => {
-        return $$createType13($result);
+        return $$createType14($result);
     });
 }
 
 export function PreviewHelmUpgrade(t: $models.KubeTarget, name: string, chart: string, version: string, values: string): $CancellablePromise<$models.ChangePlan> {
     return $Call.ByID(1413977283, t, name, chart, version, values).then(($result: any) => {
-        return $$createType13($result);
+        return $$createType14($result);
     });
 }
 
@@ -128,43 +138,43 @@ export function PublishGitRunbooks(id: string): $CancellablePromise<string> {
 
 export function RunSecurityScan(id: string): $CancellablePromise<$models.VulnerabilityScan> {
     return $Call.ByID(4250079671, id).then(($result: any) => {
-        return $$createType14($result);
+        return $$createType15($result);
     });
 }
 
 export function SaveGitRepository(p: $models.GitRunbookRepository, revision: number): $CancellablePromise<store$0.OperationDocument> {
     return $Call.ByID(151049638, p, revision).then(($result: any) => {
-        return $$createType15($result);
+        return $$createType16($result);
     });
 }
 
 export function SaveMonitor(m: $models.ServiceMonitor, revision: number): $CancellablePromise<store$0.OperationDocument> {
     return $Call.ByID(2186146096, m, revision).then(($result: any) => {
-        return $$createType15($result);
+        return $$createType16($result);
     });
 }
 
 export function SaveScanProfile(p: $models.ScanProfile, revision: number): $CancellablePromise<store$0.OperationDocument> {
     return $Call.ByID(4015796836, p, revision).then(($result: any) => {
-        return $$createType15($result);
+        return $$createType16($result);
     });
 }
 
 export function SaveServiceGraph(g: $models.ServiceGraph, revision: number): $CancellablePromise<store$0.OperationDocument> {
     return $Call.ByID(2454221287, g, revision).then(($result: any) => {
-        return $$createType15($result);
+        return $$createType16($result);
     });
 }
 
 export function SaveSyncProfile(p: $models.DirectorySyncProfile, revision: number): $CancellablePromise<store$0.OperationDocument> {
     return $Call.ByID(2517467766, p, revision).then(($result: any) => {
-        return $$createType15($result);
+        return $$createType16($result);
     });
 }
 
 export function ServiceGraphHealth(id: string): $CancellablePromise<$models.DependencyHealth[]> {
     return $Call.ByID(2072262300, id).then(($result: any) => {
-        return $$createType17($result);
+        return $$createType18($result);
     });
 }
 
@@ -180,18 +190,19 @@ export function Stop(): $CancellablePromise<void> {
 const $$createType0 = $models.SyncOutcome.createFrom;
 const $$createType1 = $Create.Array($$createType0);
 const $$createType2 = $models.MonitorSample.createFrom;
-const $$createType3 = $models.ScanComparison.createFrom;
-const $$createType4 = $models.ServiceGraph.createFrom;
-const $$createType5 = $models.GitRunbookState.createFrom;
-const $$createType6 = $models.HelmRevision.createFrom;
-const $$createType7 = $Create.Array($$createType6);
-const $$createType8 = $models.HelmRelease.createFrom;
-const $$createType9 = $Create.Array($$createType8);
-const $$createType10 = $models.MonitorView.createFrom;
-const $$createType11 = $Create.Array($$createType10);
-const $$createType12 = $models.DirectorySyncPlan.createFrom;
-const $$createType13 = $models.ChangePlan.createFrom;
-const $$createType14 = $models.VulnerabilityScan.createFrom;
-const $$createType15 = store$0.OperationDocument.createFrom;
-const $$createType16 = $models.DependencyHealth.createFrom;
-const $$createType17 = $Create.Array($$createType16);
+const $$createType3 = $Create.Map($Create.Any, $Create.Any);
+const $$createType4 = $models.ScanComparison.createFrom;
+const $$createType5 = $models.ServiceGraph.createFrom;
+const $$createType6 = $models.GitRunbookState.createFrom;
+const $$createType7 = $models.HelmRevision.createFrom;
+const $$createType8 = $Create.Array($$createType7);
+const $$createType9 = $models.HelmRelease.createFrom;
+const $$createType10 = $Create.Array($$createType9);
+const $$createType11 = $models.MonitorView.createFrom;
+const $$createType12 = $Create.Array($$createType11);
+const $$createType13 = $models.DirectorySyncPlan.createFrom;
+const $$createType14 = $models.ChangePlan.createFrom;
+const $$createType15 = $models.VulnerabilityScan.createFrom;
+const $$createType16 = store$0.OperationDocument.createFrom;
+const $$createType17 = $models.DependencyHealth.createFrom;
+const $$createType18 = $Create.Array($$createType17);

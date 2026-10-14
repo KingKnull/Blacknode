@@ -322,14 +322,18 @@ func planDirectorySync(p DirectorySyncProfile, local, remote map[string]syncFile
 				continue
 			}
 		case "both":
+			// A skipped conflict is not a common ancestor. Only a version that
+			// matched on both sides can establish which side changed later.
+			baseline := base.Local[name].Hash
+			sharedBaseline := baseline != "" && baseline == base.Remote[name].Hash
 			switch {
 			case l.Hash == "":
 				action = "download"
 			case r.Hash == "":
 				action = "upload"
-			case base.Local[name].Hash != "" && l.Hash == base.Local[name].Hash && r.Hash != base.Remote[name].Hash:
+			case sharedBaseline && l.Hash == baseline:
 				action = "download"
-			case base.Remote[name].Hash != "" && r.Hash == base.Remote[name].Hash && l.Hash != base.Local[name].Hash:
+			case sharedBaseline && r.Hash == baseline:
 				action = "upload"
 			}
 		}
