@@ -3,6 +3,7 @@
 
 import * as AIService from "./aiservice.js";
 import * as ActivityService from "./activityservice.js";
+import * as AgentService from "./agentservice.js";
 import * as AuthPromptService from "./authpromptservice.js";
 import * as AutoLockService from "./autolockservice.js";
 import * as AutocompleteService from "./autocompleteservice.js";
@@ -15,6 +16,7 @@ import * as HTTPService from "./httpservice.js";
 import * as HistoryService from "./historyservice.js";
 import * as HostGroupService from "./hostgroupservice.js";
 import * as HostService from "./hostservice.js";
+import * as InfrastructureService from "./infrastructureservice.js";
 import * as JobService from "./jobservice.js";
 import * as KeyService from "./keyservice.js";
 import * as LocalShellService from "./localshellservice.js";
@@ -23,6 +25,7 @@ import * as MetricsService from "./metricsservice.js";
 import * as MoshService from "./moshservice.js";
 import * as NetworkService from "./networkservice.js";
 import * as NotificationService from "./notificationservice.js";
+import * as OnePasswordService from "./onepasswordservice.js";
 import * as OpsConsoleService from "./opsconsoleservice.js";
 import * as PlatformService from "./platformservice.js";
 import * as PluginService from "./pluginservice.js";
@@ -32,10 +35,13 @@ import * as RecordingService from "./recordingservice.js";
 import * as RunbookService from "./runbookservice.js";
 import * as SFTPService from "./sftpservice.js";
 import * as SSHService from "./sshservice.js";
+import * as SSMService from "./ssmservice.js";
 import * as SerialService from "./serialservice.js";
 import * as SettingsService from "./settingsservice.js";
 import * as SnippetService from "./snippetservice.js";
 import * as SyncService from "./syncservice.js";
+import * as TailscaleService from "./tailscaleservice.js";
+import * as TeamService from "./teamservice.js";
 import * as TelnetService from "./telnetservice.js";
 import * as TransferService from "./transferservice.js";
 import * as UpdateService from "./updateservice.js";
@@ -43,6 +49,7 @@ import * as VaultService from "./vaultservice.js";
 export {
     AIService,
     ActivityService,
+    AgentService,
     AuthPromptService,
     AutoLockService,
     AutocompleteService,
@@ -55,6 +62,7 @@ export {
     HistoryService,
     HostGroupService,
     HostService,
+    InfrastructureService,
     JobService,
     KeyService,
     LocalShellService,
@@ -63,6 +71,7 @@ export {
     MoshService,
     NetworkService,
     NotificationService,
+    OnePasswordService,
     OpsConsoleService,
     PlatformService,
     PluginService,
@@ -72,10 +81,13 @@ export {
     RunbookService,
     SFTPService,
     SSHService,
+    SSMService,
     SerialService,
     SettingsService,
     SnippetService,
     SyncService,
+    TailscaleService,
+    TeamService,
     TelnetService,
     TransferService,
     UpdateService,
@@ -86,6 +98,7 @@ export {
     AIChunk,
     AIProviderConfig,
     ActiveForward,
+    AgentStatus,
     AppSettings,
     AuditExport,
     AuthPromptRequest,
@@ -104,8 +117,13 @@ export {
     DBTable,
     DNSAnswer,
     DNSResult,
+    DependencyEdge,
+    DependencyHealth,
+    DependencyNode,
     DeploymentProject,
     DiagnosticSection,
+    DirectorySyncPlan,
+    DirectorySyncProfile,
     DiscoveredHost,
     DynamicGroup,
     ExecProgress,
@@ -113,10 +131,14 @@ export {
     FleetDifference,
     FleetFile,
     FleetSnapshot,
+    GitRunbookRepository,
+    GitRunbookState,
     GroupSummary,
     HTTPHeader,
     HTTPRequestOptions,
     HTTPResponse,
+    HelmRelease,
+    HelmRevision,
     HostMetrics,
     ImportRequest,
     ImportResult,
@@ -133,6 +155,9 @@ export {
     LogLine,
     MetricAlertConfig,
     MetricsState,
+    MonitorSample,
+    MonitorState,
+    MonitorView,
     MultiplexerSession,
     Notification,
     NotifyConfig,
@@ -160,16 +185,27 @@ export {
     SSHConfigCandidate,
     SSHConnectOptions,
     SSLResult,
+    SSMAvailability,
+    SSMProfile,
     SavedConnection,
+    ScanComparison,
+    ScanProfile,
     SearchHit,
+    SecurityFinding,
+    ServiceGraph,
+    ServiceMonitor,
     ServiceWorkspace,
     SignRequest,
     SnippetValidation,
     SnippetVariable,
     Suggestion,
+    SyncDecision,
+    SyncEntry,
+    SyncOutcome,
     SyncSettings,
     SyncStatus,
     SystemdUnit,
+    TeamConnection,
     TerminalData,
     TerminalExit,
     TerminalOptions,
@@ -179,5 +215,6 @@ export {
     TransferTask,
     UpdateInfo,
     VaultLockEvent,
-    VaultStatus
+    VaultStatus,
+    VulnerabilityScan
 } from "./models.js";

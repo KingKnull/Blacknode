@@ -30,6 +30,13 @@
     import("./DBPanel.svelte").then((m) => m.default);
 
   const operationsPanels = {
+    uptime: () => import("./UptimePanel.svelte"),
+    "directory-sync": () => import("./DirectorySyncPanel.svelte"),
+    "service-map": () => import("./ServiceMapPanel.svelte"),
+    "security-scans": () => import("./SecurityScansPanel.svelte"),
+    "git-runbooks": () => import("./GitRunbooksPanel.svelte"),
+    helm: () => import("./HelmPanel.svelte"),
+    ssm: () => import("./SSMPanel.svelte"),
     "service-workspaces": () => import("./ServiceWorkspacesPanel.svelte"),
     kubernetes: () => import("./KubernetesPanel.svelte"),
     fleet: () => import("./FleetPanel.svelte"),

@@ -8,6 +8,7 @@
     SyncService,
     HostService,
     VaultService,
+    AgentService,
   } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type {
     NotifyConfig,
@@ -338,6 +339,38 @@
     }
   }
 
+  // Built-in SSH agent (serves vault keys to other tools over SSH_AUTH_SOCK).
+  let agentStatus = $state<{ running: boolean; socketPath: string }>({ running: false, socketPath: "" });
+  let agentBusy = $state(false);
+  let agentErr = $state("");
+
+  async function refreshAgent() {
+    try { agentStatus = (await AgentService.Status()) as { running: boolean; socketPath: string }; }
+    catch (e) { agentErr = String((e as any)?.message ?? e); }
+  }
+
+  async function toggleAgent() {
+    agentErr = "";
+    agentBusy = true;
+    try {
+      if (agentStatus.running) {
+        await AgentService.Stop();
+        agentStatus = { running: false, socketPath: "" };
+      } else {
+        agentStatus = (await AgentService.Start()) as { running: boolean; socketPath: string };
+      }
+    } catch (e) {
+      agentErr = String((e as any)?.message ?? e);
+    } finally {
+      agentBusy = false;
+    }
+  }
+
+  async function copySocket() {
+    try { await navigator.clipboard.writeText(agentStatus.socketPath); app.toast("ok", "COPIED", "Socket path copied."); }
+    catch { /* clipboard may be unavailable */ }
+  }
+
   onMount(async () => {
     scrollTo(initialSection, "instant");
     autoLockMinutes = app.settings.autoLockMinutes;
@@ -346,6 +379,7 @@
     terminalScrollback = app.settings.terminalScrollback;
     sessionMode = app.settings.terminalSessionMode;
     shellIntegration = app.settings.shellIntegration;
+    void refreshAgent();
     try { provider = await SettingsService.AIProvider(); }
     catch (e) { providerError = String(e); }
     try {
@@ -740,6 +774,45 @@
               {/each}
             </div>
           {/if}
+        </section>
+
+        <!-- SSH agent -->
+        <section id="section-agent" class="border hairline-strong surface-2 p-6 shadow-xl" style="backdrop-filter: blur(12px) saturate(1.2);">
+          <div class="mb-4 flex items-center gap-2">
+            <Lock size="14" class="text-[var(--color-accent)]" />
+            <h3 class="type-eyebrow text-[var(--color-text-1)]">SSH agent</h3>
+          </div>
+          <p class="type-caption text-[var(--color-text-3)]">
+            Serve your vault's SSH keys to other tools (<span class="font-mono">ssh</span>, <span class="font-mono">git</span>, Ansible)
+            over a local agent socket, so keys never leave Blacknode's encrypted store. Needs the vault unlocked. Like the
+            standard <span class="font-mono">ssh-agent</span>, any process running as you can request a signature while it's on,
+            so it stays off until you start it.
+          </p>
+          <div class="mt-4 flex items-center gap-3">
+            <button
+              class="border px-3 py-1.5 type-caption transition-colors {agentStatus.running
+                ? 'border-[var(--color-danger)]/50 text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10'
+                : 'border-[var(--color-accent)]/50 bg-[var(--color-accent-soft)] text-[var(--color-accent)]'} disabled:opacity-40"
+              disabled={agentBusy}
+              onclick={toggleAgent}
+            >
+              {#if agentBusy}<Loader2 size="11" class="inline animate-spin" />{/if}
+              {agentStatus.running ? "Stop agent" : "Start agent"}
+            </button>
+            <span class="type-caption {agentStatus.running ? 'text-[var(--color-success)]' : 'text-[var(--color-text-4)]'}">
+              {agentStatus.running ? "running" : "stopped"}
+            </span>
+          </div>
+          {#if agentStatus.running && agentStatus.socketPath}
+            <div class="mt-3">
+              <span class="type-caption text-[var(--color-text-4)]">Point other tools at it:</span>
+              <div class="mt-1 flex items-center gap-2">
+                <code class="min-w-0 flex-1 truncate border hairline bg-[var(--color-surface-3)] px-2 py-1 font-mono type-micro text-[var(--color-text-2)]">export SSH_AUTH_SOCK={agentStatus.socketPath}</code>
+                <button class="shrink-0 border hairline px-2 py-1 type-caption text-[var(--color-text-3)] hover:text-[var(--color-text-1)]" onclick={copySocket}>Copy</button>
+              </div>
+            </div>
+          {/if}
+          {#if agentErr}<p role="alert" class="mt-3 type-caption text-[var(--color-danger)]">{agentErr}</p>{/if}
         </section>
 
         <!-- Appearance -->

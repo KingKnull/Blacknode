@@ -30,6 +30,15 @@ func init() {
 	if os.Getenv("WEBKIT_DISABLE_DMABUF_RENDERER") == "" {
 		_ = os.Setenv("WEBKIT_DISABLE_DMABUF_RENDERER", "1")
 	}
+	// WebKitGTK's accelerated compositing makes the whole webview sluggish on
+	// many Linux GPU/driver combinations — every keystroke in every terminal
+	// (local shells included, so it is not I/O or the SSH path) lands a beat
+	// late. Disabling it falls back to a software-composited path that renders
+	// keystroke echo immediately; verified as the fix on this platform. Left
+	// overridable so a machine with a good GL stack can re-enable it.
+	if os.Getenv("WEBKIT_DISABLE_COMPOSITING_MODE") == "" {
+		_ = os.Setenv("WEBKIT_DISABLE_COMPOSITING_MODE", "1")
+	}
 
 	application.RegisterEvent[service.TerminalData]("terminal:data")
 	application.RegisterEvent[service.TerminalExit]("terminal:exit")
@@ -97,6 +106,9 @@ func main() {
 	runbookSvc := service.NewRunbookService(settings, execSvc, operations)
 	jobSvc := service.NewJobService(operations, runbookSvc, settingsSvc)
 	jobSvc.StartScheduler()
+	infraSvc := service.NewInfrastructureService(platformSvc, jobSvc, runbookSvc, notifySvc)
+	infraSvc.Start()
+	ssmSvc := service.NewSSMService(operations)
 	syncSvc := service.NewSyncService(settings, hosts, snippets, httpRequests, teamActivity, syncKeys, v, activityRec)
 	dataDir := filepath.Join(xdg.DataHome, "blacknode")
 	vaultSvc := service.NewVaultService(v, conn.DB, dataDir, activityRec, autoLock)
@@ -110,15 +122,21 @@ func main() {
 			application.NewService(vaultSvc),
 			application.NewService(settingsSvc),
 			application.NewService(service.NewKeyService(keys, v)),
+			application.NewService(service.NewAgentService(keys, v)),
 			application.NewService(service.NewCAService(caKeys, keys, v, activityRec)),
 			application.NewService(service.NewHostService(hosts, knownHosts, secrets, v)),
 			application.NewService(service.NewHostGroupService(hostGroups, hosts)),
 			application.NewService(service.NewCloudImportService(hosts)),
+			application.NewService(service.NewTailscaleService(hosts)),
+			application.NewService(service.NewOnePasswordService(hosts)),
 			application.NewService(service.NewLocalShellService(recMgr, recordings, settings, dialer)),
 			application.NewService(service.NewSSHService(dialer, hosts, recMgr, recordings, settings)),
 			application.NewService(sftpSvc),
 			application.NewService(transferSvc),
 			application.NewService(platformSvc),
+			application.NewService(infraSvc),
+			application.NewService(ssmSvc),
+			application.NewService(service.NewTeamService(settingsSvc)),
 			application.NewService(jobSvc),
 			application.NewService(authPrompt),
 			application.NewService(execSvc),
@@ -188,6 +206,8 @@ func main() {
 	}
 
 	pfSvc.StopAll(context.Background())
+	infraSvc.Stop()
+	ssmSvc.Stop()
 	metricsSvc.StopAll(context.Background())
 	transferSvc.StopAll()
 	jobSvc.StopAll()

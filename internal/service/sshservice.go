@@ -279,22 +279,10 @@ func (s *SSHService) connectWithOptions(sessionID string, t sshconn.Target, cols
 }
 
 func (s *SSHService) pump(id string, r io.Reader, cancel <-chan struct{}) {
-	buf := make([]byte, 32768) // 32KB — reduces event emission overhead for bulk output
-	for {
-		select {
-		case <-cancel:
-			return
-		default:
-		}
-		n, err := r.Read(buf)
-		if n > 0 {
-			s.emitData(id, string(buf[:n]))
-			s.rec.WriteOutput(id, buf[:n])
-		}
-		if err != nil {
-			return
-		}
-	}
+	pumpTerminalOutput(r, cancel, func(chunk string, raw []byte) {
+		s.emitData(id, chunk)
+		s.rec.WriteOutput(id, raw)
+	})
 }
 
 // keepalive sends a request every 30s to detect dead connections early.

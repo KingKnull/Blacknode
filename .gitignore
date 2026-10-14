@@ -13,6 +13,10 @@ frontend/dist
 frontend/node_modules
 frontend/.svelte-kit
 
+# Electron (deps + packaged installers — large build artifacts, never commit)
+electron/node_modules
+dist_electron
+
 # Wails
 build/linux/appimage/build
 build/windows/nsis/MicrosoftEdgeWebview2Setup.exe

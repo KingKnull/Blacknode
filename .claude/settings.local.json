@@ -84,7 +84,8 @@
       "Bash(cp ~/.local/share/blacknode/blacknode.db* __TRACKED_VAR__/bn4/blacknode/)",
       "Bash(rm -f __TRACKED_VAR__/bn4/blacknode/blacknode.log)",
       "Bash(timeout 20 env XDG_DATA_HOME=__TRACKED_VAR__/bn4 ./bin/blacknode)",
-      "Bash(echo \"BUILD_EXIT=$?\")"
+      "Bash(echo \"BUILD_EXIT=$?\")",
+      "Bash(grep -n 'class \\\\|export const app\\\\|toast\\\\|refreshSecretStatus\\\\|vault =\\\\|vault:\\\\|unlocked\\\\|suppressAutoUnlock\\\\|= \\\\$state' src/lib/state.svelte.ts)"
     ]
   }
 }

@@ -137,22 +137,10 @@ func (s *LocalShellService) Open(ctx context.Context, sessionID string, cols, ro
 }
 
 func (s *LocalShellService) pump(id string, r io.Reader, cancel <-chan struct{}) {
-	buf := make([]byte, 32768) // 32KB — reduces event emission overhead for bulk output
-	for {
-		select {
-		case <-cancel:
-			return
-		default:
-		}
-		n, err := r.Read(buf)
-		if n > 0 {
-			s.emitData(id, string(buf[:n]))
-			s.rec.WriteOutput(id, buf[:n])
-		}
-		if err != nil {
-			return
-		}
-	}
+	pumpTerminalOutput(r, cancel, func(chunk string, raw []byte) {
+		s.emitData(id, chunk)
+		s.rec.WriteOutput(id, raw)
+	})
 }
 
 func (s *LocalShellService) finishRecording(sessionID, title string) {

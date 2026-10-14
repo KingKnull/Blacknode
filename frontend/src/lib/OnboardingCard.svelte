@@ -63,7 +63,7 @@
     [shortcutLabel("newTab"), "New tab"],
     [shortcutLabel("closeTab"), "Close tab"],
     ["Ctrl+.", "Terminal side panel"],
-    ["↓", "Autocomplete (in terminal)"],
+    ["Ctrl+Shift+F", "Search in terminal"],
     ["?", "Full shortcut list"],
   ];
 </script>

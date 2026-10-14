@@ -1,4 +1,11 @@
 export const OPTIONAL_VIEWS = [
+  { id: "uptime", label: "Uptime monitoring" },
+  { id: "directory-sync", label: "Directory sync" },
+  { id: "service-map", label: "Service map" },
+  { id: "security-scans", label: "Security scans" },
+  { id: "git-runbooks", label: "Git runbooks" },
+  { id: "helm", label: "Helm releases" },
+  { id: "ssm", label: "AWS Session Manager" },
   { id: "service-workspaces", label: "Service workspaces" },
   { id: "kubernetes", label: "Kubernetes" },
   { id: "fleet", label: "Fleet inventory" },

@@ -138,6 +138,38 @@ export class ActiveForward {
 }
 
 /**
+ * AgentStatus is the shape returned to the UI.
+ */
+export class AgentStatus {
+    "running": boolean;
+
+    /**
+     * SocketPath is what the user exports as SSH_AUTH_SOCK. Empty when stopped.
+     */
+    "socketPath": string;
+
+    /** Creates a new AgentStatus instance. */
+    constructor($$source: Partial<AgentStatus> = {}) {
+        if (!("running" in $$source)) {
+            this["running"] = false;
+        }
+        if (!("socketPath" in $$source)) {
+            this["socketPath"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new AgentStatus instance from a string or object.
+     */
+    static createFrom($$source: any = {}): AgentStatus {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new AgentStatus($$parsedSource as Partial<AgentStatus>);
+    }
+}
+
+/**
  * AppSettings is the safe shape returned to the frontend — never includes
  * raw secrets, just whether each one is set.
  */
@@ -504,6 +536,7 @@ export class ChangePlan {
     "input": string;
     "preview": string;
     "expiresAt": number;
+    "productionHosts"?: string[];
 
     /** Creates a new ChangePlan instance. */
     constructor($$source: Partial<ChangePlan> = {}) {
@@ -539,7 +572,11 @@ export class ChangePlan {
      * Creates a new ChangePlan instance from a string or object.
      */
     static createFrom($$source: any = {}): ChangePlan {
+        const $$createField8_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("productionHosts" in $$parsedSource) {
+            $$parsedSource["productionHosts"] = $$createField8_0($$parsedSource["productionHosts"]);
+        }
         return new ChangePlan($$parsedSource as Partial<ChangePlan>);
     }
 }
@@ -938,6 +975,101 @@ export class DNSResult {
     }
 }
 
+export class DependencyEdge {
+    "from": string;
+    "to": string;
+
+    /** Creates a new DependencyEdge instance. */
+    constructor($$source: Partial<DependencyEdge> = {}) {
+        if (!("from" in $$source)) {
+            this["from"] = "";
+        }
+        if (!("to" in $$source)) {
+            this["to"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DependencyEdge instance from a string or object.
+     */
+    static createFrom($$source: any = {}): DependencyEdge {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new DependencyEdge($$parsedSource as Partial<DependencyEdge>);
+    }
+}
+
+export class DependencyHealth {
+    "id": string;
+    "status": string;
+    "affectedBy": string[];
+
+    /** Creates a new DependencyHealth instance. */
+    constructor($$source: Partial<DependencyHealth> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("status" in $$source)) {
+            this["status"] = "";
+        }
+        if (!("affectedBy" in $$source)) {
+            this["affectedBy"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DependencyHealth instance from a string or object.
+     */
+    static createFrom($$source: any = {}): DependencyHealth {
+        const $$createField2_0 = $$createType2;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("affectedBy" in $$parsedSource) {
+            $$parsedSource["affectedBy"] = $$createField2_0($$parsedSource["affectedBy"]);
+        }
+        return new DependencyHealth($$parsedSource as Partial<DependencyHealth>);
+    }
+}
+
+export class DependencyNode {
+    "id": string;
+    "name": string;
+    "kind": string;
+    "hostID": string;
+    "monitorID": string;
+
+    /** Creates a new DependencyNode instance. */
+    constructor($$source: Partial<DependencyNode> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("kind" in $$source)) {
+            this["kind"] = "";
+        }
+        if (!("hostID" in $$source)) {
+            this["hostID"] = "";
+        }
+        if (!("monitorID" in $$source)) {
+            this["monitorID"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DependencyNode instance from a string or object.
+     */
+    static createFrom($$source: any = {}): DependencyNode {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new DependencyNode($$parsedSource as Partial<DependencyNode>);
+    }
+}
+
 export class DeploymentProject {
     "id": string;
     "name": string;
@@ -1030,6 +1162,100 @@ export class DiagnosticSection {
     static createFrom($$source: any = {}): DiagnosticSection {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new DiagnosticSection($$parsedSource as Partial<DiagnosticSection>);
+    }
+}
+
+export class DirectorySyncPlan {
+    "id": string;
+    "profile": DirectorySyncProfile;
+    "entries": SyncEntry[];
+    "expiresAt": number;
+
+    /** Creates a new DirectorySyncPlan instance. */
+    constructor($$source: Partial<DirectorySyncPlan> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("profile" in $$source)) {
+            this["profile"] = (new DirectorySyncProfile());
+        }
+        if (!("entries" in $$source)) {
+            this["entries"] = [];
+        }
+        if (!("expiresAt" in $$source)) {
+            this["expiresAt"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DirectorySyncPlan instance from a string or object.
+     */
+    static createFrom($$source: any = {}): DirectorySyncPlan {
+        const $$createField1_0 = $$createType5;
+        const $$createField2_0 = $$createType7;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("profile" in $$parsedSource) {
+            $$parsedSource["profile"] = $$createField1_0($$parsedSource["profile"]);
+        }
+        if ("entries" in $$parsedSource) {
+            $$parsedSource["entries"] = $$createField2_0($$parsedSource["entries"]);
+        }
+        return new DirectorySyncPlan($$parsedSource as Partial<DirectorySyncPlan>);
+    }
+}
+
+export class DirectorySyncProfile {
+    "id": string;
+    "name": string;
+    "hostID": string;
+    "localPath": string;
+    "remotePath": string;
+    "direction": string;
+    "excludes": string[];
+    "mirror": boolean;
+
+    /** Creates a new DirectorySyncProfile instance. */
+    constructor($$source: Partial<DirectorySyncProfile> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("hostID" in $$source)) {
+            this["hostID"] = "";
+        }
+        if (!("localPath" in $$source)) {
+            this["localPath"] = "";
+        }
+        if (!("remotePath" in $$source)) {
+            this["remotePath"] = "";
+        }
+        if (!("direction" in $$source)) {
+            this["direction"] = "";
+        }
+        if (!("excludes" in $$source)) {
+            this["excludes"] = [];
+        }
+        if (!("mirror" in $$source)) {
+            this["mirror"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DirectorySyncProfile instance from a string or object.
+     */
+    static createFrom($$source: any = {}): DirectorySyncProfile {
+        const $$createField6_0 = $$createType2;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("excludes" in $$parsedSource) {
+            $$parsedSource["excludes"] = $$createField6_0($$parsedSource["excludes"]);
+        }
+        return new DirectorySyncProfile($$parsedSource as Partial<DirectorySyncProfile>);
     }
 }
 
@@ -1153,7 +1379,7 @@ export class ExecProgress {
      * Creates a new ExecProgress instance from a string or object.
      */
     static createFrom($$source: any = {}): ExecProgress {
-        const $$createField1_0 = $$createType5;
+        const $$createField1_0 = $$createType8;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("result" in $$parsedSource) {
             $$parsedSource["result"] = $$createField1_0($$parsedSource["result"]);
@@ -1337,9 +1563,9 @@ export class FleetSnapshot {
      * Creates a new FleetSnapshot instance from a string or object.
      */
     static createFrom($$source: any = {}): FleetSnapshot {
-        const $$createField5_0 = $$createType6;
-        const $$createField6_0 = $$createType6;
-        const $$createField7_0 = $$createType8;
+        const $$createField5_0 = $$createType9;
+        const $$createField6_0 = $$createType9;
+        const $$createField7_0 = $$createType11;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("sections" in $$parsedSource) {
             $$parsedSource["sections"] = $$createField5_0($$parsedSource["sections"]);
@@ -1351,6 +1577,88 @@ export class FleetSnapshot {
             $$parsedSource["files"] = $$createField7_0($$parsedSource["files"]);
         }
         return new FleetSnapshot($$parsedSource as Partial<FleetSnapshot>);
+    }
+}
+
+export class GitRunbookRepository {
+    "id": string;
+    "name": string;
+    "directory": string;
+    "file": string;
+    "remote": string;
+    "branch": string;
+
+    /** Creates a new GitRunbookRepository instance. */
+    constructor($$source: Partial<GitRunbookRepository> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("directory" in $$source)) {
+            this["directory"] = "";
+        }
+        if (!("file" in $$source)) {
+            this["file"] = "";
+        }
+        if (!("remote" in $$source)) {
+            this["remote"] = "";
+        }
+        if (!("branch" in $$source)) {
+            this["branch"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GitRunbookRepository instance from a string or object.
+     */
+    static createFrom($$source: any = {}): GitRunbookRepository {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new GitRunbookRepository($$parsedSource as Partial<GitRunbookRepository>);
+    }
+}
+
+export class GitRunbookState {
+    "commit": string;
+    "status": string;
+    "diff": string;
+    "yaml": string;
+    "books": Runbook[];
+
+    /** Creates a new GitRunbookState instance. */
+    constructor($$source: Partial<GitRunbookState> = {}) {
+        if (!("commit" in $$source)) {
+            this["commit"] = "";
+        }
+        if (!("status" in $$source)) {
+            this["status"] = "";
+        }
+        if (!("diff" in $$source)) {
+            this["diff"] = "";
+        }
+        if (!("yaml" in $$source)) {
+            this["yaml"] = "";
+        }
+        if (!("books" in $$source)) {
+            this["books"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GitRunbookState instance from a string or object.
+     */
+    static createFrom($$source: any = {}): GitRunbookState {
+        const $$createField4_0 = $$createType13;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("books" in $$parsedSource) {
+            $$parsedSource["books"] = $$createField4_0($$parsedSource["books"]);
+        }
+        return new GitRunbookState($$parsedSource as Partial<GitRunbookState>);
     }
 }
 
@@ -1387,7 +1695,7 @@ export class GroupSummary {
      * Creates a new GroupSummary instance from a string or object.
      */
     static createFrom($$source: any = {}): GroupSummary {
-        const $$createField0_0 = $$createType9;
+        const $$createField0_0 = $$createType14;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("group" in $$parsedSource) {
             $$parsedSource["group"] = $$createField0_0($$parsedSource["group"]);
@@ -1467,7 +1775,7 @@ export class HTTPRequestOptions {
      * Creates a new HTTPRequestOptions instance from a string or object.
      */
     static createFrom($$source: any = {}): HTTPRequestOptions {
-        const $$createField2_0 = $$createType6;
+        const $$createField2_0 = $$createType9;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("headers" in $$parsedSource) {
             $$parsedSource["headers"] = $$createField2_0($$parsedSource["headers"]);
@@ -1528,12 +1836,94 @@ export class HTTPResponse {
      * Creates a new HTTPResponse instance from a string or object.
      */
     static createFrom($$source: any = {}): HTTPResponse {
-        const $$createField3_0 = $$createType11;
+        const $$createField3_0 = $$createType16;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("headers" in $$parsedSource) {
             $$parsedSource["headers"] = $$createField3_0($$parsedSource["headers"]);
         }
         return new HTTPResponse($$parsedSource as Partial<HTTPResponse>);
+    }
+}
+
+export class HelmRelease {
+    "name": string;
+    "namespace": string;
+    "revision": string;
+    "updated": string;
+    "status": string;
+    "chart": string;
+    "app_version": string;
+
+    /** Creates a new HelmRelease instance. */
+    constructor($$source: Partial<HelmRelease> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("namespace" in $$source)) {
+            this["namespace"] = "";
+        }
+        if (!("revision" in $$source)) {
+            this["revision"] = "";
+        }
+        if (!("updated" in $$source)) {
+            this["updated"] = "";
+        }
+        if (!("status" in $$source)) {
+            this["status"] = "";
+        }
+        if (!("chart" in $$source)) {
+            this["chart"] = "";
+        }
+        if (!("app_version" in $$source)) {
+            this["app_version"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new HelmRelease instance from a string or object.
+     */
+    static createFrom($$source: any = {}): HelmRelease {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new HelmRelease($$parsedSource as Partial<HelmRelease>);
+    }
+}
+
+export class HelmRevision {
+    "revision": number;
+    "updated": string;
+    "status": string;
+    "chart": string;
+    "description": string;
+
+    /** Creates a new HelmRevision instance. */
+    constructor($$source: Partial<HelmRevision> = {}) {
+        if (!("revision" in $$source)) {
+            this["revision"] = 0;
+        }
+        if (!("updated" in $$source)) {
+            this["updated"] = "";
+        }
+        if (!("status" in $$source)) {
+            this["status"] = "";
+        }
+        if (!("chart" in $$source)) {
+            this["chart"] = "";
+        }
+        if (!("description" in $$source)) {
+            this["description"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new HelmRevision instance from a string or object.
+     */
+    static createFrom($$source: any = {}): HelmRevision {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new HelmRevision($$parsedSource as Partial<HelmRevision>);
     }
 }
 
@@ -1638,7 +2028,7 @@ export class ImportRequest {
      * Creates a new ImportRequest instance from a string or object.
      */
     static createFrom($$source: any = {}): ImportRequest {
-        const $$createField0_0 = $$createType13;
+        const $$createField0_0 = $$createType18;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("hosts" in $$parsedSource) {
             $$parsedSource["hosts"] = $$createField0_0($$parsedSource["hosts"]);
@@ -1714,7 +2104,7 @@ export class IncidentSnapshot {
      * Creates a new IncidentSnapshot instance from a string or object.
      */
     static createFrom($$source: any = {}): IncidentSnapshot {
-        const $$createField4_0 = $$createType15;
+        const $$createField4_0 = $$createType20;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("sections" in $$parsedSource) {
             $$parsedSource["sections"] = $$createField4_0($$parsedSource["sections"]);
@@ -1853,9 +2243,9 @@ export class Job {
      * Creates a new Job instance from a string or object.
      */
     static createFrom($$source: any = {}): Job {
-        const $$createField1_0 = $$createType16;
+        const $$createField1_0 = $$createType12;
         const $$createField2_0 = $$createType2;
-        const $$createField7_0 = $$createType18;
+        const $$createField7_0 = $$createType22;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("book" in $$parsedSource) {
             $$parsedSource["book"] = $$createField1_0($$parsedSource["book"]);
@@ -1918,7 +2308,7 @@ export class JobSchedule {
      * Creates a new JobSchedule instance from a string or object.
      */
     static createFrom($$source: any = {}): JobSchedule {
-        const $$createField2_0 = $$createType16;
+        const $$createField2_0 = $$createType12;
         const $$createField3_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("book" in $$parsedSource) {
@@ -2049,7 +2439,7 @@ export class KubeForward {
      * Creates a new KubeForward instance from a string or object.
      */
     static createFrom($$source: any = {}): KubeForward {
-        const $$createField1_0 = $$createType19;
+        const $$createField1_0 = $$createType23;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("target" in $$parsedSource) {
             $$parsedSource["target"] = $$createField1_0($$parsedSource["target"]);
@@ -2257,7 +2647,7 @@ export class MetricsState {
      */
     static createFrom($$source: any = {}): MetricsState {
         const $$createField0_0 = $$createType2;
-        const $$createField1_0 = $$createType22;
+        const $$createField1_0 = $$createType26;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("polling" in $$parsedSource) {
             $$parsedSource["polling"] = $$createField0_0($$parsedSource["polling"]);
@@ -2266,6 +2656,133 @@ export class MetricsState {
             $$parsedSource["history"] = $$createField1_0($$parsedSource["history"]);
         }
         return new MetricsState($$parsedSource as Partial<MetricsState>);
+    }
+}
+
+export class MonitorSample {
+    "at": number;
+    "status": string;
+    "latencyMS": number;
+    "statusCode": number;
+    "certificateExpires": number;
+    "detail": string;
+
+    /** Creates a new MonitorSample instance. */
+    constructor($$source: Partial<MonitorSample> = {}) {
+        if (!("at" in $$source)) {
+            this["at"] = 0;
+        }
+        if (!("status" in $$source)) {
+            this["status"] = "";
+        }
+        if (!("latencyMS" in $$source)) {
+            this["latencyMS"] = 0;
+        }
+        if (!("statusCode" in $$source)) {
+            this["statusCode"] = 0;
+        }
+        if (!("certificateExpires" in $$source)) {
+            this["certificateExpires"] = 0;
+        }
+        if (!("detail" in $$source)) {
+            this["detail"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new MonitorSample instance from a string or object.
+     */
+    static createFrom($$source: any = {}): MonitorSample {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new MonitorSample($$parsedSource as Partial<MonitorSample>);
+    }
+}
+
+export class MonitorState {
+    "id": string;
+    "leaseUntil": number;
+    "nextRunAt": number;
+    "failures": number;
+    "alerting": boolean;
+    "samples": MonitorSample[];
+
+    /** Creates a new MonitorState instance. */
+    constructor($$source: Partial<MonitorState> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("leaseUntil" in $$source)) {
+            this["leaseUntil"] = 0;
+        }
+        if (!("nextRunAt" in $$source)) {
+            this["nextRunAt"] = 0;
+        }
+        if (!("failures" in $$source)) {
+            this["failures"] = 0;
+        }
+        if (!("alerting" in $$source)) {
+            this["alerting"] = false;
+        }
+        if (!("samples" in $$source)) {
+            this["samples"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new MonitorState instance from a string or object.
+     */
+    static createFrom($$source: any = {}): MonitorState {
+        const $$createField5_0 = $$createType28;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("samples" in $$parsedSource) {
+            $$parsedSource["samples"] = $$createField5_0($$parsedSource["samples"]);
+        }
+        return new MonitorState($$parsedSource as Partial<MonitorState>);
+    }
+}
+
+export class MonitorView {
+    "monitor": ServiceMonitor;
+    "revision": number;
+    "state": MonitorState;
+    "uptimePercent": number;
+
+    /** Creates a new MonitorView instance. */
+    constructor($$source: Partial<MonitorView> = {}) {
+        if (!("monitor" in $$source)) {
+            this["monitor"] = (new ServiceMonitor());
+        }
+        if (!("revision" in $$source)) {
+            this["revision"] = 0;
+        }
+        if (!("state" in $$source)) {
+            this["state"] = (new MonitorState());
+        }
+        if (!("uptimePercent" in $$source)) {
+            this["uptimePercent"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new MonitorView instance from a string or object.
+     */
+    static createFrom($$source: any = {}): MonitorView {
+        const $$createField0_0 = $$createType29;
+        const $$createField2_0 = $$createType30;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("monitor" in $$parsedSource) {
+            $$parsedSource["monitor"] = $$createField0_0($$parsedSource["monitor"]);
+        }
+        if ("state" in $$parsedSource) {
+            $$parsedSource["state"] = $$createField2_0($$parsedSource["state"]);
+        }
+        return new MonitorView($$parsedSource as Partial<MonitorView>);
     }
 }
 
@@ -2592,7 +3109,7 @@ export class PortScanResult {
      * Creates a new PortScanResult instance from a string or object.
      */
     static createFrom($$source: any = {}): PortScanResult {
-        const $$createField1_0 = $$createType24;
+        const $$createField1_0 = $$createType32;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("results" in $$parsedSource) {
             $$parsedSource["results"] = $$createField1_0($$parsedSource["results"]);
@@ -2814,8 +3331,8 @@ export class QueryResult {
      * Creates a new QueryResult instance from a string or object.
      */
     static createFrom($$source: any = {}): QueryResult {
-        const $$createField0_0 = $$createType26;
-        const $$createField1_0 = $$createType27;
+        const $$createField0_0 = $$createType34;
+        const $$createField1_0 = $$createType35;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("columns" in $$parsedSource) {
             $$parsedSource["columns"] = $$createField0_0($$parsedSource["columns"]);
@@ -2885,7 +3402,7 @@ export class RecordingDetail {
      * Creates a new RecordingDetail instance from a string or object.
      */
     static createFrom($$source: any = {}): RecordingDetail {
-        const $$createField12_0 = $$createType29;
+        const $$createField12_0 = $$createType37;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("events" in $$parsedSource) {
             $$parsedSource["events"] = $$createField12_0($$parsedSource["events"]);
@@ -2929,7 +3446,7 @@ export class RecordingPolicy {
      * Creates a new RecordingPolicy instance from a string or object.
      */
     static createFrom($$source: any = {}): RecordingPolicy {
-        const $$createField2_0 = $$createType6;
+        const $$createField2_0 = $$createType9;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("hostModes" in $$parsedSource) {
             $$parsedSource["hostModes"] = $$createField2_0($$parsedSource["hostModes"]);
@@ -3014,6 +3531,8 @@ export class RemoteFileSnapshot {
 }
 
 export class Runbook {
+    "sourceCommit"?: string;
+    "sourceRepository"?: string;
     "id": string;
     "name": string;
     "steps": RunbookStep[];
@@ -3050,10 +3569,10 @@ export class Runbook {
      * Creates a new Runbook instance from a string or object.
      */
     static createFrom($$source: any = {}): Runbook {
-        const $$createField2_0 = $$createType31;
+        const $$createField4_0 = $$createType39;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("steps" in $$parsedSource) {
-            $$parsedSource["steps"] = $$createField2_0($$parsedSource["steps"]);
+            $$parsedSource["steps"] = $$createField4_0($$parsedSource["steps"]);
         }
         return new Runbook($$parsedSource as Partial<Runbook>);
     }
@@ -3079,7 +3598,7 @@ export class RunbookProgress {
      * Creates a new RunbookProgress instance from a string or object.
      */
     static createFrom($$source: any = {}): RunbookProgress {
-        const $$createField1_0 = $$createType32;
+        const $$createField1_0 = $$createType40;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("result" in $$parsedSource) {
             $$parsedSource["result"] = $$createField1_0($$parsedSource["result"]);
@@ -3133,7 +3652,7 @@ export class RunbookResult {
      * Creates a new RunbookResult instance from a string or object.
      */
     static createFrom($$source: any = {}): RunbookResult {
-        const $$createField4_0 = $$createType5;
+        const $$createField4_0 = $$createType8;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("result" in $$parsedSource) {
             $$parsedSource["result"] = $$createField4_0($$parsedSource["result"]);
@@ -3368,12 +3887,78 @@ export class SSLResult {
      * Creates a new SSLResult instance from a string or object.
      */
     static createFrom($$source: any = {}): SSLResult {
-        const $$createField4_0 = $$createType33;
+        const $$createField4_0 = $$createType41;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("cert" in $$parsedSource) {
             $$parsedSource["cert"] = $$createField4_0($$parsedSource["cert"]);
         }
         return new SSLResult($$parsedSource as Partial<SSLResult>);
+    }
+}
+
+export class SSMAvailability {
+    "aws": boolean;
+    "plugin": boolean;
+
+    /** Creates a new SSMAvailability instance. */
+    constructor($$source: Partial<SSMAvailability> = {}) {
+        if (!("aws" in $$source)) {
+            this["aws"] = false;
+        }
+        if (!("plugin" in $$source)) {
+            this["plugin"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SSMAvailability instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SSMAvailability {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SSMAvailability($$parsedSource as Partial<SSMAvailability>);
+    }
+}
+
+export class SSMProfile {
+    "id": string;
+    "name": string;
+    "target": string;
+    "region": string;
+    "awsProfile": string;
+    "environment": string;
+
+    /** Creates a new SSMProfile instance. */
+    constructor($$source: Partial<SSMProfile> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("target" in $$source)) {
+            this["target"] = "";
+        }
+        if (!("region" in $$source)) {
+            this["region"] = "";
+        }
+        if (!("awsProfile" in $$source)) {
+            this["awsProfile"] = "";
+        }
+        if (!("environment" in $$source)) {
+            this["environment"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SSMProfile instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SSMProfile {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SSMProfile($$parsedSource as Partial<SSMProfile>);
     }
 }
 
@@ -3421,6 +4006,80 @@ export class SavedConnection {
     }
 }
 
+export class ScanComparison {
+    "added": SecurityFinding[];
+    "resolved": SecurityFinding[];
+    "remaining": number;
+
+    /** Creates a new ScanComparison instance. */
+    constructor($$source: Partial<ScanComparison> = {}) {
+        if (!("added" in $$source)) {
+            this["added"] = [];
+        }
+        if (!("resolved" in $$source)) {
+            this["resolved"] = [];
+        }
+        if (!("remaining" in $$source)) {
+            this["remaining"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ScanComparison instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ScanComparison {
+        const $$createField0_0 = $$createType43;
+        const $$createField1_0 = $$createType43;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("added" in $$parsedSource) {
+            $$parsedSource["added"] = $$createField0_0($$parsedSource["added"]);
+        }
+        if ("resolved" in $$parsedSource) {
+            $$parsedSource["resolved"] = $$createField1_0($$parsedSource["resolved"]);
+        }
+        return new ScanComparison($$parsedSource as Partial<ScanComparison>);
+    }
+}
+
+export class ScanProfile {
+    "id": string;
+    "name": string;
+    "hostID": string;
+    "kind": string;
+    "target": string;
+
+    /** Creates a new ScanProfile instance. */
+    constructor($$source: Partial<ScanProfile> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("hostID" in $$source)) {
+            this["hostID"] = "";
+        }
+        if (!("kind" in $$source)) {
+            this["kind"] = "";
+        }
+        if (!("target" in $$source)) {
+            this["target"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ScanProfile instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ScanProfile {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ScanProfile($$parsedSource as Partial<ScanProfile>);
+    }
+}
+
 /**
  * SearchHit ties a recording to one or more matched lines for the search UI.
  */
@@ -3444,8 +4103,8 @@ export class SearchHit {
      * Creates a new SearchHit instance from a string or object.
      */
     static createFrom($$source: any = {}): SearchHit {
-        const $$createField0_0 = $$createType34;
-        const $$createField1_0 = $$createType36;
+        const $$createField0_0 = $$createType44;
+        const $$createField1_0 = $$createType46;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("recording" in $$parsedSource) {
             $$parsedSource["recording"] = $$createField0_0($$parsedSource["recording"]);
@@ -3454,6 +4113,177 @@ export class SearchHit {
             $$parsedSource["matches"] = $$createField1_0($$parsedSource["matches"]);
         }
         return new SearchHit($$parsedSource as Partial<SearchHit>);
+    }
+}
+
+export class SecurityFinding {
+    "key": string;
+    "kind": string;
+    "id": string;
+    "target": string;
+    "package": string;
+    "installed": string;
+    "fixed": string;
+    "severity": string;
+    "title": string;
+    "url": string;
+
+    /** Creates a new SecurityFinding instance. */
+    constructor($$source: Partial<SecurityFinding> = {}) {
+        if (!("key" in $$source)) {
+            this["key"] = "";
+        }
+        if (!("kind" in $$source)) {
+            this["kind"] = "";
+        }
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("target" in $$source)) {
+            this["target"] = "";
+        }
+        if (!("package" in $$source)) {
+            this["package"] = "";
+        }
+        if (!("installed" in $$source)) {
+            this["installed"] = "";
+        }
+        if (!("fixed" in $$source)) {
+            this["fixed"] = "";
+        }
+        if (!("severity" in $$source)) {
+            this["severity"] = "";
+        }
+        if (!("title" in $$source)) {
+            this["title"] = "";
+        }
+        if (!("url" in $$source)) {
+            this["url"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SecurityFinding instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SecurityFinding {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SecurityFinding($$parsedSource as Partial<SecurityFinding>);
+    }
+}
+
+export class ServiceGraph {
+    "id": string;
+    "name": string;
+    "nodes": DependencyNode[];
+    "edges": DependencyEdge[];
+
+    /** Creates a new ServiceGraph instance. */
+    constructor($$source: Partial<ServiceGraph> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("nodes" in $$source)) {
+            this["nodes"] = [];
+        }
+        if (!("edges" in $$source)) {
+            this["edges"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ServiceGraph instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ServiceGraph {
+        const $$createField2_0 = $$createType48;
+        const $$createField3_0 = $$createType50;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("nodes" in $$parsedSource) {
+            $$parsedSource["nodes"] = $$createField2_0($$parsedSource["nodes"]);
+        }
+        if ("edges" in $$parsedSource) {
+            $$parsedSource["edges"] = $$createField3_0($$parsedSource["edges"]);
+        }
+        return new ServiceGraph($$parsedSource as Partial<ServiceGraph>);
+    }
+}
+
+export class ServiceMonitor {
+    "id": string;
+    "name": string;
+    "kind": string;
+    "target": string;
+    "hostID": string;
+    "intervalSeconds": number;
+    "timeoutSeconds": number;
+    "expectedStatus": number;
+    "expectedDNS": string;
+    "certificateDays": number;
+    "failureThreshold": number;
+    "enabled": boolean;
+    "maintenanceStart": number;
+    "maintenanceEnd": number;
+
+    /** Creates a new ServiceMonitor instance. */
+    constructor($$source: Partial<ServiceMonitor> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("kind" in $$source)) {
+            this["kind"] = "";
+        }
+        if (!("target" in $$source)) {
+            this["target"] = "";
+        }
+        if (!("hostID" in $$source)) {
+            this["hostID"] = "";
+        }
+        if (!("intervalSeconds" in $$source)) {
+            this["intervalSeconds"] = 0;
+        }
+        if (!("timeoutSeconds" in $$source)) {
+            this["timeoutSeconds"] = 0;
+        }
+        if (!("expectedStatus" in $$source)) {
+            this["expectedStatus"] = 0;
+        }
+        if (!("expectedDNS" in $$source)) {
+            this["expectedDNS"] = "";
+        }
+        if (!("certificateDays" in $$source)) {
+            this["certificateDays"] = 0;
+        }
+        if (!("failureThreshold" in $$source)) {
+            this["failureThreshold"] = 0;
+        }
+        if (!("enabled" in $$source)) {
+            this["enabled"] = false;
+        }
+        if (!("maintenanceStart" in $$source)) {
+            this["maintenanceStart"] = 0;
+        }
+        if (!("maintenanceEnd" in $$source)) {
+            this["maintenanceEnd"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ServiceMonitor instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ServiceMonitor {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ServiceMonitor($$parsedSource as Partial<ServiceMonitor>);
     }
 }
 
@@ -3618,7 +4448,7 @@ export class SnippetValidation {
      * Creates a new SnippetValidation instance from a string or object.
      */
     static createFrom($$source: any = {}): SnippetValidation {
-        const $$createField0_0 = $$createType38;
+        const $$createField0_0 = $$createType52;
         const $$createField1_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("variables" in $$parsedSource) {
@@ -3701,6 +4531,97 @@ export class Suggestion {
     static createFrom($$source: any = {}): Suggestion {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new Suggestion($$parsedSource as Partial<Suggestion>);
+    }
+}
+
+export class SyncDecision {
+    "path": string;
+    "action": string;
+
+    /** Creates a new SyncDecision instance. */
+    constructor($$source: Partial<SyncDecision> = {}) {
+        if (!("path" in $$source)) {
+            this["path"] = "";
+        }
+        if (!("action" in $$source)) {
+            this["action"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SyncDecision instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SyncDecision {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SyncDecision($$parsedSource as Partial<SyncDecision>);
+    }
+}
+
+export class SyncEntry {
+    "path": string;
+    "action": string;
+    "localHash": string;
+    "remoteHash": string;
+    "size": number;
+
+    /** Creates a new SyncEntry instance. */
+    constructor($$source: Partial<SyncEntry> = {}) {
+        if (!("path" in $$source)) {
+            this["path"] = "";
+        }
+        if (!("action" in $$source)) {
+            this["action"] = "";
+        }
+        if (!("localHash" in $$source)) {
+            this["localHash"] = "";
+        }
+        if (!("remoteHash" in $$source)) {
+            this["remoteHash"] = "";
+        }
+        if (!("size" in $$source)) {
+            this["size"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SyncEntry instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SyncEntry {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SyncEntry($$parsedSource as Partial<SyncEntry>);
+    }
+}
+
+export class SyncOutcome {
+    "path": string;
+    "action": string;
+    "error": string;
+
+    /** Creates a new SyncOutcome instance. */
+    constructor($$source: Partial<SyncOutcome> = {}) {
+        if (!("path" in $$source)) {
+            this["path"] = "";
+        }
+        if (!("action" in $$source)) {
+            this["action"] = "";
+        }
+        if (!("error" in $$source)) {
+            this["error"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SyncOutcome instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SyncOutcome {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SyncOutcome($$parsedSource as Partial<SyncOutcome>);
     }
 }
 
@@ -3809,6 +4730,31 @@ export class SystemdUnit {
     static createFrom($$source: any = {}): SystemdUnit {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new SystemdUnit($$parsedSource as Partial<SystemdUnit>);
+    }
+}
+
+export class TeamConnection {
+    "url": string;
+    "hasToken": boolean;
+
+    /** Creates a new TeamConnection instance. */
+    constructor($$source: Partial<TeamConnection> = {}) {
+        if (!("url" in $$source)) {
+            this["url"] = "";
+        }
+        if (!("hasToken" in $$source)) {
+            this["hasToken"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TeamConnection instance from a string or object.
+     */
+    static createFrom($$source: any = {}): TeamConnection {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new TeamConnection($$parsedSource as Partial<TeamConnection>);
     }
 }
 
@@ -4060,7 +5006,7 @@ export class TransferTask {
      * Creates a new TransferTask instance from a string or object.
      */
     static createFrom($$source: any = {}): TransferTask {
-        const $$createField1_0 = $$createType39;
+        const $$createField1_0 = $$createType53;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("request" in $$parsedSource) {
             $$parsedSource["request"] = $$createField1_0($$parsedSource["request"]);
@@ -4179,44 +5125,100 @@ export class VaultStatus {
     }
 }
 
+export class VulnerabilityScan {
+    "id": string;
+    "profile": ScanProfile;
+    "at": number;
+    "findings": SecurityFinding[];
+
+    /** Creates a new VulnerabilityScan instance. */
+    constructor($$source: Partial<VulnerabilityScan> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("profile" in $$source)) {
+            this["profile"] = (new ScanProfile());
+        }
+        if (!("at" in $$source)) {
+            this["at"] = 0;
+        }
+        if (!("findings" in $$source)) {
+            this["findings"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new VulnerabilityScan instance from a string or object.
+     */
+    static createFrom($$source: any = {}): VulnerabilityScan {
+        const $$createField1_0 = $$createType54;
+        const $$createField3_0 = $$createType43;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("profile" in $$parsedSource) {
+            $$parsedSource["profile"] = $$createField1_0($$parsedSource["profile"]);
+        }
+        if ("findings" in $$parsedSource) {
+            $$parsedSource["findings"] = $$createField3_0($$parsedSource["findings"]);
+        }
+        return new VulnerabilityScan($$parsedSource as Partial<VulnerabilityScan>);
+    }
+}
+
 // Private type creation functions
 const $$createType0 = AuthQuestion.createFrom;
 const $$createType1 = $Create.Array($$createType0);
 const $$createType2 = $Create.Array($Create.Any);
 const $$createType3 = DNSAnswer.createFrom;
 const $$createType4 = $Create.Array($$createType3);
-const $$createType5 = ExecResult.createFrom;
-const $$createType6 = $Create.Map($Create.Any, $Create.Any);
-const $$createType7 = FleetFile.createFrom;
-const $$createType8 = $Create.Array($$createType7);
-const $$createType9 = store$0.HostGroup.createFrom;
-const $$createType10 = HTTPHeader.createFrom;
+const $$createType5 = DirectorySyncProfile.createFrom;
+const $$createType6 = SyncEntry.createFrom;
+const $$createType7 = $Create.Array($$createType6);
+const $$createType8 = ExecResult.createFrom;
+const $$createType9 = $Create.Map($Create.Any, $Create.Any);
+const $$createType10 = FleetFile.createFrom;
 const $$createType11 = $Create.Array($$createType10);
-const $$createType12 = DiscoveredHost.createFrom;
+const $$createType12 = Runbook.createFrom;
 const $$createType13 = $Create.Array($$createType12);
-const $$createType14 = DiagnosticSection.createFrom;
-const $$createType15 = $Create.Array($$createType14);
-const $$createType16 = Runbook.createFrom;
-const $$createType17 = JobStepState.createFrom;
+const $$createType14 = store$0.HostGroup.createFrom;
+const $$createType15 = HTTPHeader.createFrom;
+const $$createType16 = $Create.Array($$createType15);
+const $$createType17 = DiscoveredHost.createFrom;
 const $$createType18 = $Create.Array($$createType17);
-const $$createType19 = KubeTarget.createFrom;
-const $$createType20 = HostMetrics.createFrom;
-const $$createType21 = $Create.Array($$createType20);
-const $$createType22 = $Create.Map($Create.Any, $$createType21);
-const $$createType23 = PortStatus.createFrom;
-const $$createType24 = $Create.Array($$createType23);
-const $$createType25 = QueryColumn.createFrom;
-const $$createType26 = $Create.Array($$createType25);
-const $$createType27 = $Create.Array($$createType2);
-const $$createType28 = CastEvent.createFrom;
-const $$createType29 = $Create.Array($$createType28);
-const $$createType30 = RunbookStep.createFrom;
-const $$createType31 = $Create.Array($$createType30);
-const $$createType32 = RunbookResult.createFrom;
-const $$createType33 = CertInfo.createFrom;
-const $$createType34 = store$0.Recording.createFrom;
-const $$createType35 = recorder$0.Match.createFrom;
-const $$createType36 = $Create.Array($$createType35);
-const $$createType37 = SnippetVariable.createFrom;
-const $$createType38 = $Create.Array($$createType37);
-const $$createType39 = TransferRequest.createFrom;
+const $$createType19 = DiagnosticSection.createFrom;
+const $$createType20 = $Create.Array($$createType19);
+const $$createType21 = JobStepState.createFrom;
+const $$createType22 = $Create.Array($$createType21);
+const $$createType23 = KubeTarget.createFrom;
+const $$createType24 = HostMetrics.createFrom;
+const $$createType25 = $Create.Array($$createType24);
+const $$createType26 = $Create.Map($Create.Any, $$createType25);
+const $$createType27 = MonitorSample.createFrom;
+const $$createType28 = $Create.Array($$createType27);
+const $$createType29 = ServiceMonitor.createFrom;
+const $$createType30 = MonitorState.createFrom;
+const $$createType31 = PortStatus.createFrom;
+const $$createType32 = $Create.Array($$createType31);
+const $$createType33 = QueryColumn.createFrom;
+const $$createType34 = $Create.Array($$createType33);
+const $$createType35 = $Create.Array($$createType2);
+const $$createType36 = CastEvent.createFrom;
+const $$createType37 = $Create.Array($$createType36);
+const $$createType38 = RunbookStep.createFrom;
+const $$createType39 = $Create.Array($$createType38);
+const $$createType40 = RunbookResult.createFrom;
+const $$createType41 = CertInfo.createFrom;
+const $$createType42 = SecurityFinding.createFrom;
+const $$createType43 = $Create.Array($$createType42);
+const $$createType44 = store$0.Recording.createFrom;
+const $$createType45 = recorder$0.Match.createFrom;
+const $$createType46 = $Create.Array($$createType45);
+const $$createType47 = DependencyNode.createFrom;
+const $$createType48 = $Create.Array($$createType47);
+const $$createType49 = DependencyEdge.createFrom;
+const $$createType50 = $Create.Array($$createType49);
+const $$createType51 = SnippetVariable.createFrom;
+const $$createType52 = $Create.Array($$createType51);
+const $$createType53 = TransferRequest.createFrom;
+const $$createType54 = ScanProfile.createFrom;

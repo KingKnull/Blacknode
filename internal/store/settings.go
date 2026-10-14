@@ -65,3 +65,21 @@ func (s *Settings) HasSecret(key string) (bool, error) {
 	err := s.db.QueryRow(`SELECT COUNT(*) FROM settings WHERE key = ? AND encrypted IS NOT NULL`, key).Scan(&n)
 	return n == 1, err
 }
+
+// SetValueWithSecret keeps an endpoint and its encrypted credential inseparable.
+func (s *Settings) SetValueWithSecret(key, value string, cipher, nonce []byte) error {
+	if len(cipher) == 0 || len(nonce) == 0 {
+		return errors.New("cipher and nonce required")
+	}
+	_, err := s.db.Exec(`INSERT INTO settings(key,value,encrypted,nonce,updated_at) VALUES(?,?,?,?,?)
+ ON CONFLICT(key) DO UPDATE SET value=excluded.value,encrypted=excluded.encrypted,nonce=excluded.nonce,updated_at=excluded.updated_at`, key, value, cipher, nonce, time.Now().Unix())
+	return err
+}
+
+func (s *Settings) GetValueWithSecret(key string) (value string, cipher, nonce []byte, err error) {
+	err = s.db.QueryRow(`SELECT value,encrypted,nonce FROM settings WHERE key=?`, key).Scan(&value, &cipher, &nonce)
+	if errors.Is(err, sql.ErrNoRows) {
+		err = nil
+	}
+	return
+}

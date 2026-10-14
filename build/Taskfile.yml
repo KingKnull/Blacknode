@@ -152,6 +152,31 @@ tasks:
     cmds:
       - ./{{.BIN_DIR}}/{{.APP_NAME}}-server{{exeExt}}
 
+  install:electron:deps:
+    summary: Install Electron dependencies
+    dir: electron
+    sources:
+      - package.json
+    generates:
+      - node_modules
+    cmds:
+      - npm install
+
+  build:electron:
+    summary: Builds frontend, server binary, and prepares Electron build
+    deps:
+      - task: build:server
+      - task: install:electron:deps
+
+  package:electron:
+    summary: Packages the application into Electron native installers (.AppImage, .deb, .dmg, .exe)
+    dir: electron
+    deps:
+      - task: build:electron
+    cmds:
+      - npm run build
+
+
   build:docker:
     summary: Builds a Docker image for server mode deployment
     desc: |

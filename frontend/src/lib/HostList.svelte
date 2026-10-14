@@ -247,7 +247,7 @@
     <button
       class="flex h-6 w-6 items-center justify-center rounded-md text-[var(--color-text-4)] transition-colors hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-2)]"
       onclick={() => (cloudImporting = true)}
-      title="Import from AWS, DigitalOcean or Azure"
+      title="Import hosts — cloud, Tailscale or 1Password"
     >
       <Cloud size="14" />
     </button>

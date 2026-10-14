@@ -30,6 +30,8 @@ type RunbookStep struct {
 }
 
 type Runbook struct {
+	SourceCommit string `json:"sourceCommit,omitempty"`
+	SourceRepository string `json:"sourceRepository,omitempty"`
 	ID               string        `json:"id"`
 	Name             string        `json:"name"`
 	Steps            []RunbookStep `json:"steps"`

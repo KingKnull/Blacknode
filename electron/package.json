@@ -1,0 +1,20 @@
+{
+  "name": "blacknode-desktop",
+  "version": "0.1.0",
+  "description": "Blacknode - Next-generation SSH + Infrastructure Command Platform",
+  "homepage": "https://github.com/blacknode/blacknode",
+  "main": "main.js",
+  "author": {
+    "name": "Blacknode Team",
+    "email": "dev@blacknode.app"
+  },
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --config electron-builder.json"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  }
+}

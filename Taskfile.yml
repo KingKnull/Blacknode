@@ -55,6 +55,17 @@ tasks:
     cmds:
       - task: common:run:server
 
+  build:electron:
+    summary: Builds the application with Electron desktop shell
+    cmds:
+      - task: common:build:electron
+
+  package:electron:
+    summary: Packages the application with Electron desktop shell into native installers
+    cmds:
+      - task: common:package:electron
+
+
   build:docker:
     summary: Builds a Docker image for server mode deployment
     cmds:

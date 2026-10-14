@@ -2,7 +2,7 @@
   // Discover-then-review cloud import. Nothing is written until the user
   // confirms a selection, and credentials are used for the discovery call
   // only — the backend never stores them.
-  import { CloudImportService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
+  import { CloudImportService, TailscaleService, OnePasswordService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { DiscoveredHost, CloudCredentials, ImportResult } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import { app } from "./state.svelte";
   import { platformBadge } from "./platform";
@@ -12,8 +12,12 @@
   type Props = { onclose: () => void };
   let { onclose }: Props = $props();
 
-  type Provider = "aws" | "digitalocean" | "azure";
+  type Provider = "aws" | "digitalocean" | "azure" | "tailscale" | "onepassword";
   let provider = $state<Provider>("aws");
+
+  // Tailscale: include peers that are currently offline (not connectable now,
+  // but the user may still want them pre-registered).
+  let includeOffline = $state(false);
 
   // AWS
   let accessKeyID = $state("");
@@ -61,11 +65,23 @@
     result = null;
     discovering = true;
     try {
-      found = ((await CloudImportService.Discover(credentials())) ?? []) as DiscoveredHost[];
+      if (provider === "tailscale") {
+        found = ((await TailscaleService.Discover(includeOffline)) ?? []) as DiscoveredHost[];
+      } else if (provider === "onepassword") {
+        found = ((await OnePasswordService.Discover()) ?? []) as DiscoveredHost[];
+      } else {
+        found = ((await CloudImportService.Discover(credentials())) ?? []) as DiscoveredHost[];
+      }
       // Pre-select everything that is not already saved, so the common case is
       // one click and duplicates are opt-in.
       selected = new Set(found.filter((h) => !h.alreadyExists).map((h) => h.host));
-      if (found.length === 0) err = "No running instances found for those credentials.";
+      if (found.length === 0) {
+        err = provider === "tailscale"
+          ? "No tailnet peers found (is Tailscale running and logged in?)."
+          : provider === "onepassword"
+          ? "No Server or Login items with a hostname were found."
+          : "No running instances found for those credentials.";
+      }
     } catch (e: any) {
       err = String(e?.message ?? e);
       found = [];
@@ -108,27 +124,37 @@
       ? accessKeyID.trim() !== "" && secretAccessKey.trim() !== ""
       : provider === "digitalocean"
       ? token.trim() !== ""
-      : tenantID.trim() !== "" && clientID.trim() !== "" && clientSecret.trim() !== "" && subscriptionID.trim() !== "",
+      : provider === "azure"
+      ? tenantID.trim() !== "" && clientID.trim() !== "" && clientSecret.trim() !== "" && subscriptionID.trim() !== ""
+      : true, // tailscale / onepassword use the local CLI — no credentials to enter
   );
 
   const INPUT =
     "mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 type-caption text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/50 transition-colors";
 </script>
 
-<Dialog portal label="Import from cloud" onclose={onclose} panelClass="w-[min(95vw,780px)] max-h-[88vh] overflow-auto border hairline-strong surface-2 p-5">
+<Dialog portal label="Import hosts" onclose={onclose} panelClass="w-[min(95vw,780px)] max-h-[88vh] overflow-auto border hairline-strong surface-2 p-5">
   <div class="flex items-center gap-2">
     <Cloud size="14" class="text-[var(--color-accent)]" />
-    <h2 class="type-body font-medium text-[var(--color-text-1)]">Import hosts from cloud</h2>
+    <h2 class="type-body font-medium text-[var(--color-text-1)]">Import hosts</h2>
     <button class="ml-auto text-[var(--color-text-4)] hover:text-[var(--color-text-2)]" onclick={onclose} aria-label="Close"><X size="14" /></button>
   </div>
-  <p class="mt-2 type-caption text-[var(--color-text-3)]">
-    Credentials are used for this lookup only and are never stored. Use a read-only key: discovery
-    needs nothing more than listing instances.
-  </p>
+  {#if provider === "tailscale" || provider === "onepassword"}
+    <p class="mt-2 type-caption text-[var(--color-text-3)]">
+      Reads from the local {provider === "tailscale" ? "Tailscale daemon" : "1Password CLI (op)"} —
+      no credentials needed here. You review hosts before anything is saved; passwords and keys are
+      never imported.
+    </p>
+  {:else}
+    <p class="mt-2 type-caption text-[var(--color-text-3)]">
+      Credentials are used for this lookup only and are never stored. Use a read-only key: discovery
+      needs nothing more than listing instances.
+    </p>
+  {/if}
 
   <!-- Provider -->
   <div class="mt-4 flex gap-1">
-    {#each [["aws", "AWS EC2"], ["digitalocean", "DigitalOcean"], ["azure", "Azure"]] as [id, label] (id)}
+    {#each [["aws", "AWS EC2"], ["digitalocean", "DigitalOcean"], ["azure", "Azure"], ["tailscale", "Tailscale"], ["onepassword", "1Password"]] as [id, label] (id)}
       <button
         class="border px-3 py-1.5 type-caption transition-colors {provider === id
           ? 'border-[var(--color-accent)]/50 bg-[var(--color-accent-soft)] text-[var(--color-accent)]'
@@ -138,7 +164,8 @@
     {/each}
   </div>
 
-  <!-- Credentials -->
+  <!-- Credentials (cloud providers only; Tailscale/1Password use the local CLI) -->
+  {#if provider === "aws" || provider === "digitalocean" || provider === "azure"}
   <div class="mt-3 grid grid-cols-2 gap-2">
     {#if provider === "aws"}
       <label class="block"><span class="type-caption text-[var(--color-text-4)]">Access key ID</span>
@@ -163,13 +190,19 @@
         <input type="password" class={INPUT} bind:value={clientSecret} /></label>
     {/if}
   </div>
+  {:else if provider === "tailscale"}
+    <label class="mt-3 flex items-center gap-2 type-caption text-[var(--color-text-3)]">
+      <input type="checkbox" class="h-3 w-3" bind:checked={includeOffline} />
+      Include offline peers
+    </label>
+  {/if}
 
   <button
     class="mt-3 flex items-center gap-1.5 bg-[var(--color-accent)] px-3 py-2 type-caption font-medium text-[var(--color-surface-0)] disabled:opacity-40"
     disabled={discovering || !canDiscover}
     onclick={discover}
   >
-    {#if discovering}<Loader2 size="11" class="animate-spin" /> Discovering...{:else}Discover instances{/if}
+    {#if discovering}<Loader2 size="11" class="animate-spin" /> Discovering...{:else}Discover{/if}
   </button>
 
   {#if err}<p role="alert" class="mt-3 type-caption text-[var(--color-danger)]">{err}</p>{/if}

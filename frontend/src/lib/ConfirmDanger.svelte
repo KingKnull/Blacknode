@@ -106,7 +106,8 @@
         <div class="border border-[var(--color-danger)]/25 bg-[var(--color-danger)]/8 p-3">
           <div class="type-caption font-semibold text-[var(--color-danger)] mb-2">Production hosts in scope</div>
           <div class="flex flex-wrap gap-1">
-            {#each productionHosts as h (h)}
+            <!-- Different hosts can share a display name. Keep every entry. -->
+            {#each productionHosts as h}
               <span class="border border-[var(--color-danger)]/40 bg-[var(--color-danger)]/12 px-1.5 py-0.5 font-mono type-caption text-[var(--color-danger)]">{h}</span>
             {/each}
           </div>

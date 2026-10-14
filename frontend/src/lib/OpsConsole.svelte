@@ -57,7 +57,7 @@
   let commandText = $state("uptime\ndf -h\nfree -m");
   let matrixBusy = $state(false);
   let matrixResults = $state<Record<string, ExecResult>>({});
-  let selectedCell = $state<{ command: string; hostID: string } | null>(null);
+  let selectedCell = $state<{ commandIndex: number; hostID: string } | null>(null);
 
   let commands = $derived(
     commandText.split("\n").map((line) => line.trim()).filter(Boolean).slice(0, 12),
@@ -99,14 +99,20 @@
   }
 
   async function runMatrix(retryFailed = false) {
-    if (!commands.length || !selectedHosts.size) return;
+    if (matrixBusy || !commands.length || !selectedHosts.size) return;
     const confirmation = retryFailed ? null : confirmMatrix();
     if (confirmation) {
       matrixConfirm = confirmation;
       return;
     }
+    await executeMatrix(retryFailed);
+  }
+
+  async function executeMatrix(retryFailed = false) {
+    if (matrixBusy || !commands.length || !selectedHosts.size) return;
     matrixConfirm = null;
     matrixBusy = true;
+    selectedCell = null;
     const runID = crypto.randomUUID();
     if (!retryFailed) matrixResults = {};
     try {
@@ -297,7 +303,7 @@
                 <thead class="surface-1">
                   <tr>
                     <th class="sticky left-0 z-10 border-b border-r hairline surface-1 px-3 py-2 text-left">Host</th>
-                    {#each commands as command, i (command)}
+                    {#each commands as command, i (i)}
                       <th class="border-b hairline px-3 py-2 text-left text-[var(--color-text-3)]">{command}</th>
                     {/each}
                   </tr>
@@ -306,12 +312,12 @@
                   {#each sshHosts.filter((host) => selectedHosts.has(host.id)) as host (host.id)}
                     <tr>
                       <td class="sticky left-0 z-10 border-b border-r hairline surface-1 px-3 py-2">{host.name}</td>
-                      {#each commands as command, i (command)}
+                      {#each commands as command, i (i)}
                         {@const result = cellResult(i, host.id)}
                         <td class="border-b hairline px-3 py-2">
                           <button
                             class="flex items-center gap-1 {result ? (result.exitCode === 0 && !result.error ? 'text-[var(--color-success)]' : 'text-[var(--color-danger)]') : 'text-[var(--color-text-4)]'}"
-                            onclick={() => (selectedCell = { command, hostID: host.id })}
+                            onclick={() => (selectedCell = { commandIndex: i, hostID: host.id })}
                           >
                             {#if result}
                               {#if result.exitCode === 0 && !result.error}<Check size="11" />{:else}<AlertTriangle size="11" />{/if}
@@ -419,13 +425,13 @@
 
   {#if selectedCell}
     {@const host = app.hosts.find((h) => h.id === selectedCell!.hostID)}
-    {@const result = matrixResults[`${commands.indexOf(selectedCell.command)}:${selectedCell.hostID}`]}
+    {@const result = cellResult(selectedCell.commandIndex, selectedCell.hostID)}
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6" role="presentation" onclick={(e) => { if (e.target === e.currentTarget) selectedCell = null; }}>
       <div class="max-h-[75vh] w-[min(90vw,900px)] overflow-hidden rounded border hairline-strong surface-2">
         <div class="flex items-center gap-2 border-b hairline px-4 py-2">
           <span class="font-mono type-caption">{host?.name ?? selectedCell.hostID}</span>
           <span class="text-[var(--color-text-4)]">·</span>
-          <span class="font-mono type-caption">{selectedCell.command}</span>
+          <span class="font-mono type-caption">{commands[selectedCell.commandIndex]}</span>
           <button class="ml-auto rounded px-2 py-1 type-caption hover:bg-[var(--color-surface-3)]" onclick={() => (selectedCell = null)}>Close</button>
         </div>
         <pre class="max-h-[65vh] overflow-auto p-4 font-mono type-caption">{result?.stdout ?? ""}{result?.stderr ?? ""}{result?.error ?? ""}</pre>
@@ -441,7 +447,7 @@
       productionHosts={matrixConfirm.productionHosts}
       requirePhrase={matrixConfirm.requirePhrase}
       onCancel={() => (matrixConfirm = null)}
-      onConfirm={() => runMatrix()}
+      onConfirm={() => executeMatrix()}
     />
   {/if}
 </div>

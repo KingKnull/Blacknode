@@ -55,6 +55,13 @@ type View =
   | "deployments"
   | "investigations"
   | "team"
+  | "uptime"
+  | "directory-sync"
+  | "service-map"
+  | "security-scans"
+  | "git-runbooks"
+  | "helm"
+  | "ssm"
   // Plugin-contributed panel ids are namespaced as `plugin:<pluginId>:<panelId>`.
   | `plugin:${string}:${string}`;
 

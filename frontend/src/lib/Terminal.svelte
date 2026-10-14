@@ -20,11 +20,12 @@
   import { focus } from "./actions";
   import type { CommandBlock } from "./commandBlocks";
   import { ShellIntegrationParser } from "./shellIntegration";
+  import { createTerminalInputQueue } from "./terminalInput";
   import RemoteEditor from "./RemoteEditor.svelte";
   import { app } from "./state.svelte";
   import { bus } from "./events";
   import SnippetApplyDialog from "./SnippetApplyDialog.svelte";
-  import AutocompletePopup from "./AutocompletePopup.svelte";
+
   import TerminalSidePanel from "./TerminalSidePanel.svelte";
   import Dialog from "./Dialog.svelte";
   import RecordingButton from "./RecordingButton.svelte";
@@ -127,11 +128,21 @@
   // ── Side panel ────────────────────────────────────────────────────
   let showSidePanel = $state(false);
 
-  // ── Autocomplete ──────────────────────────────────────────────────
-  // Track the current input buffer for autocomplete suggestions.
-  // We reset on newline and strip ANSI sequences before querying.
-  let acBuffer = $state("");
-  let showAutocomplete = $state(false);
+  // ── Command input tracking ─────────────────────────────────────────
+  // Accumulates typed input solely to start a command block on Enter when the
+  // shell has no OSC-133 integration. (Command suggestions were removed: the
+  // popup queried the backend on every keystroke, which made typing laggy.)
+  // Plain let — not $state — so keystrokes don't invalidate Svelte.
+  let cmdBuffer = "";
+
+  const inputQueue = createTerminalInputQueue(writeRemote);
+  let inputReady = false;
+
+  function resetTerminalInput() {
+    inputReady = false;
+    inputQueue.reset();
+    cmdBuffer = "";
+  }
 
   let commandBlocks = $state<CommandBlock[]>([]);
   const shellParser = new ShellIntegrationParser();
@@ -144,37 +155,20 @@
     return s.replace(/\x1b\[[0-9;]*[A-Za-z]/g, "").replace(/\x1b\][^\x07]*\x07/g, "");
   }
 
-  function updateAcBuffer(d: string) {
-    // Newline / carriage return → reset buffer and dismiss.
+  function trackCommandInput(d: string) {
+    // Enter → start a command block (fallback for shells without OSC-133), reset.
     if (d === "\r" || d === "\n" || d.includes("\r") || d.includes("\n")) {
-      if (!shellIntegrated) startCommandBlock(acBuffer);
-      acBuffer = "";
-      showAutocomplete = false;
+      if (!shellIntegrated) startCommandBlock(cmdBuffer);
+      cmdBuffer = "";
       return;
     }
-    // Backspace
     if (d === "\x7f" || d === "\b") {
-      acBuffer = acBuffer.slice(0, -1);
-      showAutocomplete = acBuffer.trim().length >= 2;
+      cmdBuffer = cmdBuffer.slice(0, -1);
       return;
     }
-    // Escape / control sequences → dismiss
-    if (d.startsWith("\x1b")) {
-      if (d === "\x1b[B") {
-        // ↓ arrow at end of line → open autocomplete if we have a buffer
-        if (acBuffer.trim().length >= 2) {
-          showAutocomplete = true;
-        }
-      } else {
-        showAutocomplete = false;
-      }
-      return;
-    }
-    acBuffer += d;
-    const clean = stripAnsi(acBuffer).trim();
-    // Auto-show after 2 chars following a space (sub-command matching)
-    const afterSpace = clean.includes(" ") && clean.split(" ").pop()!.length >= 2;
-    showAutocomplete = clean.length >= 2 && (clean.length <= 60) && (!clean.includes(" ") || afterSpace);
+    // Ignore escape / control sequences (arrow keys, etc.) — not typed text.
+    if (d.startsWith("\x1b")) return;
+    cmdBuffer += d;
   }
 
   function startCommandBlock(command: string) {
@@ -214,15 +208,6 @@
         if (event.kind === "end") { block.exitCode = event.code; block.running = false; block.endedAt = Date.now(); }
       }
     }
-  }
-
-  function acceptAutocomplete(text: string) {
-    showAutocomplete = false;
-    // Replace the current buffer with the accepted text
-    const spaces = acBuffer.length;
-    const backspaces = "\x7f".repeat(spaces);
-    writeLocal(backspaces + text);
-    acBuffer = text;
   }
 
   // ── Context menu ────────────────────────────────────────────────────
@@ -379,11 +364,7 @@
   $effect(() => {
     const p = app.pendingTerminalInsert;
     if (!p || p.sessionID !== sessionID) return;
-    if (mode === "local" && status === "running") void LocalShellService.Write(sessionID, p.text);
-    else if (mode === "remote" && status === "connected") void SSHService.Write(sessionID, p.text);
-    else if (mode === "mosh" && status === "connected") void MoshService.Write(sessionID, p.text);
-    else if (mode === "telnet" && status === "connected") void TelnetService.Write(sessionID, p.text);
-    else if (mode === "serial" && status === "connected") void SerialService.Write(sessionID, p.text);
+    writeLocal(p.text);
     app.pendingTerminalInsert = null;
   });
 
@@ -477,10 +458,10 @@
       fontSize: 13, lineHeight: 1.25, letterSpacing: 0,
       cursorBlink: true, cursorStyle: "bar",
       allowProposedApi: true, scrollback: app.settings.terminalScrollback,
-      // Legibility & feel: raise dim text above the WCAG AA floor so dark
-      // themes stay readable on cheap panels, and ease scrollback flings
-      // instead of snapping.
-      minimumContrastRatio: 4.5, smoothScrollDuration: 100,
+      // Legibility: raise dim text above the WCAG AA floor so dark themes
+      // stay readable on cheap panels. smoothScrollDuration stays at 0 so
+      // keystroke echo and fast output aren't softened by scroll easing.
+      minimumContrastRatio: 4.5, smoothScrollDuration: 0,
       theme: termTheme(),
     });
     fit = new FitAddon();
@@ -556,8 +537,8 @@
     });
 
     term.onData((d) => {
-      hasTyped = true;
-      updateAcBuffer(d);
+      if (!hasTyped) hasTyped = true;
+      trackCommandInput(d);
       writeLocal(d);
       app.fanOutBroadcast(sessionID, d);
       if (showSudoPill && !sudoInlineInput) dismissSudoPill();
@@ -598,16 +579,22 @@
     dataOff = Events.On("terminal:data", (e: any) => {
       const p = e?.data;
       if (!p || p.sessionID !== sessionID) return;
+      // Paint echo first; bookkeeping must not compete with the glyph path.
       term?.write(p.data);
-      recordCommandOutput(p.data);
-      checkForSudoPrompt(p.data);
-      // Output landing on an unfocused pane → flag the tab as having unread output.
-      if (!isFocused) app.markSessionUnread(sessionID);
+      const data = p.data as string;
+      const focused = isFocused;
+      queueMicrotask(() => {
+        if (disposed) return;
+        recordCommandOutput(data);
+        checkForSudoPrompt(data);
+        if (!focused) app.markSessionUnread(sessionID);
+      });
     });
 
     exitOff = Events.On("terminal:exit", (e: any) => {
       const p = e?.data;
       if (!p || p.sessionID !== sessionID) return;
+      resetTerminalInput();
       const reason = p.reason ?? "";
       term?.writeln(`\r\n\x1b[90m[session closed: ${reason}]\x1b[0m`);
       // Drop any open context menu — the selection it was built on is gone.
@@ -689,6 +676,7 @@
 
   onDestroy(() => {
     disposed = true;
+    inputQueue.dispose();
     dataOff?.(); exitOff?.();
     resizeObs?.disconnect();
     stopLatencyPolling();
@@ -711,11 +699,18 @@
   });
 
   function writeLocal(d: string) {
-    if (mode === "local" && status === "running") void LocalShellService.Write(sessionID, d);
-    else if (mode === "remote" && status === "connected") void SSHService.Write(sessionID, d);
-    else if (mode === "mosh" && status === "connected") void MoshService.Write(sessionID, d);
-    else if (mode === "telnet" && status === "connected") void TelnetService.Write(sessionID, d);
-    else if (mode === "serial" && status === "connected") void SerialService.Write(sessionID, d);
+    if (disposed || !inputReady || (status !== "running" && status !== "connected")) return;
+    inputQueue.write(d);
+  }
+
+  function writeRemote(d: string): Promise<unknown> {
+    if (disposed || !inputReady) return Promise.resolve();
+    if (mode === "local" && status === "running") return LocalShellService.Write(sessionID, d);
+    if (mode === "remote" && status === "connected") return SSHService.Write(sessionID, d);
+    if (mode === "mosh" && status === "connected") return MoshService.Write(sessionID, d);
+    if (mode === "telnet" && status === "connected") return TelnetService.Write(sessionID, d);
+    if (mode === "serial" && status === "connected") return SerialService.Write(sessionID, d);
+    return Promise.resolve();
   }
 
   // Send the host's environment variables, then its startup snippet, once the
@@ -758,13 +753,14 @@
 
   async function openLocal(clearTarget = true) {
     if (disposed) return;
+    resetTerminalInput();
     shellParser.reset(); shellIntegrated = false; shellCwd = ""; shellBranch = "";
     if (clearTarget) app.sessionTargets[sessionID] = null;
     status = "starting"; errorMsg = "";
     try {
       await LocalShellService.Open(sessionID, term?.cols ?? 80, term?.rows ?? 24);
       if (disposed) { await LocalShellService.Close(sessionID); return; }
-      mode = "local"; status = "running"; if (active) term?.focus();
+      mode = "local"; status = "running"; inputReady = true; if (active) term?.focus();
       bus.emit('session-label', { sessionID, label: "" });
     } catch (e: any) { status = "error"; errorMsg = String(e?.message ?? e); }
   }
@@ -795,6 +791,7 @@
       await connectAltProtocol(host.id, proto);
       return;
     }
+    resetTerminalInput();
     // Tear down whatever this pane is currently attached to. switchToMosh and
     // connectAltProtocol both do all four; this path used to close only the
     // local shell, which left a live telnet or serial session streaming into
@@ -833,6 +830,7 @@
       confirmProdHost = { id: host.id, name: host.name, via: "mosh" };
       return;
     }
+    resetTerminalInput();
     if (mode === "local" && status === "running") await LocalShellService.Close(sessionID);
     if (mode === "remote" && status === "connected") await SSHService.Disconnect(sessionID);
     if (mode === "telnet" && status === "connected") await TelnetService.Disconnect(sessionID);
@@ -846,6 +844,7 @@
       if (disposed) { await MoshService.Disconnect(sessionID); return; }
       status = "connected";
       connectedHostID = hostID;
+      inputReady = true;
       if (active) term?.focus();
       bus.emit('session-label', { sessionID, label: app.hosts.find((h) => h.id === hostID)?.name ?? "" });
       runStartupSnippet(hostID);
@@ -862,6 +861,7 @@
   // terminal:data / terminal:exit events as every other session type.
   async function connectAltProtocol(hostID: string, proto: "telnet" | "serial") {
     showHostPicker = false;
+    resetTerminalInput();
     if (mode === "local" && status === "running") await LocalShellService.Close(sessionID);
     if (mode === "remote" && status === "connected") await SSHService.Disconnect(sessionID);
     if (mode === "telnet" && status === "connected") await TelnetService.Disconnect(sessionID);
@@ -883,6 +883,7 @@
       }
       status = "connected";
       connectedHostID = hostID;
+      inputReady = true;
       if (active) term?.focus();
       bus.emit('session-label', { sessionID, label: app.hosts.find((h) => h.id === hostID)?.name ?? "" });
       runStartupSnippet(hostID);
@@ -922,6 +923,7 @@
   }
 
   async function actuallyConnect(hostID: string, afterChange = false) {
+    resetTerminalInput();
     shellParser.reset(); shellIntegrated = false; shellCwd = ""; shellBranch = "";
     status = "connecting"; errorMsg = "";
     try {
@@ -932,7 +934,7 @@
       const info = await SSHService.ConnectSession(sessionID, hostID, runtimePassword, term?.cols ?? 80, term?.rows ?? 24, { manager: target.manager, remoteSession: target.remoteSession, integration: app.settings.shellIntegration });
       if (info.manager !== "off") app.sessionTargets[sessionID] = { ...target, manager: info.manager };
       if (disposed) { await SSHService.Disconnect(sessionID); return; }
-      status = "connected"; connectedHostID = hostID; if (active) term?.focus();
+      status = "connected"; connectedHostID = hostID; inputReady = true; if (active) term?.focus();
       // A forced password change during the handshake left the new value pending;
       // now that the login succeeded with it, persist it to the vault for this host.
       const newPw = app.takePendingNewPassword(hostID);
@@ -1014,6 +1016,7 @@
   }
 
   async function disconnectRemote() {
+    resetTerminalInput();
     // Cancel any pending auto-reconnect before tearing down.
     if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = undefined; }
     reconnecting = false;
@@ -1217,19 +1220,6 @@
   <div class="flex flex-1 overflow-hidden">
     <div bind:this={containerEl} class="relative flex-1 overflow-hidden p-1.5">
 
-      <!-- Autocomplete popup -->
-      {#if showAutocomplete && (status === "running" || status === "connected")}
-        <AutocompletePopup
-          cwd={shellCwd}
-          prefix={acBuffer}
-          hostID={connectedHostID ?? ""}
-          x={8}
-          y={36}
-          onAccept={acceptAutocomplete}
-          onDismiss={() => (showAutocomplete = false)}
-        />
-      {/if}
-
       <!-- Search bar overlay -->
       {#if showSearch}
         <div class="absolute right-4 top-2 z-30 flex items-center gap-2 border hairline-strong surface-2 p-1.5 shadow-xl fade-up" style="backdrop-filter: blur(8px);">
@@ -1281,7 +1271,7 @@
                 {/each}
               </div>
               <div class="mt-3 font-mono type-nano text-[var(--color-text-4)]">
-                <kbd class="rounded border hairline px-1">↓</kbd> for autocomplete · <kbd class="rounded border hairline px-1">Ctrl+.</kbd> for panel
+                <kbd class="rounded border hairline px-1">Ctrl+.</kbd> for panel
               </div>
             </div>
             <div class="mt-5 text-center font-mono type-nano text-[var(--color-text-4)]">Start typing to dismiss</div>

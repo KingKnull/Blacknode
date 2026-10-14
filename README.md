@@ -173,11 +173,9 @@ exist. The Wails v3 framework is a prerelease, so expect churn there too. See
   one-shot) and pasted output / log explanation (Claude Sonnet 4.6,
   streaming). Prompt caching on system prompts. API key encrypted at
   rest with the vault.
-- **Inline autocomplete** — ranked command completions drawn from your
-  command history, saved snippets, and a built-in command list. Purely
-  local; no shell integration or remote agent required.
 - **Terminal side panel** — command history, snippets, and themes in one
-  dockable panel beside the active session.
+  dockable panel beside the active session. (Inline autocomplete backend
+  remains; the per-keystroke popup was removed because it made typing laggy.)
 - **Snippets** — saved command templates with `{{name}}` and
   `{{name|default}}` variable substitution. Apply dialog with live
   preview. Snippets are searchable in the command palette.
@@ -393,7 +391,7 @@ Done from the original product spec:
 
 Plus: session recording, port forwards, container management, network
 diagnostics, process manager, command history, multi-cursor broadcast,
-Mosh sessions, inline command autocomplete, terminal side panel,
+Mosh sessions, terminal side panel,
 known-hosts management UI, light theme, custom branded icon.
 
 Not done (with reasons):
