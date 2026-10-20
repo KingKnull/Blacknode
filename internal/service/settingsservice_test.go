@@ -24,9 +24,7 @@ CREATE TABLE settings (
     updated_at INTEGER NOT NULL
 );`
 
-// newSettingsService builds a service over an in-memory database. The vault is
-// nil, which is safe for everything here: only the Anthropic-key methods touch
-// it, and these tests deal in plaintext settings.
+// newSettingsService builds a service over an in-memory database.
 func newSettingsService(t *testing.T) (*SettingsService, *store.Settings) {
 	t.Helper()
 	db, err := sql.Open("sqlite", ":memory:")

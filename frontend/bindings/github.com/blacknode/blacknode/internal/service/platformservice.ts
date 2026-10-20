@@ -25,27 +25,15 @@ export function AddIncidentEvidence(id: string, kind: string, title: string, con
     });
 }
 
-export function AnalyzeEvidence(id: string): $CancellablePromise<store$0.OperationDocument> {
-    return $Call.ByID(3038465216, id).then(($result: any) => {
-        return $$createType1($result);
-    });
-}
-
 export function CaptureFleet(hostID: string, files: string[]): $CancellablePromise<$models.FleetSnapshot> {
     return $Call.ByID(3507799137, hostID, files).then(($result: any) => {
-        return $$createType2($result);
+        return $$createType1($result);
     });
 }
 
 export function CaptureIncident(name: string, workspaceID: string, hostIDs: string[]): $CancellablePromise<store$0.OperationDocument> {
     return $Call.ByID(3288733909, name, workspaceID, hostIDs).then(($result: any) => {
-        return $$createType1($result);
-    });
-}
-
-export function CollectEvidence(request: $models.InvestigationRequest): $CancellablePromise<store$0.OperationDocument> {
-    return $Call.ByID(3791031790, request).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType2($result);
     });
 }
 
@@ -157,12 +145,6 @@ export function PreviewProjectInit(id: string): $CancellablePromise<$models.Chan
     });
 }
 
-export function PreviewRemediation(id: string, index: number): $CancellablePromise<$models.ChangePlan> {
-    return $Call.ByID(3823803010, id, index).then(($result: any) => {
-        return $$createType17($result);
-    });
-}
-
 export function QueryFleet(query: string): $CancellablePromise<store$0.Host[]> {
     return $Call.ByID(3826185063, query).then(($result: any) => {
         return $$createType19($result);
@@ -175,7 +157,7 @@ export function QueryObservability(integrationID: string, query: string, startMS
 
 export function ReadRecord(kind: string, id: string): $CancellablePromise<store$0.OperationDocument> {
     return $Call.ByID(173323290, kind, id).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType2($result);
     });
 }
 
@@ -185,37 +167,37 @@ export function RedactEvidence(text: string): $CancellablePromise<string> {
 
 export function SaveDynamicGroup(group: $models.DynamicGroup, revision: number): $CancellablePromise<store$0.OperationDocument> {
     return $Call.ByID(4275360294, group, revision).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType2($result);
     });
 }
 
 export function SaveFleetBaseline(snapshotID: string, name: string): $CancellablePromise<store$0.OperationDocument> {
     return $Call.ByID(4242784505, snapshotID, name).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType2($result);
     });
 }
 
 export function SaveIntegration(config: $models.Integration, token: string, clearToken: boolean, revision: number): $CancellablePromise<store$0.OperationDocument> {
     return $Call.ByID(3885074804, config, token, clearToken, revision).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType2($result);
     });
 }
 
 export function SaveProject(p: $models.DeploymentProject, revision: number): $CancellablePromise<store$0.OperationDocument> {
     return $Call.ByID(2107046435, p, revision).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType2($result);
     });
 }
 
 export function SaveWorkspace(workspace: $models.ServiceWorkspace, revision: number): $CancellablePromise<store$0.OperationDocument> {
     return $Call.ByID(2503180131, workspace, revision).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType2($result);
     });
 }
 
 export function SetIncidentStatus(id: string, status: string, revision: number): $CancellablePromise<store$0.OperationDocument> {
     return $Call.ByID(2633936025, id, status, revision).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType2($result);
     });
 }
 
@@ -241,8 +223,8 @@ export function Timeline(scope: string, after: number): $CancellablePromise<stor
 
 // Private type creation functions
 const $$createType0 = store$0.OperationEvent.createFrom;
-const $$createType1 = store$0.OperationDocument.createFrom;
-const $$createType2 = $models.FleetSnapshot.createFrom;
+const $$createType1 = $models.FleetSnapshot.createFrom;
+const $$createType2 = store$0.OperationDocument.createFrom;
 const $$createType3 = $models.FleetDifference.createFrom;
 const $$createType4 = $Create.Array($$createType3);
 const $$createType5 = $models.Suggestion.createFrom;
@@ -254,7 +236,7 @@ const $$createType10 = $models.KubeForward.createFrom;
 const $$createType11 = $Create.Array($$createType10);
 const $$createType12 = $models.KubeResource.createFrom;
 const $$createType13 = $Create.Array($$createType12);
-const $$createType14 = $Create.Array($$createType1);
+const $$createType14 = $Create.Array($$createType2);
 const $$createType15 = $models.PipelineRun.createFrom;
 const $$createType16 = $Create.Array($$createType15);
 const $$createType17 = $models.ChangePlan.createFrom;

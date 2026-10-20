@@ -16,7 +16,6 @@ declare module "@wailsio/runtime" {
     namespace Events {
         interface CustomEvents {
             "activity:append": store$0.Activity;
-            "ai:chunk": service$0.AIChunk;
             "auth:prompt": service$0.AuthPromptRequest;
             "exec:progress": service$0.ExecProgress;
             "logs:line": service$0.LogLine;

@@ -14,7 +14,6 @@ Scope: implement the ten requested platform capabilities and the file-transfer a
 - [ ] Saved incidents with evidence, annotations, deployment markers, comparison and export; Prometheus/Loki queries.
 - [ ] Terraform/OpenTofu plan review, Ansible execution and GitHub/GitLab pipeline integration.
 - [ ] Fleet inventory refresh, dynamic groups, baselines and configuration/package/service/image drift.
-- [ ] Evidence-based AI investigations, redaction, reviewed remediation and Anthropic/Ollama providers.
 - [ ] Optional runner/control plane with shared runbooks, server-enforced roles, temporary access, OIDC, audit and collaborative terminal control.
 - [ ] Navigation, documentation, generated bindings, regression tests and builds.
 

@@ -11,7 +11,6 @@ export const OPTIONAL_VIEWS = [
   { id: "fleet", label: "Fleet inventory" },
   { id: "incidents", label: "Incidents" },
   { id: "deployments", label: "Deployments" },
-  { id: "investigations", label: "AI investigations" },
   { id: "team", label: "Team operations" },
   { id: "exec", label: "Multi-host execution" },
   { id: "runbooks", label: "Runbooks" },

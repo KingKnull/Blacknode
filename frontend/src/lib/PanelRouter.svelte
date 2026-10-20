@@ -42,7 +42,6 @@
     fleet: () => import("./FleetPanel.svelte"),
     incidents: () => import("./IncidentsPanel.svelte"),
     deployments: () => import("./DeploymentsPanel.svelte"),
-    investigations: () => import("./InvestigationsPanel.svelte"),
     team: () => import("./TeamPanel.svelte"),
   };
   const loadOperations = $derived(operationsPanels[app.view as keyof typeof operationsPanels]);

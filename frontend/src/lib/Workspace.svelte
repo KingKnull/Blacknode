@@ -23,10 +23,6 @@
   import WorkspacesMenu from "./WorkspacesMenu.svelte";
   import { captureWorkspace, parseWorkspace, readWorkspace, restoreWorkspace, SESSION_KEY, type WorkspaceSnapshot } from "./workspaces";
 
-  // Heavy panels (AI SDK glue) are lazy-loaded so the code
-  // they pull in doesn't sit in the main bundle.
-  const loadAIDrawer = () =>
-    import("./AIDrawer.svelte").then((m) => m.default);
   import Toaster from "./Toaster.svelte";
   import LogoMark from "./logo/LogoMark.svelte";
   import { shortcutLabel } from "./shortcuts";
@@ -47,7 +43,6 @@
     Lock,
     Server,
     Command,
-    Sparkles,
     ShieldCheck,
     Maximize2,
     Minimize2,
@@ -211,16 +206,25 @@
         return;
       }
 
-      // Ctrl+Shift+I / Cmd+Shift+I — toggle AI drawer. Bare Ctrl+I is TAB, so
-      // the unshifted form could never have worked from inside a pane anyway.
-      if (k === "i" && e.shiftKey) {
-        consume();
-        app.aiOpen = !app.aiOpen;
-        return;
-      }
-
       // Tab shortcuts only apply in terminals view
       if (app.view !== "terminals") return;
+
+      // Ctrl+Alt+Arrow moves focus between panes without stealing the shell's
+      // ordinary arrow keys. The active leaf is updated first so the pane gets
+      // the same focus ring and resize/focus behavior as a mouse click.
+      if (e.ctrlKey && e.altKey && ["ArrowLeft", "ArrowUp", "ArrowRight", "ArrowDown"].includes(e.key)) {
+        const tab = tabs.find((t) => t.id === activeTabID);
+        const paneLeaves = tab ? leaves(tab.root) : [];
+        if (tab && paneLeaves.length > 1) {
+          consume();
+          const current = paneLeaves.findIndex((leaf) => leaf.id === tab.activeLeafID);
+          const forward = e.key === "ArrowRight" || e.key === "ArrowDown";
+          const next = (current + (forward ? 1 : -1) + paneLeaves.length) % paneLeaves.length;
+          tab.activeLeafID = paneLeaves[next].id;
+          bus.emit("focus-terminal", { sessionID: paneLeaves[next].sessionID });
+        }
+        return;
+      }
 
       // Ctrl+Shift+T / Cmd+T — new tab
       if (k === "t" && appMod) {
@@ -274,7 +278,6 @@
       // via the remember-me token and the vault would never stay locked.
       app.suppressAutoUnlock = true;
       void app.refreshVault();
-      app.aiOpen = false;
       // A locked vault can't store a password; drop any captured new password so
       // a later connect doesn't try to save a now-stale value.
       app.clearPendingNewPassword();
@@ -284,7 +287,7 @@
     // calling into the workspace directly (they don't know which leaf is active).
     // Bridge it to the existing pending-insert channel.
     const offInsert = bus.on('insert-into-active-terminal', (text) => {
-      aiInsert(text);
+       insertIntoActiveTerminal(text);
     });
 
     // Bridge for plugin iframe → host backchannel. Iframes post messages to
@@ -530,7 +533,7 @@
     app.toast('ok', `TILED ${connectedIDs.length} HOSTS`, 'Broadcast mode enabled. Type once, execute everywhere.');
   }
 
-  // Find the active terminal leaf so AIDrawer's "insert" lands in the right
+  // Find the active terminal leaf so history/snippet inserts land in the right
   // pane.
   function activeSessionID(): string | null {
     const tab = tabs.find((t) => t.id === activeTabID);
@@ -539,7 +542,7 @@
     return leaf?.sessionID ?? null;
   }
 
-  function aiInsert(text: string) {
+  function insertIntoActiveTerminal(text: string) {
     if (app.view !== "terminals") app.view = "terminals";
     const sid = activeSessionID();
     if (!sid) return;
@@ -581,7 +584,6 @@
       { id: "fleet", label: "Fleet", Icon: Server },
       { id: "deployments", label: "Deployments", Icon: Zap },
       { id: "incidents", label: "Incidents", Icon: ActivityIcon },
-      { id: "investigations", label: "Investigations", Icon: Sparkles },
       { id: "team", label: "Team", Icon: Share2 },
     ] },
     { id: "sessions", label: "Sessions", Icon: TerminalSquare, views: [
@@ -711,8 +713,6 @@
 
   let sidebarWidth = $state(previous?.sidebarWidth ?? 252);
   let sidebarOpen = $state(true);
-  let contentWidth = $state(0);
-  let drawerOverlay = $derived(contentWidth < 760);
   let isResizing = $state(false);
   let shortcutOpen = $state(false);
   let focusMode = $state(false);
@@ -800,18 +800,6 @@
         <Maximize2 size="11" /><span>Focus</span>
       </button>
 
-      <!-- AI -->
-      <button
-        class="flex items-center gap-1.5 border px-2.5 py-1 rounded-sm transition-all {app.aiOpen
-          ? 'border-[var(--color-accent)]/50 bg-[var(--color-accent)]/8 text-[var(--color-accent)]'
-          : 'border-[var(--color-line)] text-[var(--color-text-4)] hover:border-[var(--color-accent)]/30 hover:text-[var(--color-accent)]'}"
-        onclick={() => (app.aiOpen = !app.aiOpen)}
-        title={`AI assistant (${shortcutLabel("ai")})`}
-      >
-        <Sparkles size="11" />
-        <span>AI</span>
-      </button>
-
       <!-- Command palette -->
       <button
         class="flex items-center gap-1.5 border border-[var(--color-line)] px-2.5 py-1 rounded-sm text-[var(--color-text-3)] transition-all hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)]"
@@ -868,9 +856,7 @@
 
     <!-- Main + AI drawer -->
     <div
-      bind:clientWidth={contentWidth}
       class="relative grid min-h-0 min-w-0 overflow-hidden"
-      style:grid-template-columns={app.aiOpen && !drawerOverlay ? 'minmax(0, 1fr) 360px' : 'minmax(0, 1fr)'}
     >
       <main class="relative flex flex-col overflow-hidden">
         {#if reconnectPending}
@@ -942,13 +928,6 @@
         </PanelRouter>
       </main>
 
-      {#if app.aiOpen}
-        <div class={drawerOverlay ? "absolute inset-y-0 right-0 z-30 w-[min(360px,100%)] shadow-xl" : "min-h-0 min-w-0"}>
-          {#await loadAIDrawer() then AIDrawer}
-            <AIDrawer onInsertCommand={aiInsert} />
-          {/await}
-        </div>
-      {/if}
     </div>
   </div>
 
@@ -968,7 +947,7 @@
       title={p.danger.level === "block-without-confirm"
         ? `Dangerous broadcast — ${p.danger.reason}`
         : `Risky broadcast — ${p.danger.reason}`}
-      body={`“${p.command}” matches the pattern “${p.danger.matched}” and will run on ${p.targets} other pane${p.targets === 1 ? "" : "s"} at once. It has already run in the pane you typed it in.`}
+      body={`“${p.command}” matches the pattern “${p.danger.matched}”. The command is held before Enter reaches this pane${p.targets > 0 ? ` or ${p.targets} other pane${p.targets === 1 ? "" : "s"}` : ""}. Confirm to submit it everywhere in the broadcast set.`}
       severity={p.danger.level}
       productionHosts={p.productionHosts}
       requirePhrase={p.danger.level === "block-without-confirm"

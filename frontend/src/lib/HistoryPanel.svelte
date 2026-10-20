@@ -14,7 +14,6 @@
     Trash2,
     Server,
     Zap,
-    Sparkles,
     Bookmark,
     Loader2,
     Copy,
@@ -26,7 +25,7 @@
   let entries = $state<HistoryEntry[]>([]);
   let query = $state("");
   let hostFilter = $state(""); // hostID or ""
-  let sourceFilter = $state(""); // exec | ai-translate | snippet | ""
+  let sourceFilter = $state(""); // exec | snippet | ""
   let loading = $state(false);
   let searching = $state(false);
 
@@ -91,7 +90,6 @@
   }
 
   function sourceIcon(source: string) {
-    if (source === "ai-translate") return Sparkles;
     if (source === "snippet") return Bookmark;
     return Zap; // exec
   }
@@ -101,7 +99,7 @@
   <PageHeader
     icon={HistoryIcon}
     title="Command history"
-    subtitle="Auto-captured from Multi-host runs, AI translations, and snippet applies"
+    subtitle="Auto-captured from Multi-host runs and snippet applies"
   >
     {#snippet actions()}
       {#if entries.length > 0}
@@ -161,7 +159,6 @@
       >
         <option value="">any source</option>
         <option value="exec">multi-host exec</option>
-        <option value="ai-translate">AI translate</option>
         <option value="snippet">snippet apply</option>
       </select>
     </div>

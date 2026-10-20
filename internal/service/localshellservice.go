@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"sync"
 
 	"github.com/aymanbagabas/go-pty"
@@ -75,9 +76,9 @@ func (s *LocalShellService) Open(ctx context.Context, sessionID string, cols, ro
 	}
 	s.mu.Unlock()
 
-	shell := defaultShell()
-	if shell == "" {
-		return errors.New("no shell available")
+	shell, err := configuredShell(s.settings)
+	if err != nil {
+		return err
 	}
 
 	p, err := pty.New()
@@ -211,6 +212,52 @@ func (s *LocalShellService) cleanup(sessionID, reason string) {
 	}
 	s.finishRecording(sessionID, "local shell")
 	s.emitExit(sessionID, reason)
+}
+
+// configuredShell selects the saved shell when one is configured, otherwise
+// retaining the platform-specific auto-detection behavior. A configured value
+// is deliberately validated before creating a PTY so a typo in Settings gives
+// a useful error instead of an opaque command-start failure.
+func configuredShell(settings *store.Settings) (string, error) {
+	if settings == nil {
+		if shell := defaultShell(); shell != "" {
+			return shell, nil
+		}
+		return "", errors.New("no shell available")
+	}
+	configured, err := settings.GetPlain(SettingDefaultShellPath)
+	if err != nil {
+		return "", fmt.Errorf("read default shell setting: %w", err)
+	}
+	configured = strings.TrimSpace(configured)
+	if configured == "" {
+		if shell := defaultShell(); shell != "" {
+			return shell, nil
+		}
+		return "", errors.New("no shell available")
+	}
+	if strings.IndexByte(configured, 0) >= 0 {
+		return "", fmt.Errorf("configured shell %q is invalid: path contains a NUL byte", configured)
+	}
+
+	shell, err := exec.LookPath(configured)
+	if err != nil {
+		if os.IsPermission(err) {
+			return "", fmt.Errorf("configured shell %q is invalid: file is not executable (%w)", configured, err)
+		}
+		return "", fmt.Errorf("configured shell %q is invalid: executable not found (%w)", configured, err)
+	}
+	info, err := os.Stat(shell)
+	if err != nil {
+		return "", fmt.Errorf("configured shell %q is invalid: cannot inspect executable: %w", configured, err)
+	}
+	if !info.Mode().IsRegular() {
+		return "", fmt.Errorf("configured shell %q is invalid: executable is not a regular file", configured)
+	}
+	if runtime.GOOS != "windows" && info.Mode()&0111 == 0 {
+		return "", fmt.Errorf("configured shell %q is invalid: file is not executable", configured)
+	}
+	return shell, nil
 }
 
 // defaultShell picks a sensible local shell per OS. Order of preference favours

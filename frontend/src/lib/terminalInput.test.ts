@@ -36,6 +36,28 @@ test("paste chunks in the same turn share one write", async () => {
   assert.deepEqual(calls, ["\x1b[200~hello\n世界\x1b[201~"]);
 });
 
+test("a large input burst keeps the bridge queue bounded to one pending batch", async () => {
+  const calls: string[] = [];
+  let complete = () => {};
+  const queue = createTerminalInputQueue(data => {
+    calls.push(data);
+    return new Promise<void>(resolve => { complete = resolve; });
+  });
+  queue.write("ready");
+  await microtasks();
+
+  const burst = Array.from({length: 1000}, (_, i) => String(i % 10)).join("");
+  for (const key of burst) queue.write(key);
+  await microtasks();
+  assert.deepEqual(calls, ["ready"], "a slow bridge must not start one RPC per input event");
+
+  complete();
+  await microtasks();
+  assert.deepEqual(calls, ["ready", burst], "the pending batch must retain input order");
+  queue.dispose();
+  complete();
+});
+
 test("a failed write is not retried and does not strand later input", async () => {
   const calls: string[] = [];
   let fail = (_error: Error) => {};

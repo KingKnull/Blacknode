@@ -19,6 +19,7 @@ type EventMap = {
   // Emitted by Terminal when a session connects/disconnects; Workspace maps
   // the session to its tab and renames it (empty label = back to local-N).
   'session-label': { sessionID: string; label: string };
+  'focus-terminal': { sessionID: string };
 };
 
 type Listener<T> = (data: T) => void;

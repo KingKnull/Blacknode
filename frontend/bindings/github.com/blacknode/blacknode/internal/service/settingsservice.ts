@@ -9,36 +9,10 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
-export function AIProvider(): $CancellablePromise<$models.AIProviderConfig> {
-    return $Call.ByID(83084014).then(($result: any) => {
-        return $$createType0($result);
-    });
-}
-
-/**
- * AnthropicAPIKey returns the plaintext key for use by the AI service. Lives
- * in main package only; never leaves Go.
- */
-export function AnthropicAPIKey(): $CancellablePromise<string> {
-    return $Call.ByID(3765205384);
-}
-
 export function Get(): $CancellablePromise<$models.AppSettings> {
     return $Call.ByID(3487885687).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType0($result);
     });
-}
-
-export function SetAIProvider(cfg: $models.AIProviderConfig): $CancellablePromise<void> {
-    return $Call.ByID(1167213044, cfg);
-}
-
-/**
- * SetAnthropicAPIKey seals the key with the vault and stores it. Empty key
- * clears the setting.
- */
-export function SetAnthropicAPIKey(key: string): $CancellablePromise<void> {
-    return $Call.ByID(2583872350, key);
 }
 
 export function SetAutoLockMinutes(minutes: number): $CancellablePromise<void> {
@@ -73,5 +47,4 @@ export function SetTheme(theme: string): $CancellablePromise<void> {
 }
 
 // Private type creation functions
-const $$createType0 = $models.AIProviderConfig.createFrom;
-const $$createType1 = $models.AppSettings.createFrom;
+const $$createType0 = $models.AppSettings.createFrom;

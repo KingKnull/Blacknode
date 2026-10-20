@@ -59,7 +59,6 @@
   // A few extra shortcuts beyond the original one-liner footer.
   const SHORTCUTS: [string, string][] = [
     [shortcutLabel("palette"), "Command palette"],
-    [shortcutLabel("ai"), "AI assistant"],
     [shortcutLabel("newTab"), "New tab"],
     [shortcutLabel("closeTab"), "Close tab"],
     ["Ctrl+.", "Terminal side panel"],

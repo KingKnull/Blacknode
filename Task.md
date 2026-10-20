@@ -192,21 +192,6 @@
 
 ---
 
-# 🧠 PHASE 10 — AI ASSISTANT
-
-## Core
-
-* [ ] Command suggestions
-* [ ] Error explanations
-* [ ] Natural language → command
-
-## UI
-
-* [ ] Side assistant panel
-* [ ] Inline suggestions
-
----
-
 # 🧩 PHASE 11 — PLUGIN SYSTEM
 
 ## Backend

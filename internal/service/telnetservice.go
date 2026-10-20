@@ -49,6 +49,19 @@ type telnetSession struct {
 	naws    bool // server asked us to report window size
 }
 
+type telnetParser struct {
+	state byte
+	cmd   byte
+}
+
+const (
+	telnetData byte = iota
+	telnetIAC
+	telnetOption
+	telnetSubneg
+	telnetSubnegIAC
+)
+
 func NewTelnetService(h *store.Hosts) *TelnetService {
 	return &TelnetService{hosts: h, sessions: make(map[string]*telnetSession)}
 }
@@ -144,7 +157,7 @@ func (s *TelnetService) get(sessionID string) *telnetSession {
 // the remaining payload to the terminal.
 func (s *TelnetService) pump(sessionID string, sess *telnetSession) {
 	buf := make([]byte, 16384)
-	out := make([]byte, 0, 16384)
+	parser := telnetParser{state: telnetData}
 	for {
 		select {
 		case <-sess.cancel:
@@ -153,43 +166,7 @@ func (s *TelnetService) pump(sessionID string, sess *telnetSession) {
 		}
 		n, err := sess.conn.Read(buf)
 		if n > 0 {
-			out = out[:0]
-			i := 0
-			for i < n {
-				b := buf[i]
-				if b != telIAC {
-					out = append(out, b)
-					i++
-					continue
-				}
-				// IAC sequence. Need at least one more byte.
-				if i+1 >= n {
-					// Truncated at buffer edge; drop the lone IAC (rare).
-					break
-				}
-				cmd := buf[i+1]
-				switch cmd {
-				case telIAC: // escaped 0xFF in data
-					out = append(out, telIAC)
-					i += 2
-				case telWILL, telWONT, telDO, telDONT:
-					if i+2 >= n {
-						i = n
-						break
-					}
-					s.handleNegotiation(sess, cmd, buf[i+2])
-					i += 3
-				case telSB:
-					// Skip subnegotiation until IAC SE.
-					j := i + 2
-					for j+1 < n && !(buf[j] == telIAC && buf[j+1] == telSE) {
-						j++
-					}
-					i = j + 2
-				default:
-					i += 2
-				}
-			}
+			out := parser.feed(s, sess, buf[:n])
 			if len(out) > 0 {
 				s.emitData(sessionID, string(out))
 			}
@@ -203,6 +180,58 @@ func (s *TelnetService) pump(sessionID string, sess *telnetSession) {
 			return
 		}
 	}
+}
+
+// feed consumes one socket fragment. Telnet control sequences are stateful:
+// Read is allowed to split an IAC command, option byte, or subnegotiation over
+// multiple calls. Keeping the parser state between fragments prevents those
+// bytes from being mistaken for terminal data or silently discarded.
+func (p *telnetParser) feed(s *TelnetService, sess *telnetSession, data []byte) []byte {
+	out := make([]byte, 0, len(data))
+	for _, b := range data {
+		switch p.state {
+		case telnetData:
+			if b == telIAC {
+				p.state = telnetIAC
+			} else {
+				out = append(out, b)
+			}
+		case telnetIAC:
+			switch b {
+			case telIAC: // escaped 0xFF in data
+				out = append(out, telIAC)
+				p.state = telnetData
+			case telWILL, telWONT, telDO, telDONT:
+				p.cmd = b
+				p.state = telnetOption
+			case telSB:
+				p.state = telnetSubneg
+			default:
+				// Two-byte commands (GA, NOP, etc.) carry no payload.
+				p.state = telnetData
+			}
+		case telnetOption:
+			s.handleNegotiation(sess, p.cmd, b)
+			p.state = telnetData
+		case telnetSubneg:
+			if b == telIAC {
+				p.state = telnetSubnegIAC
+			}
+		case telnetSubnegIAC:
+			switch b {
+			case telIAC:
+				// Escaped IAC inside a subnegotiation payload.
+				p.state = telnetSubneg
+			case telSE:
+				p.state = telnetData
+			default:
+				// A malformed/other IAC command still belongs to the
+				// subnegotiation; continue dropping it until IAC SE.
+				p.state = telnetSubneg
+			}
+		}
+	}
+	return out
 }
 
 // handleNegotiation replies to a server option request with a minimal,

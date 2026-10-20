@@ -1,9 +1,8 @@
-import type { HostMetrics, IncidentSnapshot, InvestigationRequest } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
+import type { HostMetrics, IncidentSnapshot } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
 import type { OperationDocument, OperationEvent } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
 
 // These types travel inside OperationDocument.body as JSON, so Wails does not
-// generate them. Keep them aligned with platform_incidents.go and
-// platform_investigations.go.
+// generate them. Keep them aligned with platform_incidents.go.
 export type Incident = {
   id: string;
   name: string;
@@ -16,23 +15,6 @@ export type Incident = {
   changes: OperationEvent[];
   logs: Record<string, string | undefined>;
   recordingIDs: string[];
-};
-
-export type Investigation = {
-  id: string;
-  request: InvestigationRequest;
-  evidence: { id: string; source: string; hostID: string; content: string }[];
-  analysis?: {
-    summary: string;
-    findings: { explanation: string; evidenceIDs: string[] }[];
-    actions: {
-      hostID: string;
-      command: string;
-      reason: string;
-      evidenceIDs: string[];
-    }[];
-  };
-  createdAt: number;
 };
 
 export type Versioned<T> = T & { revision: number };

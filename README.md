@@ -4,7 +4,7 @@
   <h1>blacknode</h1>
 
   <p><strong>A unified SSH client and infrastructure command platform for DevOps engineers.</strong></p>
-  <p>Terminal, multi-host execution, SFTP, observability, container & process management, network diagnostics, and an AI assistant — all in one desktop app.</p>
+  <p>Terminal, multi-host execution, SFTP, observability, container & process management, and network diagnostics — all in one desktop app.</p>
 
   <p>
     <img src="https://img.shields.io/badge/status-alpha-orange" alt="alpha" />
@@ -169,21 +169,17 @@ exist. The Wails v3 framework is a prerelease, so expect churn there too. See
   in the sidebar, section tabs, and New menu. Hidden tools remain accessible
   through the command palette; Terminals, Files, Vault, and Settings remain
   visible. Preferences and workspaces are local to this device.
-- **AI assistant** — natural language → command (Claude Haiku 4.5,
-  one-shot) and pasted output / log explanation (Claude Sonnet 4.6,
-  streaming). Prompt caching on system prompts. API key encrypted at
-  rest with the vault.
 - **Terminal side panel** — command history, snippets, and themes in one
   dockable panel beside the active session. (Inline autocomplete backend
   remains; the per-keystroke popup was removed because it made typing laggy.)
 - **Snippets** — saved command templates with `{{name}}` and
   `{{name|default}}` variable substitution. Apply dialog with live
   preview. Snippets are searchable in the command palette.
-- **Command history** — every multi-host run, AI insert, and snippet
+- **Command history** — every multi-host run and snippet
   apply is captured automatically. Searchable, filterable by host /
   source, one-click re-insert.
 - **Command palette** — `⌘K` / `Ctrl+K` from anywhere; jumps between
-  panels, hosts, opens AI, applies snippets, locks vault.
+  panels, hosts, applies snippets, and locks the vault.
 - **Notifications** — desktop notifications (cross-platform via
   `gen2brain/beeep`), in-app toasts (always), and JSON webhook (POST,
   optional). Auto-fires on long multi-host runs and configured metric alerts.
@@ -199,7 +195,7 @@ exist. The Wails v3 framework is a prerelease, so expect churn there too. See
 
 ### Security
 - **Vault** — Argon2id KDF (3 iterations, 64 MiB, 4 lanes) → AES-256-GCM
-  for SSH private keys and the Anthropic API key. Master key only in
+  for SSH private keys and saved credentials. Master key only in
   memory, zeroed on lock.
 - **Auto-lock** — configurable idle timeout, vault locks itself and
   emits an event the UI listens for.
@@ -256,16 +252,14 @@ npm run build
    write it down.
 2. Add a host in the sidebar (`+` button). Pick auth method; if `key`,
    generate or import one in the **Keys** panel first.
-3. *(Optional)* Add an Anthropic API key in **Settings** to enable the AI
-   drawer (`⌘I`).
-4. Click your host → **Connect** in the active terminal pane.
+3. Click your host → **Connect** in the active terminal pane.
 
 ## Architecture
 
 ```
 blacknode/
 ├── main.go                 application bootstrap, service registration
-├── internal/service/       Wails-bound services (SSH, SFTP, AI, etc.)
+├── internal/service/       Wails-bound services (SSH, SFTP, and operations)
 ├── internal/
 │   ├── db/                 SQLite + schema + migrations
 │   ├── store/              repos: hosts, keys, snippets, history,
@@ -314,7 +308,6 @@ entry in `Workspace.svelte`. Every existing panel is a working template.
 | Frontend | Svelte 5 (runes), Tailwind v4, `@tailwindcss/vite` |
 | Terminal | [ghostty-web](https://github.com/coder/ghostty-web) |
 | Editor | CodeMirror 6 + per-language packs |
-| AI | `anthropic-sdk-go` — Claude Haiku 4.5 + Sonnet 4.6 with prompt caching |
 | Notifications | `gen2brain/beeep` (cross-platform) |
 | Icons | `@lucide/svelte` |
 | Fonts | Inter Variable + JetBrains Mono Variable (bundled) |
@@ -382,7 +375,6 @@ Done from the original product spec:
 - Phase 1 — security & identity (vault, key auth, agent, TOFU)
 - Phase 2 — terminal system (tabs, splits, drag-resize, command palette)
 - Phase 3 — host management
-- Phase 4 — AI operations layer
 - Phase 5 — multi-host execution (worker pool, retry)
 - Phase 6 — observability dashboard (CPU/MEM/DISK, threshold alerts)
 - Phase 7 — log system (streaming, filter, saved queries)
@@ -415,9 +407,9 @@ Not done (with reasons):
 
 - No telemetry. No analytics. No phone-home.
 - Outbound traffic depends on enabled tools: host connections, HTTP/database
-  requests, and configured AI, sync, webhook, and release-check endpoints.
-- Vault-managed keys, passwords, and the Anthropic API key are encrypted at
-  rest. Treat recordings, HTTP request/environment data, and sync endpoint
+  requests, sync, webhook, and release-check endpoints.
+- Vault-managed keys and passwords are encrypted at rest. Treat recordings,
+  HTTP request/environment data, and sync endpoint
   configuration as sensitive local data.
 
 ## License
@@ -430,4 +422,3 @@ MIT — see [LICENSE](LICENSE).
 - [ghostty-web](https://github.com/coder/ghostty-web), [CodeMirror 6](https://codemirror.net/),
   [Lucide](https://lucide.dev/) for the UI primitives.
 - [asciinema](https://asciinema.org/) for the cast v2 format.
-- [Anthropic](https://www.anthropic.com/) for the Claude API.

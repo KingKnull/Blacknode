@@ -21,6 +21,7 @@ import type {
 } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
 import { NotifyKind } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
 import { checkCommand, type Danger } from "./danger";
+import { evaluateBroadcastInput } from "./broadcastSafety";
 import { bus } from "./events";
 import { NAVIGATION_KEY, readHiddenViews, viewVisible } from "./navigation";
 import type { ConnectionTarget } from "./workspaces";
@@ -53,7 +54,6 @@ type View =
   | "fleet"
   | "incidents"
   | "deployments"
-  | "investigations"
   | "team"
   | "uptime"
   | "directory-sync"
@@ -91,7 +91,6 @@ class AppState {
     // because a terminal that mounts in that window would otherwise be built
     // with no scrollback at all.
     terminalScrollback: 5000,
-    hasAnthropicKey: false,
     terminalSessionMode: "auto",
     shellIntegration: true,
   });
@@ -111,7 +110,6 @@ class AppState {
   secretStatus = $state<Record<string, { hasPassword: boolean; hasSudo: boolean }>>({});
   loading = $state(false);
   paletteOpen = $state(false);
-  aiOpen = $state(false);
   recordingsEnabled = $state(false);
 
   // Live metrics per host — populated by metrics:update events.
@@ -193,16 +191,6 @@ class AppState {
     }
   }
 
-  // Cross-component channel: any panel can prefill the AI drawer with a mode
-  // and a body, then open it. AIDrawer watches this and applies it.
-  aiPrefill = $state<
-    { id: string; mode: "translate" | "explain"; prompt: string } | null
-  >(null);
-  prefillAI(mode: "translate" | "explain", prompt: string) {
-    this.aiPrefill = { id: crypto.randomUUID(), mode, prompt };
-    this.aiOpen = true;
-  }
-
   // Multi-cursor broadcast: when `broadcastEnabled` is true, every keystroke
   // typed in any session that's a member of `broadcastSet` is also written
   // to every *other* session in the set. Each Terminal registers a sink
@@ -261,33 +249,29 @@ class AppState {
   // running `mkfs` on twelve machines simultaneously is exactly the mistake
   // worth interrupting. The check fires on Enter, against the line assembled
   // so far; everything else fans out immediately.
-  fanOutBroadcast(sourceSessionID: string, data: string) {
-    if (!this.broadcastEnabled) return;
-    if (!this.broadcastSet.has(sourceSessionID)) return;
+  fanOutBroadcast(sourceSessionID: string, data: string): boolean {
+    if (!this.broadcastEnabled) return true;
+    if (!this.broadcastSet.has(sourceSessionID)) return true;
     // Don't stack a second prompt on top of one already awaiting an answer.
-    if (this.pendingBroadcastDanger) return;
+    if (this.pendingBroadcastDanger) return false;
 
-    if (this.#isSubmit(data)) {
-      const command = this.#broadcastLine;
-      this.#broadcastLine = "";
-      const danger = checkCommand(command);
-      if (danger) {
-        const targets = [...this.broadcastSet].filter((s) => s !== sourceSessionID);
-        this.pendingBroadcastDanger = {
-          id: crypto.randomUUID(),
-          sourceSessionID,
-          command,
-          danger,
-          targets: targets.length,
-          productionHosts: this.#productionHostNames(targets),
-        };
-        return; // held until the user confirms
-      }
-    } else {
-      this.#trackBroadcastLine(data);
+    const decision = evaluateBroadcastInput(this.#broadcastLine, data, checkCommand);
+    this.#broadcastLine = decision.line;
+    if (decision.danger) {
+      const targets = [...this.broadcastSet].filter((s) => s !== sourceSessionID);
+      this.pendingBroadcastDanger = {
+        id: crypto.randomUUID(),
+        sourceSessionID,
+        command: decision.command ?? "",
+        danger: decision.danger,
+        targets: targets.length,
+        productionHosts: this.#productionHostNames(targets),
+      };
+      return false; // hold Enter until the user confirms
     }
 
     this.#writeToBroadcastGroup(sourceSessionID, data);
+    return true;
   }
 
   // Release a held command to the rest of the group.
@@ -295,9 +279,9 @@ class AppState {
     const pending = this.pendingBroadcastDanger;
     this.pendingBroadcastDanger = null;
     if (!pending) return;
-    // Members never received the Enter, but they did receive the keystrokes
-    // that preceded it, so the newline alone submits the line they're holding.
-    this.#writeToBroadcastGroup(pending.sourceSessionID, "\r");
+    // Members (including the source) received the line but not Enter, so the
+    // newline alone submits the staged command everywhere.
+    this.#writeToBroadcastAll(pending.sourceSessionID, "\r");
   }
 
   // Drop a held command, and clear the half-typed line from every member so
@@ -306,7 +290,8 @@ class AppState {
     const pending = this.pendingBroadcastDanger;
     this.pendingBroadcastDanger = null;
     if (!pending) return;
-    this.#writeToBroadcastGroup(pending.sourceSessionID, "\x15"); // Ctrl-U: kill line
+    // Ctrl-U clears the staged line in every shell, including the source pane.
+    this.#writeToBroadcastAll(pending.sourceSessionID, "\x15");
   }
 
   #writeToBroadcastGroup(sourceSessionID: string, data: string) {
@@ -314,6 +299,11 @@ class AppState {
       if (sid === sourceSessionID) continue;
       this.broadcastSinks[sid]?.write(data);
     }
+  }
+
+  #writeToBroadcastAll(sourceSessionID: string, data: string) {
+    this.#writeToBroadcastGroup(sourceSessionID, data);
+    this.broadcastSinks[sourceSessionID]?.write(data);
   }
 
   // Names of production-tagged hosts among the given sessions, deduped.
@@ -329,35 +319,7 @@ class AppState {
     return [...names];
   }
 
-  #isSubmit(data: string): boolean {
-    return data === "\r" || data === "\n" || data === "\r\n";
-  }
-
-  // Maintain the in-flight line: printable input appends, backspace removes,
-  // and the usual line-kill / interrupt controls reset it.
-  #trackBroadcastLine(data: string) {
-    if (data === "\x7f" || data === "\b") {
-      this.#broadcastLine = this.#broadcastLine.slice(0, -1);
-      return;
-    }
-    // Ctrl-C, Ctrl-U, Ctrl-D, Escape — the line is gone as far as the shell
-    // is concerned, so stop tracking it.
-    if (data === "\x03" || data === "\x15" || data === "\x04" || data === "\x1b") {
-      this.#broadcastLine = "";
-      return;
-    }
-    // Ignore other control sequences (arrows, function keys) rather than
-    // letting escape codes pollute the reconstructed command.
-    if (data.length === 1 && data.charCodeAt(0) < 0x20) return;
-    if (data.startsWith("\x1b")) return;
-    this.#broadcastLine += data;
-    // Bound the buffer; a pathological paste shouldn't grow it without limit.
-    if (this.#broadcastLine.length > 4096) {
-      this.#broadcastLine = this.#broadcastLine.slice(-4096);
-    }
-  }
-
-  // Cross-component channel: AIDrawer/palette set this; the matching Terminal
+  // Cross-component channel: history/snippet panels set this; the matching Terminal
   // sees the change via $effect and writes the text to its terminal/PTY.
   pendingTerminalInsert = $state<
     { id: string; sessionID: string; text: string } | null

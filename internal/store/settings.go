@@ -7,7 +7,7 @@ import (
 )
 
 // Settings is a thin key/value store for app preferences. Plaintext values go
-// in `value`; secrets (Anthropic API keys, etc.) go in (encrypted, nonce) and
+// in `value`; secrets go in (encrypted, nonce) and
 // the caller is responsible for sealing them with the vault.
 type Settings struct{ db *sql.DB }
 

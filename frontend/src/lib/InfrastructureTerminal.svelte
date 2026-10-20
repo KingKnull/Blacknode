@@ -3,6 +3,7 @@
   import { FitAddon, Terminal } from 'ghostty-web';
   import { Events } from '@wailsio/runtime';
   import { initializeTerminalEngine } from './terminalEngine';
+  import { createTerminalInputQueue } from './terminalInput';
   type Output = {seq:number;data:string;truncated:boolean;closed:boolean};
   let { sessionID, readonly = false, connect, write, resize, disconnect, read }: {
     sessionID:string;readonly?:boolean;connect:(cols:number,rows:number)=>Promise<unknown>;write:(data:string)=>Promise<unknown>;resize:(cols:number,rows:number)=>Promise<unknown>;disconnect?:()=>Promise<unknown>;read?:(after:number)=>Promise<Output>;
@@ -10,10 +11,12 @@
   let container: HTMLDivElement; let error = $state(''); let status = $state('Connecting…');
   onMount(() => {
     let disposed = false; let ready = false; let ended = false; let sequence = 0;
-    let timer: ReturnType<typeof setTimeout> | undefined; let writes = Promise.resolve();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let resizeTimer: ReturnType<typeof setTimeout> | undefined;
     let terminal: Terminal | undefined; let observer: ResizeObserver | undefined;
     let dataOff: (() => void) | undefined; let exitOff: (() => void) | undefined;
     let input: { dispose(): void } | undefined;
+    let inputQueue: ReturnType<typeof createTerminalInputQueue> | undefined;
 
     void initializeTerminalEngine().then(() => {
       if (disposed) return;
@@ -21,8 +24,19 @@
       const fit = new FitAddon();terminal.loadAddon(fit);terminal.open(container);fit.fit();
       dataOff = Events.On('terminal:data',(e: any) => {if (!read && e.data?.sessionID === sessionID) terminal?.write(e.data.data);});
       exitOff = Events.On('terminal:exit',(e: any) => {if (!read && e.data?.sessionID === sessionID){ended = true;ready = false;status = e.data.reason || 'Session ended';}});
-      input = terminal.onData(data => {if(!ready || readonly)return;writes = writes.then(async () => {if(!disposed) await write(data);}).catch(e => {if(!disposed)error = String(e);});});
-      observer = new ResizeObserver(() => {fit.fit();if(ready && !readonly)void resize(terminal!.cols,terminal!.rows).catch(e => {if(!disposed)error = String(e);});});observer.observe(container);
+      inputQueue = createTerminalInputQueue(write);
+      input = terminal.onData(data => {if(!ready || readonly)return;inputQueue?.write(data);});
+      observer = new ResizeObserver(() => {
+        fit.fit();
+        if (!ready || readonly) return;
+        if (resizeTimer) clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          resizeTimer = undefined;
+          if (!disposed && ready && terminal) {
+            void resize(terminal.cols, terminal.rows).catch(e => {if(!disposed)error = String(e);});
+          }
+        }, 80);
+      });observer.observe(container);
       async function poll() {if(disposed || !read || !terminal)return;try{const output = await read(sequence);if(disposed)return;sequence = output.seq;if(output.truncated)terminal.writeln('\r\n[Earlier output is no longer in the live buffer]\r\n');if(output.data)terminal.write(Uint8Array.from(atob(output.data),c => c.charCodeAt(0)));if(output.closed){ready = false;status = 'Session ended';return;}}catch(e){if(!disposed){error = String(e);ready = false;status = 'Disconnected';}return;}timer = setTimeout(poll,250);}
       void connect(terminal.cols,terminal.rows).then(async () => {if(disposed){await disconnect?.();return;}if(ended)return;ready = true;status = readonly ? 'Observer · read only' : 'Connected';terminal?.focus();if(read)void poll();}).catch(e => {if(!disposed){error = String(e);status = 'Connection failed';}});
     }).catch(e => {
@@ -35,8 +49,9 @@
     return () => {
       disposed = true;
       if (timer) clearTimeout(timer);
+      if (resizeTimer) clearTimeout(resizeTimer);
       observer?.disconnect();
-      dataOff?.(); exitOff?.(); input?.dispose(); terminal?.dispose();
+      dataOff?.(); exitOff?.(); input?.dispose(); inputQueue?.dispose(); terminal?.dispose();
       void disconnect?.().catch(() => {});
     };
   });

@@ -27,7 +27,6 @@
       shortcuts: [
         { keys: ["Ctrl", "Shift", "F"], desc: "Search terminal output" },
         { keys: ["Ctrl", "Shift", "S"], desc: "Auto-fill sudo password" },
-        { keys: APP_SHORTCUTS.ai, desc: "Toggle AI assistant" },
         { keys: ["Ctrl", "Shift", "B"], desc: "Toggle pane broadcast" },
         { keys: ["Ctrl", "."],          desc: "Toggle side panel" },
         { keys: ["Right-click"],        desc: "Pane actions menu" },

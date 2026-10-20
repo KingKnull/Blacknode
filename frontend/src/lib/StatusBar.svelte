@@ -6,7 +6,6 @@
   import {
     TerminalSquare,
     Server,
-    Sparkles,
     Radio,
     Cloud,
     CloudOff,
@@ -104,11 +103,6 @@
   <span class="flex items-center gap-1.5">
     <TerminalSquare size="11" /> <span class="tabular">{tabCount}</span> {tabCount === 1 ? 'tab' : 'tabs'}{activeLeafCount > 1 ? ` · ${activeLeafCount} panes` : ''}
   </span>
-  {#if app.settings.hasAnthropicKey}
-    <span class="flex items-center gap-1.5 text-[var(--color-accent)]">
-      <Sparkles size="11" /> AI ready
-    </span>
-  {/if}
   {#if app.broadcastEnabled}
     <span class="flex items-center gap-1.5 text-[var(--color-warn)]">
       <Radio size="11" class="pulse-soft" /> Broadcasting

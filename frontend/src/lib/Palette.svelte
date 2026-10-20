@@ -21,7 +21,6 @@
     KeyRound,
     ScrollText,
     Settings as SettingsIcon,
-    Sparkles,
     Lock,
     Search,
     ShieldCheck,
@@ -84,7 +83,6 @@
     { id: "fleet", label: "Go to Fleet inventory", icon: Server },
     { id: "incidents", label: "Go to Incidents", icon: Activity },
     { id: "deployments", label: "Go to Deployments", icon: Zap },
-    { id: "investigations", label: "Go to AI investigations", icon: Sparkles },
     { id: "team", label: "Go to Team operations", icon: Share2 },
     { id: "terminals", label: "Go to Terminals", icon: TerminalSquare },
     { id: "exec", label: "Go to Multi-host", icon: Zap },
@@ -130,16 +128,6 @@
       run: () => {
         app.view = "terminals";
         onNewTab();
-      },
-    },
-    {
-      id: "ai:open",
-      label: app.aiOpen ? "Close AI assistant" : "Open AI assistant",
-      hint: "⌘I · translate · explain",
-      icon: Sparkles,
-      category: "AI",
-      run: () => {
-        app.aiOpen = !app.aiOpen;
       },
     },
     ...app.hosts.map(

@@ -141,22 +141,27 @@ func (s *SSHService) connectWithOptions(sessionID string, t sshconn.Target, cols
 	if rows == 0 {
 		rows = 24
 	}
+	// Keep a real state object in the map while the connection is being
+	// established. A nil sentinel cannot be cleaned up safely, and it also
+	// gives Disconnect no way to tell the in-flight connect to stand down.
+	pending := &sshSession{cancel: make(chan struct{})}
 	s.mu.Lock()
 	if _, exists := s.sessions[sessionID]; exists {
 		s.mu.Unlock()
 		return fmt.Errorf("session %s already connected", sessionID)
 	}
-	// Place a sentinel so concurrent callers with the same sessionID
-	// see the entry and bail out instead of racing through the dial.
-	s.sessions[sessionID] = nil
+	// Place a pending state so concurrent callers with the same sessionID see
+	// the entry and bail out instead of racing through the dial. Disconnect can
+	// remove this exact object while setup is in progress.
+	s.sessions[sessionID] = pending
 	s.mu.Unlock()
 
-	// If anything below fails, remove the sentinel.
+	// If anything below fails, remove the pending marker.
 	removeSentinel := true
 	defer func() {
 		if removeSentinel {
 			s.mu.Lock()
-			if s.sessions[sessionID] == nil {
+			if s.sessions[sessionID] == pending {
 				delete(s.sessions, sessionID)
 			}
 			s.mu.Unlock()
@@ -166,6 +171,10 @@ func (s *SSHService) connectWithOptions(sessionID string, t sshconn.Target, cols
 	client, err := s.dialer.Dial(t)
 	if err != nil {
 		return err
+	}
+	if !s.attachPending(sessionID, pending, func() { pending.client = client }) {
+		_ = client.Close()
+		return errors.New("session closed while connecting")
 	}
 	launch := ""
 	info := TerminalSessionInfo{Manager: "off"}
@@ -180,6 +189,11 @@ func (s *SSHService) connectWithOptions(sessionID string, t sshconn.Target, cols
 	if err != nil {
 		client.Close()
 		return fmt.Errorf("new session: %w", err)
+	}
+	if !s.attachPending(sessionID, pending, func() { pending.session = sess }) {
+		_ = sess.Close()
+		_ = client.Close()
+		return errors.New("session closed while connecting")
 	}
 	// Agent forwarding, when the host asks for it. Both halves are needed: the
 	// client-side channel handler that answers the remote's auth-agent requests,
@@ -212,6 +226,12 @@ func (s *SSHService) connectWithOptions(sessionID string, t sshconn.Target, cols
 		client.Close()
 		return fmt.Errorf("stdin pipe: %w", err)
 	}
+	if !s.attachPending(sessionID, pending, func() { pending.stdin = stdin }) {
+		_ = stdin.Close()
+		_ = sess.Close()
+		_ = client.Close()
+		return errors.New("session closed while connecting")
+	}
 	stdout, err := sess.StdoutPipe()
 	if err != nil {
 		sess.Close()
@@ -235,13 +255,21 @@ func (s *SSHService) connectWithOptions(sessionID string, t sshconn.Target, cols
 		return fmt.Errorf("start shell: %w", err)
 	}
 
-	state := &sshSession{client: client, session: sess, stdin: stdin, cancel: make(chan struct{}), info: info}
-	s.mu.Lock()
-	s.sessions[sessionID] = state
+	// Publish only if Disconnect did not remove the pending state while the
+	// SSH setup was in progress. Otherwise the just-created resources would
+	// resurrect a session after the user explicitly disconnected it.
 	title := fmt.Sprintf("%s@%s", t.User, t.Host)
-	s.hostMeta[sessionID] = title
-	s.mu.Unlock()
+	if !s.publishSession(sessionID, pending, client, sess, stdin, info, title) {
+		_ = stdin.Close()
+		_ = sess.Close()
+		_ = client.Close()
+		return errors.New("session closed while connecting")
+	}
+	state := pending
 	removeSentinel = false // session is live; don't clean up the map entry
+	if sessionCancelled(state) {
+		return errors.New("session closed while connecting")
+	}
 
 	if shouldRecord(s.settings, hostID) {
 		_ = s.rec.Start(sessionID, recorder.StartMeta{
@@ -401,10 +429,58 @@ func (s *SSHService) cleanup(sessionID, reason string) {
 	if !ok {
 		return
 	}
-	state.cancelOnce.Do(func() { close(state.cancel) })
-	_ = state.stdin.Close()
-	_ = state.session.Close()
-	_ = state.client.Close()
+	// A pending connection has no SSH resources yet. Disconnect still closes
+	// its cancellation signal; connectWithOptions checks it before publishing.
+	if state == nil {
+		return
+	}
+	state.cancelOnce.Do(func() {
+		if state.cancel != nil {
+			close(state.cancel)
+		}
+	})
+	if state.stdin != nil {
+		_ = state.stdin.Close()
+	}
+	if state.session != nil {
+		_ = state.session.Close()
+	}
+	if state.client != nil {
+		_ = state.client.Close()
+	}
 	s.finishRecording(sessionID)
 	s.emitExit(sessionID, reason)
+}
+
+func (s *SSHService) publishSession(sessionID string, pending *sshSession, client *ssh.Client, sess *ssh.Session, stdin io.WriteCloser, info TerminalSessionInfo, title string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if current, ok := s.sessions[sessionID]; !ok || current != pending || sessionCancelled(pending) {
+		return false
+	}
+	pending.client = client
+	pending.session = sess
+	pending.stdin = stdin
+	pending.info = info
+	s.hostMeta[sessionID] = title
+	return true
+}
+
+func (s *SSHService) attachPending(sessionID string, pending *sshSession, attach func()) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if current, ok := s.sessions[sessionID]; !ok || current != pending || sessionCancelled(pending) {
+		return false
+	}
+	attach()
+	return true
+}
+
+func sessionCancelled(state *sshSession) bool {
+	select {
+	case <-state.cancel:
+		return true
+	default:
+		return false
+	}
 }

@@ -46,7 +46,6 @@ func init() {
 	application.RegisterEvent[service.RunbookProgress]("runbook:progress")
 	application.RegisterEvent[service.HostMetrics]("metrics:update")
 	application.RegisterEvent[service.LogLine]("logs:line")
-	application.RegisterEvent[service.AIChunk]("ai:chunk")
 	application.RegisterEvent[service.VaultLockEvent]("vault:locked")
 	application.RegisterEvent[service.Notification]("notification:toast")
 	application.RegisterEvent[service.AuthPromptRequest]("auth:prompt")
@@ -144,7 +143,6 @@ func main() {
 			application.NewService(opsSvc),
 			application.NewService(metricsSvc),
 			application.NewService(service.NewLogsService(pool, hosts, logQueries)),
-			application.NewService(service.NewAIService(settingsSvc)),
 			application.NewService(autoLock),
 			application.NewService(pfSvc),
 			application.NewService(service.NewRecordingService(recordings, settings, recMgr)),

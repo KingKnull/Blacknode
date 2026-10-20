@@ -2,7 +2,6 @@
   import { onMount } from "svelte";
   import {
     SettingsService,
-    AIService,
     NotificationService,
     UpdateService,
     SyncService,
@@ -16,7 +15,6 @@
     SyncStatus,
     AutoSyncConfig,
     ConflictItem,
-    AIProviderConfig,
   } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import type { TeamActivity, KnownHost } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { app } from "./state.svelte";
@@ -27,12 +25,8 @@
   import GroupDefaults from "./GroupDefaults.svelte";
   import {
     Settings as SettingsIcon,
-    Sparkles,
     Lock,
     Activity,
-    Eye,
-    EyeOff,
-    CheckCircle2,
     Loader2,
     Bell,
     Send,
@@ -48,22 +42,14 @@
     Trash2,
   } from "@lucide/svelte";
 
-  let { initialSection = "ai" }: { initialSection?: string } = $props();
+  let { initialSection = "security" }: { initialSection?: string } = $props();
 
-  let apiKeyInput = $state("");
-  let showKey = $state(false);
-  let savingKey = $state(false);
-  let testStatus = $state<"" | "ok" | "fail">("");
-  let testMessage = $state("");
   let savingLock = $state(false);
   let savingShell = $state(false);
   let savingMetrics = $state(false);
   let savingScrollback = $state(false);
   let scrollbackError = $state("");
   let savingTheme = $state(false);
-
-  // Confirmation dialog for removing the API key
-  let confirmClearKey = $state(false);
 
   let autoLockMinutes = $state(15);
   let defaultShellPath = $state("");
@@ -73,16 +59,6 @@
   let shellIntegration = $state(true);
   let featureError = $state("");
   let savingFeatures = $state(false);
-  let provider = $state<AIProviderConfig>({provider: 'anthropic', endpoint: 'http://127.0.0.1:11434', commandModel: 'claude-haiku-4-5', analysisModel: 'claude-sonnet-4-6'});
-  let providerBusy = $state(false);
-  let providerError = $state("");
-
-  async function saveProvider() {
-    providerBusy = true; providerError = "";
-    try { await SettingsService.SetAIProvider($state.snapshot(provider)); app.toast('ok', 'AI provider saved'); }
-    catch (e) { providerError = String(e); }
-    finally { providerBusy = false; }
-  }
   async function saveTerminalFeatures() {
     savingFeatures = true; featureError = "";
     try { await SettingsService.SetTerminalFeatures(sessionMode, shellIntegration); await app.refreshSettings(); }
@@ -368,8 +344,6 @@
     sessionMode = app.settings.terminalSessionMode;
     shellIntegration = app.settings.shellIntegration;
     void refreshAgent();
-    try { provider = await SettingsService.AIProvider(); }
-    catch (e) { providerError = String(e); }
     try {
       notify = (await NotificationService.Config()) as NotifyConfig;
     } catch {
@@ -406,49 +380,6 @@
     } catch {
       notifyTested = "fail";
     }
-  }
-
-  async function saveAPIKey() {
-    savingKey = true;
-    testStatus = "";
-    testMessage = "";
-    try {
-      await SettingsService.SetAnthropicAPIKey(apiKeyInput);
-      apiKeyInput = "";
-      await app.refreshSettings();
-    } catch (e: any) {
-      testStatus = "fail";
-      testMessage = String(e?.message ?? e);
-    } finally {
-      savingKey = false;
-    }
-  }
-
-  async function testKey() {
-    testStatus = "";
-    testMessage = "";
-    savingKey = true;
-    try {
-      const out = await AIService.Translate("list files in current directory", "bash", "");
-      if (typeof out === "string" && out.length > 0) {
-        testStatus = "ok";
-        testMessage = `→ ${out}`;
-      } else {
-        testStatus = "fail";
-        testMessage = "Empty response";
-      }
-    } catch (e: any) {
-      testStatus = "fail";
-      testMessage = String(e?.message ?? e);
-    } finally {
-      savingKey = false;
-    }
-  }
-
-  async function clearAPIKey() {
-    await SettingsService.SetAnthropicAPIKey("");
-    await app.refreshSettings();
-    confirmClearKey = false;
   }
 
   async function saveAutoLock() {
@@ -509,9 +440,8 @@
     }
   }
 
-  let activeSection = $state("ai");
+  let activeSection = $state("security");
   const SECTIONS = [
-    { id: "ai", label: "AI ASSISTANT", Icon: Sparkles },
     { id: "security", label: "SECURITY", Icon: Lock },
     { id: "knownhosts", label: "KNOWN HOSTS", Icon: ShieldCheck },
     { id: "appearance", label: "APPEARANCE", Icon: Palette },
@@ -553,85 +483,6 @@
 
     <div class="flex-1 overflow-y-auto p-10">
       <div class="mx-auto max-w-2xl space-y-12 pb-20">
-
-        <!-- AI / Anthropic -->
-        <section id="section-ai" class="border hairline-strong surface-2 p-6 shadow-xl" style="backdrop-filter: blur(12px) saturate(1.2);">
-          <div class="mb-4 flex items-center gap-2">
-            <Sparkles size="14" class="text-[var(--color-accent)]" />
-            <h3 class="type-eyebrow text-[var(--color-text-1)]">AI assistant</h3>
-          </div>
-          <p class="type-caption text-[var(--color-text-3)] leading-relaxed">
-            Choose the provider for command suggestions, explanations and investigations.
-            Investigation evidence is shown for review before it is sent. API keys are encrypted in the vault.
-          </p>
-
-          <div class="ops-form mt-4">
-            <label>Provider<select bind:value={provider.provider} onchange={() => {
-              if (provider.provider === 'ollama') { provider.commandModel = 'qwen2.5-coder:7b'; provider.analysisModel = 'qwen2.5-coder:7b'; }
-              else { provider.commandModel = 'claude-haiku-4-5'; provider.analysisModel = 'claude-sonnet-4-6'; }
-            }}><option value="anthropic">Anthropic</option><option value="ollama">Ollama</option></select></label>
-            {#if provider.provider === 'ollama'}<label>Ollama endpoint<input bind:value={provider.endpoint} placeholder="http://127.0.0.1:11434" /></label>{/if}
-            <div class="ops-grid"><label>Command model<input bind:value={provider.commandModel} /></label><label>Analysis model<input bind:value={provider.analysisModel} /></label></div>
-            <div class="ops-actions"><button onclick={saveProvider} disabled={providerBusy}>Save provider</button><button onclick={testKey} disabled={savingKey}>Test saved provider</button></div>
-            {#if providerError}<p class="ops-error" role="alert">{providerError}</p>{/if}
-          </div>
-
-          <div class="mt-4 space-y-2">
-            <label class="block">
-              <span class="type-eyebrow text-[var(--color-text-3)]">Anthropic API key</span>
-              <div class="mt-1 flex items-center gap-2">
-                <div class="relative flex flex-1 items-center border hairline bg-[var(--color-surface-3)]">
-                  <input
-                    type={showKey ? "text" : "password"}
-                    class="flex-1 bg-transparent px-3 py-2 font-mono type-caption outline-none"
-                    placeholder={app.settings.hasAnthropicKey ? "•••••• (saved)" : "sk-ant-…"}
-                    bind:value={apiKeyInput}
-                  />
-                  <button
-                    class="px-2 text-[var(--color-text-3)] hover:text-[var(--color-text-1)]"
-                    onclick={() => (showKey = !showKey)}
-                    title={showKey ? "Hide" : "Show"}
-                  >
-                    {#if showKey}<EyeOff size="12" />{:else}<Eye size="12" />{/if}
-                  </button>
-                </div>
-                <button
-                  class="flex items-center gap-1 border border-[var(--color-accent)]/60 bg-[var(--color-accent)] px-3 py-2 type-caption font-bold text-[var(--color-surface-0)] hover:opacity-90 hover:shadow-[0_0_20px_rgba(59,130,246,0.15)] transition-all disabled:opacity-50"
-                  disabled={!apiKeyInput || savingKey}
-                  onclick={saveAPIKey}
-                >
-                  {#if savingKey}<Loader2 size="11" class="animate-spin" />{:else}SAVE{/if}
-                </button>
-              </div>
-            </label>
-
-            <div class="flex flex-wrap items-center gap-2">
-              {#if app.settings.hasAnthropicKey}
-                <span class="inline-flex items-center gap-1 border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/10 px-2 py-0.5 type-micro text-[var(--color-accent)]">
-                  <CheckCircle2 size="10" /> KEY SAVED
-                </span>
-                <button
-                  class="border hairline px-2 py-1 type-micro text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)] transition-colors"
-                  onclick={testKey}
-                  disabled={savingKey}
-                >
-                  TEST
-                </button>
-                <button
-                  class="border hairline px-2 py-1 type-micro text-[var(--color-text-3)] hover:border-[var(--color-danger)]/40 hover:text-[var(--color-danger)] transition-colors"
-                  onclick={() => (confirmClearKey = true)}
-                >
-                  REMOVE
-                </button>
-              {/if}
-              {#if testStatus === "ok"}
-                <span class="font-mono type-micro text-[var(--color-accent)]">{testMessage}</span>
-              {:else if testStatus === "fail"}
-                <span class="font-mono type-micro text-[var(--color-danger)]">{testMessage}</span>
-              {/if}
-            </div>
-          </div>
-        </section>
 
         <!-- Security -->
         <section id="section-security" class="border hairline-strong surface-2 p-6 shadow-xl" style="backdrop-filter: blur(12px) saturate(1.2);">
@@ -1294,18 +1145,6 @@
     </div>
   </div>
 </div>
-
-<!-- ConfirmDanger for API key removal -->
-{#if confirmClearKey}
-  <ConfirmDanger
-    title="REMOVE API KEY"
-    body="This will delete the stored Anthropic API key from your vault. The AI assistant and command-palette translations will stop working until a new key is saved."
-    severity="warn"
-    productionHosts={[]}
-    onCancel={() => (confirmClearKey = false)}
-    onConfirm={clearAPIKey}
-  />
-{/if}
 
 <!-- ConfirmDanger for forgetting a known host key -->
 {#if confirmForget}

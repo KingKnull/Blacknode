@@ -58,9 +58,13 @@
 </script>
 
 {#if node.kind === "leaf"}
+  <!-- Pane activation follows pointer focus from the terminal surface. -->
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <div
     class="relative h-full w-full"
-    role="presentation"
+    role="group"
+    aria-label={leafCount > 1 ? `Terminal pane ${node.sessionID}` : "Terminal pane"}
+    aria-current={activeLeafID === node.id ? "true" : undefined}
     onmousedown={() => onactivate(node.id)}
   >
     <div
@@ -146,6 +150,10 @@
       onpointercancel={endDrag}
       ondblclick={resetRatio}
       aria-orientation={node.direction === "horizontal" ? "vertical" : "horizontal"}
+      aria-valuemin="0"
+      aria-valuemax="100"
+      aria-valuenow={Math.round((node.ratio ?? 0.5) * 100)}
+      aria-label="Resize terminal panes"
     >
       <div
         class="absolute bg-[var(--color-line)] transition-colors group-hover:bg-[var(--color-accent)]/40 {node.direction ===

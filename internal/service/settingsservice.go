@@ -11,7 +11,6 @@ import (
 )
 
 const (
-	SettingAnthropicAPIKey    = "anthropic_api_key"
 	SettingTheme              = "theme"
 	SettingAutoLockMinutes    = "auto_lock_minutes"
 	SettingDefaultShellPath   = "default_shell_path"
@@ -67,7 +66,6 @@ type AppSettings struct {
 	DefaultShellPath    string `json:"defaultShellPath"`
 	MetricsIntervalSec  int    `json:"metricsIntervalSeconds"`
 	TerminalScrollback  int    `json:"terminalScrollback"`
-	HasAnthropicKey     bool   `json:"hasAnthropicKey"`
 	TerminalSessionMode string `json:"terminalSessionMode"`
 	ShellIntegration    bool   `json:"shellIntegration"`
 }
@@ -112,11 +110,6 @@ func (s *SettingsService) Get(ctx context.Context) (AppSettings, error) {
 	if enabled, err := s.settings.GetPlain("shell_integration"); err == nil {
 		out.ShellIntegration = enabled != "false"
 	}
-	has, err := s.settings.HasSecret(SettingAnthropicAPIKey)
-	if err != nil {
-		return out, err
-	}
-	out.HasAnthropicKey = has
 	return out, nil
 }
 
@@ -162,40 +155,4 @@ func (s *SettingsService) SetTerminalScrollback(ctx context.Context, lines int) 
 		return fmt.Errorf("scrollback must be between %d and %d lines", ScrollbackMin, ScrollbackMax)
 	}
 	return s.settings.SetPlain(SettingTerminalScrollback, strconv.Itoa(lines))
-}
-
-// SetAnthropicAPIKey seals the key with the vault and stores it. Empty key
-// clears the setting.
-func (s *SettingsService) SetAnthropicAPIKey(ctx context.Context, key string) error {
-	if key == "" {
-		return s.settings.Delete(SettingAnthropicAPIKey)
-	}
-	if !s.vault.IsUnlocked() {
-		return errors.New("vault must be unlocked to save the API key")
-	}
-	cipher, nonce, err := s.vault.Encrypt([]byte(key))
-	if err != nil {
-		return err
-	}
-	return s.settings.SetSecret(SettingAnthropicAPIKey, cipher, nonce)
-}
-
-// AnthropicAPIKey returns the plaintext key for use by the AI service. Lives
-// in main package only; never leaves Go.
-func (s *SettingsService) AnthropicAPIKey(ctx context.Context) (string, error) {
-	cipher, nonce, err := s.settings.GetSecret(SettingAnthropicAPIKey)
-	if err != nil {
-		return "", err
-	}
-	if len(cipher) == 0 {
-		return "", nil
-	}
-	if !s.vault.IsUnlocked() {
-		return "", errors.New("vault is locked")
-	}
-	plain, err := s.vault.Decrypt(cipher, nonce)
-	if err != nil {
-		return "", err
-	}
-	return string(plain), nil
 }

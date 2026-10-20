@@ -13,73 +13,6 @@ import * as recorder$0 from "../recorder/models.js";
 import * as store$0 from "../store/models.js";
 
 /**
- * AIChunk is the streaming payload — the frontend appends `delta` text to the
- * currently-rendering message and uses `done` to know when to stop.
- */
-export class AIChunk {
-    "streamID": string;
-    "delta": string;
-    "done": boolean;
-    "error"?: string;
-
-    /** Creates a new AIChunk instance. */
-    constructor($$source: Partial<AIChunk> = {}) {
-        if (!("streamID" in $$source)) {
-            this["streamID"] = "";
-        }
-        if (!("delta" in $$source)) {
-            this["delta"] = "";
-        }
-        if (!("done" in $$source)) {
-            this["done"] = false;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new AIChunk instance from a string or object.
-     */
-    static createFrom($$source: any = {}): AIChunk {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new AIChunk($$parsedSource as Partial<AIChunk>);
-    }
-}
-
-export class AIProviderConfig {
-    "provider": string;
-    "endpoint": string;
-    "commandModel": string;
-    "analysisModel": string;
-
-    /** Creates a new AIProviderConfig instance. */
-    constructor($$source: Partial<AIProviderConfig> = {}) {
-        if (!("provider" in $$source)) {
-            this["provider"] = "";
-        }
-        if (!("endpoint" in $$source)) {
-            this["endpoint"] = "";
-        }
-        if (!("commandModel" in $$source)) {
-            this["commandModel"] = "";
-        }
-        if (!("analysisModel" in $$source)) {
-            this["analysisModel"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new AIProviderConfig instance from a string or object.
-     */
-    static createFrom($$source: any = {}): AIProviderConfig {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new AIProviderConfig($$parsedSource as Partial<AIProviderConfig>);
-    }
-}
-
-/**
  * ActiveForward bundles a saved forward with its current runtime state.
  */
 export class ActiveForward {
@@ -179,7 +112,6 @@ export class AppSettings {
     "defaultShellPath": string;
     "metricsIntervalSeconds": number;
     "terminalScrollback": number;
-    "hasAnthropicKey": boolean;
     "terminalSessionMode": string;
     "shellIntegration": boolean;
 
@@ -199,9 +131,6 @@ export class AppSettings {
         }
         if (!("terminalScrollback" in $$source)) {
             this["terminalScrollback"] = 0;
-        }
-        if (!("hasAnthropicKey" in $$source)) {
-            this["hasAnthropicKey"] = false;
         }
         if (!("terminalSessionMode" in $$source)) {
             this["terminalSessionMode"] = "";
@@ -2147,55 +2076,6 @@ export class Integration {
     static createFrom($$source: any = {}): Integration {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new Integration($$parsedSource as Partial<Integration>);
-    }
-}
-
-export class InvestigationRequest {
-    "question": string;
-    "workspaceID": string;
-    "hostIDs": string[];
-    "incidentID": string;
-    "metrics": boolean;
-    "diagnostics": boolean;
-    "selection": string;
-
-    /** Creates a new InvestigationRequest instance. */
-    constructor($$source: Partial<InvestigationRequest> = {}) {
-        if (!("question" in $$source)) {
-            this["question"] = "";
-        }
-        if (!("workspaceID" in $$source)) {
-            this["workspaceID"] = "";
-        }
-        if (!("hostIDs" in $$source)) {
-            this["hostIDs"] = [];
-        }
-        if (!("incidentID" in $$source)) {
-            this["incidentID"] = "";
-        }
-        if (!("metrics" in $$source)) {
-            this["metrics"] = false;
-        }
-        if (!("diagnostics" in $$source)) {
-            this["diagnostics"] = false;
-        }
-        if (!("selection" in $$source)) {
-            this["selection"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new InvestigationRequest instance from a string or object.
-     */
-    static createFrom($$source: any = {}): InvestigationRequest {
-        const $$createField2_0 = $$createType2;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("hostIDs" in $$parsedSource) {
-            $$parsedSource["hostIDs"] = $$createField2_0($$parsedSource["hostIDs"]);
-        }
-        return new InvestigationRequest($$parsedSource as Partial<InvestigationRequest>);
     }
 }
 

@@ -328,7 +328,6 @@ export class HTTPRequest {
 /**
  * HistoryEntry records that a command was sent at a host. Sources:
  *   - "exec"          ExecService.Run (multi-host)
- *   - "ai-translate"  AI assistant translate-and-insert
  *   - "snippet"       SnippetService.Apply
  * 
  * Status (when known): "ok" (exit 0), "fail" (non-zero), "" (unknown).

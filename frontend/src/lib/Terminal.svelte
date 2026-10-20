@@ -77,6 +77,7 @@
   let mode: Mode = $state("local");
   let status: Status = $state("starting");
   let errorMsg = $state("");
+  let connectionWarning = $state("");
   let connectedHostID = $state<string | null>(null);
   let promptingPassword = $state(false);
   // One-shot password typed at the connect prompt. Held only for the duration
@@ -120,6 +121,7 @@
   let resizeObs: ResizeObserver | undefined;
   let globalKeydown: ((e: KeyboardEvent) => void) | undefined;
   let offConnectIntent: (() => void) | undefined;
+  let offFocusTerminal: (() => void) | undefined;
   let onThemeChange: ((e: Event) => void) | undefined;
 
   let latencyMs = $state<number | null>(null);
@@ -216,6 +218,12 @@
   // terminal selection on right-click) is suppressed entirely.
   let ctxMenu = $state<{ x: number; y: number } | null>(null);
   let ctxHasSelection = $state(false);
+  let ctxMenuEl: HTMLDivElement | undefined = $state();
+
+  $effect(() => {
+    if (!ctxMenu) return;
+    void tick().then(() => ctxMenuEl?.querySelector<HTMLElement>('[role="menuitem"]:not(:disabled)')?.focus());
+  });
 
   function openCtxMenu(e: MouseEvent) {
     e.preventDefault();
@@ -471,6 +479,7 @@
     });
     fit = new FitAddon();
     term.loadAddon(fit);
+    term.open(containerEl!);
     term.registerLinkProvider(new UrlRegexProvider(term));
     term.registerLinkProvider({ provideLinks(line, callback) {
       if (!connectedHostID) { callback(undefined); return; }
@@ -485,8 +494,6 @@
       });
       callback(links);
     } });
-
-    term.open(containerEl!);
     fit.fit();
 
     term.attachCustomKeyEventHandler((e) => {
@@ -529,8 +536,10 @@
     term.onData((d) => {
       if (!hasTyped) hasTyped = true;
       trackCommandInput(d);
-      writeLocal(d);
-      app.fanOutBroadcast(sessionID, d);
+      // Decide broadcast safety before writing the source pane. A dangerous
+      // Enter opens the confirmation without submitting the staged line on
+      // either the source or any other pane.
+      if (app.fanOutBroadcast(sessionID, d)) writeLocal(d);
       if (showSudoPill && !sudoInlineInput) dismissSudoPill();
     });
 
@@ -561,7 +570,24 @@
     containerEl?.addEventListener("contextmenu", openCtxMenu);
 
     globalKeydown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && ctxMenu) closeCtxMenu();
+      if (!ctxMenu) return;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeCtxMenu();
+        return;
+      }
+      if (!ctxMenuEl || !["ArrowDown", "ArrowUp", "Home", "End", "Enter"].includes(e.key)) return;
+      const items = [...ctxMenuEl.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')];
+      if (!items.length) return;
+      const current = Math.max(0, items.indexOf(document.activeElement as HTMLButtonElement));
+      const next = e.key === "ArrowDown" ? (current + 1) % items.length
+        : e.key === "ArrowUp" ? (current - 1 + items.length) % items.length
+        : e.key === "Home" ? 0
+        : e.key === "End" ? items.length - 1
+        : current;
+      e.preventDefault();
+      if (e.key === "Enter") items[current]?.click();
+      else items[next]?.focus();
     };
     window.addEventListener("keydown", globalKeydown);
 
@@ -652,6 +678,9 @@
     offConnectIntent = bus.on('connect-intent', (detail) => {
       if (detail.sessionID === sessionID) drainConnectIntent();
     });
+    offFocusTerminal = bus.on('focus-terminal', (detail) => {
+      if (detail.sessionID === sessionID) void tick().then(() => term?.focus());
+    });
 
     // Listen for theme changes from TerminalSidePanel
     onThemeChange = (e: Event) => {
@@ -672,6 +701,7 @@
     });
     return () => {
       offConnectIntent?.();
+      offFocusTerminal?.();
       if (onThemeChange) window.removeEventListener("terminal:theme-change", onThemeChange);
       if (globalKeydown) window.removeEventListener("keydown", globalKeydown);
     };
@@ -756,7 +786,7 @@
     resetTerminalInput();
     shellParser.reset(); shellIntegrated = false; shellCwd = ""; shellBranch = "";
     if (clearTarget) app.sessionTargets[sessionID] = null;
-    status = "starting"; errorMsg = "";
+    status = "starting"; errorMsg = ""; connectionWarning = "";
     try {
       await LocalShellService.Open(sessionID, term?.cols ?? 80, term?.rows ?? 24);
       if (disposed) { await LocalShellService.Close(sessionID); return; }
@@ -849,10 +879,13 @@
       bus.emit('session-label', { sessionID, label: app.hosts.find((h) => h.id === hostID)?.name ?? "" });
       runStartupSnippet(hostID);
     } catch (e: any) {
+      const reason = String(e?.message ?? e);
       status = "error";
-      errorMsg = String(e?.message ?? e);
+      errorMsg = reason;
       // Fall back to local shell on Mosh failure
       await openLocal();
+      connectionWarning = `Mosh connection failed; using a local shell instead. ${reason}`;
+      app.toast("warn", "MOSH CONNECTION FAILED", `Using a local shell instead. ${reason}`);
     }
   }
 
@@ -888,10 +921,13 @@
       bus.emit('session-label', { sessionID, label: app.hosts.find((h) => h.id === hostID)?.name ?? "" });
       runStartupSnippet(hostID);
     } catch (e: any) {
+      const reason = String(e?.message ?? e);
       status = "error";
-      errorMsg = String(e?.message ?? e);
+      errorMsg = reason;
       // Fall back to local shell on connect failure, like Mosh does.
       await openLocal();
+      connectionWarning = `${proto.toUpperCase()} connection failed; using a local shell instead. ${reason}`;
+      app.toast("warn", `${proto.toUpperCase()} CONNECTION FAILED`, `Using a local shell instead. ${reason}`);
     }
   }
 
@@ -1039,6 +1075,13 @@
 </script>
 
 <div class="relative flex h-full w-full flex-col bg-[var(--color-surface-0)]">
+  {#if connectionWarning}
+    <div class="flex shrink-0 items-start gap-2 border-b border-[var(--color-warn)]/30 bg-[var(--color-warn)]/8 px-3 py-1.5 type-caption text-[var(--color-warn)]" role="alert">
+      <AlertTriangle size="13" class="mt-0.5 shrink-0" />
+      <span class="min-w-0 flex-1">{connectionWarning}</span>
+      <button class="shrink-0 rounded border border-[var(--color-warn)]/30 px-1.5 py-0.5 type-micro hover:bg-[var(--color-warn)]/10" aria-label="Dismiss connection warning" onclick={() => (connectionWarning = "")}>Dismiss</button>
+    </div>
+  {/if}
   <!-- Production warning banner -->
   {#if connectedEnv.isProd && status === "connected"}
     <div class="flex items-center justify-center gap-1.5 border-b py-0.5 type-eyebrow"
@@ -1104,7 +1147,7 @@
       {/if}
     {/if}
 
-    <div class="ml-auto flex items-center gap-2 opacity-50 hover:opacity-100 transition-opacity">
+    <div class="ml-auto flex items-center gap-2 opacity-80 hover:opacity-100 transition-opacity">
       {#if errorMsg}
         <span class="truncate font-mono type-nano text-[var(--color-danger)]" title={errorMsg}>ERR: {errorMsg}</span>
       {/if}
@@ -1116,6 +1159,7 @@
       <button
         class="flex items-center gap-1 border px-1.5 py-px font-mono type-eyebrow transition-all {inBroadcast ? broadcastActive ? 'border-[var(--color-warn)]/40 bg-[var(--color-warn)]/8 text-[var(--color-warn)]' : 'border-[var(--color-line-strong)] text-[var(--color-text-2)]' : 'border-[var(--color-line)] text-[var(--color-text-4)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-2)]'}"
         onclick={toggleBroadcastMember}
+        aria-label={inBroadcast ? "Remove pane from broadcast" : "Add pane to broadcast"}
         title={inBroadcast ? "Remove from broadcast" : "Add to broadcast"}
       >
         <Radio size="9" class={broadcastActive ? 'pulse-soft' : ''} />CAST
@@ -1126,6 +1170,7 @@
         <button
           class="flex items-center gap-1 border border-[var(--color-line)] px-2 py-0.5 font-mono type-eyebrow text-[var(--color-text-3)] transition-all hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-2)]"
           onclick={() => { showSnippets = !showSnippets; if (showSnippets) loadSnippets(); }}
+          aria-label="Insert saved snippet"
           title="Insert Snippet"
         >
           <BookmarkIcon size="10" />SNIPPET
@@ -1155,6 +1200,7 @@
       <button
         class="flex items-center gap-1 border px-1.5 py-px font-mono type-eyebrow transition-all {showSidePanel ? 'border-[var(--color-accent)]/40 bg-[var(--color-accent)]/8 text-[var(--color-accent)]' : 'border-[var(--color-line)] text-[var(--color-text-4)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-2)]'}"
         onclick={() => (showSidePanel = !showSidePanel)}
+        aria-label={showSidePanel ? "Hide terminal side panel" : "Show terminal side panel"}
         title="Toggle side panel (Ctrl+.)"
       >
         <PanelRight size="10" />PANEL
@@ -1227,6 +1273,7 @@
           <input
             class="w-40 bg-transparent px-1 font-mono type-caption outline-none placeholder:text-[var(--color-text-4)]"
             placeholder="Find..."
+            aria-label="Search terminal output"
             bind:value={searchQuery}
             use:focus
             oninput={() => searchTerminal(searchQuery, 1, false)}
@@ -1238,10 +1285,10 @@
           <span class="px-1 font-mono type-micro text-[var(--color-text-4)]">
             {searchResults.resultCount > 0 ? `${searchResults.resultIndex + 1}/${searchResults.resultCount}` : '0/0'}
           </span>
-          <button class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]" onclick={() => searchTerminal(searchQuery, -1, true)}><ChevronUp size="12" /></button>
-          <button class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]" onclick={() => searchTerminal(searchQuery, 1, true)}><ChevronDown size="12" /></button>
+          <button aria-label="Previous terminal match" class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]" onclick={() => searchTerminal(searchQuery, -1, true)}><ChevronUp size="12" /></button>
+          <button aria-label="Next terminal match" class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]" onclick={() => searchTerminal(searchQuery, 1, true)}><ChevronDown size="12" /></button>
           <div class="h-4 w-px bg-[var(--color-line)]"></div>
-          <button class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]" onclick={() => { showSearch = false; term?.focus(); }}><X size="12" /></button>
+          <button aria-label="Close terminal search" class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]" onclick={() => { showSearch = false; term?.focus(); }}><X size="12" /></button>
         </div>
       {/if}
 
@@ -1290,6 +1337,7 @@
         oncontextmenu={(e) => { e.preventDefault(); closeCtxMenu(); }}
       ></div>
       <div
+        bind:this={ctxMenuEl}
         class="fade-up fixed z-50 min-w-[210px] overflow-hidden border hairline-strong surface-2 py-1 font-mono type-caption shadow-xl shadow-black/40"
         style="left: {ctxMenu.x}px; top: {ctxMenu.y}px; border-radius: var(--radius-md);"
         role="menu"
@@ -1301,6 +1349,7 @@
         <button
           class="flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors {inBroadcast ? 'text-[var(--color-warn)] hover:text-[var(--color-warn)] hover:bg-[var(--color-warn)]/10' : 'text-[var(--color-text-2)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]'}"
           role="menuitem"
+          aria-label={inBroadcast ? "Turn broadcast off for this pane" : "Turn broadcast on for this pane"}
           onclick={toggleBroadcastMember}
           title={inBroadcast ? "Remove this pane from broadcast" : "Echo this pane's keystrokes to all broadcast panes"}
         >
@@ -1316,6 +1365,7 @@
         <button
           class="flex w-full items-center gap-2 px-3 py-1.5 text-left type-caption text-[var(--color-text-2)] transition-colors hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)] disabled:cursor-not-allowed disabled:opacity-40"
           role="menuitem"
+          aria-label="Copy selected terminal text"
           disabled={!ctxHasSelection}
           onclick={ctxCopy}
         >
@@ -1326,6 +1376,7 @@
         <button
           class="flex w-full items-center gap-2 px-3 py-1.5 text-left type-caption text-[var(--color-text-2)] transition-colors hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
           role="menuitem"
+          aria-label="Paste clipboard into terminal"
           onclick={ctxPaste}
         >
           <Clipboard size="12" />
@@ -1336,6 +1387,7 @@
         <button
           class="flex w-full items-center gap-2 px-3 py-1.5 text-left type-caption text-[var(--color-text-2)] transition-colors hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
           role="menuitem"
+          aria-label="Select all terminal text"
           onclick={ctxSelectAll}
         >
           <ListRestart size="12" />
@@ -1345,6 +1397,7 @@
         <button
           class="flex w-full items-center gap-2 px-3 py-1.5 text-left type-caption text-[var(--color-text-2)] transition-colors hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
           role="menuitem"
+          aria-label="Clear terminal scrollback"
           onclick={ctxClear}
         >
           <Eraser size="12" />
@@ -1517,8 +1570,7 @@
     onCancel={() => (applyingSnippet = null)}
     onApply={(rendered) => {
       applyingSnippet = null;
-      writeLocal(rendered);
-      app.fanOutBroadcast(sessionID, rendered);
+      if (app.fanOutBroadcast(sessionID, rendered)) writeLocal(rendered);
       term?.focus();
     }}
   />
