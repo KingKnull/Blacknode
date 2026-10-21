@@ -26,7 +26,7 @@
     "@fontsource-variable/inter": "^5.1.1",
     "@fontsource-variable/jetbrains-mono": "^5.1.2",
     "@lucide/svelte": "^1.11.0",
-    "@wailsio/runtime": "3.0.0-beta.16",
+    "@wailsio/runtime": "3.0.0-beta.34",
     "codemirror": "^6.0.1",
     "ghostty-web": "^0.4.0"
   },
