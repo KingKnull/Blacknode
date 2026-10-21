@@ -26,6 +26,25 @@ type TerminalExit struct {
 	Reason    string `json:"reason"`
 }
 
+// ConnectionDiagnosticStage is the Wails-safe representation of one bounded
+// connection diagnostic stage.
+type ConnectionDiagnosticStage struct {
+	Name       string `json:"name"`
+	Status     string `json:"status"`
+	DurationMS int64  `json:"durationMs"`
+	Error      string `json:"error,omitempty"`
+}
+
+// ConnectionDiagnosticResult reports DNS, TCP, SSH handshake/auth, and PTY
+// checks without exposing any credential material.
+type ConnectionDiagnosticResult struct {
+	Host     string                      `json:"host"`
+	Port     int                         `json:"port"`
+	Success  bool                        `json:"success"`
+	Canceled bool                        `json:"canceled"`
+	Stages   []ConnectionDiagnosticStage `json:"stages"`
+}
+
 // SSHConnectOptions is the ad-hoc connect payload — used when the user types
 // host/user/password directly in the terminal toolbar instead of picking from
 // the saved-host list.
@@ -41,12 +60,13 @@ type SSHConnectOptions struct {
 }
 
 type sshSession struct {
-	client     *ssh.Client
-	session    *ssh.Session
-	stdin      io.WriteCloser
-	cancel     chan struct{}
-	cancelOnce sync.Once
-	info       TerminalSessionInfo
+	client        *ssh.Client
+	session       *ssh.Session
+	stdin         io.WriteCloser
+	cancel        chan struct{}
+	cancelConnect context.CancelFunc
+	cancelOnce    sync.Once
+	info          TerminalSessionInfo
 }
 
 type SSHService struct {
@@ -95,7 +115,7 @@ func (s *SSHService) Connect(ctx context.Context, sessionID string, opts SSHConn
 		Password:   opts.Password,
 		KeyID:      opts.KeyID,
 	}
-	return s.connectWith(sessionID, target, opts.Cols, opts.Rows, "")
+	return s.connectWith(ctx, sessionID, target, opts.Cols, opts.Rows, "")
 }
 
 // ConnectByHost opens an interactive shell using a saved host record. If the
@@ -107,11 +127,11 @@ func (s *SSHService) ConnectByHost(ctx context.Context, sessionID, hostID, passw
 		return fmt.Errorf("load host: %w", err)
 	}
 	target := sshconn.FromHostWithPassword(h, password)
-	return s.connectWith(sessionID, target, cols, rows, hostID)
+	return s.connectWith(ctx, sessionID, target, cols, rows, hostID)
 }
 
-func (s *SSHService) connectWith(sessionID string, t sshconn.Target, cols, rows int, hostID string) error {
-	return s.connectWithOptions(sessionID, t, cols, rows, hostID, nil)
+func (s *SSHService) connectWith(ctx context.Context, sessionID string, t sshconn.Target, cols, rows int, hostID string) error {
+	return s.connectWithOptions(ctx, sessionID, t, cols, rows, hostID, nil)
 }
 
 func (s *SSHService) ConnectSession(ctx context.Context, sessionID, hostID, password string, cols, rows int, options TerminalOptions) (TerminalSessionInfo, error) {
@@ -119,7 +139,7 @@ func (s *SSHService) ConnectSession(ctx context.Context, sessionID, hostID, pass
 	if err != nil {
 		return TerminalSessionInfo{}, err
 	}
-	err = s.connectWithOptions(sessionID, sshconn.FromHostWithPassword(h, password), cols, rows, hostID, &options)
+	err = s.connectWithOptions(ctx, sessionID, sshconn.FromHostWithPassword(h, password), cols, rows, hostID, &options)
 	if err != nil {
 		return TerminalSessionInfo{}, err
 	}
@@ -131,7 +151,32 @@ func (s *SSHService) ConnectSession(ctx context.Context, sessionID, hostID, pass
 	return TerminalSessionInfo{}, errors.New("session closed while connecting")
 }
 
-func (s *SSHService) connectWithOptions(sessionID string, t sshconn.Target, cols, rows int, hostID string, options *TerminalOptions) error {
+// DiagnoseConnection probes a saved SSH host without opening a terminal or
+// running a remote command. Each DNS, TCP, SSH handshake/auth, and PTY stage
+// is independently bounded; cancellation from the Wails call is honored.
+func (s *SSHService) DiagnoseConnection(ctx context.Context, hostID string) (ConnectionDiagnosticResult, error) {
+	if hostID == "" {
+		return ConnectionDiagnosticResult{}, errors.New("hostID is required")
+	}
+	h, err := s.hosts.GetResolved(hostID)
+	if err != nil {
+		return ConnectionDiagnosticResult{}, fmt.Errorf("load host: %w", err)
+	}
+	if h.Protocol != "" && h.Protocol != "ssh" {
+		return ConnectionDiagnosticResult{}, fmt.Errorf("connection diagnostics support SSH hosts only (protocol is %s)", h.Protocol)
+	}
+	d := s.dialer.Diagnose(ctx, sshconn.FromHost(h))
+	out := ConnectionDiagnosticResult{Host: d.Host, Port: d.Port, Success: d.Success, Canceled: d.Canceled, Stages: make([]ConnectionDiagnosticStage, len(d.Stages))}
+	for i, stage := range d.Stages {
+		out.Stages[i] = ConnectionDiagnosticStage{Name: stage.Name, Status: stage.Status, DurationMS: stage.DurationMS, Error: stage.Error}
+	}
+	return out, nil
+}
+
+func (s *SSHService) connectWithOptions(ctx context.Context, sessionID string, t sshconn.Target, cols, rows int, hostID string, options *TerminalOptions) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if sessionID == "" {
 		return errors.New("sessionID is required")
 	}
@@ -144,7 +189,8 @@ func (s *SSHService) connectWithOptions(sessionID string, t sshconn.Target, cols
 	// Keep a real state object in the map while the connection is being
 	// established. A nil sentinel cannot be cleaned up safely, and it also
 	// gives Disconnect no way to tell the in-flight connect to stand down.
-	pending := &sshSession{cancel: make(chan struct{})}
+	connectCtx, cancelConnect := context.WithCancel(ctx)
+	pending := &sshSession{cancel: make(chan struct{}), cancelConnect: cancelConnect}
 	s.mu.Lock()
 	if _, exists := s.sessions[sessionID]; exists {
 		s.mu.Unlock()
@@ -155,6 +201,7 @@ func (s *SSHService) connectWithOptions(sessionID string, t sshconn.Target, cols
 	// remove this exact object while setup is in progress.
 	s.sessions[sessionID] = pending
 	s.mu.Unlock()
+	defer cancelConnect()
 
 	// If anything below fails, remove the pending marker.
 	removeSentinel := true
@@ -168,7 +215,7 @@ func (s *SSHService) connectWithOptions(sessionID string, t sshconn.Target, cols
 		}
 	}()
 
-	client, err := s.dialer.Dial(t)
+	client, err := s.dialer.DialContext(connectCtx, t)
 	if err != nil {
 		return err
 	}
@@ -433,6 +480,9 @@ func (s *SSHService) cleanup(sessionID, reason string) {
 	// its cancellation signal; connectWithOptions checks it before publishing.
 	if state == nil {
 		return
+	}
+	if state.cancelConnect != nil {
+		state.cancelConnect()
 	}
 	state.cancelOnce.Do(func() {
 		if state.cancel != nil {

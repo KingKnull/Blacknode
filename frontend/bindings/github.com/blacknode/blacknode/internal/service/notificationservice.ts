@@ -34,6 +34,14 @@ export function NotifyDebounced(key: string, n: $models.Notification): $Cancella
 }
 
 /**
+ * SetActivityRecorder connects notifications to the append-only operational
+ * feed without changing the constructor used by integrations and fixtures.
+ */
+export function SetActivityRecorder(activity: $models.activityRecorder | null): $CancellablePromise<void> {
+    return $Call.ByID(2607702186, activity);
+}
+
+/**
  * SetDesktopEnabled / SetWebhookURL are wrapper setters the frontend uses
  * from the Settings panel.
  */

@@ -7,6 +7,7 @@
   import { bus } from "./events";
   import PageHeader from "./PageHeader.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
+  import { isReadOnlyHost, policyBlock, summarizePolicyHosts } from "./commandPolicy";
   import { checkCommand, anyProduction } from "./danger";
   import { envBadge } from "./envColor";
   import {
@@ -31,8 +32,10 @@
     severity: "warn" | "block-without-confirm";
     requirePhrase?: string;
     productionHosts: string[];
+    readOnlyHosts: string[];
   };
   let pendingConfirm: Confirmation | null = $state(null);
+  let commandInput: HTMLInputElement | undefined = $state();
 
   onMount(() => {
     return Events.On("exec:progress", (e: any) => {
@@ -62,37 +65,43 @@
       .filter((h): h is NonNullable<typeof h> => !!h);
   }
 
+  let selectedPolicy = $derived(summarizePolicyHosts(selectedHosts()));
+
   function buildConfirmation(): Confirmation | null {
     const hosts = selectedHosts();
-    const prodNames = hosts
-      .filter((h) => (h.environment ?? "").toLowerCase() === "production")
-      .map((h) => h.name);
+    const { production: prodNames, readOnly: readOnlyNames } = summarizePolicyHosts(hosts);
     const hasProd = anyProduction(hosts.map((h) => h.environment));
     const danger = checkCommand(command);
+    const readOnlyNote = readOnlyNames.length
+      ? ` Read-only hosts are included; mutating commands will be blocked by host policy.`
+      : "";
 
     if (danger && danger.level === "block-without-confirm") {
       return {
         title: `Dangerous command — ${danger.reason}`,
-        body: `The command matches a known destructive pattern (“${danger.matched}”) and will run on ${selected.size} host${selected.size === 1 ? "" : "s"}. Type the phrase below if you really mean this.`,
+        body: `The command matches a known destructive pattern (“${danger.matched}”) and will run on ${selected.size} host${selected.size === 1 ? "" : "s"}. Type the phrase below if you really mean this.${readOnlyNote}`,
         severity: "block-without-confirm",
         requirePhrase: hasProd ? "destroy production" : "I understand",
         productionHosts: prodNames,
+        readOnlyHosts: readOnlyNames,
       };
     }
     if (danger) {
       return {
         title: `Risky command — ${danger.reason}`,
-        body: `The command matches the pattern “${danger.matched}”. Confirm before running on ${selected.size} host${selected.size === 1 ? "" : "s"}.`,
+        body: `The command matches the pattern “${danger.matched}”. Confirm before running on ${selected.size} host${selected.size === 1 ? "" : "s"}.${readOnlyNote}`,
         severity: "warn",
         productionHosts: prodNames,
+        readOnlyHosts: readOnlyNames,
       };
     }
     if (hasProd) {
       return {
         title: "Production hosts in scope",
-        body: `${prodNames.length} of the selected hosts are tagged production. Confirm you want to run “${command}” against them.`,
+        body: `${prodNames.length} of the selected hosts are tagged production. Confirm you want to run “${command}” against them.${readOnlyNote}`,
         severity: "warn",
         productionHosts: prodNames,
+        readOnlyHosts: readOnlyNames,
       };
     }
     return null;
@@ -108,13 +117,16 @@
     await actuallyRun();
   }
 
-  async function actuallyRun() {
+  async function actuallyRun(approved = false) {
     pendingConfirm = null;
     running = true;
     runID = crypto.randomUUID();
     results = {};
     try {
-      await ExecService.Run(runID, command, [...selected], 60);
+      const completed = approved
+        ? await ExecService.RunApproved(runID, command, [...selected], 60)
+        : await ExecService.Run(runID, command, [...selected], 60);
+      for (const result of completed ?? []) results[result.hostID] = result;
     } finally {
       running = false;
     }
@@ -126,6 +138,17 @@
       r: results[id],
     })),
   );
+
+  let policyBlockedResults = $derived(
+    resultList.filter((item) => item.r?.error && policyBlock(item.r.error)),
+  );
+
+  function removeReadOnlyHosts() {
+    selected = new Set([...selected].filter((id) => {
+      const host = app.hosts.find((candidate) => candidate.id === id);
+      return !host || !isReadOnlyHost(host);
+    }));
+  }
 
   // ── Compare / diff mode ───────────────────────────────────────────
   let compareMode = $state(false);
@@ -178,6 +201,7 @@
       <input
         class="flex-1 rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-2 font-mono type-body outline-none focus:border-[var(--color-accent)]/50 focus:shadow-[0_0_12px_rgba(59,130,246,0.06)] transition-all"
         bind:value={command}
+        bind:this={commandInput}
         placeholder="command to run on every selected host"
         aria-label="Command to run on selected hosts"
         onkeydown={(e) => e.key === "Enter" && run()}
@@ -203,12 +227,31 @@
         </button>
       {/if}
     </div>
+    {#if selectedPolicy.readOnly.length > 0}
+      <div class="mt-2 flex flex-wrap items-center gap-2 rounded border border-[var(--color-accent)]/25 bg-[var(--color-accent)]/6 px-3 py-2 type-caption text-[var(--color-text-2)]" role="status">
+        <span class="font-semibold text-[var(--color-accent)]">Read-only scope:</span>
+        <span>{selectedPolicy.readOnly.join(", ")}</span>
+        <span class="text-[var(--color-text-4)]">Inspection commands only; policy blocks mutations.</span>
+        <button class="ml-auto rounded border border-[var(--color-accent)]/35 px-2 py-1 type-micro text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10" onclick={removeReadOnlyHosts}>Remove from selection</button>
+      </div>
+    {/if}
+    {#if policyBlockedResults.length > 0}
+      <div class="mt-2 rounded border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/8 px-3 py-2 type-caption" role="alert">
+        <div class="font-semibold text-[var(--color-danger)]">Command blocked by host policy</div>
+        <div class="mt-1 text-[var(--color-text-2)]">{policyBlockedResults.map((item) => `${item.host?.name ?? item.r?.hostID}: ${policyBlock(item.r?.error)?.reason ?? item.r?.error}`).join(" · ")}</div>
+        <div class="mt-1 text-[var(--color-text-3)]">{policyBlock(policyBlockedResults[0]?.r?.error)?.action}</div>
+        {#if policyBlockedResults.some((item) => policyBlock(item.r?.error)?.reason.toLowerCase().includes("production host"))}
+          <button class="mt-2 rounded border border-[var(--color-danger)]/35 px-2 py-1 type-micro text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10" onclick={() => commandInput?.focus()}>Review command and retry</button>
+        {/if}
+      </div>
+    {/if}
   </div>
 
   <div class="grid h-full grid-cols-[260px_1fr] overflow-hidden">
     <div class="overflow-y-auto border-r hairline">
       {#each app.scopedHosts as h (h.id)}
         {@const env = envBadge(h.environment)}
+        {@const readOnly = isReadOnlyHost(h)}
         <label
           class="flex cursor-pointer items-center gap-2.5 border-b hairline px-3 py-2 type-caption transition-colors hover:bg-[var(--color-surface-2)]"
         >
@@ -230,6 +273,9 @@
                   style:border="1px solid {env.border}"
                   >{env.label}</span
                 >
+              {/if}
+              {#if readOnly}
+                <span class="shrink-0 rounded-sm border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/8 px-1 type-nano font-mono font-semibold text-[var(--color-accent)]" title="Read-only host — inspection commands only">RO</span>
               {/if}
             </div>
             <div class="truncate type-micro text-[var(--color-text-3)]">
@@ -293,6 +339,7 @@
       {:else}
       {#each resultList as item (item.host?.id)}
         {#if item.host}
+          {@const policy = item.r?.error ? policyBlock(item.r.error) : null}
           <div class="border-b hairline">
             <div class="flex items-center gap-2 surface-1 px-4 py-2 type-caption">
               <Server size="11" class="text-[var(--color-text-3)]" />
@@ -300,7 +347,11 @@
                 >{item.host.name}</span
               >
               {#if item.r}
-                {#if item.r.error}
+                {#if policy}
+                  <span class="flex items-center gap-1 text-[var(--color-danger)]" title={policy.action}>
+                    <AlertTriangle size="11" />blocked by policy
+                  </span>
+                {:else if item.r.error}
                   <span class="flex items-center gap-1 text-[var(--color-danger)]">
                     <AlertTriangle size="11" />error: {item.r.error}
                   </span>
@@ -359,9 +410,10 @@
       body={pendingConfirm.body}
       severity={pendingConfirm.severity}
       productionHosts={pendingConfirm.productionHosts}
+      readOnlyHosts={pendingConfirm.readOnlyHosts}
       requirePhrase={pendingConfirm.requirePhrase}
       onCancel={() => (pendingConfirm = null)}
-      onConfirm={actuallyRun}
+      onConfirm={() => actuallyRun(true)}
     />
   {/if}
 </div>

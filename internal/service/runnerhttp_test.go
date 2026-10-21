@@ -118,6 +118,19 @@ func TestRunnerRolesExpiringCredentialsAndSharedInput(t *testing.T) {
 	if !strings.Contains(audit, "session.contributor") || strings.Contains(audit, "peer input") || strings.Contains(audit, viewer.Token) {
 		t.Fatal("audit is missing actor events or contains raw input/credentials")
 	}
+	var events []store.OperationEvent
+	if err := json.Unmarshal([]byte(audit), &events); err != nil {
+		t.Fatal(err)
+	}
+	for _, event := range events {
+		var detail map[string]any
+		if err := json.Unmarshal([]byte(event.Body), &detail); err != nil {
+			t.Fatal(err)
+		}
+		if detail["actorID"] == nil || detail["target"] == nil || detail["result"] == nil {
+			t.Fatalf("audit event lacks security metadata: %s", event.Body)
+		}
+	}
 }
 
 func TestRunnerTriggersSchedulesAndRestartRecovery(t *testing.T) {
@@ -211,5 +224,33 @@ func TestRunnerTriggersSchedulesAndRestartRecovery(t *testing.T) {
 	}
 	if err = s.platform.store.Read("schedule", schedule.ID, &schedule); err != nil || schedule.LastJobID == "" || schedule.NextRunAt <= time.Now().UnixMilli() {
 		t.Fatalf("schedule state was not durable: %+v %v", schedule, err)
+	}
+}
+
+func TestTeamAuditMetadataRedactsSecretsAndBoundsDetails(t *testing.T) {
+	value := map[string]any{
+		"memberID": "member-1",
+		"token":    "do-not-persist",
+		"nested":   map[string]any{"password": "also-secret", "safe": "ok"},
+	}
+	safe := sanitizeAuditValue(value)
+	raw, err := json.Marshal(safe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded := string(raw)
+	if strings.Contains(encoded, "do-not-persist") || strings.Contains(encoded, "also-secret") {
+		t.Fatalf("audit value retained secret: %s", encoded)
+	}
+	if !strings.Contains(encoded, "[redacted]") || !strings.Contains(encoded, "member-1") {
+		t.Fatalf("audit value lost metadata: %s", encoded)
+	}
+
+	body := sanitizeAuditBody(`{"token":"hidden","target":"member-1"}`)
+	if strings.Contains(body, "hidden") || !strings.Contains(body, "member-1") {
+		t.Fatalf("sanitized audit body: %s", body)
+	}
+	if got := sanitizeAuditBody(strings.Repeat("x", 64<<10+1)); len(got) > 128 {
+		t.Fatalf("bounded audit response too large: %d", len(got))
 	}
 }

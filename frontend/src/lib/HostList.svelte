@@ -10,6 +10,7 @@
   import CloudImport from "./CloudImport.svelte";
   import { envBadge } from "./envColor";
   import { platformBadge } from "./platform";
+  import { hostMatchesFilter, recentHostProfiles } from "./hostProfiles";
   import {
     Search,
     Plus,
@@ -32,7 +33,6 @@
   let creating = $state(false);
   let importing = $state(false);
   let cloudImporting = $state(false);
-  let filter = $state("");
   let searchInput: HTMLInputElement;
 
   // Mosh availability — checked once, gates the context-menu entry.
@@ -82,16 +82,7 @@
   }
 
   let visible = $derived(
-    app.hosts.filter((h) => {
-      if (!filter) return true;
-      const f = filter.toLowerCase();
-      return (
-        h.name.toLowerCase().includes(f) ||
-        h.host.toLowerCase().includes(f) ||
-        (h.group ?? "").toLowerCase().includes(f) ||
-        (h.tags ?? []).some((t) => t.toLowerCase().includes(f))
-      );
-    }),
+    app.hosts.filter((h) => hostMatchesFilter(h, app.workspaceFilters.hostSearch)),
   );
 
   let connectedCount = $derived(app.connectedHosts.size);
@@ -136,7 +127,7 @@
 
   // While a filter is active every match should be visible, or searching would
   // appear to return nothing for a collapsed group.
-  let filtering = $derived(filter.trim().length > 0);
+  let filtering = $derived(app.workspaceFilters.hostSearch.trim().length > 0);
   function groupCollapsed(name: string): boolean {
     return !filtering && collapsedGroups.includes(name);
   }
@@ -151,12 +142,9 @@
   // timestamp. Only shown when not actively filtering, so it stays a
   // shortcut rather than clutter.
   let recentHosts = $derived(
-    filter
+    filtering
       ? []
-      : app.hosts
-          .filter((h) => h.lastConnectedAt > 0)
-          .sort((a, b) => b.lastConnectedAt - a.lastConnectedAt)
-          .slice(0, 5),
+      : recentHostProfiles(app.hosts),
   );
 
   async function toggleFavorite(h: Host) {
@@ -268,7 +256,7 @@
         class="w-full bg-transparent py-2 pl-8 pr-10 type-caption text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)]"
         placeholder="Search hosts, tags…"
         aria-label="Search hosts and tags"
-        bind:value={filter}
+        bind:value={app.workspaceFilters.hostSearch}
         bind:this={searchInput}
       />
       <kbd class="absolute right-2 border hairline bg-[var(--color-surface-3)] px-1.5 py-0.5 font-mono type-micro text-[var(--color-text-4)]">/</kbd>
@@ -323,6 +311,9 @@
               >{platform.monogram}</span>
             {/if}
             <span class="truncate type-body font-medium leading-tight text-[var(--color-text-1)]">{h.name}</span>
+            {#if h.alias}
+              <span class="truncate type-micro text-[var(--color-text-3)]">{h.alias}</span>
+            {/if}
             {#if env.label}
               <span
                 class="shrink-0 rounded px-1 type-micro font-semibold"

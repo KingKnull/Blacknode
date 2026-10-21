@@ -7,6 +7,7 @@
   import PageHeader from "./PageHeader.svelte";
   import EmptyState from "./EmptyState.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
+  import Dialog from "./Dialog.svelte";
   import Skeleton from "./Skeleton.svelte";
   import {
     History as HistoryIcon,
@@ -28,6 +29,8 @@
   let sourceFilter = $state(""); // exec | snippet | ""
   let loading = $state(false);
   let searching = $state(false);
+  let reviewEntry = $state<HistoryEntry | null>(null);
+  let reviewCommand = $state("");
 
   onMount(refresh);
 
@@ -78,9 +81,22 @@
     app.toast('ok', 'COPIED', 'Command copied to clipboard.');
   }
 
-  function insertIntoActiveTerminal(rendered: string) {
-    bus.emit('insert-into-active-terminal', rendered);
+  function reviewForInsert(entry: HistoryEntry) {
+    reviewEntry = entry;
+    reviewCommand = entry.command;
+  }
+
+  function closeReview() {
+    reviewEntry = null;
+    reviewCommand = "";
+  }
+
+  function insertReviewedCommand() {
+    const command = reviewCommand.trim();
+    if (!command) return;
+    bus.emit('insert-into-active-terminal', command);
     app.view = "terminals";
+    closeReview();
   }
 
   function fmtTime(unix: number) {
@@ -213,8 +229,9 @@
                 </button>
                 <button
                   class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
-                  onclick={() => insertIntoActiveTerminal(e.command)}
-                  title="Insert into active terminal"
+                  onclick={() => reviewForInsert(e)}
+                  title="Review before inserting into active terminal"
+                  aria-label="Review command before inserting into active terminal"
                 >
                   <ArrowRight size="11" />
                 </button>
@@ -233,6 +250,51 @@
     {/if}
   </div>
 </div>
+
+{#if reviewEntry}
+  <Dialog
+    label="Review command before insert"
+    onclose={closeReview}
+    portal
+    panelClass="w-[min(42rem,calc(100vw-2rem))] rounded-lg border hairline-strong surface-1 shadow-2xl"
+  >
+    <div class="border-b hairline px-4 py-3">
+      <div class="type-title text-[var(--color-text-1)]">REVIEW COMMAND</div>
+      <div class="mt-1 type-caption text-[var(--color-text-3)]">
+        Inspect or edit this command before it is inserted into the active terminal. It will not run automatically.
+      </div>
+    </div>
+    <div class="space-y-3 p-4">
+      <div class="flex flex-wrap items-center gap-2 type-micro text-[var(--color-text-3)]">
+        <span>{reviewEntry.source}</span>
+        {#if reviewEntry.hostName}<span>· target: {reviewEntry.hostName}</span>{/if}
+        <span>· {fmtTime(reviewEntry.executedAt)}</span>
+      </div>
+      <textarea
+        bind:value={reviewCommand}
+        rows="8"
+        aria-label="Command to insert"
+        data-autofocus
+        class="w-full resize-y rounded-md border hairline-strong bg-[var(--color-surface-3)] p-3 font-mono type-caption text-[var(--color-text-1)] outline-none focus:border-[var(--color-accent)]/60"
+      ></textarea>
+      <div class="flex justify-end gap-2">
+        <button
+          class="rounded-md border hairline-strong px-3 py-1.5 type-caption text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)]"
+          onclick={closeReview}
+        >
+          cancel
+        </button>
+        <button
+          class="rounded-md border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 px-3 py-1.5 type-caption text-[var(--color-accent)] hover:bg-[var(--color-accent)]/20 disabled:cursor-not-allowed disabled:opacity-50"
+          onclick={insertReviewedCommand}
+          disabled={!reviewCommand.trim()}
+        >
+          insert into terminal
+        </button>
+      </div>
+    </div>
+  </Dialog>
+{/if}
 
 {#if confirmClear}
   <ConfirmDanger

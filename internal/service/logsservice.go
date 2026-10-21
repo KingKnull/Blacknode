@@ -89,6 +89,10 @@ func (s *LogsService) Start(streamID string, hostIDs []string, command string) e
 			s.emit(streamID, id, "?", fmt.Sprintf("[error: %v]", err), true)
 			continue
 		}
+		if err := commandPolicyError(h, command, CommandPolicyApproval{}); err != nil {
+			s.emit(streamID, id, h.Name, "[policy error: "+err.Error()+"]", true)
+			continue
+		}
 		client, release, err := s.pool.Get(sshconn.FromHost(h))
 		if err != nil {
 			s.emit(streamID, id, h.Name, fmt.Sprintf("[connect error: %v]", err), true)

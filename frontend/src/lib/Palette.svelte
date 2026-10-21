@@ -137,7 +137,7 @@
         hint: `${h.username}@${h.host}:${h.port || 22}`,
         icon: Server,
         category: "Hosts",
-        keywords: `${h.host} ${h.username} ${h.group} ${(h.tags ?? []).join(" ")}`,
+        keywords: `${h.host} ${h.username} ${h.group} ${h.alias ?? ""} ${(h.tags ?? []).join(" ")}`,
         run: () => {
           app.selectedHostID = h.id;
           bus.emit("connect-host", { hostID: h.id });

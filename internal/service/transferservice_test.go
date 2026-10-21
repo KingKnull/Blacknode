@@ -79,6 +79,9 @@ func TestTransferCancelResumeAndShutdownAreDurable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if task.Attempts != 1 {
+		t.Fatalf("initial queue attempt = %d, want 1", task.Attempts)
+	}
 	if err := s.Cancel(context.Background(), task.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -103,6 +106,9 @@ func TestTransferCancelResumeAndShutdownAreDurable(t *testing.T) {
 	if saved.Status != "queued" {
 		t.Fatalf("resume not persisted: %s", saved.Status)
 	}
+	if saved.Attempts != 2 {
+		t.Fatalf("resume attempt = %d, want 2", saved.Attempts)
+	}
 	s.StopAll()
 	if err := s.store.Read("transfer", task.ID, &saved); err != nil {
 		t.Fatal(err)
@@ -126,6 +132,39 @@ func TestTransferResumeHonorsQueueLimit(t *testing.T) {
 	s.mu.Unlock()
 	if err := s.Resume(context.Background(), "paused"); err == nil || !strings.Contains(err.Error(), "full") {
 		t.Fatalf("expected full queue, got %v", err)
+	}
+}
+
+func TestTransferProgressPersistsDirectoryCopyUpdates(t *testing.T) {
+	s, hosts := transferServiceFixture(t)
+	task := TransferTask{ID: "directory", Status: "running", Request: TransferRequest{HostID: hosts[0], Direction: "upload", Directory: true}}
+	s.mu.Lock()
+	s.tasks[task.ID] = task
+	s.mu.Unlock()
+	s.progress(TransferProgress{ID: task.ID, Direction: "upload", Path: "/tree/file", Transferred: 12, Total: 40})
+	items := s.List(context.Background())
+	if len(items) != 1 || items[0].Transferred != 12 || items[0].Total != 40 {
+		t.Fatalf("progress was not attached to queue item: %+v", items)
+	}
+	var saved TransferTask
+	if err := s.store.Read("transfer", task.ID, &saved); err != nil {
+		t.Fatal(err)
+	}
+	if saved.Transferred != 12 || saved.Total != 40 {
+		t.Fatalf("progress was not durable: %+v", saved)
+	}
+}
+
+func TestTransferCancelReportsUnknownAndTerminalTasks(t *testing.T) {
+	s, _ := transferServiceFixture(t)
+	if err := s.Cancel(context.Background(), "missing"); err == nil {
+		t.Fatal("unknown transfer cancellation succeeded")
+	}
+	s.mu.Lock()
+	s.tasks["done"] = TransferTask{ID: "done", Status: "completed"}
+	s.mu.Unlock()
+	if err := s.Cancel(context.Background(), "done"); err == nil || !strings.Contains(err.Error(), "already completed") {
+		t.Fatalf("expected terminal-state error, got %v", err)
 	}
 }
 

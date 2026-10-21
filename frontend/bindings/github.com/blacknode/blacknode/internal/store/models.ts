@@ -375,6 +375,12 @@ export class HistoryEntry {
 export class Host {
     "id": string;
     "name": string;
+
+    /**
+     * Alias is an optional human-friendly profile alias. Name remains the
+     * stable saved-host label used by existing links (for example ProxyJump).
+     */
+    "alias"?: string;
     "host": string;
     "port": number;
     "username": string;
@@ -500,14 +506,14 @@ export class Host {
      * Creates a new Host instance from a string or object.
      */
     static createFrom($$source: any = {}): Host {
-        const $$createField10_0 = $$createType0;
-        const $$createField22_0 = $$createType3;
+        const $$createField11_0 = $$createType0;
+        const $$createField23_0 = $$createType3;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("tags" in $$parsedSource) {
-            $$parsedSource["tags"] = $$createField10_0($$parsedSource["tags"]);
+            $$parsedSource["tags"] = $$createField11_0($$parsedSource["tags"]);
         }
         if ("envVars" in $$parsedSource) {
-            $$parsedSource["envVars"] = $$createField22_0($$parsedSource["envVars"]);
+            $$parsedSource["envVars"] = $$createField23_0($$parsedSource["envVars"]);
         }
         return new Host($$parsedSource as Partial<Host>);
     }
@@ -690,11 +696,16 @@ export class OperationDocument {
 }
 
 export class OperationEvent {
+    "id"?: string;
     "seq": number;
     "scope": string;
+    "source"?: string;
+    "level"?: string;
     "kind": string;
     "title": string;
     "body": string;
+    "hostID"?: string;
+    "hostName"?: string;
     "at": number;
 
     /** Creates a new OperationEvent instance. */

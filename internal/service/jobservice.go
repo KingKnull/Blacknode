@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -23,6 +24,8 @@ type JobStepState struct {
 	Attempts int    `json:"attempts"`
 	ExitCode int    `json:"exitCode"`
 	Error    string `json:"error"`
+	Stdout   string `json:"stdout,omitempty"`
+	Stderr   string `json:"stderr,omitempty"`
 }
 type Job struct {
 	ID        string         `json:"id"`
@@ -264,6 +267,8 @@ func (s *JobService) execute(ctx context.Context, job *Job, values map[string]st
 	for _, step := range job.Steps {
 		state[fmt.Sprintf("%s:%d", step.HostID, step.Index)] = step
 	}
+	hostFailed := map[string]bool{}
+	anyFailure := false
 	redact := func(text string) string {
 		for _, value := range values {
 			if len(value) >= 4 {
@@ -288,11 +293,17 @@ func (s *JobService) execute(ctx context.Context, job *Job, values map[string]st
 		}
 		if !rollback {
 			key := fmt.Sprintf("%s:%d", r.HostID, index)
-			state[key] = JobStepState{HostID: r.HostID, Index: index, Name: step.Name, Status: status, Attempts: attempt, ExitCode: r.ExitCode, Error: r.Error}
+			state[key] = JobStepState{HostID: r.HostID, Index: index, Name: step.Name, Status: status, Attempts: attempt, ExitCode: r.ExitCode, Error: r.Error, Stdout: r.Stdout, Stderr: r.Stderr}
 			job.Steps = job.Steps[:0]
 			for _, st := range state {
 				job.Steps = append(job.Steps, st)
 			}
+			sort.Slice(job.Steps, func(i, j int) bool {
+				if job.Steps[i].HostID != job.Steps[j].HostID {
+					return job.Steps[i].HostID < job.Steps[j].HostID
+				}
+				return job.Steps[i].Index < job.Steps[j].Index
+			})
 			if err := s.save(job); err != nil {
 				return err
 			}
@@ -308,10 +319,29 @@ func (s *JobService) execute(ctx context.Context, job *Job, values map[string]st
 		}
 		return command
 	}
-	for _, batch := range batches {
-		failed := false
+	markTargets := func(targets []string, status, message string) error {
+		for _, host := range targets {
+			for index, step := range steps {
+				key := fmt.Sprintf("%s:%d", host, index)
+				previous := state[key]
+				if previous.Status != "" && previous.Status != "running" {
+					continue
+				}
+				if err := record(index, step, ExecResult{HostID: host, ExitCode: -1, Error: message}, status, previous.Attempts, false); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	markUnfinished := func(status, message string) error { return markTargets(job.HostIDs, status, message) }
+	for batchIndex, batch := range batches {
+		batchFailed := false
 		for index, step := range steps {
 			if ctx.Err() != nil {
+				if err := markUnfinished("canceled", "run canceled before this target completed"); err != nil {
+					return err
+				}
 				return ctx.Err()
 			}
 			timeout := step.TimeoutSeconds
@@ -321,7 +351,13 @@ func (s *JobService) execute(ctx context.Context, job *Job, values map[string]st
 			eligible := []string{}
 			for _, host := range batch {
 				previous := state[fmt.Sprintf("%s:%d", host, index)]
-				if previous.Status == "ok" || previous.Status == "skipped" {
+				if previous.Status == "ok" || previous.Status == "skipped" || previous.Status == "failed" || previous.Status == "canceled" {
+					continue
+				}
+				if job.Book.StopOnFailure && hostFailed[host] {
+					if err := record(index, step, ExecResult{HostID: host, ExitCode: -1, Error: "previous step failed"}, "skipped", previous.Attempts, false); err != nil {
+						return err
+					}
 					continue
 				}
 				blocked := false
@@ -336,7 +372,12 @@ func (s *JobService) execute(ctx context.Context, job *Job, values map[string]st
 					}
 				}
 				if blocked {
-					failed = true
+					hostFailed[host] = true
+					batchFailed = true
+					anyFailure = true
+					if err := record(index, step, ExecResult{HostID: host, ExitCode: -1, Error: "dependency failed"}, "skipped", previous.Attempts, false); err != nil {
+						return err
+					}
 					continue
 				}
 				if step.When != "" {
@@ -357,7 +398,9 @@ func (s *JobService) execute(ctx context.Context, job *Job, values map[string]st
 						if err := record(index, step, results[0], "failed", previous.Attempts+1, false); err != nil {
 							return err
 						}
-						failed = true
+						hostFailed[host] = true
+						batchFailed = true
+						anyFailure = true
 						continue
 					}
 				}
@@ -371,10 +414,21 @@ func (s *JobService) execute(ctx context.Context, job *Job, values map[string]st
 				}
 				outcomes, e := s.books.exec.Run(ctx, job.ID, wrap(step.Command), eligible, timeout)
 				if e != nil {
+					if ctx.Err() != nil {
+						_ = markUnfinished("canceled", "run canceled before this target completed")
+					}
 					return e
 				}
+				byHost := map[string]ExecResult{}
+				for _, outcome := range outcomes {
+					byHost[outcome.HostID] = outcome
+				}
 				retry := []string{}
-				for _, r := range outcomes {
+				for _, host := range eligible {
+					r, ok := byHost[host]
+					if !ok {
+						r = ExecResult{HostID: host, ExitCode: -1, Error: "no result returned"}
+					}
 					if r.ExitCode == 0 && r.Error == "" && step.HealthCheck != "" {
 						checks, e := s.books.exec.Run(ctx, job.ID+":health", wrap(step.HealthCheck), []string{r.HostID}, timeout)
 						if e != nil {
@@ -391,17 +445,22 @@ func (s *JobService) execute(ctx context.Context, job *Job, values map[string]st
 					status := "ok"
 					if r.ExitCode != 0 || r.Error != "" {
 						status = "failed"
+						if ctx.Err() != nil {
+							status = "canceled"
+						}
 					}
 					if err := record(index, step, r, status, attempt+1, false); err != nil {
 						return err
 					}
-					if status == "failed" {
+					if status == "failed" || status == "canceled" {
+						hostFailed[host] = true
+						batchFailed = true
+						anyFailure = true
 						if step.RetrySafe && attempt < step.Retries && ctx.Err() == nil {
 							retry = append(retry, r.HostID)
 							continue
 						}
-						failed = true
-						if step.RollbackCommand != "" && ctx.Err() == nil {
+						if status == "failed" && step.RollbackCommand != "" && ctx.Err() == nil {
 							rollbacks, e := s.books.exec.Run(ctx, job.ID+":rollback", wrap(step.RollbackCommand), []string{r.HostID}, timeout)
 							if e != nil {
 								return e
@@ -422,18 +481,34 @@ func (s *JobService) execute(ctx context.Context, job *Job, values map[string]st
 				if len(retry) > 0 {
 					select {
 					case <-ctx.Done():
+						if err := markUnfinished("canceled", "run canceled before this target completed"); err != nil {
+							return err
+						}
 						return ctx.Err()
 					case <-time.After(time.Second * time.Duration(1<<attempt)):
 					}
 				}
 			}
-			if failed && job.Book.StopOnFailure {
-				return errors.New("batch stopped after a failed command or health check")
+		}
+		if batchFailed && batchIndex == 0 && job.Book.CanarySize > 0 && batchIndex+1 < len(batches) {
+			remaining := []string{}
+			for _, later := range batches[batchIndex+1:] {
+				remaining = append(remaining, later...)
 			}
+			if err := markTargets(remaining, "skipped", "canary batch failed; later targets were not started"); err != nil {
+				return err
+			}
+			return errors.New("canary batch failed; later targets were not started")
 		}
-		if failed {
-			return errors.New("batch failed; later hosts were not changed")
+	}
+	if ctx.Err() != nil {
+		if err := markUnfinished("canceled", "run canceled before this target completed"); err != nil {
+			return err
 		}
+		return ctx.Err()
+	}
+	if anyFailure {
+		return errors.New("runbook completed with one or more target failures")
 	}
 	return nil
 }

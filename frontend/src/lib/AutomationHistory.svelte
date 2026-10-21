@@ -73,8 +73,11 @@
   <label>Execution<select bind:value={selected}><option value="">Select a run</option>{#each jobs as job (job.id)}<option value={job.id}>{job.book.name} · {job.status} · {new Date(job.createdAt).toLocaleString()}</option>{/each}</select></label>
   {#if current}
     <div class="ops-actions"><strong>{current.book.name} · {current.status}</strong>{#if ['queued','running'].includes(current.status)}<button onclick={() => cancel(current.id)}>Cancel run</button>{:else if ['failed','canceled','interrupted'].includes(current.status)}<button onclick={() => { resumeJob = current; acknowledged = false; phrase = ''; }}>Review unfinished steps</button>{/if}</div>
-    {#if current.error}<p class="ops-error">{current.error}</p>{/if}
-    {#each events as event (event.seq)}
+     {#if current.error}<p class="ops-error">{current.error}</p>{/if}
+     {#if current.steps.length}<div class="overflow-x-auto"><table class="ops-table"><thead><tr><th>Target</th><th>Step</th><th>Status</th><th>Exit</th><th>Details</th></tr></thead><tbody>
+       {#each current.steps as step (step.hostID + ':' + step.index)}<tr><td>{app.hosts.find((host) => host.id === step.hostID)?.name || step.hostID}</td><td>{step.index + 1}. {step.name}</td><td>{step.status}</td><td>{step.exitCode < 0 ? '—' : step.exitCode}</td><td class="max-w-80 break-words">{#if step.error}<span>{step.error}</span>{:else if step.stdout || step.stderr}<details><summary>Output</summary><pre class="max-w-80 whitespace-pre-wrap">{step.stdout}{step.stderr}</pre></details>{:else}—{/if}</td></tr>{/each}
+     </tbody></table></div>{/if}
+     {#each events as event (event.seq)}
       {@const result = JSON.parse(event.body) as RunbookResult}
       <details class="ops-card" open={result.status.includes('failed')}><summary>{result.stepIndex + 1}. {result.stepName} · {result.result.hostName || app.hosts.find((host) => host.id === result.result.hostID)?.name || result.result.hostID} · {result.status}</summary><pre class="ops-output">{result.command}{'\n'}{result.result.stdout}{result.result.stderr}{result.result.error}</pre></details>
     {/each}

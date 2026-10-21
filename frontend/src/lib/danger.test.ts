@@ -144,6 +144,13 @@ describe("orchestration and IaC", () => {
     expectLevel("aws s3 rm s3://bucket --recursive", "block-without-confirm");
   });
 
+  test("requires confirmation for reviewed Kubernetes state changes", () => {
+    expectLevel("kubectl apply -f -", "block-without-confirm");
+    expectLevel("kubectl --context=prod --namespace=app apply -f -", "block-without-confirm");
+    expectLevel("kubectl scale deployment/web --replicas=2", "block-without-confirm");
+    expectLevel("kubectl rollout restart deployment/web", "block-without-confirm");
+  });
+
   test("catches softer variants as warnings", () => {
     expectLevel("terraform apply -auto-approve", "warn");
     expectLevel("kubectl delete pod nginx-1", "warn");

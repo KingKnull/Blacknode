@@ -108,7 +108,7 @@ func (s *MetricsService) evaluateAlerts(m HostMetrics, now time.Time) []Notifica
 			if now.Sub(state.since) >= time.Duration(cfg.HoldSeconds)*time.Second && (!state.firing || now.Sub(state.lastNotification) >= debounceWindow) {
 				state.firing = true
 				state.lastNotification = now
-				notifications = append(notifications, Notification{Kind: NotifyWarn, Source: "metrics", HostName: m.HostName,
+				notifications = append(notifications, Notification{Kind: NotifyWarn, Source: "metrics", HostID: m.HostID, HostName: m.HostName,
 					Title: fmt.Sprintf("%s high on %s", metric.label, m.HostName),
 					Body:  fmt.Sprintf("%s = %.1f%% (threshold %.1f%% for %ds)", metric.label, metric.value, metric.threshold, cfg.HoldSeconds)})
 			}
@@ -117,7 +117,7 @@ func (s *MetricsService) evaluateAlerts(m HostMetrics, now time.Time) []Notifica
 			if state.firing && metric.value <= metric.threshold-math.Min(3, metric.threshold/2) {
 				state.firing = false
 				if cfg.RecoveryNotifications {
-					notifications = append(notifications, Notification{Kind: NotifyOK, Source: "metrics", HostName: m.HostName,
+					notifications = append(notifications, Notification{Kind: NotifyOK, Source: "metrics", HostID: m.HostID, HostName: m.HostName,
 						Title: fmt.Sprintf("%s recovered on %s", metric.label, m.HostName), Body: fmt.Sprintf("%s = %.1f%%", metric.label, metric.value)})
 				}
 			}

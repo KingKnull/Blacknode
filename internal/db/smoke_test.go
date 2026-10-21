@@ -191,6 +191,48 @@ func TestMigrate_FreshDatabase(t *testing.T) {
 	}
 }
 
+func TestMigrate_AddsHostAliasToExistingHosts(t *testing.T) {
+	conn, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	// This is the current host shape before the profile alias column was added.
+	// Keeping the row here proves migration preserves existing saved hosts while
+	// making the new nullable-in-practice metadata available to the store.
+	_, err = conn.Exec(`CREATE TABLE hosts (
+		id TEXT PRIMARY KEY, name TEXT NOT NULL, host TEXT NOT NULL,
+		port INTEGER NOT NULL DEFAULT 22, username TEXT NOT NULL,
+		auth_method TEXT NOT NULL, key_id TEXT, group_name TEXT NOT NULL DEFAULT '',
+		environment TEXT NOT NULL DEFAULT '', proxy_jump TEXT NOT NULL DEFAULT '',
+		tags TEXT NOT NULL DEFAULT '[]', notes TEXT NOT NULL DEFAULT '',
+		favorite INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL,
+		updated_at INTEGER NOT NULL, last_connected_at INTEGER NOT NULL DEFAULT 0,
+		startup_snippet_id TEXT NOT NULL DEFAULT '', protocol TEXT NOT NULL DEFAULT 'ssh',
+		serial_device TEXT NOT NULL DEFAULT '', serial_baud INTEGER NOT NULL DEFAULT 0,
+		serial_data_bits INTEGER NOT NULL DEFAULT 0, serial_parity TEXT NOT NULL DEFAULT '',
+		serial_stop_bits TEXT NOT NULL DEFAULT '', forward_agent INTEGER NOT NULL DEFAULT 0,
+		platform TEXT NOT NULL DEFAULT '', env_vars TEXT NOT NULL DEFAULT ''
+	)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = conn.Exec(`INSERT INTO hosts (id, name, host, username, auth_method, created_at, updated_at) VALUES ('legacy', 'legacy host', '10.0.0.5', 'ops', 'agent', 1, 1)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Migrate(conn); err != nil {
+		t.Fatalf("migrate legacy hosts: %v", err)
+	}
+	var alias string
+	if err := conn.QueryRow(`SELECT alias FROM hosts WHERE id = 'legacy'`).Scan(&alias); err != nil {
+		t.Fatal(err)
+	}
+	if alias != "" {
+		t.Fatalf("legacy alias = %q, want empty default", alias)
+	}
+}
+
 // newCollapsedDB reproduces a database that ran the first attempt at the seq
 // repair: it renumbered with a correlated subquery over the table being
 // updated, and every row read the first row's new value, so all n rows ended up

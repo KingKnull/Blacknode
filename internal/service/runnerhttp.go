@@ -177,6 +177,9 @@ func (m TeamMember) canHost(id string) bool {
 }
 func (m TeamMember) canOperate() bool { return m.Role == "admin" || m.Role == "operator" }
 func (m TeamMember) canHosts(ids []string) bool {
+	if len(ids) == 0 {
+		return false
+	}
 	for _, id := range ids {
 		if !m.canHost(id) {
 			return false
@@ -222,8 +225,121 @@ func runnerDecode(w http.ResponseWriter, r *http.Request, value any) error {
 	return nil
 }
 func (r *RunnerHTTP) audit(member TeamMember, kind string, value any) error {
-	_, err := r.infra.platform.store.Append("team-audit", kind, member.Name, map[string]any{"actorID": member.ID, "detail": value})
+	return r.auditResult(member, kind, auditTarget(value), "success", value)
+}
+
+// auditResult is the single boundary for runner audit records. Keep the
+// metadata stable and deliberately separate from detail: consumers can index
+// actor, target and result without parsing an arbitrary payload. Detail is
+// JSON-sanitised before it reaches SQLite so a future endpoint cannot
+// accidentally persist bearer tokens, passwords, or credential material.
+func (r *RunnerHTTP) auditResult(member TeamMember, kind, target, result string, detail any) error {
+	if target == "" {
+		target = kind
+	}
+	safe := sanitizeAuditValue(detail)
+	if encoded, err := json.Marshal(safe); err != nil || len(encoded) > 64<<10 {
+		safe = map[string]string{"redacted": "audit detail exceeds 64 KiB"}
+	}
+	_, err := r.infra.platform.store.Append("team-audit", kind, safeAuditText(member.Name, 256), map[string]any{
+		"actorID": member.ID,
+		"actor":   safeAuditText(member.Name, 256),
+		"target":  safeAuditText(target, 512),
+		"result":  safeAuditText(result, 64),
+		"detail":  safe,
+	})
 	return err
+}
+
+func auditTarget(value any) string {
+	if s, ok := value.(string); ok {
+		return s
+	}
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return ""
+	}
+	var object map[string]any
+	if json.Unmarshal(raw, &object) != nil {
+		return ""
+	}
+	for _, key := range []string{"target", "id", "sessionID", "memberID", "hostID", "bookID", "jobID"} {
+		if v, ok := object[key]; ok {
+			if s, ok := v.(string); ok && s != "" {
+				return s
+			}
+		}
+	}
+	return ""
+}
+
+func safeAuditText(value string, max int) string {
+	if len(value) > max {
+		return value[:max] + "…"
+	}
+	return value
+}
+
+func sensitiveAuditKey(key string) bool {
+	k := strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(key, "_", ""), "-", ""))
+	for _, part := range []string{"token", "password", "secret", "authorization", "cookie", "privatekey", "credential", "passphrase"} {
+		if strings.Contains(k, part) {
+			return true
+		}
+	}
+	return false
+}
+
+func sanitizeAuditValue(value any) any {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return "[redacted]"
+	}
+	var decoded any
+	if json.Unmarshal(raw, &decoded) != nil {
+		return "[redacted]"
+	}
+	return sanitizeAuditJSON(decoded)
+}
+
+func sanitizeAuditJSON(value any) any {
+	switch v := value.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(v))
+		for key, item := range v {
+			if sensitiveAuditKey(key) {
+				out[key] = "[redacted]"
+				continue
+			}
+			out[safeAuditText(key, 128)] = sanitizeAuditJSON(item)
+		}
+		return out
+	case []any:
+		out := make([]any, len(v))
+		for i, item := range v {
+			out[i] = sanitizeAuditJSON(item)
+		}
+		return out
+	case string:
+		return safeAuditText(v, 2048)
+	default:
+		return value
+	}
+}
+
+func sanitizeAuditBody(body string) string {
+	if len(body) > 64<<10 {
+		return `{"redacted":"audit detail exceeds 64 KiB"}`
+	}
+	var value any
+	if json.Unmarshal([]byte(body), &value) != nil {
+		return `{"redacted":"invalid audit detail"}`
+	}
+	safe, err := json.Marshal(sanitizeAuditJSON(value))
+	if err != nil || len(safe) > 64<<10 {
+		return `{"redacted":"audit detail unavailable"}`
+	}
+	return string(safe)
 }
 
 func (r *RunnerHTTP) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -250,7 +366,15 @@ func (r *RunnerHTTP) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	path := strings.Trim(req.URL.Path, "/")
 	parts := strings.Split(path, "/")
 	fail := func(err error) { runnerError(w, 400, err) }
-	deny := func() { runnerError(w, 403, errors.New("permission denied")) }
+	deny := func() {
+		// Authorization failures are evidence too. Keep this best-effort so a
+		// damaged audit table never turns a denial into a different response.
+		_ = r.auditResult(member, "authorization.denied", path, "denied", map[string]string{
+			"method": req.Method,
+			"path":   path,
+		})
+		runnerError(w, 403, errors.New("permission denied"))
+	}
 	switch {
 	case path == "api/me" && req.Method == "GET":
 		runnerJSON(w, 200, member)
@@ -299,6 +423,10 @@ func (r *RunnerHTTP) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		r.audit(member, "monitor.created", doc.ID)
 		runnerJSON(w, 201, doc)
 	case path == "api/runbooks" && req.Method == "GET":
+		if member.Role == "viewer" {
+			deny()
+			return
+		}
 		books, err := r.infra.books.List(req.Context())
 		if err != nil {
 			fail(err)
@@ -389,11 +517,32 @@ func (r *RunnerHTTP) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			deny()
 			return
 		}
-		after, _ := strconv.ParseInt(req.URL.Query().Get("after"), 10, 64)
-		events, err := r.infra.platform.store.Events("team-audit", after, 500)
+		after := int64(0)
+		if raw := req.URL.Query().Get("after"); raw != "" {
+			parsed, parseErr := strconv.ParseInt(raw, 10, 64)
+			if parseErr != nil || parsed < 0 {
+				fail(errors.New("after must be a non-negative cursor"))
+				return
+			}
+			after = parsed
+		}
+		limit := 200
+		if raw := req.URL.Query().Get("limit"); raw != "" {
+			parsed, parseErr := strconv.Atoi(raw)
+			if parseErr != nil || parsed < 1 || parsed > 200 {
+				fail(errors.New("limit must be between 1 and 200"))
+				return
+			}
+			limit = parsed
+		}
+		events, err := r.infra.platform.store.Events("team-audit", after, limit)
 		if err != nil {
 			fail(err)
 			return
+		}
+		for i := range events {
+			events[i].Title = safeAuditText(events[i].Title, 256)
+			events[i].Body = sanitizeAuditBody(events[i].Body)
 		}
 		runnerJSON(w, 200, events)
 	case path == "api/triggers":
@@ -540,23 +689,31 @@ func (r *RunnerHTTP) reviewedBook(input TeamJobRequest) (Runbook, error) {
 	return book, err
 }
 func (r *RunnerHTTP) startJob(ctx context.Context, m TeamMember, input TeamJobRequest) (Job, error) {
+	if !m.canOperate() || !m.canHosts(input.HostIDs) {
+		_ = r.auditResult(m, "authorization.denied", input.BookID, "denied", map[string]any{"hostIDs": input.HostIDs})
+		return Job{}, errors.New("permission denied")
+	}
 	book, err := r.reviewedBook(input)
 	if err != nil {
 		return Job{}, err
-	}
-	if !m.canOperate() || !m.canHosts(input.HostIDs) {
-		return Job{}, errors.New("permission denied")
 	}
 	if err := r.audit(m, "job.requested", map[string]any{"bookID": book.ID, "hostIDs": input.HostIDs}); err != nil {
 		return Job{}, err
 	}
 	job, err := r.infra.jobs.Start(ctx, book, input.HostIDs, input.Values)
-	if err == nil {
-		r.audit(m, "job.started", job.ID)
+	if err != nil {
+		_ = r.auditResult(m, "job.failed", book.ID, "failure", map[string]any{"error": err.Error()})
+		return job, err
 	}
+	_ = r.auditResult(m, "job.started", job.ID, "success", map[string]any{"bookID": book.ID, "hostIDs": input.HostIDs})
 	return job, err
 }
 func (r *RunnerHTTP) handleMembers(w http.ResponseWriter, req *http.Request, actor TeamMember) {
+	if actor.Role != "admin" {
+		_ = r.auditResult(actor, "authorization.denied", "members", "denied", map[string]string{"method": req.Method})
+		runnerError(w, 403, errors.New("permission denied"))
+		return
+	}
 	if req.Method == "GET" {
 		docs, err := r.infra.platform.store.List("team-credential", 2000)
 		if err != nil {
@@ -819,6 +976,10 @@ func (w sharedOutput) Write(data []byte) (int, error) {
 	return originalLen, nil
 }
 func (r *RunnerHTTP) openSession(ctx context.Context, m TeamMember, hostID string, cols, rows int) (TeamSession, error) {
+	if !m.canOperate() || !m.canHost(hostID) {
+		_ = r.auditResult(m, "authorization.denied", hostID, "denied", map[string]string{"action": "session.start"})
+		return TeamSession{}, errors.New("permission denied")
+	}
 	if cols < 1 || cols > 1000 || rows < 1 || rows > 1000 {
 		return TeamSession{}, errors.New("invalid terminal dimensions")
 	}
@@ -978,6 +1139,11 @@ func (r *RunnerHTTP) Close() {
 }
 
 func (r *RunnerHTTP) manageTriggers(w http.ResponseWriter, req *http.Request, actor TeamMember) {
+	if actor.Role != "admin" {
+		_ = r.auditResult(actor, "authorization.denied", "triggers", "denied", map[string]string{"method": req.Method})
+		runnerError(w, 403, errors.New("permission denied"))
+		return
+	}
 	if req.Method == "GET" {
 		docs, err := r.infra.platform.store.List("runner-trigger", 500)
 		if err != nil {

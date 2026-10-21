@@ -279,6 +279,16 @@ func TestActivity_VerifyDetectsRehashedRow(t *testing.T) {
 	}
 }
 
+func TestActivity_ExportRejectsNegativeSequence(t *testing.T) {
+	a := NewActivities(newActivityDB(t))
+	if _, err := a.ExportRange(-1, 0); err == nil {
+		t.Fatal("negative export sequence was accepted")
+	}
+	if _, err := a.ExportRange(0, -1); err == nil {
+		t.Fatal("negative export upper bound was accepted")
+	}
+}
+
 // TestActivity_LegacyRowsAreReportedNotJudged: an install that predates the
 // chain has rows with no hash. Verify must neither claim they're valid nor flag
 // the whole log as tampered.

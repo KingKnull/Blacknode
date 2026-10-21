@@ -40,6 +40,7 @@ type Notification struct {
 	Title     string     `json:"title"`
 	Body      string     `json:"body"`
 	Source    string     `json:"source"` // "exec" | "metrics" | "test" | etc.
+	HostID    string     `json:"hostID,omitempty"`
 	HostName  string     `json:"hostName,omitempty"`
 	Timestamp int64      `json:"timestamp"`
 }
@@ -47,6 +48,7 @@ type Notification struct {
 type NotificationService struct {
 	settings *store.Settings
 	http     *http.Client
+	activity *activityRecorder
 
 	// debouncePerHost throttles repeated alerts (e.g. CPU over 90% staying
 	// over 90% for an hour shouldn't spam every poll).
@@ -64,6 +66,12 @@ func NewNotificationService(settings *store.Settings) *NotificationService {
 	}
 }
 
+// SetActivityRecorder connects notifications to the append-only operational
+// feed without changing the constructor used by integrations and fixtures.
+func (s *NotificationService) SetActivityRecorder(activity *activityRecorder) {
+	s.activity = activity
+}
+
 // Notify is the single emit path: desktop toast (best-effort), in-app toast
 // (always), webhook POST (if configured). All three branches are independent
 // so a webhook failure doesn't suppress the toast.
@@ -76,6 +84,19 @@ func (s *NotificationService) Notify(ctx context.Context, n Notification) {
 	}
 	if n.Kind == "" {
 		n.Kind = NotifyInfo
+	}
+	if s.activity != nil {
+		source := n.Source
+		if source == "" {
+			source = "notification"
+		}
+		level := "info"
+		if n.Kind == NotifyWarn {
+			level = "warn"
+		} else if n.Kind == NotifyError {
+			level = "error"
+		}
+		s.activity.Record(store.Activity{Source: source, Kind: "notification." + string(n.Kind), Level: level, Title: n.Title, Body: redactEvidence(n.Body), HostID: n.HostID, HostName: n.HostName, At: n.Timestamp})
 	}
 
 	if app := application.Get(); app != nil {

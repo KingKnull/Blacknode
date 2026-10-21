@@ -234,8 +234,13 @@ func (s *Activities) Head() (string, error) {
 
 // ExportRange returns rows in chain order for a signed export. Unlike List it
 // ascends by seq and includes the hash columns, because a verifier needs the
-// chain in the order it was built.
+// chain in the order it was built. Exports are capped so an unbounded history
+// cannot become an oversized IPC response or disk artifact.
 func (s *Activities) ExportRange(fromSeq, toSeq int64) ([]Activity, error) {
+	const maxExportRows = 10000
+	if fromSeq < 0 || toSeq < 0 {
+		return nil, errors.New("activity export sequence must be non-negative")
+	}
 	q := `SELECT id, source, kind, level, title, body, host_id, host_name, at, seq, prev_hash, hash
 	      FROM activity WHERE seq >= ?`
 	args := []any{fromSeq}
@@ -243,7 +248,8 @@ func (s *Activities) ExportRange(fromSeq, toSeq int64) ([]Activity, error) {
 		q += " AND seq <= ?"
 		args = append(args, toSeq)
 	}
-	q += " ORDER BY seq ASC"
+	q += " ORDER BY seq ASC LIMIT ?"
+	args = append(args, maxExportRows+1)
 
 	rows, err := s.db.Query(q, args...)
 	if err != nil {
@@ -259,7 +265,13 @@ func (s *Activities) ExportRange(fromSeq, toSeq int64) ([]Activity, error) {
 		}
 		out = append(out, a)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(out) > maxExportRows {
+		return nil, fmt.Errorf("activity export exceeds %d entries; narrow the sequence range", maxExportRows)
+	}
+	return out, nil
 }
 
 // ActivityFilter narrows the feed. Empty fields don't constrain. Limit

@@ -127,6 +127,9 @@
             <span class="shrink-0 rounded px-1.5 type-micro font-semibold" style:color={env.color} style:background={env.bg}>{env.label}</span>
           {/if}
         </div>
+        {#if host.alias}
+          <div class="mt-0.5 truncate type-caption text-[var(--color-text-3)]">{host.alias}</div>
+        {/if}
         <div class="mt-0.5 flex items-center gap-1.5 type-caption text-[var(--color-text-3)]">
           <span class="h-1.5 w-1.5 rounded-full {connected ? 'bg-[var(--color-success)]' : 'bg-[var(--color-text-4)]'}"></span>
           {connected ? "Connected" : "Not connected"}

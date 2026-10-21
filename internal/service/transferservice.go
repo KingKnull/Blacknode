@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
@@ -30,11 +31,17 @@ type TransferTask struct {
 	Request        TransferRequest `json:"request"`
 	Status         string          `json:"status"`
 	Error          string          `json:"error"`
+	Attempts       int             `json:"attempts"`
 	Transferred    int64           `json:"transferred"`
 	Total          int64           `json:"total"`
 	SourceModified int64           `json:"sourceModified"`
 	UpdatedAt      int64           `json:"updatedAt"`
 }
+
+const (
+	transferConcurrency = 2
+	transferQueueLimit  = 64
+)
 
 type TransferService struct {
 	sftp    *SFTPService
@@ -48,7 +55,10 @@ type TransferService struct {
 }
 
 func NewTransferService(sftp *SFTPService, operations *store.Operations) *TransferService {
-	s := &TransferService{sftp: sftp, store: operations, tasks: map[string]TransferTask{}, cancels: map[string]context.CancelFunc{}, slots: make(chan struct{}, 2)}
+	s := &TransferService{sftp: sftp, store: operations, tasks: map[string]TransferTask{}, cancels: map[string]context.CancelFunc{}, slots: make(chan struct{}, transferConcurrency)}
+	if sftp != nil {
+		sftp.setProgressHandler(s.progress)
+	}
 	docs, _ := operations.List("transfer", 500)
 	for _, d := range docs {
 		var t TransferTask
@@ -131,6 +141,7 @@ func (s *TransferService) Enqueue(ctx context.Context, request TransferRequest) 
 	}
 	s.tasks[t.ID] = t
 	s.launchLocked(t)
+	t = s.tasks[t.ID]
 	return t, nil
 }
 
@@ -165,7 +176,7 @@ func (s *TransferService) canLaunchLocked(t TransferTask) error {
 			}
 		}
 	}
-	if active >= 64 {
+	if active >= transferQueueLimit {
 		return errors.New("transfer queue is full")
 	}
 	return nil
@@ -200,11 +211,16 @@ func (s *TransferService) Resume(ctx context.Context, id string) error {
 
 func (s *TransferService) Cancel(ctx context.Context, id string) error {
 	s.mu.Lock()
+	t, ok := s.tasks[id]
 	cancel := s.cancels[id]
 	s.mu.Unlock()
-	if cancel != nil {
-		cancel()
+	if !ok {
+		return errors.New("transfer not found")
 	}
+	if cancel == nil {
+		return fmt.Errorf("transfer is already %s", t.Status)
+	}
+	cancel()
 	return nil
 }
 
@@ -232,8 +248,39 @@ func (s *TransferService) update(t TransferTask) {
 	}
 }
 
+// progress persists progress emitted by recursive SFTP copies. Single-file
+// transfers use transferFile's stronger source verification and update path;
+// this callback fills the gap for directory copies, whose files are streamed
+// by SFTPService instead.
+func (s *TransferService) progress(p TransferProgress) {
+	if p.ID == "" || p.Done {
+		return
+	}
+	s.mu.Lock()
+	t, ok := s.tasks[p.ID]
+	if !ok || (t.Status != "queued" && t.Status != "running") {
+		s.mu.Unlock()
+		return
+	}
+	if p.Total >= 0 {
+		t.Total = p.Total
+	}
+	t.Transferred = p.Transferred
+	t.UpdatedAt = time.Now().UnixMilli()
+	s.tasks[t.ID] = t
+	_, _ = s.store.Put("transfer", t.ID, -1, t)
+	s.mu.Unlock()
+	if a := application.Get(); a != nil {
+		a.Event.Emit("transfers:changed", t)
+	}
+}
+
 // Register cancellation before exposing the queued task to another caller.
 func (s *TransferService) launchLocked(t TransferTask) {
+	t.Attempts++
+	t.UpdatedAt = time.Now().UnixMilli()
+	s.tasks[t.ID] = t
+	_, _ = s.store.Put("transfer", t.ID, -1, t)
 	ctx, cancel := context.WithCancel(context.Background())
 	s.cancels[t.ID] = cancel
 	s.wg.Add(1)

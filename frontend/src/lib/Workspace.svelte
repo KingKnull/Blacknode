@@ -6,6 +6,7 @@
     PluginService,
     PortForwardService,
     MetricsService,
+    PlatformService,
   } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import { app, type View } from "./state.svelte";
   import HostList from "./HostList.svelte";
@@ -21,7 +22,7 @@
   import ShortcutOverlay from "./ShortcutOverlay.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
   import WorkspacesMenu from "./WorkspacesMenu.svelte";
-  import { captureWorkspace, parseWorkspace, readWorkspace, restoreWorkspace, SESSION_KEY, type WorkspaceSnapshot } from "./workspaces";
+  import { captureWorkspace, parsePersistedWorkspaceState, parseWorkspace, readWorkspace, restoreWorkspace, sanitizeWorkspace, SESSION_KEY, type WorkspaceSnapshot } from "./workspaces";
 
   import Toaster from "./Toaster.svelte";
   import LogoMark from "./logo/LogoMark.svelte";
@@ -36,6 +37,7 @@
     type PaneNode,
   } from "./panes";
   import { bus } from "./events";
+  import { isReadOnlyHost } from "./commandPolicy";
   import { pluginIDForSource, parseHostMessage } from "./pluginBridge";
   import {
     Radio,
@@ -67,6 +69,7 @@
   if (previous) {
     app.view = (app.isViewVisible(previous.view) ? previous.view : "terminals") as View;
     app.selectedHostID = previous.selectedHostID;
+    app.workspaceFilters = previous.filters;
   }
   let forwardIDs = $state<string[]>(previous?.forwardIDs ?? []);
   let reconnectPending = $state(!!restored && (Object.values(restored.targets).some(Boolean) || !!previous?.forwardIDs.length));
@@ -77,12 +80,16 @@
   function capture(): WorkspaceSnapshot {
     return captureWorkspace(tabs, activeTabID, app.sessionTargets, {
       view: app.view, sidebarWidth, selectedHostID: app.selectedHostID, forwardIDs,
+      filters: app.workspaceFilters,
+      context: { serviceWorkspaceID: app.serviceContext?.id ?? null },
     });
   }
 
   function layoutFits(candidate: Tab[]): boolean {
     const valid = parseWorkspace(captureWorkspace(candidate, activeTabID, app.sessionTargets, {
       view: app.view, sidebarWidth, selectedHostID: app.selectedHostID, forwardIDs,
+      filters: app.workspaceFilters,
+      context: { serviceWorkspaceID: app.serviceContext?.id ?? null },
     }));
     if (!valid) app.toast("warn", "Workspace layout limit reached", "Close a tab or pane before adding another.");
     return !!valid;
@@ -105,6 +112,39 @@
     const flush = () => { try { localStorage.setItem(SESSION_KEY, data); } catch { /* visible error on next save */ } };
     window.addEventListener("pagehide", flush);
     return () => { clearTimeout(timer); window.removeEventListener("pagehide", flush); };
+  });
+
+  let serviceSaveTimer: ReturnType<typeof setTimeout> | undefined;
+  let serviceSaveBusy = false;
+  let serviceSaveQueued = false;
+  function scheduleServiceSave() {
+    if (!workspaceReady || !app.serviceContext || app.serviceContextRevision <= 0) return;
+    if (serviceSaveTimer) clearTimeout(serviceSaveTimer);
+    serviceSaveTimer = setTimeout(() => { serviceSaveTimer = undefined; void saveServiceState(); }, 400);
+  }
+  async function saveServiceState() {
+    const context = app.serviceContext;
+    const revision = app.serviceContextRevision;
+    if (!context || revision <= 0) return;
+    if (serviceSaveBusy) { serviceSaveQueued = true; return; }
+    serviceSaveBusy = true;
+    try {
+      const stateJSON = JSON.stringify({ version: 1, snapshot: capture() });
+      const record = await PlatformService.SaveWorkspace({ ...context, stateJSON }, revision);
+      app.serviceContextRevision = record.revision;
+      try { localStorage.removeItem(`blacknode.service-layout:${context.id}`); } catch { /* migration data is optional */ }
+    } catch (e) {
+      app.toast("warn", "Workspace state not saved", String(e));
+    } finally {
+      serviceSaveBusy = false;
+      if (serviceSaveQueued) { serviceSaveQueued = false; scheduleServiceSave(); }
+    }
+  }
+  $effect(() => {
+    if (app.serviceContext) scheduleServiceSave();
+    // Read the captured snapshot so pane, selection, and filter mutations
+    // trigger the durable service-record debounce as well.
+    if (app.serviceContext) void JSON.stringify(capture());
   });
 
   async function reconnectWorkspace() {
@@ -138,17 +178,19 @@
   }
 
   function openWorkspace(snapshot: WorkspaceSnapshot) {
-    const next = restoreWorkspace(snapshot, () => crypto.randomUUID());
+    const safe = sanitizeWorkspace(snapshot, app.hosts.map((host) => host.id));
+    const next = restoreWorkspace(safe, () => crypto.randomUUID(), app.hosts.map((host) => host.id));
     app.broadcastEnabled = false;
     app.broadcastSet = new Set();
     app.pendingBroadcastDanger = null;
     app.sessionTargets = next.targets;
     tabs = next.tabs;
     activeTabID = next.activeTabID;
-    sidebarWidth = snapshot.sidebarWidth;
-    app.selectedHostID = snapshot.selectedHostID;
-    app.view = (app.isViewVisible(snapshot.view) ? snapshot.view : "terminals") as View;
-    forwardIDs = [...snapshot.forwardIDs];
+    sidebarWidth = safe.sidebarWidth;
+    app.selectedHostID = safe.selectedHostID;
+    app.workspaceFilters = safe.filters;
+    app.view = (app.isViewVisible(safe.view) ? safe.view : "terminals") as View;
+    forwardIDs = [...safe.forwardIDs];
     reconnectPending = true;
     void reconnectWorkspace();
   }
@@ -156,7 +198,19 @@
   let vaultLockOff: (() => void) | undefined;
 
   onMount(() => {
-    void app.refreshAll().then(() => { workspaceReady = true; }).catch((e) => {
+    void app.refreshAll().then(() => {
+      workspaceReady = true;
+      const durable = app.serviceContext ? parsePersistedWorkspaceState(app.serviceContext.stateJSON) : null;
+      let legacy: WorkspaceSnapshot | null = null;
+      if (app.serviceContext && !durable) {
+        try { legacy = parseWorkspace(JSON.parse(localStorage.getItem(`blacknode.service-layout:${app.serviceContext.id}`) ?? "null")); } catch { legacy = null; }
+      }
+      if (durable || legacy) openWorkspace(durable ?? legacy!);
+      if (app.selectedHostID && !app.hosts.some((host) => host.id === app.selectedHostID)) app.selectedHostID = null;
+      for (const [sessionID, target] of Object.entries(app.sessionTargets)) {
+        if (target && !app.hosts.some((host) => host.id === target.hostID)) app.sessionTargets[sessionID] = null;
+      }
+    }).catch((e) => {
       app.toast("error", "Could not load workspace hosts", String(e));
     });
 
@@ -339,11 +393,15 @@
     });
     const offServiceWorkspace = bus.on('open-service-workspace', (workspace) => {
       try {
-        if (app.serviceContext) localStorage.setItem(`blacknode.service-layout:${app.serviceContext.id}`,JSON.stringify(capture()));
-        const saved = parseWorkspace(JSON.parse(localStorage.getItem(`blacknode.service-layout:${workspace.id}`) ?? 'null'));
-        const snapshot = saved ?? parseWorkspace({ version: 2, tabs: workspace.hostIDs.slice(0,32).map((hostID) => ({ root: { kind: 'leaf', target: { hostID, via: 'ssh' } }, activeLeaf: 0 })), activeTab: 0, view: 'terminals', sidebarWidth, selectedHostID: workspace.hostIDs[0], forwardIDs: workspace.forwardIDs });
+        if (app.serviceContext) void saveServiceState();
+        const saved = parsePersistedWorkspaceState(workspace.stateJSON);
+        let legacy: WorkspaceSnapshot | null = null;
+        if (!saved) {
+          try { legacy = parseWorkspace(JSON.parse(localStorage.getItem(`blacknode.service-layout:${workspace.id}`) ?? 'null')); } catch { legacy = null; }
+        }
+        const snapshot = saved ?? legacy ?? parseWorkspace({ version: 2, tabs: workspace.hostIDs.slice(0,32).map((hostID) => ({ root: { kind: 'leaf', target: { hostID, via: 'ssh' } }, activeLeaf: 0 })), activeTab: 0, view: 'terminals', sidebarWidth, selectedHostID: workspace.hostIDs[0], forwardIDs: workspace.forwardIDs });
         if (!snapshot) { app.toast('error','Workspace needs at least one host'); return; }
-        app.activateServiceWorkspace(workspace);
+        app.activateServiceWorkspace(workspace, (workspace as typeof workspace & { revision?: number }).revision ?? 0);
         openWorkspace(snapshot);
         for (const id of workspace.metricHostIDs) void MetricsService.Start(id,app.settings.metricsIntervalSeconds).catch((e) => app.toast('error','Monitoring',String(e)));
       } catch (e) { app.toast('error','Could not open service workspace',String(e)); }
@@ -716,6 +774,13 @@
   let isResizing = $state(false);
   let shortcutOpen = $state(false);
   let focusMode = $state(false);
+  let broadcastReadOnlyHosts = $derived(
+    [...app.broadcastSet]
+      .map((sessionID) => app.sessionHosts[sessionID])
+      .filter((attached): attached is NonNullable<typeof attached> => !!attached)
+      .map((attached) => app.hosts.find((host) => host.id === attached.hostID))
+      .filter((host): host is NonNullable<typeof host> => !!host && isReadOnlyHost(host)),
+  );
 
   function startResize(e: MouseEvent) {
     isResizing = true;
@@ -788,6 +853,9 @@
         <span>Cast</span>
         {#if app.broadcastEnabled}
           <span class="font-mono border border-[var(--color-warn)]/30 bg-[var(--color-warn)]/15 px-1 type-micro">{app.broadcastSet.size}</span>
+          {#if broadcastReadOnlyHosts.length > 0}
+            <span class="rounded border border-[var(--color-accent)]/35 bg-[var(--color-accent)]/10 px-1 font-mono type-micro text-[var(--color-accent)]" title={`Read-only hosts in broadcast: ${broadcastReadOnlyHosts.map((host) => host.name).join(", ")}`}>RO {broadcastReadOnlyHosts.length}</span>
+          {/if}
         {/if}
       </button>
 
@@ -950,6 +1018,7 @@
       body={`“${p.command}” matches the pattern “${p.danger.matched}”. The command is held before Enter reaches this pane${p.targets > 0 ? ` or ${p.targets} other pane${p.targets === 1 ? "" : "s"}` : ""}. Confirm to submit it everywhere in the broadcast set.`}
       severity={p.danger.level}
       productionHosts={p.productionHosts}
+      readOnlyHosts={p.readOnlyHosts}
       requirePhrase={p.danger.level === "block-without-confirm"
         ? p.productionHosts.length > 0
           ? "destroy production"

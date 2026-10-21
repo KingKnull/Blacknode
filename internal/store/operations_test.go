@@ -54,3 +54,39 @@ func TestOperationsRestoreContinuesRevisionAndRejectsStaleEdits(t *testing.T) {
 		}
 	}
 }
+
+func TestOperationsCorrelatedTimelineMergesScopesAndHostsWithBound(t *testing.T) {
+	conn, err := db.OpenPath(filepath.Join(t.TempDir(), "timeline.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	operations := store.NewOperations(conn.DB)
+	activities := store.NewActivities(conn.DB)
+	if _, err := activities.Record(store.Activity{Source: "metrics", Kind: "notification.warn", Level: "warn", Title: "CPU high", Body: "fixture", HostID: "host-1", At: 1700000000}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := operations.Append("workspace-1", "job.failed", "Run failed", map[string]string{"runID": "run-1"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := operations.AppendForHost("monitor:1", "monitor.down", "Service down", "host-1", map[string]string{"detail": "fixture"}); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := operations.CorrelatedTimeline([]string{"workspace-1"}, []string{"host-1"}, 0, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("timeline length = %d, want 3", len(got))
+	}
+	if got[0].Source != "metrics" || got[0].Level != "warn" || got[0].HostID != "host-1" {
+		t.Fatalf("activity correlation = %+v", got[0])
+	}
+	if got[2].Source != "monitor" || got[2].Level != "error" || got[2].HostID != "host-1" {
+		t.Fatalf("operation correlation = %+v", got[2])
+	}
+	if got[0].At >= got[1].At {
+		t.Fatalf("timeline is not chronological: %d >= %d", got[0].At, got[1].At)
+	}
+}

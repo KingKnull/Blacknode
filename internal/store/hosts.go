@@ -13,8 +13,11 @@ import (
 )
 
 type Host struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	// Alias is an optional human-friendly profile alias. Name remains the
+	// stable saved-host label used by existing links (for example ProxyJump).
+	Alias       string `json:"alias,omitempty"`
 	Host        string `json:"host"`
 	Port        int    `json:"port"`
 	Username    string `json:"username"`
@@ -179,7 +182,7 @@ func ExportCommand(vars []EnvVar) string {
 // hostColumns is the column list every host SELECT shares, in the exact order
 // scanHost expects. Kept in one place so adding a column cannot leave one of
 // the four read paths behind.
-const hostColumns = `id, name, host, port, username, auth_method, key_id, group_name, environment, proxy_jump, tags, notes, favorite, created_at, updated_at, last_connected_at, startup_snippet_id, protocol, serial_device, serial_baud, serial_data_bits, serial_parity, serial_stop_bits, forward_agent, platform, env_vars`
+const hostColumns = `id, name, alias, host, port, username, auth_method, key_id, group_name, environment, proxy_jump, tags, notes, favorite, created_at, updated_at, last_connected_at, startup_snippet_id, protocol, serial_device, serial_baud, serial_data_bits, serial_parity, serial_stop_bits, forward_agent, platform, env_vars`
 
 func (s *Hosts) Create(h Host) (Host, error) {
 	if err := validateHost(h); err != nil {
@@ -203,9 +206,9 @@ func (s *Hosts) Create(h Host) (Host, error) {
 	tags, _ := json.Marshal(h.Tags)
 	envVars, _ := json.Marshal(h.EnvVars)
 	_, err := s.db.Exec(
-		`INSERT INTO hosts (id, name, host, port, username, auth_method, key_id, group_name, environment, proxy_jump, tags, notes, favorite, created_at, updated_at, last_connected_at, startup_snippet_id, protocol, serial_device, serial_baud, serial_data_bits, serial_parity, serial_stop_bits, forward_agent, platform, env_vars)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		h.ID, h.Name, h.Host, h.Port, h.Username, h.AuthMethod, h.KeyID, h.Group, h.Environment, h.ProxyJump, string(tags), h.Notes, boolToInt(h.Favorite), h.CreatedAt, h.UpdatedAt, h.StartupSnippetID, h.Protocol, h.SerialDevice, h.SerialBaud, h.SerialDataBits, h.SerialParity, h.SerialStopBits, boolToInt(h.ForwardAgent), h.Platform, string(envVars),
+		`INSERT INTO hosts (id, name, alias, host, port, username, auth_method, key_id, group_name, environment, proxy_jump, tags, notes, favorite, created_at, updated_at, last_connected_at, startup_snippet_id, protocol, serial_device, serial_baud, serial_data_bits, serial_parity, serial_stop_bits, forward_agent, platform, env_vars)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		h.ID, h.Name, h.Alias, h.Host, h.Port, h.Username, h.AuthMethod, h.KeyID, h.Group, h.Environment, h.ProxyJump, string(tags), h.Notes, boolToInt(h.Favorite), h.CreatedAt, h.UpdatedAt, h.StartupSnippetID, h.Protocol, h.SerialDevice, h.SerialBaud, h.SerialDataBits, h.SerialParity, h.SerialStopBits, boolToInt(h.ForwardAgent), h.Platform, string(envVars),
 	)
 	return h, err
 }
@@ -221,8 +224,8 @@ func (s *Hosts) Update(h Host) error {
 	tags, _ := json.Marshal(h.Tags)
 	envVars, _ := json.Marshal(h.EnvVars)
 	_, err := s.db.Exec(
-		`UPDATE hosts SET name=?, host=?, port=?, username=?, auth_method=?, key_id=?, group_name=?, environment=?, proxy_jump=?, tags=?, notes=?, favorite=?, startup_snippet_id=?, protocol=?, serial_device=?, serial_baud=?, serial_data_bits=?, serial_parity=?, serial_stop_bits=?, forward_agent=?, env_vars=?, updated_at=? WHERE id=?`,
-		h.Name, h.Host, h.Port, h.Username, h.AuthMethod, h.KeyID, h.Group, h.Environment, h.ProxyJump, string(tags), h.Notes, boolToInt(h.Favorite), h.StartupSnippetID, h.Protocol, h.SerialDevice, h.SerialBaud, h.SerialDataBits, h.SerialParity, h.SerialStopBits, boolToInt(h.ForwardAgent), string(envVars), h.UpdatedAt, h.ID,
+		`UPDATE hosts SET name=?, alias=?, host=?, port=?, username=?, auth_method=?, key_id=?, group_name=?, environment=?, proxy_jump=?, tags=?, notes=?, favorite=?, startup_snippet_id=?, protocol=?, serial_device=?, serial_baud=?, serial_data_bits=?, serial_parity=?, serial_stop_bits=?, forward_agent=?, env_vars=?, updated_at=? WHERE id=?`,
+		h.Name, h.Alias, h.Host, h.Port, h.Username, h.AuthMethod, h.KeyID, h.Group, h.Environment, h.ProxyJump, string(tags), h.Notes, boolToInt(h.Favorite), h.StartupSnippetID, h.Protocol, h.SerialDevice, h.SerialBaud, h.SerialDataBits, h.SerialParity, h.SerialStopBits, boolToInt(h.ForwardAgent), string(envVars), h.UpdatedAt, h.ID,
 	)
 	return err
 }
@@ -300,7 +303,7 @@ func scanHost(r rowScanner) (Host, error) {
 		favorite    int
 		fwdAgent    int
 	)
-	err := r.Scan(&h.ID, &h.Name, &h.Host, &h.Port, &h.Username, &h.AuthMethod, &keyID, &h.Group, &h.Environment, &h.ProxyJump, &tagsJSON, &h.Notes, &favorite, &h.CreatedAt, &h.UpdatedAt, &h.LastConnectedAt, &h.StartupSnippetID, &h.Protocol, &h.SerialDevice, &h.SerialBaud, &h.SerialDataBits, &h.SerialParity, &h.SerialStopBits, &fwdAgent, &platform, &envVarsJSON)
+	err := r.Scan(&h.ID, &h.Name, &h.Alias, &h.Host, &h.Port, &h.Username, &h.AuthMethod, &keyID, &h.Group, &h.Environment, &h.ProxyJump, &tagsJSON, &h.Notes, &favorite, &h.CreatedAt, &h.UpdatedAt, &h.LastConnectedAt, &h.StartupSnippetID, &h.Protocol, &h.SerialDevice, &h.SerialBaud, &h.SerialDataBits, &h.SerialParity, &h.SerialStopBits, &fwdAgent, &platform, &envVarsJSON)
 	if err != nil {
 		return Host{}, err
 	}

@@ -12,6 +12,7 @@
   import { bus } from "./events";
   import PageHeader from "./PageHeader.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
+  import { isReadOnlyHost, policyBlock, summarizePolicyHosts } from "./commandPolicy";
   import { checkCommand, anyProduction } from "./danger";
   import { envBadge } from "./envColor";
   import {
@@ -69,12 +70,22 @@
     severity: "warn" | "block-without-confirm";
     requirePhrase?: string;
     productionHosts: string[];
+    readOnlyHosts: string[];
   };
   let matrixConfirm = $state<MatrixConfirmation | null>(null);
+  let approvedMatrixKey = $state("");
+
+  function matrixKey(): string {
+    return `${commands.join("\n")}::${[...selectedHosts].sort().join(",")}`;
+  }
+
+  let selectedPolicy = $derived(summarizePolicyHosts(
+    sshHosts.filter((host) => selectedHosts.has(host.id)),
+  ));
 
   function confirmMatrix(): MatrixConfirmation | null {
     const hosts = sshHosts.filter((h) => selectedHosts.has(h.id));
-    const production = hosts.filter((h) => h.environment?.toLowerCase() === "production").map((h) => h.name);
+    const { production, readOnly } = summarizePolicyHosts(hosts);
     const dangerous = commands.map(checkCommand).find(Boolean);
     if (dangerous?.level === "block-without-confirm") {
       return {
@@ -83,6 +94,7 @@
         severity: "block-without-confirm",
         requirePhrase: production.length ? "destroy production" : "I understand",
         productionHosts: production,
+        readOnlyHosts: readOnly,
       };
     }
     if (dangerous || anyProduction(hosts.map((h) => h.environment))) {
@@ -93,6 +105,7 @@
           : `${production.length} production host(s) are selected for this matrix.`,
         severity: "warn",
         productionHosts: production,
+        readOnlyHosts: readOnly,
       };
     }
     return null;
@@ -105,16 +118,19 @@
       matrixConfirm = confirmation;
       return;
     }
-    await executeMatrix(retryFailed);
+    await executeMatrix(retryFailed, retryFailed && approvedMatrixKey === matrixKey());
   }
 
-  async function executeMatrix(retryFailed = false) {
+  async function executeMatrix(retryFailed = false, approved = false) {
     if (matrixBusy || !commands.length || !selectedHosts.size) return;
     matrixConfirm = null;
     matrixBusy = true;
     selectedCell = null;
     const runID = crypto.randomUUID();
-    if (!retryFailed) matrixResults = {};
+    if (!retryFailed) {
+      matrixResults = {};
+      approvedMatrixKey = approved ? matrixKey() : "";
+    }
     try {
       for (let commandIndex = 0; commandIndex < commands.length; commandIndex++) {
         const command = commands[commandIndex];
@@ -126,7 +142,9 @@
           });
         }
         if (!hostIDs.length) continue;
-        const results = await ExecService.Run(`${runID}:${commandIndex}`, command, hostIDs, 60);
+        const results = approved
+          ? await ExecService.RunApproved(`${runID}:${commandIndex}`, command, hostIDs, 60)
+          : await ExecService.Run(`${runID}:${commandIndex}`, command, hostIDs, 60);
         for (const result of results ?? []) {
           matrixResults[`${commandIndex}:${result.hostID}`] = result;
         }
@@ -144,6 +162,17 @@
 
   function failedCount() {
     return Object.values(matrixResults).filter((result) => result.exitCode !== 0 || result.error).length;
+  }
+
+  let policyBlockedResults = $derived(
+    Object.values(matrixResults).filter((result) => result.error && policyBlock(result.error)),
+  );
+
+  function removeReadOnlyHosts() {
+    selectedHosts = new Set([...selectedHosts].filter((id) => {
+      const host = sshHosts.find((candidate) => candidate.id === id);
+      return !host || !isReadOnlyHost(host);
+    }));
   }
 
   // ── Diagnostics, health, multiplexer, incident ────────────────────
@@ -274,6 +303,7 @@
           <Server size="12" class="text-[var(--color-text-3)]" />
           <span class="min-w-0 flex-1 truncate">{host.name}</span>
           {#if env.label}<span class="type-nano" style:color={env.color}>{env.label}</span>{/if}
+          {#if isReadOnlyHost(host)}<span class="rounded border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/8 px-1 type-nano text-[var(--color-accent)]" title="Read-only host — inspection commands only">RO</span>{/if}
         </label>
       {/each}
     </aside>
@@ -297,6 +327,21 @@
               <RefreshCw size="12" />Retry failed {failedCount() ? `(${failedCount()})` : ""}
             </button>
           </div>
+          {#if selectedPolicy.readOnly.length > 0}
+            <div class="flex flex-wrap items-center gap-2 rounded border border-[var(--color-accent)]/25 bg-[var(--color-accent)]/6 px-3 py-2 type-caption text-[var(--color-text-2)]" role="status">
+              <span class="font-semibold text-[var(--color-accent)]">Read-only scope:</span>
+              <span>{selectedPolicy.readOnly.join(", ")}</span>
+              <span class="text-[var(--color-text-4)]">Inspection commands only; policy blocks mutations.</span>
+              <button class="ml-auto rounded border border-[var(--color-accent)]/35 px-2 py-1 type-micro text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10" onclick={removeReadOnlyHosts}>Remove from selection</button>
+            </div>
+          {/if}
+          {#if policyBlockedResults.length > 0}
+            <div class="rounded border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/8 px-3 py-2 type-caption" role="alert">
+              <div class="font-semibold text-[var(--color-danger)]">Command blocked by host policy</div>
+              <div class="mt-1 text-[var(--color-text-2)]">{policyBlockedResults.map((result) => `${result.hostName || result.hostID}: ${policyBlock(result.error)?.reason ?? result.error}`).join(" · ")}</div>
+              <div class="mt-1 text-[var(--color-text-3)]">{policyBlock(policyBlockedResults[0]?.error)?.action}</div>
+            </div>
+          {/if}
           {#if commands.length}
             <div class="overflow-x-auto rounded border hairline">
               <table class="w-full border-collapse font-mono type-caption">
@@ -321,7 +366,7 @@
                           >
                             {#if result}
                               {#if result.exitCode === 0 && !result.error}<Check size="11" />{:else}<AlertTriangle size="11" />{/if}
-                              {result.error ? "error" : `exit ${result.exitCode}`}
+                              {result.error && policyBlock(result.error) ? "blocked" : result.error ? "error" : `exit ${result.exitCode}`}
                             {:else if matrixBusy}
                               <Loader2 size="11" class="animate-spin" />
                             {:else}
@@ -445,9 +490,10 @@
       body={matrixConfirm.body}
       severity={matrixConfirm.severity}
       productionHosts={matrixConfirm.productionHosts}
+      readOnlyHosts={matrixConfirm.readOnlyHosts}
       requirePhrase={matrixConfirm.requirePhrase}
       onCancel={() => (matrixConfirm = null)}
-      onConfirm={() => executeMatrix()}
+      onConfirm={() => executeMatrix(false, true)}
     />
   {/if}
 </div>

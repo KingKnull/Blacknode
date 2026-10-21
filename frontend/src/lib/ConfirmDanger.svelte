@@ -7,6 +7,7 @@
     body: string;
     severity: "warn" | "block-without-confirm";
     productionHosts: string[]; // names of prod hosts in scope
+    readOnlyHosts?: string[]; // names of read-only hosts in scope
     requirePhrase?: string; // user must type this exactly to confirm
     /**
      * Whether Enter confirms. Default true, which suits the click-triggered
@@ -26,6 +27,7 @@
     body,
     severity,
     productionHosts,
+    readOnlyHosts = [],
     requirePhrase,
     allowEnterConfirm = true,
     portal = false,
@@ -111,6 +113,18 @@
               <span class="border border-[var(--color-danger)]/40 bg-[var(--color-danger)]/12 px-1.5 py-0.5 font-mono type-caption text-[var(--color-danger)]">{h}</span>
             {/each}
           </div>
+        </div>
+      {/if}
+
+      {#if readOnlyHosts.length > 0}
+        <div class="border border-[var(--color-accent)]/25 bg-[var(--color-accent)]/8 p-3">
+          <div class="type-caption font-semibold text-[var(--color-accent)] mb-2">Read-only hosts in scope</div>
+          <div class="flex flex-wrap gap-1">
+            {#each readOnlyHosts as h}
+              <span class="border border-[var(--color-accent)]/35 bg-[var(--color-accent)]/10 px-1.5 py-0.5 font-mono type-caption text-[var(--color-accent)]">{h}</span>
+            {/each}
+          </div>
+          <p class="mt-2 type-micro text-[var(--color-text-3)]">These hosts allow inspection commands only. Mutating or destructive commands will be blocked by host policy.</p>
         </div>
       {/if}
 

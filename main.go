@@ -95,6 +95,7 @@ func main() {
 	pfSvc := service.NewPortForwardService(pool, hosts, forwards)
 	notifySvc := service.NewNotificationService(settings)
 	activityRec := service.NewActivityRecorder(activities)
+	notifySvc.SetActivityRecorder(activityRec)
 	execSvc := service.NewExecService(pool, hosts, history, notifySvc, activityRec)
 	metricsSvc := service.NewMetricsService(pool, hosts, notifySvc)
 	service.WireMetricsOperations(metricsSvc, operations)

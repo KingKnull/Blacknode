@@ -276,6 +276,12 @@ const DANGEROUS_PATTERNS: Pattern[] = [
     category: "availability",
   },
   {
+    re: /\bkubectl(?:\s+\S+)*\s+(apply|replace|patch|scale)\b|\bkubectl(?:\s+\S+)*\s+rollout\s+(restart|undo)\b/,
+    reason: "Changing Kubernetes workload state",
+    level: "block-without-confirm",
+    category: "availability",
+  },
+  {
     re: /\bhelm\s+(uninstall|delete)\b/,
     reason: "Uninstalling a Helm release",
     level: "warn",

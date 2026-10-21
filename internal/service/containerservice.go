@@ -209,6 +209,9 @@ func (s *ContainerService) runCmd(hostID, cmd string, timeout time.Duration) (st
 	if err != nil {
 		return "", fmt.Errorf("load host: %w", err)
 	}
+	if err := commandPolicyError(h, cmd, CommandPolicyApproval{}); err != nil {
+		return "", err
+	}
 	client, release, err := s.pool.Get(sshconn.FromHost(h))
 	if err != nil {
 		return "", err

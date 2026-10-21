@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 
@@ -22,6 +23,10 @@ type ServiceWorkspace struct {
 	LogCommand     string   `json:"logCommand"`
 	DBConnectionID string   `json:"dbConnectionID"`
 	ProjectID      string   `json:"projectID"`
+	// StateJSON stores the validated, credential-free desktop layout and
+	// restore context. It lives on the existing versioned workspace document so
+	// service workspaces survive app reloads and can be shared with the record.
+	StateJSON string `json:"stateJSON,omitempty"`
 }
 
 func visibleRecord(kind string) bool {
@@ -54,13 +59,63 @@ func (s *PlatformService) DeleteRecord(ctx context.Context, kind, id string, rev
 }
 
 func (s *PlatformService) Timeline(ctx context.Context, scope string, after int64) ([]store.OperationEvent, error) {
-	return s.store.Events(scope, after, 1000)
+	scope = strings.TrimSpace(scope)
+	if scope == "" || len(scope) > 160 {
+		return nil, errors.New("timeline scope required")
+	}
+	scopes := []string{scope}
+	hostIDs := []string{}
+	// Incident timelines include the incident itself, its workspace events and
+	// host activity. Job timelines similarly include the workspace that launched
+	// the run. Unknown scopes retain the old single-scope behavior.
+	if strings.HasPrefix(scope, "job:") {
+		var job Job
+		if err := s.store.Read("job", strings.TrimPrefix(scope, "job:"), &job); err == nil {
+			hostIDs = append(hostIDs, job.HostIDs...)
+			if job.Book.WorkspaceID != "" {
+				scopes = append(scopes, job.Book.WorkspaceID)
+			}
+		}
+	} else {
+		var incident Incident
+		if err := s.store.Read("incident", scope, &incident); err == nil {
+			hostIDs = append(hostIDs, incident.HostIDs...)
+			if incident.WorkspaceID != "" {
+				scopes = append(scopes, incident.WorkspaceID)
+			}
+		} else {
+			var workspace ServiceWorkspace
+			if err := s.store.Read("workspace", scope, &workspace); err == nil {
+				hostIDs = append(hostIDs, workspace.HostIDs...)
+			}
+		}
+	}
+	events, err := s.store.CorrelatedTimeline(scopes, hostIDs, after, 500)
+	if err != nil {
+		return nil, err
+	}
+	for idx := range events {
+		// Activity and operation bodies may contain command output from older
+		// callers. Redact at this read boundary so correlation never becomes a
+		// secret exfiltration path, even when a producer forgot to sanitize.
+		events[idx].Body = redactEvidence(events[idx].Body)
+	}
+	return events, nil
 }
 
 func (s *PlatformService) SaveWorkspace(ctx context.Context, workspace ServiceWorkspace, revision int64) (store.OperationDocument, error) {
 	workspace.Name = strings.TrimSpace(workspace.Name)
 	if workspace.Name == "" || len(workspace.Name) > 120 || len(workspace.HostIDs) > 256 || len(workspace.ForwardIDs) > 64 {
 		return store.OperationDocument{}, errors.New("workspace needs a name and at most 256 hosts and 64 tunnels")
+	}
+	if len(workspace.StateJSON) > 1<<20 {
+		return store.OperationDocument{}, errors.New("workspace state is too large")
+	}
+	if workspace.StateJSON != "" {
+		var state map[string]any
+		if err := json.Unmarshal([]byte(workspace.StateJSON), &state); err != nil || state == nil {
+			return store.OperationDocument{}, errors.New("workspace state must be valid JSON")
+		}
 	}
 	if workspace.Environment != "" && workspace.Environment != "dev" && workspace.Environment != "staging" && workspace.Environment != "production" {
 		return store.OperationDocument{}, errors.New("invalid environment")

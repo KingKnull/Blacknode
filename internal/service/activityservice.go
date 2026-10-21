@@ -148,6 +148,9 @@ func (s *ActivityService) ExportSigned(ctx context.Context, dir, keyID, identity
 	if err != nil {
 		return out, err
 	}
+	if len(body) > 32<<20 {
+		return out, errors.New("audit export exceeds 32 MiB; narrow the sequence range")
+	}
 	body = append(body, '\n')
 
 	docPath := filepath.Join(dir, "blacknode-audit.json")

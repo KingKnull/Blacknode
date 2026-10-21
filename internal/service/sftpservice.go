@@ -60,8 +60,9 @@ type SFTPService struct {
 	hosts  *store.Hosts
 	editMu sync.Mutex
 
-	mu        sync.Mutex
-	transfers map[string]context.CancelFunc
+	mu              sync.Mutex
+	transfers       map[string]context.CancelFunc
+	progressHandler func(TransferProgress)
 }
 
 func NewSFTPService(pool *sshconn.Pool, h *store.Hosts) *SFTPService {
@@ -70,6 +71,15 @@ func NewSFTPService(pool *sshconn.Pool, h *store.Hosts) *SFTPService {
 		hosts:     h,
 		transfers: make(map[string]context.CancelFunc),
 	}
+}
+
+// setProgressHandler lets the durable transfer queue consume the same
+// streaming progress that is exposed to the frontend. It is intentionally
+// package-private: callers should use TransferService for queued work.
+func (s *SFTPService) setProgressHandler(handler func(TransferProgress)) {
+	s.mu.Lock()
+	s.progressHandler = handler
+	s.mu.Unlock()
 }
 
 func (s *SFTPService) withClient(hostID string, fn func(*sftp.Client) error) error {
@@ -574,6 +584,12 @@ func (s *SFTPService) finish(id, dir, name string, err error, canceled bool) {
 }
 
 func (s *SFTPService) emitProgress(p TransferProgress) {
+	s.mu.Lock()
+	handler := s.progressHandler
+	s.mu.Unlock()
+	if handler != nil {
+		handler(p)
+	}
 	if a := application.Get(); a != nil {
 		a.Event.Emit("sftp:progress", p)
 	}

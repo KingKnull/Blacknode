@@ -8,7 +8,7 @@
   import HostSelection from "./HostSelection.svelte";
   import PageHeader from "./PageHeader.svelte";
   import { Layers } from "@lucide/svelte";
-  const blank = (): Versioned<ServiceWorkspace> => ({ id: "", revision: 0, name: "", environment: "dev", hostIDs: [], kubeHostID: "", kubeContext: "", kubeNamespace: "default", forwardIDs: [], metricHostIDs: [], logCommand: "", dbConnectionID: "", projectID: "" });
+  const blank = (): Versioned<ServiceWorkspace> => ({ id: "", revision: 0, name: "", environment: "dev", hostIDs: [], kubeHostID: "", kubeContext: "", kubeNamespace: "default", forwardIDs: [], metricHostIDs: [], logCommand: "", dbConnectionID: "", projectID: "", stateJSON: "" });
   let workspaces = $state<Versioned<ServiceWorkspace>[]>([]);
   let editing = $state(blank());
   let forwards = $state<{id: string; name: string}[]>([]);

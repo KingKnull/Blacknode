@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
@@ -28,13 +29,18 @@ type PlatformService struct {
 	sftp         *SFTPService
 	settings     *SettingsService
 	recordings   *store.Recordings
+	activity     *activityRecorder
 	mu           sync.Mutex
 	plans        map[string]plannedChange
 	kubeForwards map[string]*liveKubeForward
 }
 
 func NewPlatformService(documents *store.Operations, hosts *store.Hosts, pool *sshconn.Pool, executor *ExecService, metrics *MetricsService, ops *OpsConsoleService, sftp *SFTPService, settings *SettingsService, recordings *store.Recordings) *PlatformService {
-	return &PlatformService{store: documents, hosts: hosts, pool: pool, exec: executor, metrics: metrics, ops: ops, sftp: sftp, settings: settings, recordings: recordings, plans: map[string]plannedChange{}}
+	var activity *activityRecorder
+	if executor != nil {
+		activity = executor.activity
+	}
+	return &PlatformService{store: documents, hosts: hosts, pool: pool, exec: executor, metrics: metrics, ops: ops, sftp: sftp, settings: settings, recordings: recordings, activity: activity, plans: map[string]plannedChange{}}
 }
 
 type ChangePlan struct {
@@ -58,12 +64,17 @@ type plannedChange struct {
 }
 
 func (s *PlatformService) prepare(hostID, scope, title, command, input, preview string, timeout int, verify func(context.Context) error) (ChangePlan, error) {
+	productionHosts := []string(nil)
 	if hostID != "" {
-		if _, err := s.hosts.GetResolved(hostID); err != nil {
+		host, err := s.hosts.GetResolved(hostID)
+		if err != nil {
 			return ChangePlan{}, err
 		}
+		if strings.EqualFold(strings.TrimSpace(host.Environment), "production") {
+			productionHosts = []string{host.Name}
+		}
 	}
-	p := ChangePlan{ID: uuid.NewString(), HostID: hostID, Scope: scope, Title: title, Command: command, Input: input, Preview: preview, ExpiresAt: time.Now().Add(10 * time.Minute).UnixMilli()}
+	p := ChangePlan{ID: uuid.NewString(), HostID: hostID, Scope: scope, Title: title, Command: command, Input: input, Preview: preview, ExpiresAt: time.Now().Add(10 * time.Minute).UnixMilli(), ProductionHosts: productionHosts}
 	s.expireChanges(false)
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -109,7 +120,7 @@ func (s *PlatformService) ExecuteChange(ctx context.Context, id string) (ExecRes
 	if change.apply != nil {
 		r = change.apply(ctx)
 	} else {
-		r = s.command(ctx, p.HostID, p.Command, p.Input, change.timeout)
+		r = s.commandWithApproval(ctx, p.HostID, p.Command, p.Input, change.timeout, CommandPolicyApproval{Approved: true})
 	}
 	_, eventErr := s.store.Append(p.Scope, "change.finished", p.Title, r)
 	if a := application.Get(); a != nil {
@@ -140,6 +151,10 @@ func (b *cappedOutput) Write(p []byte) (int, error) {
 }
 
 func (s *PlatformService) command(ctx context.Context, hostID, command, input string, timeout int) ExecResult {
+	return s.commandWithApproval(ctx, hostID, command, input, timeout, CommandPolicyApproval{})
+}
+
+func (s *PlatformService) commandWithApproval(ctx context.Context, hostID, command, input string, timeout int, approval CommandPolicyApproval) ExecResult {
 	if timeout < 1 {
 		timeout = 30
 	}
@@ -170,6 +185,13 @@ func (s *PlatformService) command(ctx context.Context, hostID, command, input st
 			return result
 		}
 		result.HostName = h.Name
+		decision := EvaluateCommandPolicy(h, command, approval)
+		recordPolicyDecision(s.activity, h, command, decision)
+		if !decision.Allowed {
+			result.Error = "command policy denied: " + decision.Reason
+			result.DurationMs = time.Since(start).Milliseconds()
+			return result
+		}
 		client, release, e := s.pool.Get(sshconn.FromHost(h))
 		if e != nil {
 			result.Error = e.Error()

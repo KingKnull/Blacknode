@@ -5,6 +5,7 @@
   import { onMount } from "svelte";
   import { Server, X, Loader2, Eye, EyeOff, ShieldCheck, Sparkles } from "@lucide/svelte";
   import Dialog from "./Dialog.svelte";
+  import { parseHostTags } from "./hostProfiles";
 
   const BAUD_RATES = [9600, 19200, 38400, 57600, 115200];
 
@@ -17,6 +18,10 @@
 
   // svelte-ignore state_referenced_locally
   let name = $state(host?.name ?? "");
+  // Optional display alias keeps the saved-host name stable for existing links
+  // while allowing a profile to have a more descriptive human label.
+  // svelte-ignore state_referenced_locally
+  let alias = $state(host?.alias ?? "");
   // svelte-ignore state_referenced_locally
   let protocol = $state(host?.protocol || "ssh");
   // svelte-ignore state_referenced_locally
@@ -50,6 +55,8 @@
   let proxyJump = $state(host?.proxyJump ?? "");
   // svelte-ignore state_referenced_locally
   let notes = $state(host?.notes ?? "");
+  // svelte-ignore state_referenced_locally
+  let tagsText = $state((host?.tags ?? []).join(", "));
   // svelte-ignore state_referenced_locally
   let startupSnippetID = $state(host?.startupSnippetID ?? "");
   // Environment variables exported into sessions on this host. Copied rather
@@ -140,6 +147,7 @@
     }
     busy = true;
     try {
+      const tags = parseHostTags(tagsText);
       // Common protocol fields persisted regardless of transport.
       const protoFields = protocol === "serial"
         ? { protocol, serialDevice, serialBaud, serialDataBits, serialParity, serialStopBits }
@@ -149,6 +157,7 @@
         await HostService.Update({
           ...host,
           name,
+          alias: alias.trim(),
           host: hostName,
           port: port ?? 0,
           username,
@@ -158,14 +167,16 @@
           environment,
           proxyJump,
           notes,
+          tags,
           startupSnippetID,
           envVars: envVarsToSave,
           ...protoFields,
         } as Host);
-        savedHost = { ...host, name, host: hostName, port: port ?? 0, username, authMethod, keyID, group, environment, proxyJump, notes, startupSnippetID, envVars: envVarsToSave, ...protoFields } as Host;
+        savedHost = { ...host, name, alias: alias.trim(), host: hostName, port: port ?? 0, username, authMethod, keyID, group, environment, proxyJump, notes, tags, startupSnippetID, envVars: envVarsToSave, ...protoFields } as Host;
       } else {
         savedHost = (await HostService.Create({
           name,
+          alias: alias.trim(),
           host: hostName,
           port: port ?? 0,
           username,
@@ -178,7 +189,7 @@
           startupSnippetID,
           envVars: envVarsToSave,
           ...protoFields,
-          tags: [],
+          tags,
         } as unknown as Host)) as Host;
       }
       // Telnet/serial have no SSH credentials — skip password & sudo persistence.
@@ -258,6 +269,17 @@
           placeholder="prod-web-01"
           data-autofocus
         />
+      </label>
+
+      <!-- Optional profile alias -->
+      <label class="block">
+        <span class="type-caption text-[var(--color-text-4)]">Profile alias <span class="opacity-60">(optional)</span></span>
+        <input
+          class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 type-body text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
+          bind:value={alias}
+          placeholder="Primary production web"
+        />
+        <p class="mt-1 type-caption text-[var(--color-text-4)]">A human-friendly label shown alongside the saved host name.</p>
       </label>
 
       <!-- Protocol -->
@@ -597,6 +619,15 @@
       {/if}
 
       <!-- Notes -->
+      <label class="block">
+        <span class="type-caption text-[var(--color-text-4)]">Tags <span class="opacity-60">(comma-separated)</span></span>
+        <input
+          class="mt-1 w-full border hairline bg-[var(--color-surface-3)] px-3 py-2 type-body text-[var(--color-text-1)] outline-none placeholder:text-[var(--color-text-4)] focus:border-[var(--color-accent)]/50 transition-colors"
+          bind:value={tagsText}
+          placeholder="production, web, customer-facing"
+        />
+      </label>
+
       <label class="block">
         <span class="type-caption text-[var(--color-text-4)]">Notes</span>
         <textarea

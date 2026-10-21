@@ -13,6 +13,7 @@ const schema = `
 CREATE TABLE IF NOT EXISTS hosts (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
+    alias TEXT NOT NULL DEFAULT '',
     host TEXT NOT NULL,
     port INTEGER NOT NULL DEFAULT 22,
     username TEXT NOT NULL,
@@ -290,9 +291,12 @@ CREATE TABLE IF NOT EXISTS ops_events (
     kind TEXT NOT NULL,
     title TEXT NOT NULL,
     body TEXT NOT NULL,
+    host_id TEXT NOT NULL DEFAULT '',
+    host_name TEXT NOT NULL DEFAULT '',
     at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_ops_events_scope ON ops_events(scope, seq);
+CREATE INDEX IF NOT EXISTS idx_ops_events_host ON ops_events(host_id, at, seq);
 `
 
 // activityRow is the part of an activity row the seq planner needs.
@@ -510,6 +514,9 @@ var columnMigrations = []string{
 	`ALTER TABLE hosts ADD COLUMN platform TEXT NOT NULL DEFAULT ''`,
 	`ALTER TABLE hosts ADD COLUMN env_vars TEXT NOT NULL DEFAULT ''`,
 	`ALTER TABLE keys ADD COLUMN hardware INTEGER NOT NULL DEFAULT 0`,
+	`ALTER TABLE hosts ADD COLUMN alias TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE ops_events ADD COLUMN host_id TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE ops_events ADD COLUMN host_name TEXT NOT NULL DEFAULT ''`,
 }
 
 // schemaHostGroups holds per-group connection defaults that member hosts

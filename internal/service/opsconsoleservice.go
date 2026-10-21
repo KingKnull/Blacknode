@@ -233,6 +233,13 @@ func (s *OpsConsoleService) runHostCommand(ctx context.Context, hostID, command 
 		return result
 	}
 	result.HostName = h.Name
+	decision := EvaluateCommandPolicy(h, command, CommandPolicyApproval{})
+	recordPolicyDecision(s.activity, h, command, decision)
+	if !decision.Allowed {
+		result.Error = "command policy denied: " + decision.Reason
+		result.DurationMs = time.Since(start).Milliseconds()
+		return result
+	}
 	client, release, err := s.pool.Get(sshconn.FromHost(h))
 	if err != nil {
 		result.Error = err.Error()

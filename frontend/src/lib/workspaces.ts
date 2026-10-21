@@ -5,6 +5,12 @@ export type WorkspaceTab = { id: string; root: PaneNode; activeLeafID: string };
 export type SavedPane =
   | { kind: "leaf"; target: ConnectionTarget | null }
   | { kind: "split"; direction: "horizontal" | "vertical"; ratio: number; a: SavedPane; b: SavedPane };
+export type WorkspaceFilters = {
+  hostSearch: string;
+};
+export type WorkspaceContext = {
+  serviceWorkspaceID: string | null;
+};
 export type WorkspaceSnapshot = {
   version: 2;
   tabs: { root: SavedPane; activeLeaf: number }[];
@@ -13,8 +19,11 @@ export type WorkspaceSnapshot = {
   sidebarWidth: number;
   selectedHostID: string | null;
   forwardIDs: string[];
+  filters: WorkspaceFilters;
+  context: WorkspaceContext;
 };
 export type SavedWorkspace = { id: string; name: string; snapshot: WorkspaceSnapshot };
+export type PersistedWorkspaceState = { version: 1; snapshot: WorkspaceSnapshot };
 
 export const SESSION_KEY = "blacknode.session";
 export const WORKSPACES_KEY = "blacknode.workspaces.v1";
@@ -22,12 +31,14 @@ const VIEWS = new Set(["terminals", "exec", "ops", "runbooks", "files", "metrics
 const bounded = (n: unknown, fallback: number, min: number, max: number) =>
   typeof n === "number" && Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback;
 
-// Persist only the layout and saved record IDs. Credentials, terminal output,
-// broadcast membership, and runtime session IDs never enter a snapshot.
+// Persist only the layout, safe UI preferences, and saved record IDs.
+// Credentials, terminal output, broadcast membership, and runtime session IDs
+// never enter a snapshot.
 export function captureWorkspace(
   tabs: WorkspaceTab[], activeTabID: string,
   targets: Record<string, ConnectionTarget | null>,
-  options: Pick<WorkspaceSnapshot, "view" | "sidebarWidth" | "selectedHostID" | "forwardIDs">,
+  options: Pick<WorkspaceSnapshot, "view" | "sidebarWidth" | "selectedHostID" | "forwardIDs"> &
+    Partial<Pick<WorkspaceSnapshot, "filters" | "context">>,
 ): WorkspaceSnapshot {
   function save(node: PaneNode): SavedPane {
     if (node.kind === "leaf") {
@@ -49,6 +60,14 @@ export function captureWorkspace(
     sidebarWidth: options.sidebarWidth,
     selectedHostID: options.selectedHostID,
     forwardIDs: [...options.forwardIDs],
+    filters: {
+      hostSearch: typeof options.filters?.hostSearch === "string" ? options.filters.hostSearch.slice(0, 200) : "",
+    },
+    context: {
+      serviceWorkspaceID: typeof options.context?.serviceWorkspaceID === "string" && options.context.serviceWorkspaceID
+        ? options.context.serviceWorkspaceID.slice(0, 160)
+        : null,
+    },
   };
 }
 
@@ -83,8 +102,46 @@ export function parseWorkspace(value: unknown): WorkspaceSnapshot | null {
       sidebarWidth: bounded(raw.sidebarWidth, 252, 160, 600),
       selectedHostID: typeof raw.selectedHostID === "string" ? raw.selectedHostID : null,
       forwardIDs: Array.isArray(raw.forwardIDs) ? [...new Set<string>(raw.forwardIDs.filter((id: unknown) => typeof id === "string" && id.length > 0))].slice(0, 64) : [],
+      filters: {
+        hostSearch: typeof raw.filters?.hostSearch === "string" ? raw.filters.hostSearch.slice(0, 200) : "",
+      },
+      context: {
+        serviceWorkspaceID: typeof raw.context?.serviceWorkspaceID === "string" && raw.context.serviceWorkspaceID
+          ? raw.context.serviceWorkspaceID.slice(0, 160)
+          : null,
+      },
     };
   } catch { return null; }
+}
+
+export function parsePersistedWorkspaceState(value: unknown): WorkspaceSnapshot | null {
+  try {
+    const raw = typeof value === "string" ? JSON.parse(value) : value;
+    if (!raw || typeof raw !== "object") return null;
+    const state = raw as Record<string, unknown>;
+    if (state.version !== 1) return null;
+    return parseWorkspace(state.snapshot);
+  } catch { return null; }
+}
+
+// A valid snapshot can still refer to hosts or saved forwards deleted after it
+// was written. Remove those references before restoring so a stale record can
+// never trigger a reconnect against an unknown inventory item.
+export function sanitizeWorkspace(snapshot: WorkspaceSnapshot, hostIDs: Iterable<string>, forwardIDs?: Iterable<string>): WorkspaceSnapshot {
+  const hosts = new Set(hostIDs);
+  const forwards = forwardIDs ? new Set(forwardIDs) : null;
+  function pane(node: SavedPane): SavedPane {
+    if (node.kind === "leaf") {
+      return { kind: "leaf", target: node.target && hosts.has(node.target.hostID) ? { ...node.target } : null };
+    }
+    return { ...node, a: pane(node.a), b: pane(node.b) };
+  }
+  return {
+    ...snapshot,
+    tabs: snapshot.tabs.map((tab) => ({ ...tab, root: pane(tab.root) })),
+    selectedHostID: snapshot.selectedHostID && hosts.has(snapshot.selectedHostID) ? snapshot.selectedHostID : null,
+    forwardIDs: snapshot.forwardIDs.filter((id) => !forwards || forwards.has(id)),
+  };
 }
 
 export function readWorkspace(storage: Pick<Storage, "getItem">): WorkspaceSnapshot | null {
@@ -105,8 +162,9 @@ export function readSavedWorkspaces(storage: Pick<Storage, "getItem">): SavedWor
   } catch { return []; }
 }
 
-export function restoreWorkspace(snapshot: WorkspaceSnapshot, newID: () => string) {
+export function restoreWorkspace(snapshot: WorkspaceSnapshot, newID: () => string, knownHostIDs?: Iterable<string>) {
   const targets: Record<string, ConnectionTarget | null> = {};
+  const hosts = knownHostIDs ? new Set(knownHostIDs) : null;
   const tabs: WorkspaceTab[] = snapshot.tabs.map((tab) => {
     const leafIDs: string[] = [];
     function restore(node: SavedPane): PaneNode {
@@ -114,7 +172,7 @@ export function restoreWorkspace(snapshot: WorkspaceSnapshot, newID: () => strin
       if (node.kind === "leaf") {
         const sessionID = newID();
         leafIDs.push(id);
-        targets[sessionID] = node.target;
+        targets[sessionID] = node.target && (!hosts || hosts.has(node.target.hostID)) ? node.target : null;
         return { kind: "leaf", id, sessionID };
       }
       return { kind: "split", id, direction: node.direction, ratio: node.ratio, a: restore(node.a), b: restore(node.b) };

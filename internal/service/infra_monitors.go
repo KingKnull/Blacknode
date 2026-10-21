@@ -228,13 +228,19 @@ func (s *InfrastructureService) CheckMonitor(ctx context.Context, id string) (Mo
 	if _, err = s.platform.store.Put("monitor-state", id, claim.Revision, state); err != nil {
 		return sample, err
 	}
-	if sample.Status != "maintenance" && wasAlerting != state.Alerting && s.notify != nil {
+	if sample.Status != "maintenance" && wasAlerting != state.Alerting {
 		kind, title := NotifyOK, "Service recovered"
 		if state.Alerting {
 			kind = NotifyError
 			title = "Service monitor alert"
 		}
-		s.notify.Notify(ctx, Notification{Kind: kind, Title: title + ": " + m.Name, Body: sample.Detail, Source: "service-monitor"})
+		if s.notify != nil {
+			s.notify.Notify(ctx, Notification{Kind: kind, Title: title + ": " + m.Name, Body: sample.Detail, Source: "service-monitor", HostID: m.HostID})
+		}
+		// Keep monitor transitions in the same durable event stream as incident
+		// and runbook events. HostID lets an incident timeline join this event to
+		// host-scoped activity without persisting command output or credentials.
+		_, _ = s.platform.store.AppendForHost("monitor:"+m.ID, "monitor."+sample.Status, title+": "+m.Name, m.HostID, map[string]string{"status": sample.Status, "detail": redactEvidence(sample.Detail)})
 	}
 	return sample, nil
 }

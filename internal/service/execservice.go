@@ -48,6 +48,23 @@ func NewExecService(pool *sshconn.Pool, h *store.Hosts, hist *store.History, n *
 }
 
 func (s *ExecService) Run(ctx context.Context, runID, command string, hostIDs []string, timeoutSeconds int) ([]ExecResult, error) {
+	return s.run(ctx, runID, command, hostIDs, timeoutSeconds, CommandPolicyApproval{})
+}
+
+// RunWithApproval is the reviewed execution path. Approval is explicit so a
+// production destructive command cannot become allowed merely because it was
+// sent through a different caller.
+func (s *ExecService) RunWithApproval(ctx context.Context, runID, command string, hostIDs []string, timeoutSeconds int, approval CommandPolicyApproval) ([]ExecResult, error) {
+	return s.run(ctx, runID, command, hostIDs, timeoutSeconds, approval)
+}
+
+// RunApproved is a convenience for callers whose flow already completed an
+// explicit review (for example a change plan).
+func (s *ExecService) RunApproved(ctx context.Context, runID, command string, hostIDs []string, timeoutSeconds int) ([]ExecResult, error) {
+	return s.RunWithApproval(ctx, runID, command, hostIDs, timeoutSeconds, CommandPolicyApproval{Approved: true})
+}
+
+func (s *ExecService) run(ctx context.Context, runID, command string, hostIDs []string, timeoutSeconds int, approval CommandPolicyApproval) ([]ExecResult, error) {
 	if command == "" {
 		return nil, errors.New("command required")
 	}
@@ -78,7 +95,7 @@ func (s *ExecService) Run(ctx context.Context, runID, command string, hostIDs []
 			}
 			defer func() { <-sem }()
 
-			r := s.runOne(ctx, hostID, command)
+			r := s.runOne(ctx, hostID, command, approval)
 			results[idx] = r
 			if s.history != nil {
 				status := "ok"
@@ -166,7 +183,7 @@ func truncate(s string, n int) string {
 	return s[:n] + "…"
 }
 
-func (s *ExecService) runOne(ctx context.Context, hostID, command string) ExecResult {
+func (s *ExecService) runOne(ctx context.Context, hostID, command string, approval CommandPolicyApproval) ExecResult {
 	start := time.Now()
 	res := ExecResult{HostID: hostID, ExitCode: -1}
 
@@ -177,6 +194,13 @@ func (s *ExecService) runOne(ctx context.Context, hostID, command string) ExecRe
 		return res
 	}
 	res.HostName = h.Name
+	decision := EvaluateCommandPolicy(h, command, approval)
+	recordPolicyDecision(s.activity, h, command, decision)
+	if !decision.Allowed {
+		res.Error = "command policy denied: " + decision.Reason
+		res.DurationMs = time.Since(start).Milliseconds()
+		return res
+	}
 	target := sshconn.FromHost(h)
 
 	// Connect with simple exponential backoff (max 3 attempts) — only the

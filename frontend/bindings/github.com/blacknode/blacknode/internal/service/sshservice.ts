@@ -31,6 +31,17 @@ export function ConnectSession(sessionID: string, hostID: string, password: stri
     });
 }
 
+/**
+ * DiagnoseConnection probes a saved SSH host without opening a terminal or
+ * running a remote command. Each DNS, TCP, SSH handshake/auth, and PTY stage
+ * is independently bounded; cancellation from the Wails call is honored.
+ */
+export function DiagnoseConnection(hostID: string): $CancellablePromise<$models.ConnectionDiagnosticResult> {
+    return $Call.ByID(2945909532, hostID).then(($result: any) => {
+        return $$createType1($result);
+    });
+}
+
 export function Disconnect(sessionID: string): $CancellablePromise<void> {
     return $Call.ByID(3621521526, sessionID);
 }
@@ -68,3 +79,4 @@ export function Write(sessionID: string, data: string): $CancellablePromise<void
 
 // Private type creation functions
 const $$createType0 = $models.TerminalSessionInfo.createFrom;
+const $$createType1 = $models.ConnectionDiagnosticResult.createFrom;

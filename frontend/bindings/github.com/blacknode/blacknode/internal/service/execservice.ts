@@ -15,6 +15,27 @@ export function Run(runID: string, command: string, hostIDs: string[], timeoutSe
     });
 }
 
+/**
+ * RunApproved is a convenience for callers whose flow already completed an
+ * explicit review (for example a change plan).
+ */
+export function RunApproved(runID: string, command: string, hostIDs: string[], timeoutSeconds: number): $CancellablePromise<$models.ExecResult[]> {
+    return $Call.ByID(2400900405, runID, command, hostIDs, timeoutSeconds).then(($result: any) => {
+        return $$createType1($result);
+    });
+}
+
+/**
+ * RunWithApproval is the reviewed execution path. Approval is explicit so a
+ * production destructive command cannot become allowed merely because it was
+ * sent through a different caller.
+ */
+export function RunWithApproval(runID: string, command: string, hostIDs: string[], timeoutSeconds: number, approval: $models.CommandPolicyApproval): $CancellablePromise<$models.ExecResult[]> {
+    return $Call.ByID(4267383341, runID, command, hostIDs, timeoutSeconds, approval).then(($result: any) => {
+        return $$createType1($result);
+    });
+}
+
 // Private type creation functions
 const $$createType0 = $models.ExecResult.createFrom;
 const $$createType1 = $Create.Array($$createType0);

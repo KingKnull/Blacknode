@@ -4,6 +4,7 @@ package sshconn
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -96,6 +97,9 @@ type Dialer struct {
 	Keys       *store.Keys
 	KnownHosts *store.KnownHosts
 	Secrets    *store.Secrets
+	// Resolver is injectable for deterministic connection diagnostics and tests.
+	// Production leaves it nil and uses the system resolver.
+	Resolver HostResolver
 
 	// Prompter, when set, enables keyboard-interactive auth (and therefore
 	// MFA/OTP/PAM challenge-response) and in-handshake password retries.
@@ -106,6 +110,10 @@ type Dialer struct {
 	// exists for tests that connect to ephemeral fake servers whose keys
 	// can't be pre-trusted; production always leaves it nil.
 	HostKeyOverride ssh.HostKeyCallback
+}
+
+type HostResolver interface {
+	LookupHost(context.Context, string) ([]string, error)
 }
 
 // maxPasswordAttempts bounds in-handshake password retries. Servers commonly
@@ -155,6 +163,16 @@ func (d *Dialer) hostKeyCallback() ssh.HostKeyCallback {
 }
 
 func (d *Dialer) Dial(t Target) (*ssh.Client, error) {
+	return d.DialContext(context.Background(), t)
+}
+
+// DialContext opens an SSH connection while honoring cancellation during DNS,
+// TCP, and the SSH handshake. The older Dial entry point remains for callers
+// that do not have a request context.
+func (d *Dialer) DialContext(ctx context.Context, t Target) (*ssh.Client, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if t.Host == "" || t.User == "" {
 		return nil, errors.New("host and user required")
 	}
@@ -172,22 +190,87 @@ func (d *Dialer) Dial(t Target) (*ssh.Client, error) {
 		Timeout:         10 * time.Second,
 	}
 	addr := net.JoinHostPort(t.Host, strconv.Itoa(t.Port))
-	client, err := ssh.Dial("tcp", addr, cfg)
+	raw, err := d.dialTCPContext(ctx, t.Host, t.Port)
 	if err != nil {
-		// Give the user a more actionable error message for the two most common
-		// failure modes: network unreachable (timeout/refused) vs bad credentials.
-		errStr := err.Error()
-		switch {
-		case isTimeout(err) || contains(errStr, "i/o timeout") || contains(errStr, "connection timed out"):
-			return nil, fmt.Errorf("cannot reach %s — check that the host is online, port 22 is open, and you are on the same network", addr)
-		case contains(errStr, "connection refused"):
-			return nil, fmt.Errorf("connection refused at %s — SSH may not be running on that host", addr)
-		case contains(errStr, "unable to authenticate") || contains(errStr, "no supported methods") || contains(errStr, "permission denied"):
-			return nil, fmt.Errorf("authentication failed for %s@%s — check your password or key", t.User, addr)
-		}
-		return nil, fmt.Errorf("dial %s: %w", addr, err)
+		return nil, formatDialError(addr, err, t.User)
 	}
-	return client, nil
+
+	// x/crypto/ssh does not accept a context. Closing the underlying socket on
+	// cancellation interrupts both the transport handshake and authentication,
+	// including a server that is slow to answer. The close notification is
+	// stopped after NewClientConn returns so a successful client is unaffected.
+	stopClose := make(chan struct{})
+	go func() {
+		select {
+		case <-ctx.Done():
+			_ = raw.Close()
+		case <-stopClose:
+		}
+	}()
+	sshConn, chans, reqs, err := ssh.NewClientConn(raw, addr, cfg)
+	close(stopClose)
+	if err != nil {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		return nil, formatDialError(addr, err, t.User)
+	}
+	return ssh.NewClient(sshConn, chans, reqs), nil
+}
+
+const dialTimeout = 10 * time.Second
+
+func (d *Dialer) lookupHost(ctx context.Context, host string) ([]string, error) {
+	if d.Resolver != nil {
+		return d.Resolver.LookupHost(ctx, host)
+	}
+	return net.DefaultResolver.LookupHost(ctx, host)
+}
+
+func (d *Dialer) dialTCPContext(ctx context.Context, host string, port int) (net.Conn, error) {
+	lookupCtx, cancel := context.WithTimeout(ctx, dialTimeout)
+	defer cancel()
+	addrs, err := d.lookupHost(lookupCtx, host)
+	if err != nil {
+		return nil, fmt.Errorf("resolve %s: %w", host, err)
+	}
+	if len(addrs) == 0 {
+		return nil, fmt.Errorf("resolve %s: no addresses returned", host)
+	}
+
+	addrPort := strconv.Itoa(port)
+	var lastErr error
+	for _, resolved := range addrs {
+		dialCtx, dialCancel := context.WithTimeout(ctx, dialTimeout)
+		conn, dialErr := (&net.Dialer{}).DialContext(dialCtx, "tcp", net.JoinHostPort(resolved, addrPort))
+		dialCancel()
+		if dialErr == nil {
+			return conn, nil
+		}
+		lastErr = dialErr
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+	}
+	return nil, lastErr
+}
+
+func formatDialError(addr string, err error, user string) error {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return err
+	}
+	// Give the user a more actionable error message for the two most common
+	// failure modes: network unreachable (timeout/refused) vs bad credentials.
+	errStr := err.Error()
+	switch {
+	case isTimeout(err) || contains(errStr, "i/o timeout") || contains(errStr, "connection timed out"):
+		return fmt.Errorf("cannot reach %s — check that the host is online, port 22 is open, and you are on the same network", addr)
+	case contains(errStr, "connection refused"):
+		return fmt.Errorf("connection refused at %s — SSH may not be running on that host", addr)
+	case contains(errStr, "unable to authenticate") || contains(errStr, "no supported methods") || contains(errStr, "permission denied"):
+		return fmt.Errorf("authentication failed for %s@%s — check your password or key", user, addr)
+	}
+	return fmt.Errorf("dial %s: %w", addr, err)
 }
 
 // authFor builds the ordered list of auth methods to offer.

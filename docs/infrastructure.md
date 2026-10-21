@@ -143,6 +143,25 @@ must have defaults. A successful call returns `202` and a job ID; duplicate call
 inside the cooldown return `429`. Editing the runbook invalidates that revision
 until a new trigger is reviewed. Disable a trigger to revoke access.
 
+## Command policy in multi-host runs
+
+The **Multi-host run** page and the Ops console matrix show a `RO` badge for
+hosts marked `read-only` / `readonly` through their existing environment, group
+or tag metadata. Read-only hosts accept inspection commands only; mutating and
+destructive commands are rejected by the backend policy. The selection banner
+lists those hosts and can remove them from the run before retrying.
+
+Commands that include production hosts open a review dialog before execution.
+Destructive commands require the explicit production phrase shown in the dialog;
+the reviewed execution path is sent to the backend only after that confirmation.
+If a host policy rejects a command, the result stays visible in the host result
+row and the policy banner explains whether to choose an inspection command,
+remove a read-only host, or review and retry the production command.
+
+Broadcast mode also shows the number of read-only panes in its `RO` badge. A
+destructive command is held before Enter reaches any pane, and the approval
+dialog lists both production and read-only hosts in the broadcast scope.
+
 ## Team roles and shared sessions
 
 The runner checks every request. Viewer and operator grants include explicit host

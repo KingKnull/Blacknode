@@ -1,9 +1,11 @@
 package sshconn
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -17,6 +19,15 @@ import (
 	"golang.org/x/crypto/ssh"
 	_ "modernc.org/sqlite"
 )
+
+type fixedResolver struct {
+	addrs []string
+	err   error
+}
+
+func (r fixedResolver) LookupHost(context.Context, string) ([]string, error) {
+	return r.addrs, r.err
+}
 
 // fakeServer is a single-connection-per-listener test SSH endpoint that
 // accepts password "secret" for any user, runs the requested command via
@@ -216,6 +227,120 @@ func TestIntegration_BadPassword(t *testing.T) {
 	bad.Password = "wrong"
 	if _, err := d.Dial(bad); err == nil {
 		t.Fatal("expected auth failure")
+	}
+}
+
+func TestIntegration_DiagnoseReportsConnectionStages(t *testing.T) {
+	fs := newFakeServer(t)
+	d := dialerFor(t)
+	d.Resolver = fixedResolver{addrs: []string{"127.0.0.1"}}
+
+	result := d.Diagnose(context.Background(), target("fixture.invalid", fs.port))
+	if !result.Success {
+		t.Fatalf("expected diagnostic success, got %+v", result)
+	}
+	want := []string{"dns", "tcp", "ssh-handshake", "auth", "pty"}
+	if len(result.Stages) != len(want) {
+		t.Fatalf("stages = %+v, want %v", result.Stages, want)
+	}
+	for i, stage := range result.Stages {
+		if stage.Name != want[i] || stage.Status != "passed" {
+			t.Errorf("stage %d = %+v, want %s/passed", i, stage, want[i])
+		}
+	}
+}
+
+func TestIntegration_DiagnoseSeparatesAuthFailure(t *testing.T) {
+	fs := newFakeServer(t)
+	d := dialerFor(t)
+	d.Resolver = fixedResolver{addrs: []string{"127.0.0.1"}}
+	bad := target("fixture.invalid", fs.port)
+	bad.Password = "wrong"
+
+	result := d.Diagnose(context.Background(), bad)
+	if result.Success {
+		t.Fatal("expected diagnostic auth failure")
+	}
+	if len(result.Stages) != 4 {
+		t.Fatalf("stages = %+v, want DNS/TCP/handshake/auth", result.Stages)
+	}
+	if result.Stages[0].Status != "passed" || result.Stages[1].Status != "passed" || result.Stages[2].Status != "passed" {
+		t.Fatalf("network stages did not pass: %+v", result.Stages)
+	}
+	if result.Stages[3].Name != "auth" || result.Stages[3].Status != "failed" {
+		t.Fatalf("auth stage = %+v, want failed", result.Stages[3])
+	}
+}
+
+func TestIntegration_DiagnoseDNSFailureUsesResolverFixture(t *testing.T) {
+	d := dialerFor(t)
+	d.Resolver = fixedResolver{err: errors.New("fixture DNS failure")}
+
+	result := d.Diagnose(context.Background(), target("fixture.invalid", 22))
+	if result.Success || len(result.Stages) != 1 {
+		t.Fatalf("unexpected result: %+v", result)
+	}
+	if result.Stages[0].Name != "dns" || result.Stages[0].Status != "failed" {
+		t.Fatalf("DNS stage = %+v", result.Stages[0])
+	}
+}
+
+func TestIntegration_DiagnoseReportsTCPFailure(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	port := ln.Addr().(*net.TCPAddr).Port
+	_ = ln.Close()
+	d := dialerFor(t)
+	d.Resolver = fixedResolver{addrs: []string{"127.0.0.1"}}
+
+	result := d.Diagnose(context.Background(), target("fixture.invalid", port))
+	if result.Success || len(result.Stages) != 2 {
+		t.Fatalf("unexpected result: %+v", result)
+	}
+	if result.Stages[0].Status != "passed" || result.Stages[1].Name != "tcp" || result.Stages[1].Status != "failed" {
+		t.Fatalf("stages = %+v, want DNS passed and TCP failed", result.Stages)
+	}
+}
+
+func TestIntegration_DialContextCancelsHungHandshake(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	d := dialerFor(t)
+	d.Resolver = fixedResolver{addrs: []string{"127.0.0.1"}}
+	accepted := make(chan net.Conn, 1)
+	go func() {
+		conn, acceptErr := ln.Accept()
+		if acceptErr == nil {
+			accepted <- conn
+		}
+	}()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	result := make(chan error, 1)
+	go func() {
+		_, dialErr := d.DialContext(ctx, target("fixture.invalid", ln.Addr().(*net.TCPAddr).Port))
+		result <- dialErr
+	}()
+	select {
+	case conn := <-accepted:
+		defer conn.Close()
+		cancel()
+	case <-time.After(time.Second):
+		cancel()
+		t.Fatal("dial did not reach TCP fixture")
+	}
+	select {
+	case dialErr := <-result:
+		if !errors.Is(dialErr, context.Canceled) {
+			t.Fatalf("dial error = %v, want context cancellation", dialErr)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("canceled dial did not return promptly")
 	}
 }
 

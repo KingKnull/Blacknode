@@ -51,6 +51,46 @@ func TestCreateAndGetHost(t *testing.T) {
 	}
 }
 
+func TestHostProfileMetadataRoundTrip(t *testing.T) {
+	s := NewHosts(newHostsDB(t))
+	saved, err := s.Create(Host{
+		Name: "prod-web-01", Alias: "primary web", Host: "10.0.0.1", Username: "ops",
+		AuthMethod: "key", Group: "production", Environment: "production",
+		Tags: []string{"prod", "web"}, Notes: "handles customer traffic", Favorite: true,
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	s.TouchLastConnected(saved.ID)
+	got, err := s.Get(saved.ID)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.Alias != "primary web" || !got.Favorite || got.Environment != "production" || got.Notes != "handles customer traffic" {
+		t.Fatalf("profile metadata mismatch: %+v", got)
+	}
+	if len(got.Tags) != 2 || got.Tags[0] != "prod" || got.Tags[1] != "web" {
+		t.Fatalf("tags mismatch: %#v", got.Tags)
+	}
+	if got.LastConnectedAt == 0 {
+		t.Fatal("expected last-connected timestamp to persist")
+	}
+
+	got.Alias = "primary web updated"
+	got.Tags = []string{"critical"}
+	got.Favorite = false
+	if err := s.Update(got); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	listed, err := s.List()
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(listed) != 1 || listed[0].Alias != "primary web updated" || listed[0].Favorite || len(listed[0].Tags) != 1 || listed[0].Tags[0] != "critical" {
+		t.Fatalf("updated profile metadata mismatch: %+v", listed)
+	}
+}
+
 func TestCreateValidation(t *testing.T) {
 	s := NewHosts(newHostsDB(t))
 	cases := []Host{

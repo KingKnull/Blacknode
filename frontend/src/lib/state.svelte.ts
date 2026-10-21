@@ -22,9 +22,10 @@ import type {
 import { NotifyKind } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
 import { checkCommand, type Danger } from "./danger";
 import { evaluateBroadcastInput } from "./broadcastSafety";
+import { isReadOnlyHost } from "./commandPolicy";
 import { bus } from "./events";
 import { NAVIGATION_KEY, readHiddenViews, viewVisible } from "./navigation";
-import type { ConnectionTarget } from "./workspaces";
+import type { ConnectionTarget, WorkspaceFilters } from "./workspaces";
 
 type View =
   | "terminals"
@@ -96,10 +97,13 @@ class AppState {
   });
   selectedHostID = $state<string | null>(null);
   serviceContext = $state<ServiceWorkspace | null>(null);
+  serviceContextRevision = $state(0);
+  workspaceFilters = $state<WorkspaceFilters>({ hostSearch: "" });
   scopedHosts = $derived(this.serviceContext ? this.hosts.filter((h) => this.serviceContext!.hostIDs.includes(h.id)) : this.hosts);
   pendingDBConnectionID = $state("");
-  activateServiceWorkspace(workspace: ServiceWorkspace | null) {
+  activateServiceWorkspace(workspace: ServiceWorkspace | null, revision = 0) {
     this.serviceContext = workspace;
+    this.serviceContextRevision = workspace ? revision : 0;
     if (workspace) { this.selectedHostID = workspace.hostIDs[0] ?? null; this.pendingDBConnectionID = workspace.dbConnectionID; }
     try { if (workspace) localStorage.setItem("blacknode.service-workspace", workspace.id); else localStorage.removeItem("blacknode.service-workspace"); } catch (e) { this.toast("error", "Workspace preference", String(e)); }
   }
@@ -222,6 +226,7 @@ class AppState {
     danger: Danger;
     targets: number;
     productionHosts: string[];
+    readOnlyHosts: string[];
   } | null>(null);
 
   registerBroadcastSink(sessionID: string, write: (data: string) => void) {
@@ -259,13 +264,15 @@ class AppState {
     this.#broadcastLine = decision.line;
     if (decision.danger) {
       const targets = [...this.broadcastSet].filter((s) => s !== sourceSessionID);
+      const members = [...this.broadcastSet];
       this.pendingBroadcastDanger = {
         id: crypto.randomUUID(),
         sourceSessionID,
         command: decision.command ?? "",
         danger: decision.danger,
         targets: targets.length,
-        productionHosts: this.#productionHostNames(targets),
+        productionHosts: this.#productionHostNames(members),
+        readOnlyHosts: this.#readOnlyHostNames(members),
       };
       return false; // hold Enter until the user confirms
     }
@@ -315,6 +322,17 @@ class AppState {
       const host = this.hosts.find((h) => h.id === attached.hostID);
       if (!host) continue;
       if ((host.environment ?? "").toLowerCase() === "production") names.add(host.name);
+    }
+    return [...names];
+  }
+
+  #readOnlyHostNames(sessionIDs: string[]): string[] {
+    const names = new Set<string>();
+    for (const sid of sessionIDs) {
+      const attached = this.sessionHosts[sid];
+      if (!attached) continue;
+      const host = this.hosts.find((h) => h.id === attached.hostID);
+      if (host && isReadOnlyHost(host)) names.add(host.name);
     }
     return [...names];
   }
@@ -464,7 +482,19 @@ class AppState {
       await this.refreshSecretStatus();
       const serviceID = localStorage.getItem("blacknode.service-workspace");
       if (serviceID && !this.serviceContext) {
-        try { const record = await PlatformService.ReadRecord("workspace", serviceID); this.serviceContext = JSON.parse(record.body); }
+        try {
+          const record = await PlatformService.ReadRecord("workspace", serviceID);
+          const parsed = JSON.parse(record.body) as ServiceWorkspace;
+          if (!parsed || typeof parsed !== "object" || parsed.id !== serviceID || typeof parsed.name !== "string") throw new Error("Invalid service workspace");
+          const validHosts = new Set(this.hosts.map((host) => host.id));
+          const validIDs = (value: unknown) => Array.isArray(value)
+            ? [...new Set(value.filter((id): id is string => typeof id === "string" && validHosts.has(id)))].slice(0, 256)
+            : [];
+          parsed.hostIDs = validIDs(parsed.hostIDs);
+          parsed.metricHostIDs = validIDs(parsed.metricHostIDs);
+          if (parsed.kubeHostID && !validHosts.has(parsed.kubeHostID)) parsed.kubeHostID = "";
+          this.activateServiceWorkspace(parsed, record.revision);
+        }
         catch { localStorage.removeItem("blacknode.service-workspace"); }
       }
       if (this.vault.unlocked) await MetricsService.Restore();

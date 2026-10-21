@@ -109,6 +109,7 @@
   let reconnectAttempt = $state(0);
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   const MAX_RECONNECT_ATTEMPTS = 3;
+  let cancelRequested = false;
 
   // Debounce helper
   let resizeDebounce: ReturnType<typeof setTimeout> | undefined;
@@ -626,19 +627,23 @@
           reconnectTimer = setTimeout(async () => {
             try {
               await actuallyConnect(hostID);
+              if (status !== "connected") throw new Error(errorMsg || "connection attempt failed");
               reconnecting = false;
               reconnectAttempt = 0;
               term?.writeln(`\x1b[32m[reconnected]\x1b[0m`);
-            } catch {
+            } catch (e: any) {
               reconnecting = false;
               status = "error";
-              errorMsg = "Reconnection failed";
+              const reason = String(e?.message ?? e);
+              errorMsg = `Reconnection failed: ${reason}`;
+              term?.writeln(`\x1b[31m[reconnect failed: ${reason}]\x1b[0m`);
             }
           }, delay);
         } else {
           reconnecting = false;
           reconnectAttempt = 0;
           status = "idle";
+          term?.writeln(`\x1b[90m[reconnect stopped after ${MAX_RECONNECT_ATTEMPTS} attempts]\x1b[0m`);
         }
       } else if (mode === "mosh" || mode === "telnet" || mode === "serial") {
         // Mosh handles its own reconnects; telnet/serial have no auto-reconnect.
@@ -722,7 +727,7 @@
     app.pendingLaunchCommands.delete(sessionID);
     try { term?.dispose(); } catch { /* already disposed */ }
     if (mode === "local" && status === "running") void LocalShellService.Close(sessionID);
-    if (mode === "remote" && status === "connected") void SSHService.Disconnect(sessionID);
+    if (mode === "remote" && (status === "connected" || status === "connecting" || reconnecting)) void SSHService.Disconnect(sessionID);
     if (mode === "mosh" && status === "connected") void MoshService.Disconnect(sessionID);
     if (mode === "telnet" && status === "connected") void TelnetService.Disconnect(sessionID);
     if (mode === "serial" && status === "connected") void SerialService.Disconnect(sessionID);
@@ -959,6 +964,7 @@
   }
 
   async function actuallyConnect(hostID: string, afterChange = false) {
+    cancelRequested = false;
     resetTerminalInput();
     shellParser.reset(); shellIntegrated = false; shellCwd = ""; shellBranch = "";
     status = "connecting"; errorMsg = "";
@@ -987,6 +993,7 @@
       startLatencyPolling();
       if (!runLaunchCommand() && !info.restored) runStartupSnippet(hostID);
     } catch (e: any) {
+      if (cancelRequested || disposed) return;
       // Some servers close the connection right after a forced password change.
       // The new password is now the valid credential, so reconnect once with it.
       if (!afterChange && app.pendingNewPassword?.hostID === hostID) {
@@ -1052,6 +1059,8 @@
   }
 
   async function disconnectRemote() {
+    const wasConnecting = status === "connecting" || reconnecting;
+    cancelRequested = true;
     resetTerminalInput();
     // Cancel any pending auto-reconnect before tearing down.
     if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = undefined; }
@@ -1063,6 +1072,7 @@
       else if (mode === "serial") await SerialService.Disconnect(sessionID);
       else await SSHService.Disconnect(sessionID);
     } finally {
+      term?.writeln(`\r\n\x1b[90m[${wasConnecting ? "connection attempt canceled" : "session disconnected"}]\x1b[0m`);
       connectedHostID = null; status = "idle";
       runtimePassword = "";
       stopLatencyPolling();
@@ -1255,7 +1265,9 @@
           class="ml-2 flex items-center gap-1.5 border border-[var(--color-danger)]/30 px-2 py-0.5 font-mono type-eyebrow text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 transition-all"
           onclick={disconnectRemote}
         >
-          <Unplug size="10" /><span>DISCONNECT</span>
+          {#if reconnecting}<X size="10" /><span>CANCEL RECONNECT</span>
+          {:else if status === "connecting"}<X size="10" /><span>CANCEL</span>
+          {:else}<Unplug size="10" /><span>DISCONNECT</span>{/if}
         </button>
       {/if}
     </div>

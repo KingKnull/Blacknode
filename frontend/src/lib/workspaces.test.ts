@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { captureWorkspace, parseWorkspace, readWorkspace, readSavedWorkspaces, restoreWorkspace, type WorkspaceSnapshot } from "./workspaces.ts";
+import { captureWorkspace, parsePersistedWorkspaceState, parseWorkspace, readWorkspace, readSavedWorkspaces, restoreWorkspace, sanitizeWorkspace, type WorkspaceSnapshot } from "./workspaces.ts";
 
 const example: WorkspaceSnapshot = {
   version: 2,
@@ -9,6 +9,7 @@ const example: WorkspaceSnapshot = {
     { root: { kind: "leaf", target: null }, activeLeaf: 0 },
   ],
   activeTab: 1, view: "files", sidebarWidth: 290, selectedHostID: "web", forwardIDs: ["postgres"],
+  filters: { hostSearch: "prod" }, context: { serviceWorkspaceID: "payments" },
 };
 
 test("round trips nested layouts, hosts, selection and tunnel presets with fresh runtime IDs", () => {
@@ -57,6 +58,20 @@ test("normalizes untrusted persisted values and deduplicates saved workspaces", 
   assert.equal(parsed?.sidebarWidth, 252);
   assert.equal(parsed?.view, "terminals");
   assert.deepEqual(parsed?.forwardIDs, ["a"]);
+  assert.equal(parseWorkspace({ ...example, filters: { hostSearch: "x".repeat(500) } })?.filters.hostSearch.length, 200);
+  assert.equal(parseWorkspace({ ...example, context: { serviceWorkspaceID: 42 } as any })?.context.serviceWorkspaceID, null);
   const entry = { id: "one", name: " Dev ", snapshot: example };
   assert.equal(readSavedWorkspaces({ getItem: () => JSON.stringify([entry, entry, null]) }).length, 1);
+});
+
+test("reads durable state and drops deleted host and forward references", () => {
+  const state = parsePersistedWorkspaceState(JSON.stringify({ version: 1, snapshot: example }));
+  assert.equal(state?.context.serviceWorkspaceID, "payments");
+  const safe = sanitizeWorkspace(state!, ["web"], ["other"]);
+  assert.equal(safe.selectedHostID, "web");
+  assert.deepEqual(safe.forwardIDs, []);
+  const restored = restoreWorkspace(safe, (() => { let i = 0; return () => String(++i); })(), ["web"]);
+  assert.deepEqual(Object.values(restored.targets), [{ hostID: "web", via: "ssh" }, null, null, null]);
+  assert.equal(parsePersistedWorkspaceState("{bad"), null);
+  assert.equal(parsePersistedWorkspaceState({ version: 2, snapshot: example }), null);
 });

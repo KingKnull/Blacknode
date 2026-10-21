@@ -112,7 +112,15 @@ func (s *PlatformService) SetIncidentStatus(ctx context.Context, id, status stri
 		return store.OperationDocument{}, err
 	}
 	incident.Status = status
-	return s.store.Put("incident", id, revision, incident)
+	doc, err := s.store.Put("incident", id, revision, incident)
+	if err != nil {
+		return store.OperationDocument{}, err
+	}
+	_, eventErr := s.store.Append(id, "incident."+status, "Incident "+status, map[string]string{"status": status})
+	if eventErr != nil {
+		return doc, eventErr
+	}
+	return doc, nil
 }
 
 func (s *PlatformService) CompareIncidents(ctx context.Context, beforeID, afterID string) ([]FleetDifference, error) {
