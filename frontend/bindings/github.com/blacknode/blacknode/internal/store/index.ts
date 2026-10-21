@@ -19,5 +19,6 @@ export {
     Recording,
     Snippet,
     Status,
-    TeamActivity
+    TeamActivity,
+    WorkspaceTemplate
 } from "./models.js";

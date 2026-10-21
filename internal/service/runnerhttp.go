@@ -12,10 +12,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/blacknode/blacknode/internal/sshconn"
 	"github.com/blacknode/blacknode/internal/store"
@@ -52,14 +55,50 @@ type TeamJobRequest struct {
 	Values       map[string]string `json:"values"`
 }
 type TeamSession struct {
-	ID        string            `json:"id"`
-	HostID    string            `json:"hostID"`
-	OwnerID   string            `json:"ownerID"`
-	Title     string            `json:"title"`
-	Members   map[string]string `json:"members"`
-	StartedAt int64             `json:"startedAt"`
-	Closed    bool              `json:"closed"`
+	ID              string                        `json:"id"`
+	HostID          string                        `json:"hostID"`
+	OwnerID         string                        `json:"ownerID"`
+	Title           string                        `json:"title"`
+	Members         map[string]string             `json:"members"`
+	ControlRequests map[string]TeamControlRequest `json:"controlRequests"`
+	Annotations     []TeamSessionAnnotation       `json:"annotations"`
+	StartedAt       int64                         `json:"startedAt"`
+	Closed          bool                          `json:"closed"`
 }
+type TeamControlRequest struct {
+	ID          string `json:"id"`
+	Status      string `json:"status"`
+	RequestedAt int64  `json:"requestedAt"`
+	DecidedAt   int64  `json:"decidedAt"`
+	DecidedBy   string `json:"decidedBy"`
+}
+type TeamSessionAnnotation struct {
+	ID        string `json:"id"`
+	AuthorID  string `json:"authorID"`
+	Author    string `json:"author"`
+	CreatedAt int64  `json:"createdAt"`
+	Text      string `json:"text"`
+	Redacted  bool   `json:"redacted"`
+}
+
+const (
+	maxSessionAnnotationBytes = 1024
+	maxSessionAnnotations     = 100
+	maxSessionAnnotationBody  = 8 << 10
+)
+
+// Redact the whole note when credentials are detected: partially masking a
+// quoted/multiline secret could leave its suffix visible. Include incomplete
+// PEM blocks, standalone authorization values and opaque pasted credentials.
+var sessionAnnotationCredential = regexp.MustCompile(`(?i)-----BEGIN [A-Z0-9 ]*PRIVATE KEY|\b(?:bearer|basic)\s+\S+|\b(?:authorization|cookie|set-cookie|credential|passphrase|private[_-]?key)["']?\s*[:=]|\b[A-Za-z0-9_+/=-]{32,}\b`)
+
+func redactSessionAnnotation(text string) string {
+	if redactEvidence(text) != text || sessionAnnotationCredential.MatchString(text) {
+		return "[REDACTED: credential-like text]"
+	}
+	return text
+}
+
 type TeamTerminalOutput struct {
 	Seq       int64  `json:"seq"`
 	Data      string `json:"data"`
@@ -769,14 +808,17 @@ func (r *RunnerHTTP) handleMembers(w http.ResponseWriter, req *http.Request, act
 }
 
 func (r *RunnerHTTP) handleSessions(w http.ResponseWriter, req *http.Request, m TeamMember, parts []string) {
-	deny := func() { runnerError(w, 403, errors.New("session permission denied")) }
+	deny := func() {
+		_ = r.auditResult(m, "authorization.denied", strings.Join(parts, "/"), "denied", map[string]string{"method": req.Method})
+		runnerError(w, 403, errors.New("session permission denied"))
+	}
 	if len(parts) == 2 {
 		if req.Method == "GET" {
 			r.mu.Lock()
 			out := []TeamSession{}
 			for _, s := range r.sessions {
 				if m.canHost(s.info.HostID) && (s.info.Members[m.ID] != "" || m.Role == "admin") {
-					out = append(out, cloneTeamSession(s.info))
+					out = append(out, teamSessionView(s.info, m))
 				}
 			}
 			r.mu.Unlock()
@@ -845,6 +887,10 @@ func (r *RunnerHTTP) handleSessions(w http.ResponseWriter, req *http.Request, m 
 		return
 	}
 	switch parts[3] {
+	case "annotations":
+		r.handleSessionAnnotations(w, req, m, s)
+	case "request-control", "control-requests":
+		r.handleSessionControl(w, req, m, s, parts[3] == "request-control")
 	case "output":
 		if req.Method != "GET" {
 			deny()
@@ -885,6 +931,18 @@ func (r *RunnerHTTP) handleSessions(w http.ResponseWriter, req *http.Request, m 
 		}
 		s.inputMu.Lock()
 		defer s.inputMu.Unlock()
+		// Recheck after decoding and waiting for earlier input. A request is
+		// never input authority, and a stale snapshot must not bypass removal,
+		// credential expiry, or the session's eight-hour lifetime.
+		r.mu.Lock()
+		current, memberErr := r.member(m.ID)
+		allowed := memberErr == nil && current.canOperate() && current.canHost(s.info.HostID) &&
+			(s.info.Members[m.ID] == "peer" || current.Role == "admin") && r.sessionLiveLocked(s)
+		r.mu.Unlock()
+		if !allowed {
+			deny()
+			return
+		}
 		if input.Data != "" && s.lastWriter != m.ID {
 			if err := r.audit(m, "session.contributor", map[string]string{"sessionID": info.ID}); err != nil {
 				runnerError(w, 500, err)
@@ -927,28 +985,230 @@ func (r *RunnerHTTP) handleSessions(w http.ResponseWriter, req *http.Request, m 
 			deny()
 			return
 		}
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		actor, actorErr := r.member(m.ID)
+		if actorErr != nil || !actor.canHost(s.info.HostID) || (actor.ID != s.info.OwnerID && actor.Role != "admin") || !r.sessionLiveLocked(s) {
+			deny()
+			return
+		}
 		if err = r.audit(m, "session.invitation", map[string]string{"sessionID": info.ID, "memberID": target.ID, "mode": input.Mode}); err != nil {
 			runnerError(w, 500, err)
 			return
 		}
-		r.mu.Lock()
 		if input.Mode == "remove" {
 			delete(s.info.Members, target.ID)
 		} else {
 			s.info.Members[target.ID] = input.Mode
 		}
-		r.mu.Unlock()
+		delete(s.info.ControlRequests, target.ID)
 		runnerJSON(w, 200, map[string]bool{"updated": true})
 	default:
 		runnerError(w, 404, errors.New("endpoint not found"))
 	}
 }
+
+// Call with r.mu held. The periodic cleanup is not an authorization boundary:
+// requests, decisions, and input must fail even before its next tick.
+func (r *RunnerHTTP) sessionLiveLocked(s *sharedTerminal) bool {
+	if r.closed || s.info.Closed || time.Now().UnixMilli() >= s.info.StartedAt+(8*time.Hour).Milliseconds() {
+		return false
+	}
+	owner, err := r.member(s.info.OwnerID)
+	return err == nil && owner.canOperate() && owner.canHost(s.info.HostID)
+}
+
+// Notes are session-memory only, including while closed output is retained.
+// Scoped operator observers may annotate without gaining terminal control;
+// viewer credentials remain strictly read-only. Audit stores metadata, never
+// note text (even the redacted form), and this path never writes to SSH input.
+func (r *RunnerHTTP) handleSessionAnnotations(w http.ResponseWriter, req *http.Request, actor TeamMember, s *sharedTerminal) {
+	deny := func() {
+		_ = r.auditResult(actor, "authorization.denied", s.info.ID, "denied", map[string]string{"action": "session.annotation"})
+		runnerError(w, 403, errors.New("session annotation permission denied"))
+	}
+	if req.Method != "GET" && req.Method != "POST" {
+		w.Header().Set("Allow", "GET, POST")
+		runnerError(w, 405, errors.New("GET or POST required"))
+		return
+	}
+	var input struct {
+		Text string `json:"text"`
+	}
+	if req.Method == "POST" {
+		// Apply a tighter wire bound as well as the decoded UTF-8 byte bound.
+		req.Body = http.MaxBytesReader(w, req.Body, maxSessionAnnotationBody)
+		if err := runnerDecode(w, req, &input); err != nil {
+			var tooLarge *http.MaxBytesError
+			if errors.As(err, &tooLarge) {
+				runnerError(w, 413, errors.New("annotation request exceeds 8 KiB"))
+			} else {
+				runnerError(w, 400, errors.New("expected an annotation text object"))
+			}
+			return
+		}
+		if len(input.Text) > maxSessionAnnotationBytes || !utf8.ValidString(input.Text) || strings.TrimSpace(input.Text) == "" || strings.ContainsFunc(input.Text, func(c rune) bool { return unicode.IsControl(c) && c != '\n' && c != '\t' }) {
+			runnerError(w, 400, errors.New("annotation must contain 1–1024 UTF-8 bytes without terminal control characters"))
+			return
+		}
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	current, err := r.member(actor.ID)
+	if err != nil || !current.canHost(s.info.HostID) || (s.info.Members[current.ID] == "" && current.Role != "admin") || r.sessions[s.info.ID] != s {
+		deny()
+		return
+	}
+	actor = current
+	if req.Method == "GET" {
+		runnerJSON(w, 200, append([]TeamSessionAnnotation{}, s.info.Annotations...))
+		return
+	}
+	if !actor.canOperate() || !r.sessionLiveLocked(s) {
+		deny()
+		return
+	}
+	if len(s.info.Annotations) >= maxSessionAnnotations {
+		runnerError(w, 409, errors.New("session annotation limit reached (100)"))
+		return
+	}
+	text := redactSessionAnnotation(strings.TrimSpace(input.Text))
+	note := TeamSessionAnnotation{ID: uuid.NewString(), AuthorID: actor.ID, Author: redactSessionAnnotation(actor.Name), CreatedAt: time.Now().UnixMilli(), Text: text, Redacted: text != strings.TrimSpace(input.Text)}
+	// Names are user-selected too; do not copy credential-like display text
+	// into the durable annotation audit metadata.
+	actor.Name = note.Author
+	if err := r.auditResult(actor, "session.annotation.created", s.info.ID, "success", map[string]any{
+		"sessionID": s.info.ID, "annotationID": note.ID, "bytes": len(note.Text), "redacted": note.Redacted,
+	}); err != nil {
+		runnerError(w, 500, errors.New("could not audit session annotation"))
+		return
+	}
+	s.info.Annotations = append(s.info.Annotations, note)
+	runnerJSON(w, 201, note)
+}
+
+func (r *RunnerHTTP) handleSessionControl(w http.ResponseWriter, req *http.Request, actor TeamMember, s *sharedTerminal, request bool) {
+	deny := func() {
+		_ = r.auditResult(actor, "authorization.denied", s.info.ID, "denied", map[string]string{"action": "session.control"})
+		runnerError(w, 403, errors.New("session permission denied"))
+	}
+	if req.Method != "POST" {
+		runnerError(w, 405, errors.New("POST required"))
+		return
+	}
+	var decision struct {
+		MemberID  string `json:"memberID"`
+		RequestID string `json:"requestID"`
+		Decision  string `json:"decision"`
+	}
+	if request {
+		// No client-selected member, mode, or status is accepted on creation.
+		if err := runnerDecode(w, req, &struct{}{}); err != nil {
+			runnerError(w, 400, errors.New("expected an empty request object"))
+			return
+		}
+	} else if err := runnerDecode(w, req, &decision); err != nil {
+		runnerError(w, 400, errors.New("invalid control decision"))
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	// Re-read credentials after body decoding, and keep validation, the audit
+	// record and the state transition atomic with other session mutations.
+	current, err := r.member(actor.ID)
+	if err != nil || !current.canHost(s.info.HostID) || !r.sessionLiveLocked(s) ||
+		(s.info.Members[current.ID] == "" && current.Role != "admin") {
+		deny()
+		return
+	}
+	actor = current
+	if request {
+		if s.info.Members[actor.ID] != "observer" || !actor.canOperate() || actor.ID == s.info.OwnerID {
+			deny()
+			return
+		}
+		if pending, ok := s.info.ControlRequests[actor.ID]; ok && pending.Status == "pending" {
+			runnerJSON(w, 200, pending)
+			return
+		}
+		pending := TeamControlRequest{ID: uuid.NewString(), Status: "pending", RequestedAt: time.Now().UnixMilli()}
+		if err := r.audit(actor, "session.control.requested", map[string]string{"sessionID": s.info.ID, "memberID": actor.ID, "requestID": pending.ID}); err != nil {
+			runnerError(w, 500, err)
+			return
+		}
+		if s.info.ControlRequests == nil {
+			s.info.ControlRequests = map[string]TeamControlRequest{}
+		}
+		s.info.ControlRequests[actor.ID] = pending
+		runnerJSON(w, 201, pending)
+		return
+	}
+	if (actor.ID != s.info.OwnerID && actor.Role != "admin") || decision.MemberID == actor.ID {
+		deny()
+		return
+	}
+	if decision.Decision != "approve" && decision.Decision != "reject" {
+		runnerError(w, 400, errors.New("decision must be approve or reject"))
+		return
+	}
+	pending, ok := s.info.ControlRequests[decision.MemberID]
+	if !ok || pending.Status != "pending" || pending.ID != decision.RequestID {
+		runnerError(w, 409, errors.New("control request is no longer pending; refresh the session"))
+		return
+	}
+	if s.info.Members[decision.MemberID] != "observer" {
+		deny()
+		return
+	}
+	if decision.Decision == "approve" {
+		target, err := r.member(decision.MemberID)
+		if err != nil || !target.canOperate() || !target.canHost(s.info.HostID) {
+			deny()
+			return
+		}
+		pending.Status = "approved"
+	} else {
+		pending.Status = "rejected"
+	}
+	pending.DecidedAt = time.Now().UnixMilli()
+	pending.DecidedBy = actor.ID
+	if err := r.auditResult(actor, "session.control."+pending.Status, s.info.ID, pending.Status, map[string]string{
+		"sessionID": s.info.ID, "memberID": decision.MemberID, "requestID": pending.ID,
+	}); err != nil {
+		runnerError(w, 500, err)
+		return
+	}
+	if pending.Status == "approved" {
+		s.info.Members[decision.MemberID] = "peer"
+	}
+	s.info.ControlRequests[decision.MemberID] = pending
+	runnerJSON(w, 200, pending)
+}
+
+func teamSessionView(info TeamSession, m TeamMember) TeamSession {
+	info = cloneTeamSession(info)
+	if m.ID != info.OwnerID && m.Role != "admin" {
+		for id := range info.ControlRequests {
+			if id != m.ID {
+				delete(info.ControlRequests, id)
+			}
+		}
+	}
+	return info
+}
+
 func cloneTeamSession(info TeamSession) TeamSession {
 	members := map[string]string{}
 	for k, v := range info.Members {
 		members[k] = v
 	}
 	info.Members = members
+	requests := map[string]TeamControlRequest{}
+	for id, request := range info.ControlRequests {
+		requests[id] = request
+	}
+	info.ControlRequests = requests
+	info.Annotations = append([]TeamSessionAnnotation{}, info.Annotations...)
 	return info
 }
 

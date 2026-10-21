@@ -36,6 +36,8 @@ type PublicKeyView struct {
 	PublicKey   string `json:"publicKey"`
 	Fingerprint string `json:"fingerprint"`
 	CreatedAt   int64  `json:"createdAt"`
+	// RotationDueDate is advisory metadata only, empty when no reminder is set.
+	RotationDueDate string `json:"rotationDueDate"`
 	// Hardware marks a FIDO2 security key: the private half stays on the
 	// token, so it authenticates through the SSH agent and cannot be exported.
 	Hardware       bool `json:"hardware"`
@@ -49,7 +51,7 @@ func toView(k store.Key) PublicKeyView {
 	v := PublicKeyView{
 		ID: k.ID, Name: k.Name, KeyType: k.KeyType,
 		PublicKey: k.PublicKey, Fingerprint: k.Fingerprint, CreatedAt: k.CreatedAt,
-		Hardware: k.Hardware,
+		Hardware: k.Hardware, RotationDueDate: k.RotationDueDate,
 	}
 	if k.Certificate != "" {
 		v.HasCertificate = true
@@ -92,6 +94,19 @@ func (s *KeyService) List(ctx context.Context) ([]PublicKeyView, error) {
 }
 
 func (s *KeyService) Delete(ctx context.Context, id string) error { return s.keys.Delete(id) }
+
+// SetRotationDueDate sets an advisory YYYY-MM-DD date, or clears it with an
+// empty string. No authentication state changes and no notifications are sent.
+func (s *KeyService) SetRotationDueDate(ctx context.Context, id, date string) (PublicKeyView, error) {
+	if err := s.keys.SetRotationDueDate(id, date); err != nil {
+		return PublicKeyView{}, err
+	}
+	k, err := s.keys.Get(id)
+	if err != nil {
+		return PublicKeyView{}, err
+	}
+	return toView(k), nil
+}
 
 // AttachCertificate validates an OpenSSH certificate, verifies it was issued
 // for this key (its embedded public key must match), and stores it. Passing an

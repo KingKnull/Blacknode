@@ -26,11 +26,12 @@ import (
 // The server never sees plaintext: the whole snapshot is gzipped then
 // AES-GCM encrypted with a vault-derived key.
 type SyncSnapshot struct {
-	Version      int                 `json:"version"`
-	CreatedAt    int64               `json:"createdAt"`
-	Hosts        []store.Host        `json:"hosts,omitempty"`
-	Snippets     []store.Snippet     `json:"snippets,omitempty"`
-	HTTPRequests []store.HTTPRequest `json:"httpRequests,omitempty"`
+	Version            int                       `json:"version"`
+	CreatedAt          int64                     `json:"createdAt"`
+	Hosts              []store.Host              `json:"hosts,omitempty"`
+	Snippets           []store.Snippet           `json:"snippets,omitempty"`
+	HTTPRequests       []store.HTTPRequest       `json:"httpRequests,omitempty"`
+	WorkspaceTemplates []store.WorkspaceTemplate `json:"workspaceTemplates,omitempty"`
 }
 
 // SyncStatus is what the UI renders.
@@ -56,7 +57,8 @@ const (
 	syncBlobName    = "blacknode-sync.bin"
 	// syncVersion is the version stamped inside the snapshot payload. The blob
 	// framing version is separate — see syncBlobV1 / syncBlobV2 in synckey.go.
-	syncVersion = 1
+	syncVersion          = 1
+	maxSyncSnapshotBytes = 16 << 20
 
 	// teamBlobName is the shared object every member of a team writes to /
 	// reads from. Distinct from syncBlobName so a personal sync and a
@@ -159,12 +161,37 @@ func (s *SyncService) Push(ctx context.Context) (SyncStatus, error) {
 	if err != nil {
 		return SyncStatus{}, fmt.Errorf("list http requests: %w", err)
 	}
+	templates, err := s.settings.WorkspaceTemplates()
+	if err != nil {
+		return SyncStatus{}, fmt.Errorf("list workspace templates: %w", err)
+	}
+	// Preserve templates this device has never pulled, including tombstones.
+	// Merge only into the outgoing catalog: a manual Push must not import
+	// remote hosts, snippets, HTTP requests, or change local records.
+	remoteBody, err := s.getNamed(cfg, syncBlobName)
+	if err != nil {
+		s.recordError(err)
+		return s.Status(context.Background())
+	}
+	if remoteBody != nil { // only a confirmed 404 permits a fresh snapshot
+		remote, err := s.decodeSnapshot(remoteBody)
+		if err != nil {
+			s.recordError(err)
+			return s.Status(context.Background())
+		}
+		templates, err = mergedWorkspaceTemplates(templates, remote.WorkspaceTemplates)
+		if err != nil {
+			s.recordError(err)
+			return s.Status(context.Background())
+		}
+	}
 	snap := SyncSnapshot{
-		Version:      syncVersion,
-		CreatedAt:    time.Now().Unix(),
-		Hosts:        hosts,
-		Snippets:     snippets,
-		HTTPRequests: httpReqs,
+		Version:            syncVersion,
+		CreatedAt:          time.Now().Unix(),
+		Hosts:              hosts,
+		Snippets:           snippets,
+		HTTPRequests:       httpReqs,
+		WorkspaceTemplates: templates,
 	}
 	body, err := s.encodeSnapshot(snap)
 	if err != nil {
@@ -209,6 +236,10 @@ func (s *SyncService) Pull(ctx context.Context) (SyncStatus, error) {
 		s.recordError(err)
 		return s.Status(context.Background())
 	}
+	if err := s.mergeWorkspaceTemplates(snap.WorkspaceTemplates); err != nil {
+		s.recordError(err)
+		return s.Status(context.Background())
+	}
 	s.mergeHosts(snap.Hosts)
 	s.mergeSnippets(snap.Snippets)
 	s.mergeHTTPRequests(snap.HTTPRequests)
@@ -224,9 +255,15 @@ func (s *SyncService) Pull(ctx context.Context) (SyncStatus, error) {
 //	[12 bytes nonce]
 //	[N bytes  ciphertext]
 func (s *SyncService) encodeSnapshot(snap SyncSnapshot) ([]byte, error) {
+	if err := store.ValidateWorkspaceTemplates(snap.WorkspaceTemplates); err != nil {
+		return nil, err
+	}
 	plain, err := json.Marshal(snap)
 	if err != nil {
 		return nil, fmt.Errorf("marshal snapshot: %w", err)
+	}
+	if len(plain) > maxSyncSnapshotBytes {
+		return nil, errors.New("sync snapshot exceeds size limit")
 	}
 	var gz bytes.Buffer
 	w := gzip.NewWriter(&gz)
@@ -240,6 +277,9 @@ func (s *SyncService) encodeSnapshot(snap SyncSnapshot) ([]byte, error) {
 }
 
 func (s *SyncService) decodeSnapshot(blob []byte) (SyncSnapshot, error) {
+	if len(blob) > maxSyncSnapshotBytes {
+		return SyncSnapshot{}, errors.New("sync blob exceeds size limit")
+	}
 	if len(blob) < 5+12 || !bytes.HasPrefix(blob, []byte("BLNS")) {
 		return SyncSnapshot{}, errors.New("not a blacknode sync blob")
 	}
@@ -252,13 +292,22 @@ func (s *SyncService) decodeSnapshot(blob []byte) (SyncSnapshot, error) {
 		return SyncSnapshot{}, fmt.Errorf("gzip: %w", err)
 	}
 	defer r.Close()
-	plain, err := io.ReadAll(r)
+	plain, err := io.ReadAll(io.LimitReader(r, maxSyncSnapshotBytes+1))
 	if err != nil {
 		return SyncSnapshot{}, fmt.Errorf("gunzip: %w", err)
+	}
+	if len(plain) > maxSyncSnapshotBytes {
+		return SyncSnapshot{}, errors.New("sync snapshot exceeds size limit")
 	}
 	var snap SyncSnapshot
 	if err := json.Unmarshal(plain, &snap); err != nil {
 		return SyncSnapshot{}, fmt.Errorf("unmarshal: %w", err)
+	}
+	if snap.Version != syncVersion {
+		return SyncSnapshot{}, errors.New("unsupported sync snapshot version")
+	}
+	if err := store.ValidateWorkspaceTemplates(snap.WorkspaceTemplates); err != nil {
+		return SyncSnapshot{}, err
 	}
 	return snap, nil
 }
@@ -373,6 +422,8 @@ func (s *SyncService) putNamed(cfg SyncSettings, name string, body []byte) error
 	return nil
 }
 
+// getNamed returns nil only for a missing object (404). An existing empty
+// object is non-nil so Push can reject it instead of overwriting unreadable data.
 func (s *SyncService) getNamed(cfg SyncSettings, name string) ([]byte, error) {
 	url := cfg.Endpoint + "/" + name
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -397,9 +448,15 @@ func (s *SyncService) getNamed(cfg SyncSettings, name string) ([]byte, error) {
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		return nil, fmt.Errorf("get %s: %d %s", url, resp.StatusCode, strings.TrimSpace(string(b)))
 	}
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxSyncSnapshotBytes+1))
 	if err != nil {
 		return nil, fmt.Errorf("read body: %w", err)
+	}
+	if len(body) > maxSyncSnapshotBytes {
+		return nil, errors.New("sync blob exceeds size limit")
+	}
+	if body == nil {
+		body = []byte{}
 	}
 	return body, nil
 }

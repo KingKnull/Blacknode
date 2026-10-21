@@ -1,6 +1,7 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { app } from "./state.svelte";
-  import { shortcutLabel } from "./shortcuts";
+  import { getShortcuts, shortcutLabel, subscribeShortcuts, type ShortcutAction } from "./shortcuts";
   import HostEditor from "./HostEditor.svelte";
   import { Server, KeyRound, TerminalSquare, X, CheckCircle2, ArrowRight, Sparkles } from "@lucide/svelte";
 
@@ -11,6 +12,8 @@
 
   let dismissed = $state<boolean>(localStorage.getItem(STORAGE_KEY) === "1");
   let editorOpen = $state(false);
+  let shortcuts = $state(getShortcuts());
+  onMount(() => subscribeShortcuts((next) => { shortcuts = next; }));
 
   // Step completion is derived from app state — we never track these
   // independently. That way, deleting your only host re-shows step 2
@@ -57,10 +60,10 @@
   }
 
   // A few extra shortcuts beyond the original one-liner footer.
-  const SHORTCUTS: [string, string][] = [
-    [shortcutLabel("palette"), "Command palette"],
-    [shortcutLabel("newTab"), "New tab"],
-    [shortcutLabel("closeTab"), "Close tab"],
+  const SHORTCUTS: [ShortcutAction | string, string][] = [
+    ["palette", "Command palette"],
+    ["newTab", "New tab"],
+    ["closeTab", "Close tab"],
     ["Ctrl+.", "Terminal side panel"],
     ["Ctrl+Shift+F", "Search in terminal"],
     ["?", "Full shortcut list"],
@@ -198,9 +201,9 @@
           <Sparkles size="10" /> Quick reference
         </div>
         <div class="grid grid-cols-2 gap-x-3 gap-y-1">
-          {#each SHORTCUTS as [key, label] (key)}
+          {#each SHORTCUTS as [action, label] (action)}
             <div class="flex items-center gap-1.5 font-mono type-micro text-[var(--color-text-4)]">
-              <kbd class="rounded border hairline px-1 text-[var(--color-text-3)]">{key}</kbd>
+              <kbd class="rounded border hairline px-1 text-[var(--color-text-3)]">{action === "palette" || action === "newTab" || action === "closeTab" ? shortcutLabel(action, shortcuts) : action}</kbd>
               <span class="truncate">{label}</span>
             </div>
           {/each}

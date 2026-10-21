@@ -4,16 +4,21 @@ User request: implement all nine recommended additions. Existing working-tree ch
 
 ## Delivery
 
-- [ ] HTTP/TCP/DNS monitoring, latency/history, TLS expiry, maintenance windows, status dashboard.
-- [ ] Local/remote directory comparison, reviewed synchronization, exclusions, conflict choices, saved profiles.
-- [ ] Service dependency graph, health mapping, downstream impact; optional trace-derived discovery.
-- [ ] Trivy scans, severity/filtering, available fixes, historical comparison.
-- [ ] YAML runbooks in Git, change review, commit-pinned execution and restore/import.
-- [ ] Standalone runner, durable schedules and monitoring, authenticated incoming runbook triggers.
-- [ ] Server-enforced team roles, expiring credentials, audit events, observer/peer terminal sessions.
-- [ ] Helm list/values/history, upgrade preview and reviewed rollback.
-- [ ] AWS Session Manager profiles and interactive sessions using AWS CLI and Session Manager plugin.
-- [ ] Navigation, bindings, documentation, regression tests, UI verification and local builds.
+- [x] HTTP/TCP/DNS monitoring, latency/history, TLS expiry, maintenance windows and status dashboard.
+- [x] Local/remote directory comparison, reviewed synchronization, exclusions, conflict choices and saved profiles.
+- [x] Service dependency graph, health mapping, downstream impact and optional trace-derived discovery.
+- [x] Trivy scans, severity/filtering, available fixes and historical comparison.
+- [x] YAML runbooks in Git, change review, commit-pinned execution and restore/import.
+- [x] Standalone runner, durable schedules and monitoring, authenticated incoming runbook triggers.
+- [x] Server-enforced team roles, expiring credentials, audit events and observer/peer terminal sessions.
+- [x] Helm list/values/history, upgrade preview and reviewed rollback.
+- [x] AWS Session Manager profiles and interactive sessions using AWS CLI and Session Manager plugin.
+- [x] Global operational search and credential-free service-workspace templates.
+- [x] Navigation, bindings, documentation, regression tests, UI verification and server/frontend builds.
+
+## Explicit environment limitation
+
+The remaining native Linux desktop limitation is outside the feature implementation: Wails beta.34's GTK4 backend needs newer GTK development headers than the current Debian container provides. No production infrastructure is contacted by the test suite; external tools and provider integrations are checked through local fixtures or availability diagnostics.
 
 ## Verification
 

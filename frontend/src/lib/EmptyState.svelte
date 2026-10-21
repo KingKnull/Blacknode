@@ -30,9 +30,9 @@
         </div>
       </div>
     {/if}
-    <p class="type-body font-medium text-[var(--color-text-2)]">{title}</p>
+    <p class="{compact ? 'type-body font-medium' : 'type-display'} text-[var(--color-text-1)]">{title}</p>
     {#if description}
-      <p class="mt-1.5 type-caption leading-relaxed text-[var(--color-text-4)]">{description}</p>
+      <p class="mt-2 type-body text-[var(--color-text-3)]">{description}</p>
     {/if}
     {#if action}
       <div class="mt-4 flex items-center justify-center gap-2">

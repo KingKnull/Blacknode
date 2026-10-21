@@ -221,7 +221,9 @@ tasks:
     summary: Builds Docker image for cross-compilation (~800MB download)
     desc: |
       Builds the Docker image needed for cross-compiling to any platform.
-      Run this once to enable cross-platform builds from any OS.
+      Run this after Dockerfile changes to rebuild the Go 1.26 / Ubuntu 24.04 GTK4 image.
+      Linux uses native GCC: build and run the image with --platform=linux/<target-arch>
+      for cross-architecture builds (Docker emulation support is required).
     cmds:
       - docker build -t wails-cross -f build/docker/Dockerfile.cross build/docker/
     preconditions:

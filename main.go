@@ -156,6 +156,7 @@ func main() {
 			application.NewService(service.NewDBService(pool, hosts, dbConnections, v)),
 			application.NewService(notifySvc),
 			application.NewService(service.NewUpdateService()),
+			application.NewService(service.NewDiagnosticService()),
 			application.NewService(service.NewPluginService(notifySvc, activityRec)),
 			application.NewService(syncSvc),
 			application.NewService(service.NewActivityService(activities, keys, v)),

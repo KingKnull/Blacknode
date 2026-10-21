@@ -3,7 +3,7 @@
   import { Plus, X } from "@lucide/svelte";
   import { leaves, type PaneNode } from "./panes";
   import { app } from "./state.svelte";
-  import { shortcutLabel } from "./shortcuts";
+  import { getShortcuts, shortcutLabel, subscribeShortcuts } from "./shortcuts";
 
   type Tab = { id: string; root: PaneNode; activeLeafID: string };
 
@@ -30,6 +30,7 @@
   };
   let { tabs, activeTabID, tabLabel, onNewTab, onCloseTab, onCloseOthers, onSelectTab }: Props = $props();
   let tabList: HTMLDivElement | undefined = $state();
+  let shortcuts = $state(getShortcuts());
 
   $effect(() => {
     // Keep keyboard-selected and newly created tabs visible in a long strip.
@@ -82,11 +83,12 @@
   }
 
   onMount(() => {
+    const offShortcuts = subscribeShortcuts((next) => { shortcuts = next; });
     const onKeydown = (e: KeyboardEvent) => {
       if (e.key === "Escape") closeTabMenu();
     };
     window.addEventListener("keydown", onKeydown);
-    return () => window.removeEventListener("keydown", onKeydown);
+    return () => { window.removeEventListener("keydown", onKeydown); offShortcuts(); };
   });
 </script>
 
@@ -142,8 +144,8 @@
     class="ml-1 flex h-6 w-6 shrink-0 items-center justify-center border border-[var(--color-line)] bg-[var(--color-surface-2)] text-[var(--color-text-4)] hover:border-[var(--color-accent)]/40 hover:text-[var(--color-accent)] transition-colors"
     style="border-radius: var(--radius-sm);"
     onclick={onNewTab}
-    aria-label={`New terminal tab (${shortcutLabel("newTab")})`}
-    title={`New terminal (${shortcutLabel("newTab")})`}
+     aria-label={`New terminal tab (${shortcutLabel("newTab", shortcuts)})`}
+     title={`New terminal (${shortcutLabel("newTab", shortcuts)})`}
   >
     <Plus size="10" />
   </button>

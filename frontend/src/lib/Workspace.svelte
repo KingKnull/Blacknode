@@ -26,7 +26,7 @@
 
   import Toaster from "./Toaster.svelte";
   import LogoMark from "./logo/LogoMark.svelte";
-  import { shortcutLabel } from "./shortcuts";
+  import { getShortcuts, shortcutLabel, shortcutMatchesEvent, subscribeShortcuts } from "./shortcuts";
   import {
     closeLeaf,
     leaves,
@@ -234,6 +234,8 @@
     // no Shift — the app handles Cmd shortcuts before terminal input.
     const onShortcut = (e: KeyboardEvent) => {
       if (app.paletteOpen || (e.target as HTMLElement)?.closest?.('[role="dialog"]')) return;
+      const target = e.target as HTMLElement | null;
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || target?.isContentEditable) return;
       // ? opens shortcut overlay (only when not typing in an input)
       if (e.key === '?' && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement) && !(e.target as HTMLElement)?.isContentEditable) {
         e.preventDefault();
@@ -241,20 +243,17 @@
         return;
       }
 
-      const mod = e.metaKey || e.ctrlKey;
-      if (!mod) return;
-      const k = e.key.toLowerCase();
+      if (!e.metaKey && !e.ctrlKey && !e.altKey) return;
       const consume = () => { e.preventDefault(); e.stopPropagation(); };
-      // Ctrl has to be shifted to outrank the shell; Cmd doesn't.
-      const appMod = e.metaKey || e.shiftKey;
+      const effective = getShortcuts();
 
-      if (e.ctrlKey && e.shiftKey && k === "h") {
+      if (shortcutMatchesEvent(e, effective.sidebar)) {
         consume();
         sidebarOpen = !sidebarOpen;
         return;
       }
 
-      if (e.ctrlKey && e.shiftKey && k === "z") {
+      if (shortcutMatchesEvent(e, effective.focus)) {
         consume();
         focusMode = !focusMode;
         return;
@@ -281,14 +280,14 @@
       }
 
       // Ctrl+Shift+T / Cmd+T — new tab
-      if (k === "t" && appMod) {
+      if (shortcutMatchesEvent(e, effective.newTab)) {
         consume();
         newTab();
         return;
       }
 
       // Ctrl+Shift+W / Cmd+W — close active tab
-      if (k === "w" && appMod) {
+      if (shortcutMatchesEvent(e, effective.closeTab)) {
         consume();
         closeTab(activeTabID);
         return;
@@ -326,6 +325,7 @@
       }
     };
     window.addEventListener("keydown", onShortcut, true);
+    const offShortcuts = subscribeShortcuts((next) => { shortcuts = next; });
 
     vaultLockOff = Events.On("vault:locked", () => {
       // Idle lock must stick: without this flag refreshVault would auto-unlock
@@ -411,6 +411,7 @@
       window.removeEventListener("keydown", onActivity, true);
       window.removeEventListener("mousedown", onActivity, true);
       window.removeEventListener("keydown", onShortcut, true);
+      offShortcuts();
       offInsert();
       window.removeEventListener("message", onPluginMessage);
       offTile();
@@ -773,6 +774,7 @@
   let sidebarOpen = $state(true);
   let isResizing = $state(false);
   let shortcutOpen = $state(false);
+  let shortcuts = $state(getShortcuts());
   let focusMode = $state(false);
   let broadcastReadOnlyHosts = $derived(
     [...app.broadcastSet]
@@ -821,7 +823,7 @@
       onclick={() => (sidebarOpen = !sidebarOpen)}
       aria-label={sidebarOpen ? "Hide host sidebar" : "Show host sidebar"}
       aria-expanded={sidebarOpen}
-      title={`Toggle host sidebar (${shortcutLabel("sidebar")})`}
+      title={`Toggle host sidebar (${shortcutLabel("sidebar", shortcuts)})`}
     ><PanelLeft size="14" /></button>
     <span class="flex shrink-0 items-center gap-2 type-caption font-medium text-[var(--color-text-1)]">
       {#if activeViewDef}
@@ -863,7 +865,7 @@
       <button
         class="flex items-center gap-1.5 border border-[var(--color-line)] px-2.5 py-1 rounded-sm text-[var(--color-text-3)] transition-all hover:border-[var(--color-accent)]/30 hover:text-[var(--color-accent)]"
         onclick={() => (focusMode = true)}
-        title="Focus mode (Ctrl+Shift+Z)"
+         title={`Focus mode (${shortcutLabel("focus", shortcuts)})`}
       >
         <Maximize2 size="11" /><span>Focus</span>
       </button>
@@ -872,11 +874,11 @@
       <button
         class="flex items-center gap-1.5 border border-[var(--color-line)] px-2.5 py-1 rounded-sm text-[var(--color-text-3)] transition-all hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)]"
         onclick={() => (app.paletteOpen = true)}
-        title={`Command palette (${shortcutLabel("palette")})`}
+         title={`Command palette (${shortcutLabel("palette", shortcuts)})`}
       >
         <Command size="11" />
         <span>Palette</span>
-        <kbd class="font-mono border border-[var(--color-line-strong)] bg-[var(--color-surface-2)] px-1.5 py-0.5 type-micro text-[var(--color-text-3)]">{shortcutLabel("palette")}</kbd>
+         <kbd class="font-mono border border-[var(--color-line-strong)] bg-[var(--color-surface-2)] px-1.5 py-0.5 type-micro text-[var(--color-text-3)]">{shortcutLabel("palette", shortcuts)}</kbd>
       </button>
 
       <div class="mx-1 h-3 w-px bg-[var(--color-line-strong)]"></div>
@@ -895,7 +897,7 @@
   {/if}
 
   <!-- ── BODY ─────────────────────────────────────────────────────────── -->
-  <div class="grid min-h-0 flex-1 overflow-hidden" style:grid-template-columns={focusMode ? 'minmax(0, 1fr)' : `64px ${sidebarOpen ? `${sidebarWidth}px ` : ''}minmax(0, 1fr)`}>
+  <div class="grid min-h-0 flex-1 overflow-hidden" style:grid-template-columns={focusMode ? 'minmax(0, 1fr)' : `72px ${sidebarOpen ? `${sidebarWidth}px ` : ''}minmax(0, 1fr)`}>
     <!-- ── SECTION RAIL ─────────────────────────────── -->
     {#if !focusMode}<NavRail sections={visibleSections} activeSectionId={activeSection.id} onSelect={(id) => selectSection(visibleSections.find((s) => s.id === id)!)} />{/if}
 
@@ -958,7 +960,7 @@
             <button
               class="pointer-events-auto flex items-center gap-1.5 rounded border hairline-strong bg-[var(--color-surface-2)]/90 px-2.5 py-1 type-caption text-[var(--color-text-2)] hover:text-[var(--color-accent)]"
               onclick={() => (focusMode = false)}
-              title="Exit focus mode (Ctrl+Shift+Z)"
+               title={`Exit focus mode (${shortcutLabel("focus", shortcuts)})`}
             >
               <Minimize2 size="11" />Exit focus
             </button>

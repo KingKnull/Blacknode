@@ -134,7 +134,7 @@
     </button>
   {:else}
     <button
-      class="flex items-center gap-1.5 opacity-60 transition-opacity hover:opacity-100"
+      class="flex items-center gap-1.5 transition-colors hover:text-[var(--color-text-2)]"
       onclick={openSyncSettings}
       title="Cloud sync not configured — click to set up"
     >

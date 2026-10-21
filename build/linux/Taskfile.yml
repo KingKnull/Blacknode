@@ -39,6 +39,11 @@ tasks:
   build:native:
     summary: Builds the application natively on Linux
     internal: true
+    preconditions:
+      - sh: 'case ",{{.EXTRA_TAGS}}," in *,server,*) exit 0;; esac; pkg-config --atleast-version=4.14 gtk4'
+        msg: "Native Linux desktop builds require GTK >= 4.14 and pkg-config (Ubuntu 24.04 recommended; see README)."
+      - sh: 'case ",{{.EXTRA_TAGS}}," in *,server,*) exit 0;; esac; pkg-config --exists webkitgtk-6.0'
+        msg: "Native Linux desktop builds require WebKitGTK 6.0 development files (libwebkitgtk-6.0-dev; see README)."
     deps:
       - task: common:go:mod:tidy
       - task: common:build:frontend

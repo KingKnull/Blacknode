@@ -15,9 +15,11 @@
   import type { Snippet } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { focus } from "./actions";
   import type { CommandBlock } from "./commandBlocks";
+  import { toggleCommandBookmark } from "./commandBlockExport";
   import { ShellIntegrationParser } from "./shellIntegration";
   import { createTerminalInputQueue } from "./terminalInput";
   import { initializeTerminalEngine } from "./terminalEngine";
+  import { optimizeTerminalRendering } from "./terminalRendering";
   import { findTerminalMatches, type TerminalSearchMatch } from "./terminalSearch";
   import RemoteEditor from "./RemoteEditor.svelte";
   import { app } from "./state.svelte";
@@ -116,6 +118,7 @@
 
   let containerEl: HTMLDivElement | undefined = $state();
   let term: Terminal | undefined;
+  let restoreRendering: (() => void) | undefined;
   let fit: FitAddon | undefined;
   let dataOff: (() => void) | undefined;
   let exitOff: (() => void) | undefined;
@@ -148,6 +151,8 @@
   }
 
   let commandBlocks = $state<CommandBlock[]>([]);
+  // Sensitive command/output snapshots live only as long as this pane.
+  let commandBookmarks = $state<CommandBlock[]>([]);
   const shellParser = new ShellIntegrationParser();
   let shellIntegrated = $state(false);
   let shellCwd = $state("");
@@ -481,6 +486,7 @@
     fit = new FitAddon();
     term.loadAddon(fit);
     term.open(containerEl!);
+    restoreRendering = optimizeTerminalRendering(term);
     term.registerLinkProvider(new UrlRegexProvider(term));
     term.registerLinkProvider({ provideLinks(line, callback) {
       if (!connectedHostID) { callback(undefined); return; }
@@ -725,6 +731,7 @@
     app.forgetSession(sessionID);
     app.forgetConnectIntent(sessionID);
     app.pendingLaunchCommands.delete(sessionID);
+    restoreRendering?.();
     try { term?.dispose(); } catch { /* already disposed */ }
     if (mode === "local" && status === "running") void LocalShellService.Close(sessionID);
     if (mode === "remote" && (status === "connected" || status === "connecting" || reconnecting)) void SSHService.Disconnect(sessionID);
@@ -1423,6 +1430,8 @@
     {#if showSidePanel}
       <TerminalSidePanel
         commandBlocks={commandBlocks}
+        bookmarks={commandBookmarks}
+        onToggleBookmark={(block) => { commandBookmarks = toggleCommandBookmark(commandBookmarks, block); }}
         hostID={connectedHostID}
         onInsert={(text) => { writeLocal(text); term?.focus(); }}
         onClose={() => (showSidePanel = false)}

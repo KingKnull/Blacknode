@@ -915,6 +915,52 @@ export class TeamActivity {
     }
 }
 
+/**
+ * WorkspaceTemplate is deliberately separate from a runnable workspace. Never
+ * add connection references, commands, credentials, context or terminal state.
+ */
+export class WorkspaceTemplate {
+    "id": string;
+    "name": string;
+    "workspaceName": string;
+    "environment": string;
+    "kubeNamespace": string;
+    "updatedAt": number;
+    "deleted"?: boolean;
+
+    /** Creates a new WorkspaceTemplate instance. */
+    constructor($$source: Partial<WorkspaceTemplate> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("workspaceName" in $$source)) {
+            this["workspaceName"] = "";
+        }
+        if (!("environment" in $$source)) {
+            this["environment"] = "";
+        }
+        if (!("kubeNamespace" in $$source)) {
+            this["kubeNamespace"] = "";
+        }
+        if (!("updatedAt" in $$source)) {
+            this["updatedAt"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new WorkspaceTemplate instance from a string or object.
+     */
+    static createFrom($$source: any = {}): WorkspaceTemplate {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new WorkspaceTemplate($$parsedSource as Partial<WorkspaceTemplate>);
+    }
+}
+
 // Private type creation functions
 const $$createType0 = $Create.Array($Create.Any);
 const $$createType1 = $Create.Map($Create.Any, $Create.Any);

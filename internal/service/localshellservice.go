@@ -242,7 +242,7 @@ func configuredShell(settings *store.Settings) (string, error) {
 
 	shell, err := exec.LookPath(configured)
 	if err != nil {
-		if os.IsPermission(err) {
+		if os.IsPermission(err) || errors.Is(err, os.ErrPermission) {
 			return "", fmt.Errorf("configured shell %q is invalid: file is not executable (%w)", configured, err)
 		}
 		return "", fmt.Errorf("configured shell %q is invalid: executable not found (%w)", configured, err)

@@ -517,6 +517,7 @@ var columnMigrations = []string{
 	`ALTER TABLE hosts ADD COLUMN alias TEXT NOT NULL DEFAULT ''`,
 	`ALTER TABLE ops_events ADD COLUMN host_id TEXT NOT NULL DEFAULT ''`,
 	`ALTER TABLE ops_events ADD COLUMN host_name TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE keys ADD COLUMN rotation_due_date TEXT NOT NULL DEFAULT ''`,
 }
 
 // schemaHostGroups holds per-group connection defaults that member hosts

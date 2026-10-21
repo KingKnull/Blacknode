@@ -27,6 +27,10 @@ export class ActiveForward {
     "autoStart": boolean;
     "createdAt": number;
     "active": boolean;
+    "status": string;
+    "lastError": string;
+    "localPortConflict": boolean;
+    "localPortError": string;
 
     /** Creates a new ActiveForward instance. */
     constructor($$source: Partial<ActiveForward> = {}) {
@@ -56,6 +60,18 @@ export class ActiveForward {
         }
         if (!("active" in $$source)) {
             this["active"] = false;
+        }
+        if (!("status" in $$source)) {
+            this["status"] = "";
+        }
+        if (!("lastError" in $$source)) {
+            this["lastError"] = "";
+        }
+        if (!("localPortConflict" in $$source)) {
+            this["localPortConflict"] = false;
+        }
+        if (!("localPortError" in $$source)) {
+            this["localPortError"] = "";
         }
 
         Object.assign(this, $$source);
@@ -3207,6 +3223,11 @@ export class PublicKeyView {
     "createdAt": number;
 
     /**
+     * RotationDueDate is advisory metadata only, empty when no reminder is set.
+     */
+    "rotationDueDate": string;
+
+    /**
      * Hardware marks a FIDO2 security key: the private half stays on the
      * token, so it authenticates through the SSH agent and cannot be exported.
      */
@@ -3238,6 +3259,9 @@ export class PublicKeyView {
         }
         if (!("createdAt" in $$source)) {
             this["createdAt"] = 0;
+        }
+        if (!("rotationDueDate" in $$source)) {
+            this["rotationDueDate"] = "";
         }
         if (!("hardware" in $$source)) {
             this["hardware"] = false;
@@ -3693,8 +3717,111 @@ export class RunbookStep {
     }
 }
 
+export class SFTPDeletePreview {
+    "id": string;
+    "hostID": string;
+    "originalPath": string;
+    "trashPath": string;
+    "revision": string;
+    "size": number;
+    "mode": string;
+    "modTime": number;
+    "expiresAt": number;
+
+    /** Creates a new SFTPDeletePreview instance. */
+    constructor($$source: Partial<SFTPDeletePreview> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("hostID" in $$source)) {
+            this["hostID"] = "";
+        }
+        if (!("originalPath" in $$source)) {
+            this["originalPath"] = "";
+        }
+        if (!("trashPath" in $$source)) {
+            this["trashPath"] = "";
+        }
+        if (!("revision" in $$source)) {
+            this["revision"] = "";
+        }
+        if (!("size" in $$source)) {
+            this["size"] = 0;
+        }
+        if (!("mode" in $$source)) {
+            this["mode"] = "";
+        }
+        if (!("modTime" in $$source)) {
+            this["modTime"] = 0;
+        }
+        if (!("expiresAt" in $$source)) {
+            this["expiresAt"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SFTPDeletePreview instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SFTPDeletePreview {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SFTPDeletePreview($$parsedSource as Partial<SFTPDeletePreview>);
+    }
+}
+
+export class SFTPDeleteReceipt {
+    "id": string;
+    "hostID": string;
+    "originalPath": string;
+    "trashPath": string;
+    "revision": string;
+
+    /**
+     * deleted | restored | needs-review
+     */
+    "status": string;
+    "warning": string;
+
+    /** Creates a new SFTPDeleteReceipt instance. */
+    constructor($$source: Partial<SFTPDeleteReceipt> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("hostID" in $$source)) {
+            this["hostID"] = "";
+        }
+        if (!("originalPath" in $$source)) {
+            this["originalPath"] = "";
+        }
+        if (!("trashPath" in $$source)) {
+            this["trashPath"] = "";
+        }
+        if (!("revision" in $$source)) {
+            this["revision"] = "";
+        }
+        if (!("status" in $$source)) {
+            this["status"] = "";
+        }
+        if (!("warning" in $$source)) {
+            this["warning"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SFTPDeleteReceipt instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SFTPDeleteReceipt {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SFTPDeleteReceipt($$parsedSource as Partial<SFTPDeleteReceipt>);
+    }
+}
+
 export class SFTPEntry {
     "name": string;
+    "path": string;
     "isDir": boolean;
     "size": number;
     "mode": string;
@@ -3712,6 +3839,9 @@ export class SFTPEntry {
     constructor($$source: Partial<SFTPEntry> = {}) {
         if (!("name" in $$source)) {
             this["name"] = "";
+        }
+        if (!("path" in $$source)) {
+            this["path"] = "";
         }
         if (!("isDir" in $$source)) {
             this["isDir"] = false;
@@ -3735,6 +3865,55 @@ export class SFTPEntry {
     static createFrom($$source: any = {}): SFTPEntry {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new SFTPEntry($$parsedSource as Partial<SFTPEntry>);
+    }
+}
+
+export class SFTPSearchResult {
+    "root": string;
+    "entries": SFTPEntry[];
+    "scanned": number;
+    "partial": boolean;
+    "limitReached": boolean;
+    "reasons": string[];
+
+    /** Creates a new SFTPSearchResult instance. */
+    constructor($$source: Partial<SFTPSearchResult> = {}) {
+        if (!("root" in $$source)) {
+            this["root"] = "";
+        }
+        if (!("entries" in $$source)) {
+            this["entries"] = [];
+        }
+        if (!("scanned" in $$source)) {
+            this["scanned"] = 0;
+        }
+        if (!("partial" in $$source)) {
+            this["partial"] = false;
+        }
+        if (!("limitReached" in $$source)) {
+            this["limitReached"] = false;
+        }
+        if (!("reasons" in $$source)) {
+            this["reasons"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SFTPSearchResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SFTPSearchResult {
+        const $$createField1_0 = $$createType44;
+        const $$createField5_0 = $$createType2;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("entries" in $$parsedSource) {
+            $$parsedSource["entries"] = $$createField1_0($$parsedSource["entries"]);
+        }
+        if ("reasons" in $$parsedSource) {
+            $$parsedSource["reasons"] = $$createField5_0($$parsedSource["reasons"]);
+        }
+        return new SFTPSearchResult($$parsedSource as Partial<SFTPSearchResult>);
     }
 }
 
@@ -3875,7 +4054,7 @@ export class SSLResult {
      * Creates a new SSLResult instance from a string or object.
      */
     static createFrom($$source: any = {}): SSLResult {
-        const $$createField4_0 = $$createType43;
+        const $$createField4_0 = $$createType45;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("cert" in $$parsedSource) {
             $$parsedSource["cert"] = $$createField4_0($$parsedSource["cert"]);
@@ -4018,8 +4197,8 @@ export class ScanComparison {
      * Creates a new ScanComparison instance from a string or object.
      */
     static createFrom($$source: any = {}): ScanComparison {
-        const $$createField0_0 = $$createType45;
-        const $$createField1_0 = $$createType45;
+        const $$createField0_0 = $$createType47;
+        const $$createField1_0 = $$createType47;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("added" in $$parsedSource) {
             $$parsedSource["added"] = $$createField0_0($$parsedSource["added"]);
@@ -4091,8 +4270,8 @@ export class SearchHit {
      * Creates a new SearchHit instance from a string or object.
      */
     static createFrom($$source: any = {}): SearchHit {
-        const $$createField0_0 = $$createType46;
-        const $$createField1_0 = $$createType48;
+        const $$createField0_0 = $$createType48;
+        const $$createField1_0 = $$createType50;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("recording" in $$parsedSource) {
             $$parsedSource["recording"] = $$createField0_0($$parsedSource["recording"]);
@@ -4189,8 +4368,8 @@ export class ServiceGraph {
      * Creates a new ServiceGraph instance from a string or object.
      */
     static createFrom($$source: any = {}): ServiceGraph {
-        const $$createField2_0 = $$createType50;
-        const $$createField3_0 = $$createType52;
+        const $$createField2_0 = $$createType52;
+        const $$createField3_0 = $$createType54;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("nodes" in $$parsedSource) {
             $$parsedSource["nodes"] = $$createField2_0($$parsedSource["nodes"]);
@@ -4443,7 +4622,7 @@ export class SnippetValidation {
      * Creates a new SnippetValidation instance from a string or object.
      */
     static createFrom($$source: any = {}): SnippetValidation {
-        const $$createField0_0 = $$createType54;
+        const $$createField0_0 = $$createType56;
         const $$createField1_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("variables" in $$parsedSource) {
@@ -5005,7 +5184,7 @@ export class TransferTask {
      * Creates a new TransferTask instance from a string or object.
      */
     static createFrom($$source: any = {}): TransferTask {
-        const $$createField1_0 = $$createType55;
+        const $$createField1_0 = $$createType57;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("request" in $$parsedSource) {
             $$parsedSource["request"] = $$createField1_0($$parsedSource["request"]);
@@ -5152,8 +5331,8 @@ export class VulnerabilityScan {
      * Creates a new VulnerabilityScan instance from a string or object.
      */
     static createFrom($$source: any = {}): VulnerabilityScan {
-        const $$createField1_0 = $$createType56;
-        const $$createField3_0 = $$createType45;
+        const $$createField1_0 = $$createType58;
+        const $$createField3_0 = $$createType47;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("profile" in $$parsedSource) {
             $$parsedSource["profile"] = $$createField1_0($$parsedSource["profile"]);
@@ -5231,17 +5410,19 @@ const $$createType39 = $Create.Array($$createType38);
 const $$createType40 = RunbookStep.createFrom;
 const $$createType41 = $Create.Array($$createType40);
 const $$createType42 = RunbookResult.createFrom;
-const $$createType43 = CertInfo.createFrom;
-const $$createType44 = SecurityFinding.createFrom;
-const $$createType45 = $Create.Array($$createType44);
-const $$createType46 = store$0.Recording.createFrom;
-const $$createType47 = recorder$0.Match.createFrom;
-const $$createType48 = $Create.Array($$createType47);
-const $$createType49 = DependencyNode.createFrom;
+const $$createType43 = SFTPEntry.createFrom;
+const $$createType44 = $Create.Array($$createType43);
+const $$createType45 = CertInfo.createFrom;
+const $$createType46 = SecurityFinding.createFrom;
+const $$createType47 = $Create.Array($$createType46);
+const $$createType48 = store$0.Recording.createFrom;
+const $$createType49 = recorder$0.Match.createFrom;
 const $$createType50 = $Create.Array($$createType49);
-const $$createType51 = DependencyEdge.createFrom;
+const $$createType51 = DependencyNode.createFrom;
 const $$createType52 = $Create.Array($$createType51);
-const $$createType53 = SnippetVariable.createFrom;
+const $$createType53 = DependencyEdge.createFrom;
 const $$createType54 = $Create.Array($$createType53);
-const $$createType55 = TransferRequest.createFrom;
-const $$createType56 = ScanProfile.createFrom;
+const $$createType55 = SnippetVariable.createFrom;
+const $$createType56 = $Create.Array($$createType55);
+const $$createType57 = TransferRequest.createFrom;
+const $$createType58 = ScanProfile.createFrom;

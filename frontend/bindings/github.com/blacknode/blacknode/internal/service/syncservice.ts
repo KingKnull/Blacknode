@@ -24,9 +24,10 @@ import * as store$0 from "../store/models.js";
 import * as $models from "./models.js";
 
 /**
- * AutoSync performs a push followed by a pull (full bidirectional sync)
- * and returns the resulting status. Called both manually and by the
- * background goroutine.
+ * AutoSync performs a pull followed by a push (full bidirectional sync).
+ * Merge the remote catalog before publishing, so a second device cannot erase
+ * templates it has not received yet by uploading its own incomplete snapshot.
+ * Called both manually and by the background goroutine.
  */
 export function AutoSync(): $CancellablePromise<$models.SyncStatus> {
     return $Call.ByID(3236348223).then(($result: any) => {
@@ -47,6 +48,10 @@ export function ConflictPreview(): $CancellablePromise<$models.ConflictItem[]> {
     return $Call.ByID(3759462239).then(($result: any) => {
         return $$createType2($result);
     });
+}
+
+export function DeleteWorkspaceTemplate(id: string, expected: number): $CancellablePromise<void> {
+    return $Call.ByID(1247966287, id, expected);
 }
 
 /**
@@ -88,6 +93,15 @@ export function ImportSyncKey(encoded: string): $CancellablePromise<void> {
 }
 
 /**
+ * ListWorkspaceTemplates lists only the inert, synced catalog, never workspaces.
+ */
+export function ListWorkspaceTemplates(): $CancellablePromise<store$0.WorkspaceTemplate[]> {
+    return $Call.ByID(587049055).then(($result: any) => {
+        return $$createType5($result);
+    });
+}
+
+/**
  * PublishTeam pushes a CURATED snapshot under the team blob name. The
  * curation strips notes (often personal/sensitive), drops private auth
  * material entirely, and tags rows with a "team" group prefix so a
@@ -124,6 +138,16 @@ export function Pull(): $CancellablePromise<$models.SyncStatus> {
 export function Push(): $CancellablePromise<$models.SyncStatus> {
     return $Call.ByID(801417323).then(($result: any) => {
         return $$createType0($result);
+    });
+}
+
+/**
+ * SaveWorkspaceTemplate opts in an allowlisted starting point for the existing
+ * encrypted configuration sync. expected is zero for creation or UpdatedAt.
+ */
+export function SaveWorkspaceTemplate(item: store$0.WorkspaceTemplate, expected: number): $CancellablePromise<store$0.WorkspaceTemplate> {
+    return $Call.ByID(3226771225, item, expected).then(($result: any) => {
+        return $$createType4($result);
     });
 }
 
@@ -172,7 +196,7 @@ export function SyncOnUnlockIfEnabled(): $CancellablePromise<void> {
 
 export function TeamActivity(limit: number): $CancellablePromise<store$0.TeamActivity[]> {
     return $Call.ByID(785517331, limit).then(($result: any) => {
-        return $$createType5($result);
+        return $$createType7($result);
     });
 }
 
@@ -181,5 +205,7 @@ const $$createType0 = $models.SyncStatus.createFrom;
 const $$createType1 = $models.ConflictItem.createFrom;
 const $$createType2 = $Create.Array($$createType1);
 const $$createType3 = $models.AutoSyncConfig.createFrom;
-const $$createType4 = store$0.TeamActivity.createFrom;
+const $$createType4 = store$0.WorkspaceTemplate.createFrom;
 const $$createType5 = $Create.Array($$createType4);
+const $$createType6 = store$0.TeamActivity.createFrom;
+const $$createType7 = $Create.Array($$createType6);

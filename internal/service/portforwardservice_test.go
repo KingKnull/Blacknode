@@ -2,14 +2,305 @@ package service
 
 import (
 	"bytes"
+	"context"
+	"database/sql"
+	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"io"
 	"net"
+	"path/filepath"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/blacknode/blacknode/internal/db"
+	"github.com/blacknode/blacknode/internal/mockssh"
+	"github.com/blacknode/blacknode/internal/sshconn"
+	"github.com/blacknode/blacknode/internal/store"
+	"github.com/blacknode/blacknode/internal/vault"
+	"golang.org/x/crypto/ssh"
 )
+
+func forwardFixture(t *testing.T, kind store.ForwardKind, port int) (*PortForwardService, store.Forward, *sql.DB) {
+	t.Helper()
+	database, err := db.OpenPath(filepath.Join(t.TempDir(), "forwards.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { database.Close() })
+	hosts := store.NewHosts(database.DB)
+	host, err := hosts.Create(store.Host{Name: "fixture", Host: "127.0.0.1", Port: 22, Username: "fixture", AuthMethod: "password"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc := NewPortForwardService(nil, hosts, store.NewForwards(database.DB))
+	f, err := svc.Create(context.Background(), store.Forward{Name: "saved tunnel", HostID: host.ID, Kind: kind, LocalAddr: "127.0.0.1", LocalPort: port, RemoteAddr: "192.0.2.1", RemotePort: 5432})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { svc.StopAll(context.Background()) })
+	return svc, f, database.DB
+}
+
+func forwardRow(t *testing.T, svc *PortForwardService) ActiveForward {
+	t.Helper()
+	rows, err := svc.List(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("rows = %d, want saved profile", len(rows))
+	}
+	return rows[0]
+}
+
+func forwardListener(t *testing.T) net.Listener {
+	t.Helper()
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { l.Close() })
+	return l
+}
+
+func awaitForward(t *testing.T, condition func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		if condition() {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatal("tunnel state did not settle")
+}
+
+func TestForwardConflictAndFailedStart(t *testing.T) {
+	for _, kind := range []store.ForwardKind{store.ForwardLocal, store.ForwardDynamic} {
+		t.Run(string(kind), func(t *testing.T) {
+			occupied := forwardListener(t)
+			port := occupied.Addr().(*net.TCPAddr).Port
+			svc, f, _ := forwardFixture(t, kind, port)
+			row := forwardRow(t, svc)
+			if row.Active || row.Status != "disconnected" || !row.LocalPortConflict {
+				t.Fatalf("conflict = %+v", row)
+			}
+			// The pool is deliberately nil: a local bind conflict must fail
+			// before attempting any SSH connection.
+			err := svc.Start(f.ID)
+			if err == nil || !strings.Contains(err.Error(), "choose another local port") {
+				t.Fatalf("start = %v", err)
+			}
+			row = forwardRow(t, svc)
+			if row.Active || row.Status != "failed" || row.LastError == "" {
+				t.Fatalf("failed state = %+v", row)
+			}
+			occupied.Close()
+			row = forwardRow(t, svc)
+			if row.LocalPortConflict || row.LocalPortError != "" || row.Forward != f {
+				t.Fatalf("saved profile/probe = %+v", row)
+			}
+			// The availability probe must leave the port free.
+			l, err := listenLocal(f)
+			if err != nil {
+				t.Fatal(err)
+			}
+			l.Close()
+		})
+	}
+}
+
+func TestForwardListenerHealthDoesNotDial(t *testing.T) {
+	l := forwardListener(t)
+	svc, f, _ := forwardFixture(t, store.ForwardLocal, l.Addr().(*net.TCPAddr).Port)
+	ctx, cancel := context.WithCancel(context.Background())
+	state := &activeForward{forward: f, done: make(chan struct{}), ctx: ctx, cancel: cancel, conns: make(map[net.Conn]struct{}), status: "active"}
+	var releases atomic.Int32
+	state.attach(l, func() { releases.Add(1) })
+	svc.active[f.ID] = state
+	var handled atomic.Int32
+	handlerDone := make(chan struct{})
+	svc.serve(state, func(c net.Conn) {
+		handled.Add(1)
+		defer close(handlerDone)
+		_, _ = c.Read(make([]byte, 1))
+	})
+	for i := 0; i < 5; i++ {
+		row := forwardRow(t, svc)
+		if !row.Active || row.Status != "active" || row.LocalPortConflict {
+			t.Fatalf("listener = %+v", row)
+		}
+	}
+	if handled.Load() != 0 {
+		t.Fatal("health check connected to the bound listener")
+	}
+	c, err := net.DialTimeout("tcp", l.Addr().String(), time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	awaitForward(t, func() bool { return handled.Load() == 1 })
+	// An unexpected listener close must clear active, close accepted sockets,
+	// release the pooled ref once, and terminate blocked handlers.
+	l.Close()
+	awaitForward(t, func() bool { return releases.Load() == 1 })
+	row := forwardRow(t, svc)
+	if row.Active || row.Status != "disconnected" || !strings.Contains(row.LastError, "listener closed") {
+		t.Fatalf("closed listener = %+v", row)
+	}
+	select {
+	case <-handlerDone:
+	case <-time.After(time.Second):
+		t.Fatal("handler leaked after listener closure")
+	}
+	svc.Stop(f.ID)
+	state.close()
+	if releases.Load() != 1 {
+		t.Fatal("SSH reference released more than once")
+	}
+}
+
+func TestForwardStopDuringStart(t *testing.T) {
+	l := forwardListener(t)
+	port := l.Addr().(*net.TCPAddr).Port
+	l.Close()
+	svc, f, database := forwardFixture(t, store.ForwardLocal, port)
+	database.SetMaxOpenConns(1)
+	tx, err := database.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	result := make(chan error, 1)
+	go func() { result <- svc.Start(f.ID) }()
+	awaitForward(t, func() bool {
+		svc.mu.Lock()
+		defer svc.mu.Unlock()
+		return svc.active[f.ID] != nil && svc.active[f.ID].status == "starting"
+	})
+	if err := svc.Start(f.ID); err == nil {
+		t.Fatal("duplicate start accepted")
+	}
+	// Start is blocked loading its profile; Stop must be safe at this point.
+	if err := svc.Stop(f.ID); err != nil {
+		t.Fatal(err)
+	}
+	tx.Rollback()
+	select {
+	case err := <-result:
+		if err == nil {
+			t.Fatal("canceled start succeeded")
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("start leaked after Stop")
+	}
+	row := forwardRow(t, svc)
+	if row.Active || row.Status != "disconnected" || row.LocalPortConflict {
+		t.Fatalf("canceled start = %+v", row)
+	}
+}
+
+func TestForwardLateCleanupDoesNotRemoveNewRun(t *testing.T) {
+	svc, f, _ := forwardFixture(t, store.ForwardDynamic, 1080)
+	makeState := func() *activeForward {
+		ctx, cancel := context.WithCancel(context.Background())
+		return &activeForward{forward: f, done: make(chan struct{}), ctx: ctx, cancel: cancel, status: "starting", conns: make(map[net.Conn]struct{})}
+	}
+	old, current := makeState(), makeState()
+	svc.active[f.ID] = old
+	svc.Stop(f.ID)
+	svc.active[f.ID] = current
+	var released atomic.Int32
+	if old.attach(nil, func() { released.Add(1) }) {
+		t.Fatal("canceled state accepted late resource")
+	}
+	svc.finish(f.ID, old, "failed", "old error")
+	if svc.active[f.ID] != current || released.Load() != 1 {
+		t.Fatal("old cleanup disturbed new run or leaked resource")
+	}
+}
+
+func TestForwardStartStopLocalSSHFixture(t *testing.T) {
+	for _, kind := range []store.ForwardKind{store.ForwardLocal, store.ForwardDynamic, store.ForwardRemote} {
+		t.Run(string(kind), func(t *testing.T) {
+			l := forwardListener(t)
+			port := l.Addr().(*net.TCPAddr).Port
+			l.Close()
+			svc, f, database := forwardFixture(t, kind, port)
+			server, err := mockssh.NewServer()
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(server.Close)
+			host, err := svc.hosts.Get(f.HostID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			host.Port = server.Port()
+			if err := svc.hosts.Update(host); err != nil {
+				t.Fatal(err)
+			}
+			known := store.NewKnownHosts(database)
+			known.Approve("127.0.0.1", server.Port(), server.PublicKey.Type(), base64.StdEncoding.EncodeToString(server.PublicKey.Marshal()), ssh.FingerprintSHA256(server.PublicKey))
+			v := vault.New(database)
+			secrets := store.NewSecrets(database)
+			newPasswordSeeder(t, v, secrets)(host.ID, "fixture")
+			svc.pool = sshconn.NewPool(sshconn.New(v, store.NewKeys(database), known, secrets), svc.hosts)
+			t.Cleanup(svc.pool.Close)
+			err = svc.Start(f.ID)
+			if kind == store.ForwardRemote {
+				// This fixture rejects remote port requests; rejection must not
+				// activate or retry the saved profile.
+				if err == nil || !strings.Contains(err.Error(), "remote listen") {
+					t.Fatalf("remote rejection = %v", err)
+				}
+				if row := forwardRow(t, svc); row.Active || row.Status != "failed" || row.LocalPortConflict {
+					t.Fatalf("remote failure = %+v", row)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if row := forwardRow(t, svc); !row.Active || row.Status != "active" {
+				t.Fatalf("start = %+v", row)
+			}
+			if err := svc.Start(f.ID); err == nil {
+				t.Fatal("duplicate start accepted")
+			}
+			if kind == store.ForwardLocal {
+				c, err := net.DialTimeout("tcp", net.JoinHostPort(f.LocalAddr, strconv.Itoa(port)), time.Second)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer c.Close()
+				awaitForward(t, func() bool { return forwardRow(t, svc).Status == "failing" })
+				if row := forwardRow(t, svc); !row.Active || row.LastError == "" {
+					t.Fatalf("failed target attempt = %+v", row)
+				}
+			}
+			svc.Stop(f.ID)
+			if row := forwardRow(t, svc); row.Active || row.Status != "disconnected" || row.LocalPortConflict || row.Forward != f {
+				t.Fatalf("stop = %+v", row)
+			}
+			if err := svc.Start(f.ID); err != nil {
+				t.Fatalf("restart: %v", err)
+			}
+			svc.StopAll(context.Background())
+			if err := svc.Delete(context.Background(), f.ID); err != nil {
+				t.Fatal(err)
+			}
+			rows, err := svc.List(context.Background())
+			if err != nil || len(rows) != 0 {
+				t.Fatalf("delete: rows=%v err=%v", rows, err)
+			}
+		})
+	}
+}
 
 // socks5Handshake parses bytes from anything that can open a TCP connection to
 // the local dynamic-forward port — a browser, a CLI, or a process that has no

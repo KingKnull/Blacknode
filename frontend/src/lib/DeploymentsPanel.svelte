@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import { PlatformService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { DeploymentProject, Integration, PipelineRun, ChangePlan } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import { unpack, type Versioned } from "./operationRecords";
   import { app } from "./state.svelte";
+  import { useOperationTarget } from "./operationSelection.svelte";
+  import { selectableOperationRecords } from "./operationTargets";
   import PageHeader from "./PageHeader.svelte";
   import ChangeReview from "./ChangeReview.svelte";
   import IntegrationsPanel from "./IntegrationsPanel.svelte";
@@ -16,17 +17,32 @@
   let plan = $state<ChangePlan | null>(null);
   let busy = $state(false);
   let error = $state('');
-  async function refresh() { projects = (await PlatformService.ListRecords('project')).map((r) => unpack<DeploymentProject>(r)); integrations = (await PlatformService.ListRecords('integration')).map((r) => unpack<Integration>(r)).filter((i) => ['github','gitlab'].includes(i.kind)); }
-  onMount(() => { void refresh().then(() => { const p = projects.find((p) => p.id === app.serviceContext?.projectID); if (p) project = structuredClone($state.snapshot(p)); }).catch((e) => error = String(e)); });
-  async function save() { try { const {revision,...value} = $state.snapshot(project); project = unpack<DeploymentProject>(await PlatformService.SaveProject(value,revision)); await refresh(); } catch (e) { error = String(e); } }
-  async function preview(init = false) { busy = true; error = ''; try { plan = init ? await PlatformService.PreviewProjectInit(project.id) : await PlatformService.PreviewDeployment(project.id); } catch (e) { error = String(e); } finally { busy = false; } }
-  async function loadPipelines() { busy = true; error = ''; try { pipelines = await PlatformService.PipelineRuns(project.integrationID,project.repository); } catch (e) { error = String(e); } finally { busy = false; } }
+  let projectSelection = 0;
+  function choose(id: string) { projectSelection++; const found = projects.find(p => p.id === id); project = found ? structuredClone($state.snapshot(found)) : blank(); pipelines = []; plan = null; busy = false; }
+  async function fetchRecords() { return Promise.all([PlatformService.ListRecords('project'), PlatformService.ListRecords('integration')]); }
+  function setRecords([records, sources]: Awaited<ReturnType<typeof fetchRecords>>) { projects = selectableOperationRecords<DeploymentProject>(records); integrations = sources.map(r => unpack<Integration>(r)).filter(i => ['github','gitlab'].includes(i.kind)); }
+  async function refresh() { setRecords(await fetchRecords()); }
+  useOperationTarget('deployments', {
+    selection: () => project.id,
+    load: fetchRecords,
+    clear: () => { choose(''); error = ''; },
+    apply: (records, target) => {
+      setRecords(records);
+      const found = projects.find(p => p.id === (target?.id ?? app.serviceContext?.projectID));
+      if (target && !found) throw new Error('This deployment project is no longer available.');
+      if (found) choose(found.id);
+    },
+    error: message => error = message,
+  });
+  async function save() { const selection = projectSelection; try { const {revision,...value} = $state.snapshot(project); const saved = unpack<DeploymentProject>(await PlatformService.SaveProject(value,revision)); if (selection !== projectSelection) return; project = saved; await refresh(); } catch (e) { if (selection === projectSelection) error = String(e); } }
+  async function preview(init = false) { const selection = projectSelection; busy = true; error = ''; try { const next = init ? await PlatformService.PreviewProjectInit(project.id) : await PlatformService.PreviewDeployment(project.id); if (selection === projectSelection) plan = next; } catch (e) { if (selection === projectSelection) error = String(e); } finally { if (selection === projectSelection) busy = false; } }
+  async function loadPipelines() { const selection = projectSelection; busy = true; error = ''; try { const next = await PlatformService.PipelineRuns(project.integrationID,project.repository); if (selection === projectSelection) pipelines = next; } catch (e) { if (selection === projectSelection) error = String(e); } finally { if (selection === projectSelection) busy = false; } }
   async function pin(run: PipelineRun) { try { await PlatformService.PinPipeline(project.workspaceID,project.integrationID,project.repository,run.id); app.toast('ok','Deployment added to service timeline'); } catch (e) { error = String(e); } }
 </script>
 <div class="flex h-full flex-col"><PageHeader icon={GitBranch} title="Deployments" subtitle="Review infrastructure changes and connect deployments to their pipeline and commit" />
   <div class="ops-body ops-form">
     {#if error}<p class="ops-error" role="alert">{error}</p>{/if}
-    <select aria-label="Saved project" value={project.id} onchange={(e) => { const found = projects.find((p) => p.id === e.currentTarget.value); project = found ? structuredClone($state.snapshot(found)) : blank(); pipelines = []; }}><option value="">New project</option>{#each projects as p}<option value={p.id}>{p.name}</option>{/each}</select>
+    <select aria-label="Saved project" value={project.id} onchange={e => choose(e.currentTarget.value)}><option value="">New project</option>{#each projects as p}<option value={p.id}>{p.name}</option>{/each}</select>
     <div class="ops-grid"><label>Name<input bind:value={project.name} /></label><label>Tool<select bind:value={project.tool}><option value="tofu">OpenTofu</option><option value="terraform">Terraform</option><option value="ansible">Ansible</option></select></label><label>Run on<select bind:value={project.hostID}><option value="">Local machine</option>{#each app.scopedHosts as h}<option value={h.id}>{h.name}</option>{/each}</select></label><label>Working directory<input bind:value={project.directory} placeholder="/srv/infrastructure" /></label></div>
     {#if project.tool === 'ansible'}<div class="ops-grid"><label>Playbook<input bind:value={project.playbook} /></label><label>Inventory<input bind:value={project.inventory} /></label></div>{/if}
     <div class="ops-grid"><label>Pipeline provider<select bind:value={project.integrationID}><option value="">No pipeline integration</option>{#each integrations as i}<option value={i.id}>{i.name}</option>{/each}</select></label><label>Repository<input bind:value={project.repository} placeholder="owner/project" /></label></div>

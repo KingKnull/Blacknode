@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import AutomationHistory from "./AutomationHistory.svelte";
   import { JobService, RunbookService, SnippetService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { Runbook, RunbookStep } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import type { OperationDocument, Snippet } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { app } from "./state.svelte";
+  import { useOperationTarget } from "./operationSelection.svelte";
   import { checkCommand } from "./danger";
   import PageHeader from "./PageHeader.svelte";
   import Dialog from "./Dialog.svelte";
@@ -26,6 +26,8 @@
   let everyMinutes = $state(60);
   let revisions = $state<OperationDocument[]>([]);
   let revisionToView = $state("");
+  let revisionRequest = 0;
+  let historySelection = $state(0);
   let pending = $state<{ book: Runbook; steps: RunbookStep[]; hosts: string[]; values: Record<string, string>; phrase: string; warning: string; everySeconds: number } | null>(null);
   const variables = $derived.by(() => {
     const result = new Map<string, string>();
@@ -35,16 +37,27 @@
     return [...result].map(([name, fallback]) => ({ name, fallback }));
   });
 
-  onMount(() => {
-    void Promise.all([RunbookService.List(), SnippetService.List()]).then(([saved, savedSnippets]) => { books = saved ?? []; snippets = savedSnippets ?? []; }).catch((e) => error = String(e));
-
+  useOperationTarget('runbooks', {
+    selection: () => selectedID,
+    load: () => Promise.all([RunbookService.List(), SnippetService.List()]),
+    clear: () => { selectedID = ''; book = blank(); pending = null; activeJobID = ''; values = {}; hosts = []; revisions = []; revisionToView = ''; error = ''; busy = false; revisionRequest++; historySelection++; },
+    apply: ([saved, savedSnippets], target) => {
+      books = saved ?? []; snippets = savedSnippets ?? [];
+      if (!target) return;
+      if (!books.some(b => b.id === target.id)) throw new Error('This runbook is no longer available.');
+      selectedID = target.id;
+      load();
+    },
+    error: message => error = message,
   });
 
   function load() {
+    const request = ++revisionRequest;
     const saved = books.find((b) => b.id === selectedID);
     book = saved ? JSON.parse(JSON.stringify(saved)) : blank();
     values = {}; error = ""; revisions = []; revisionToView = "";
-    if (book.id) void JobService.Revisions(book.id).then((items) => revisions = items).catch((e) => error = String(e));
+    const id = book.id;
+    if (id) void JobService.Revisions(id).then((items) => { if (request === revisionRequest && selectedID === id) revisions = items; }).catch((e) => { if (request === revisionRequest && selectedID === id) error = String(e); });
   }
   function move(index: number, delta: number) {
     const next = [...book.steps];
@@ -52,25 +65,29 @@
     book.steps = next;
   }
   async function save() {
+    const selection = revisionRequest;
     busy = true; error = "";
-    try { book = await RunbookService.Save($state.snapshot(book)); selectedID = book.id; books = await RunbookService.List(); app.toast("ok", "Runbook saved", book.name); }
-    catch (e) { error = String(e); }
-    finally { busy = false; }
+    try { const saved = await RunbookService.Save($state.snapshot(book)); const records = await RunbookService.List(); if (selection !== revisionRequest) return; book = saved; selectedID = saved.id; books = records; app.toast("ok", "Runbook saved", saved.name); }
+    catch (e) { if (selection === revisionRequest) error = String(e); }
+    finally { if (selection === revisionRequest) busy = false; }
   }
   async function remove() {
     if (!book.id || !confirm(`Delete runbook “${book.name}”?`)) return;
+    const selection = revisionRequest;
     busy = true;
-    try { await RunbookService.Delete(book.id); books = await RunbookService.List(); selectedID = ""; load(); }
-    catch (e) { error = String(e); }
-    finally { busy = false; }
+    try { await RunbookService.Delete(book.id); const records = await RunbookService.List(); if (selection !== revisionRequest) return; books = records; selectedID = ""; busy = false; load(); }
+    catch (e) { if (selection === revisionRequest) error = String(e); }
+    finally { if (selection === revisionRequest) busy = false; }
   }
   async function review() {
     if (!hosts.length) return;
+    const selection = revisionRequest;
     busy = true; error = "";
     try {
       const snapshot = { ...$state.snapshot(book), workspaceID: app.serviceContext?.id ?? book.workspaceID };
       const inputs = Object.fromEntries(variables.filter((v) => v.name in values).map((v) => [v.name, values[v.name]]));
       const steps = await RunbookService.Preview(snapshot, inputs);
+      if (selection !== revisionRequest) return;
       const production = hosts.filter((id) => app.hosts.some((h) => h.id === id && h.environment?.toLowerCase() === "production"));
       const dangers = steps.flatMap((step) => [step.command, step.rollbackCommand, step.when, step.healthCheck].filter((command): command is string => !!command).map(checkCommand)).filter(Boolean);
       const blocked = dangers.some((d) => d?.level === "block-without-confirm");
@@ -80,11 +97,12 @@
         everySeconds: mode === "schedule" ? everyMinutes * 60 : 0,
         warning: [production.length ? `${production.length} production host(s) selected.` : "", ...dangers.map((d) => d!.reason)].filter(Boolean).join(" "),
       };
-    } catch (e) { error = String(e); }
-    finally { busy = false; }
+    } catch (e) { if (selection === revisionRequest) error = String(e); }
+    finally { if (selection === revisionRequest) busy = false; }
   }
   async function run() {
     if (!pending || (pending.phrase && phrase !== pending.phrase)) return;
+    const selection = revisionRequest;
     const request = pending; pending = null;
     busy = true; error = "";
     try {
@@ -93,10 +111,10 @@
         app.toast("ok", "Schedule created", "It will run while Blacknode or its runner is active and unlocked.");
       } else {
         const job = await JobService.Start(request.book, request.hosts, request.values);
-        activeJobID = job.id;
+        if (selection === revisionRequest) activeJobID = job.id;
       }
-    } catch (e) { error = String(e); }
-    finally { busy = false; }
+    } catch (e) { if (selection === revisionRequest) error = String(e); }
+    finally { if (selection === revisionRequest) busy = false; }
   }
 
 </script>
@@ -190,7 +208,7 @@
       <div class="ops-actions"><label>Execution<select bind:value={mode}><option value="run">Run now</option><option value="schedule">Repeat on a schedule</option></select></label>{#if mode === 'schedule'}<label>Every (minutes)<input type="number" min="1" max="525600" bind:value={everyMinutes} /></label>{/if}</div>
       <button class="flex items-center gap-2 rounded bg-[var(--color-accent)] px-4 py-2 type-caption text-[var(--color-surface-0)] disabled:opacity-40" disabled={!hosts.length} onclick={review}><Play size="13" />{mode === "schedule" ? "Review schedule" : "Review run"}</button>
     </fieldset>
-    <AutomationHistory {activeJobID} refreshKey={busy} />
+    {#key historySelection}<AutomationHistory {activeJobID} refreshKey={busy} />{/key}
   </div>
 </div>
 

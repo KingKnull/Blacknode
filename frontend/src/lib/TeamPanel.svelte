@@ -10,7 +10,9 @@
   import { Share2 } from '@lucide/svelte';
   type Member = {id:string;name:string;role:string;hostIDs:string[];expiresAt:number;revoked:boolean};
   type Host = {id:string;name:string;host:string;environment:string};
-  type Session = {id:string;hostID:string;ownerID:string;title:string;members:Record<string,string>;startedAt:number;closed:boolean};
+  type ControlRequest = {id:string;status:'pending'|'approved'|'rejected';requestedAt:number;decidedAt:number;decidedBy:string};
+  type Annotation = {id:string;authorID:string;author:string;createdAt:number;text:string;redacted:boolean};
+  type Session = {id:string;hostID:string;ownerID:string;title:string;members:Record<string,string>;controlRequests?:Record<string,ControlRequest>;annotations?:Annotation[];startedAt:number;closed:boolean};
   type Trigger = {id:string;name:string;bookID:string;bookRevision:number;hostIDs:string[];expiresAt:number;enabled:boolean;cooldownSeconds:number;lastRunAt:number};
   let section = $state('overview'); let sharedConfig = $state(false);
   let endpoint = $state('http://127.0.0.1:9250'); let token = $state(''); let connected = $state(false);
@@ -20,17 +22,20 @@
   let memberName = $state('');let role = $state('viewer');let grantHours = $state(8);let scope = $state<string[]>([]);let issued = $state('');
   let triggerName = $state('');let triggerDays = $state(7);let cooldown = $state(60);
   let sessionHost = $state('');let active = $state<Session | null>(null);let inviteID = $state('');let inviteMode = $state('observer');
+  let annotationDrafts = $state<Record<string,string>>({});
+  let annotationBytes = $derived(new TextEncoder().encode(active ? annotationDrafts[active.id] ?? '' : '').length);
   let trust = $state({host:'',port:22,keyType:'ssh-ed25519',presentedKey:'',fingerprint:''});
   let confirm = $state<{title:string;body:string;production:string[];run:()=>Promise<unknown>} | null>(null);
   let admin = $derived(me?.role === 'admin');let operator = $derived(admin || me?.role === 'operator');
   let chosenBook = $derived(books.find(b => b.id === bookID));
   let activeMode = $derived(active && me ? (admin ? 'peer' : active.members[me.id] ?? 'observer') : 'observer');
+  let activeRequest = $derived(active && me ? active.controlRequests?.[me.id] : undefined);
   const fmt = (v:number) => v ? new Date(v).toLocaleString() : '—';
   async function api<T>(method:string,path:string,body?:unknown):Promise<T>{return JSON.parse(await TeamService.Request(method,path,body === undefined ? '' : JSON.stringify(body)));}
   async function action(fn:()=>Promise<unknown>){busy = true;error = '';notice = '';try{await fn();}catch(e){error = String(e);}finally{busy = false;}}
   async function refresh(){
     me = await api<Member>('GET','/api/me');
-    [hosts,monitors,books,jobs,sessions] = await Promise.all([api<Host[]>('GET','/api/hosts'),api<MonitorView[]>('GET','/api/monitors'),api<Runbook[]>('GET','/api/runbooks'),api<Job[]>('GET','/api/jobs'),api<Session[]>('GET','/api/sessions')]);
+    [hosts,monitors,books,jobs,sessions] = await Promise.all([api<Host[]>('GET','/api/hosts'),api<MonitorView[]>('GET','/api/monitors'),me.role === 'viewer' ? Promise.resolve([] as Runbook[]) : api<Runbook[]>('GET','/api/runbooks'),api<Job[]>('GET','/api/jobs'),api<Session[]>('GET','/api/sessions')]);
     const docs = await api<OperationDocument[]>('GET','/api/schedules');schedules = docs.map(d => ({...JSON.parse(d.body),revision:d.revision}));
     if(me.role === 'admin')[members,triggers,audit] = await Promise.all([api<Member[]>('GET','/api/members'),api<Trigger[]>('GET','/api/triggers'),api<OperationEvent[]>('GET','/api/audit')]);else {members = [];triggers = [];audit = [];}
     if(active)active = sessions.find(s => s.id === active?.id) ?? null;
@@ -45,6 +50,9 @@
     });
   }
   function openSession(){const id = sessionHost;review('Open shared SSH session',`Start an interactive shell on ${hosts.find(h => h.id === id)?.name}?`,async () => {active = await api<Session>('POST','/api/sessions',{hostID:id,cols:100,rows:28});await refresh();},[id]);}
+  async function requestControl(session:Session){await api('POST',`/api/sessions/${session.id}/request-control`,{});await refresh();notice = 'Control requested. The session remains read only until an owner or administrator approves.';}
+  async function decideControl(session:Session,memberID:string,request:ControlRequest,decision:'approve'|'reject'){await api('POST',`/api/sessions/${session.id}/control-requests`,{memberID,requestID:request.id,decision});await refresh();notice = decision === 'approve' ? 'Control request approved.' : 'Control request rejected.';}
+  async function addAnnotation(session:Session){const note = await api<Annotation>('POST',`/api/sessions/${session.id}/annotations`,{text:annotationDrafts[session.id] ?? ''});annotationDrafts[session.id] = '';await refresh();notice = note.redacted ? 'Note added; credential-like text was redacted by the runner.' : 'Session note added.';}
   function issueMember(){const payload = {name:memberName,role,hostIDs:[...scope],expiresAt:Date.now()+grantHours*3600000};review('Issue team access',`${memberName}: ${role}, expires in ${grantHours} hours. ${role === 'admin' ? 'Administrator access covers all hosts and configuration.' : `Hosts: ${hosts.filter(h => scope.includes(h.id)).map(h => h.name).join(', ') || 'None'}`}`,async () => {const response = await api<{member:Member;token:string}>('POST','/api/members',payload);issued = `Member ID: ${response.member.id}\nAccess token: ${response.token}`;await refresh();});}
   function downloadSeed(){const url = URL.createObjectURL(new Blob([seed],{type:'application/json'}));const a = document.createElement('a');a.href = url;a.download = 'blacknode-runner-seed.json';a.click();setTimeout(() => URL.revokeObjectURL(url),1000);}
   onMount(() => {void action(async () => {const cfg = await TeamService.Connection();endpoint = cfg.url || endpoint;if(cfg.hasToken)await refresh();});});
@@ -55,7 +63,7 @@
 <div class="flex h-full min-h-0 flex-col"><PageHeader icon={Share2} title="Team operations" subtitle="Always-on runner, scoped access and shared sessions" /><div class="ops-body ops-form">
   {#if error}<p class="ops-error" role="alert">{error}</p>{/if}{#if notice}<p role="status">{notice}</p>{/if}
   <div class="ops-card ops-form"><div class="ops-grid"><label>Runner URL<input bind:value={endpoint} disabled={connected || busy} /></label>{#if !connected}<label>Access token<input type="password" bind:value={token} autocomplete="off" /></label>{/if}</div><div class="ops-actions">
-    {#if connected}<span>{me?.name} · {me?.role} · expires {me?.expiresAt ? fmt(me.expiresAt) : 'when rotated'}</span><button disabled={busy} onclick={() => action(refresh)}>Refresh runner</button><button disabled={busy} onclick={() => action(async () => {active = null;await TeamService.Disconnect();connected = false;me = null;issued = '';})}>Disconnect runner</button>
+    {#if connected}<span>{me?.name} · {me?.role} · expires {me?.expiresAt ? fmt(me.expiresAt) : 'when rotated'}</span><button disabled={busy} onclick={() => action(refresh)}>Refresh runner</button><button disabled={busy} onclick={() => action(async () => {active = null;annotationDrafts = {};await TeamService.Disconnect();connected = false;me = null;issued = '';})}>Disconnect runner</button>
     {:else}<button class="primary" disabled={busy || !token} onclick={() => action(async () => {await TeamService.SaveConnection(endpoint,token);token = '';await refresh();})}>Connect runner</button>{/if}<button onclick={() => sharedConfig = true}>Shared configuration</button></div>
     {#if !connected}<p class="ops-muted">Start blacknode-runner with its own database, vault password and bootstrap token. Use HTTPS, or HTTP on loopback. Tokens are encrypted in your desktop vault.</p>{/if}
   </div>
@@ -78,10 +86,25 @@
     {:else}{#each triggers as t (t.id)}<div class="ops-card ops-form"><p>{t.name} · {t.enabled ? 'enabled' : 'disabled'} · expires {fmt(t.expiresAt)} · revision {t.bookRevision}</p><code>{endpoint.replace(/\/$/,'')}/hooks/{t.id}</code><p>Last run: {fmt(t.lastRunAt)} · cooldown {t.cooldownSeconds}s</p>{#if t.enabled}<button disabled={busy} onclick={() => review('Disable webhook',`Disable ${t.name}?`,async () => {await api('DELETE',`/api/triggers/${t.id}`);await refresh();})}>Disable trigger</button>{/if}</div>{:else}<p>No triggers yet.</p>{/each}{/if}
   {:else if section === 'sessions'}
     {#if operator}<div class="ops-actions"><label>SSH host<select bind:value={sessionHost}><option value="">Select host</option>{#each hosts as h (h.id)}<option value={h.id}>{h.name}</option>{/each}</select></label><button disabled={busy || !sessionHost} onclick={openSession}>Open shared session</button></div>{/if}
-    {#each sessions as s (s.id)}<div class="ops-card ops-actions"><span>{s.title} · {s.closed ? 'ended' : 'live'} · {s.members[me!.id] || 'administrator'}</span><button onclick={() => active = s}>Join {s.closed ? 'output' : 'session'}</button>{#if !s.closed && (admin || s.ownerID === me?.id)}<button disabled={busy} onclick={() => review('Close shared session',`Close ${s.title} for everyone?`,async () => {await api('DELETE',`/api/sessions/${s.id}`);if(active?.id === s.id)active = null;await refresh();})}>Close session</button>{/if}</div>{:else}<p>No shared sessions available.</p>{/each}
+    {#each sessions as s (s.id)}<div class="ops-card ops-actions"><span>{s.title} · {s.closed ? 'ended' : 'live'} · {s.members[me!.id] || 'administrator'}</span>{#if !s.closed && (admin || s.ownerID === me?.id)}<span>{Object.values(s.controlRequests ?? {}).filter(r => r.status === 'pending').length} pending control requests</span>{/if}<button onclick={() => active = s}>Join {s.closed ? 'output' : 'session'}</button>{#if !s.closed && (admin || s.ownerID === me?.id)}<button disabled={busy} onclick={() => review('Close shared session',`Close ${s.title} for everyone?`,async () => {await api('DELETE',`/api/sessions/${s.id}`);if(active?.id === s.id)active = null;await refresh();})}>Close session</button>{/if}</div>{:else}<p>No shared sessions available.</p>{/each}
     {#if active}{@const a = active}<div class="ops-actions"><h3>{a.title} · {activeMode}</h3><button onclick={() => active = null}>Leave view</button></div>
-      {#key `${a.id}:${activeMode}`}<InfrastructureTerminal sessionID={a.id} readonly={activeMode !== 'peer' || a.closed} connect={async () => {}} read={after => api('GET',`/api/sessions/${a.id}/output?after=${after}`)} write={data => api('POST',`/api/sessions/${a.id}/input`,{data})} resize={(cols,rows) => api('POST',`/api/sessions/${a.id}/input`,{cols,rows})} />{/key}
+      {#if !a.closed && activeMode === 'observer'}
+        {#if activeRequest?.status === 'pending'}<p role="status">Control request pending since {fmt(activeRequest.requestedAt)}. Read only until approved.</p>
+        {:else if activeRequest?.status === 'rejected'}<p role="status">Control request rejected at {fmt(activeRequest.decidedAt)}. You still have read-only access.</p>{/if}
+        {#if operator}<button disabled={busy || activeRequest?.status === 'pending'} onclick={() => action(() => requestControl(a))}>{activeRequest?.status === 'pending' ? 'Control requested' : 'Request peer control'}</button>
+        {:else}<p class="ops-muted">Viewer credentials are read only. Peer control requires scoped operator access.</p>{/if}
+      {:else if !a.closed && activeRequest?.status === 'approved'}<p role="status">Control request approved at {fmt(activeRequest.decidedAt)}. You can type as a peer.</p>{/if}
+      {#key `${a.id}:${activeMode}:${operator}`}<InfrastructureTerminal sessionID={a.id} readonly={!operator || activeMode !== 'peer' || a.closed} connect={async () => {}} read={after => api('GET',`/api/sessions/${a.id}/output?after=${after}`)} write={data => api('POST',`/api/sessions/${a.id}/input`,{data})} resize={(cols,rows) => api('POST',`/api/sessions/${a.id}/input`,{cols,rows})} />{/key}
       <p class="ops-muted">Leaving this view keeps the session running. Owners and administrators can close it for everyone.</p>
+      <div class="ops-card ops-form"><div class="ops-actions"><h3>Session notes · {a.annotations?.length ?? 0}/100</h3><button disabled={busy} onclick={() => action(refresh)}>Refresh notes</button></div>
+        <p class="ops-muted">Ephemeral: notes remain only with this runner session's retained output and are lost on runner restart or session cleanup. All authorized session members can read them. Credential-like text is redacted server-side; avoid posting secrets. Notes never execute terminal input.</p>
+        {#each a.annotations ?? [] as note (note.id)}<article class="ops-card"><p>{note.author} · {fmt(note.createdAt)}{note.redacted ? ' · redacted' : ''}</p><p class="whitespace-pre-wrap break-all">{note.text}</p></article>{:else}<p>No notes yet.</p>{/each}
+        {#if !a.closed && operator}<label>Short session note<textarea bind:value={annotationDrafts[a.id]} rows="3" maxlength="1024" spellcheck="false" placeholder="Add context for this session"></textarea></label><p class="ops-muted">{annotationBytes}/1024 UTF-8 bytes. Scoped operator observers may annotate without peer control.</p><button disabled={busy || !(annotationDrafts[a.id] ?? '').trim() || annotationBytes > 1024 || (a.annotations?.length ?? 0) >= 100} onclick={() => action(() => addAnnotation(a))}>Add note</button>
+        {:else if a.closed}<p class="ops-muted">Session ended. Notes are read only.</p>{:else}<p class="ops-muted">Viewer credentials can read notes; adding notes requires scoped operator access.</p>{/if}
+      </div>
+      {#if !a.closed && (admin || a.ownerID === me?.id)}<div class="ops-card ops-form"><h3>Pending control requests</h3>
+        {#each Object.entries(a.controlRequests ?? {}).filter(([,r]) => r.status === 'pending') as [memberID,request] (request.id)}<div class="ops-actions"><span>{members.find(m => m.id === memberID)?.name ?? memberID} · requested {fmt(request.requestedAt)}</span><button disabled={busy || memberID === me?.id} onclick={() => review('Approve peer control',`Allow ${members.find(m => m.id === memberID)?.name ?? memberID} to type in ${a.title}? Access remains limited by their grant and the session lifetime.`,() => decideControl(a,memberID,request,'approve'),[a.hostID])}>Approve control</button><button disabled={busy || memberID === me?.id} onclick={() => action(() => decideControl(a,memberID,request,'reject'))}>Reject request</button></div>{:else}<p>No pending control requests.</p>{/each}
+      </div>{/if}
       {#if !a.closed && (admin || a.ownerID === me?.id)}<div class="ops-grid"><label>Member ID<input bind:value={inviteID} list="team-member-ids" /><datalist id="team-member-ids">{#each members.filter(m => !m.revoked) as m}<option value={m.id}>{m.name}</option>{/each}</datalist></label><label>Access<select bind:value={inviteMode}><option value="observer">Observer (read only)</option><option value="peer">Peer (can type)</option><option value="remove">Remove access</option></select></label></div><button disabled={busy || !inviteID} onclick={() => action(async () => {await api('POST',`/api/sessions/${a.id}/members`,{memberID:inviteID,mode:inviteMode});await refresh();})}>Update invitation</button><pre class="ops-code">{JSON.stringify(a.members,null,2)}</pre>{/if}
     {/if}
   {:else if section === 'members' && admin}

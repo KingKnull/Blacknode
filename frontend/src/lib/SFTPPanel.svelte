@@ -3,7 +3,7 @@
   import { Events } from "@wailsio/runtime";
   import { SFTPService, TransferService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import TransferQueue from "./TransferQueue.svelte";
-  import type { SFTPEntry } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
+  import type { SFTPEntry, SFTPDeletePreview, SFTPDeleteReceipt, SFTPSearchResult } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import { app } from "./state.svelte";
   import PageHeader from "./PageHeader.svelte";
   import RemoteEditor from "./RemoteEditor.svelte";
@@ -33,7 +33,7 @@
   onMount(() => {
     const offDrop = Events.On("files:dropped", (event: any) => { isDraggingOver = false; if (Array.isArray(event.data)) void uploadPaths(event.data); });
     const offTransfer = Events.On("transfers:changed", (event: any) => { if (event.data?.status === "completed" && event.data.request?.hostID === host?.id) void reload(); });
-    return () => { listRequest++; offDrop(); offTransfer(); };
+    return () => { listRequest++; clearSearch(); offDrop(); offTransfer(); };
   });
 
   let host = $derived(
@@ -43,10 +43,12 @@
   );
 
   async function reload() {
+    clearSearch();
     const target = host;
     const directory = path;
     const request = ++listRequest;
     if (!target) return;
+    void loadReceipts(target.id);
     err = "";
     busy = true;
     try {
@@ -64,6 +66,55 @@
       err = msg;
     } finally {
       if (request === listRequest) busy = false;
+    }
+  }
+
+  let searchQuery = $state("");
+  let searchedQuery = $state("");
+  let searchResult = $state<SFTPSearchResult | null>(null);
+  let searchBusy = $state(false);
+  let searchError = $state("");
+  let searchNotice = $state("");
+  let searchRequest = 0;
+  let activeSearch: ReturnType<typeof SFTPService.Search> | null = null;
+
+  function clearSearch(canceled = false) {
+    searchRequest++;
+    void activeSearch?.cancel();
+    activeSearch = null;
+    searchBusy = false;
+    searchResult = null;
+    searchError = "";
+    searchNotice = canceled ? "Search canceled — incomplete; no results retained." : "";
+  }
+
+  async function searchFiles() {
+    const target = host;
+    if (!target || !searchQuery.trim()) return;
+    clearSearch();
+    const request = searchRequest;
+    const directory = path;
+    searchedQuery = searchQuery;
+    searchBusy = true;
+    const pending = SFTPService.Search(target.id, directory, searchedQuery);
+    activeSearch = pending;
+    try {
+      const result = await pending;
+      if (request === searchRequest && host?.id === target.id && path === directory) searchResult = result;
+    } catch (e) {
+      if (request === searchRequest) searchError = String(e);
+    } finally {
+      if (request === searchRequest) { searchBusy = false; activeSearch = null; }
+    }
+  }
+
+  async function openSearchResult(entry: SFTPEntry, containingFolder = false) {
+    if (entry.symlink) return;
+    if (entry.isDir || containingFolder) {
+      path = entry.isDir ? entry.path : entry.path.slice(0, entry.path.lastIndexOf("/")) || "/";
+      await reload();
+    } else {
+      editingPath = entry.path;
     }
   }
 
@@ -119,16 +170,83 @@
     } catch (e) { err = String(e); }
   }
 
-  let entryToDelete = $state<(SFTPEntry & { hostID: string; remotePath: string }) | null>(null);
+  let deleteReview = $state<{ preview: SFTPDeletePreview; hostName: string; production: boolean } | null>(null);
+  let restoreReview = $state<{ receipt: SFTPDeleteReceipt; hostName: string; production: boolean } | null>(null);
+  let receipts = $state<SFTPDeleteReceipt[]>([]);
+  let reviewBusy = $state(false);
+  let mutationBusy = $state(false);
+  let reviewRequest = 0;
+  let receiptRequest = 0;
+
+  async function loadReceipts(hostID: string) {
+    if (host?.id !== hostID) return;
+    const request = ++receiptRequest;
+    try {
+      const result = await SFTPService.DeletedFiles(hostID);
+      if (host?.id === hostID && request === receiptRequest) receipts = result ?? [];
+    } catch (e) {
+      if (host?.id === hostID && request === receiptRequest) err = `Cannot load recovery receipts: ${String(e)}`;
+    }
+  }
+
+  function rememberReceipt(receipt: SFTPDeleteReceipt) {
+    if (host?.id !== receipt.hostID) return;
+    receiptRequest++;
+    receipts = [...receipts.filter((item) => item.id !== receipt.id), receipt];
+  }
+
+  async function previewDelete(entry: SFTPEntry) {
+    const target = host;
+    if (!target || reviewBusy || mutationBusy) return;
+    const request = ++reviewRequest;
+    reviewBusy = true;
+    err = "";
+    try {
+      const preview = await SFTPService.PreviewDelete(target.id, entry.path);
+      if (request === reviewRequest && host?.id === target.id) {
+        deleteReview = { preview, hostName: target.name, production: target.environment === "production" };
+      }
+    } catch (e) {
+      if (request === reviewRequest && host?.id === target.id) err = String(e);
+    } finally {
+      if (request === reviewRequest) reviewBusy = false;
+    }
+  }
+
   async function remove() {
-    if (!entryToDelete || !host) return;
-    // Recursive only for directories. Passing it unconditionally would be
-    // harmless for files but would turn a mis-click on a directory into an
-    // unbounded delete; passing it never would make non-empty directories
-    // undeletable from the UI.
-    await SFTPService.Remove(entryToDelete.hostID, entryToDelete.remotePath, entryToDelete.isDir);
-    await reload();
-    entryToDelete = null;
+    const review = deleteReview;
+    if (!review || mutationBusy) return;
+    mutationBusy = true;
+    try {
+      rememberReceipt(await SFTPService.DeleteReviewed(review.preview.hostID, review.preview.id));
+      if (host?.id === review.preview.hostID) await reload();
+    } catch (e) {
+      if (host?.id === review.preview.hostID) err = `${String(e)} — preview the file again before another deletion attempt.`;
+    } finally {
+      await loadReceipts(review.preview.hostID);
+      if (deleteReview === review) deleteReview = null;
+      mutationBusy = false;
+    }
+  }
+
+  function previewRestore(receipt: SFTPDeleteReceipt) {
+    const target = host;
+    if (!target || mutationBusy || receipt.hostID !== target.id) return;
+    restoreReview = { receipt, hostName: target.name, production: target.environment === "production" };
+  }
+
+  async function restore() {
+    const review = restoreReview;
+    if (!review || mutationBusy) return;
+    mutationBusy = true;
+    try {
+      rememberReceipt(await SFTPService.RestoreDeleted(review.receipt.hostID, review.receipt.id));
+      if (restoreReview === review) restoreReview = null;
+      if (host?.id === review.receipt.hostID) await reload();
+    } finally {
+      await loadReceipts(review.receipt.hostID);
+      mutationBusy = false;
+    }
   }
 
   function onDrop(ev: DragEvent) {
@@ -167,7 +285,14 @@
       err = "";
       busy = false;
       editingPath = null;
-      entryToDelete = null;
+      reviewRequest++;
+      receiptRequest++;
+      reviewBusy = false;
+      deleteReview = null;
+      restoreReview = null;
+      receipts = [];
+      clearSearch();
+      searchQuery = "";
       if (hostID) void reload();
     });
   });
@@ -201,6 +326,7 @@
         class="min-w-0 flex-1 rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-1.5 font-mono type-caption outline-none"
         aria-label="Remote directory"
         bind:value={path}
+        oninput={() => clearSearch()}
         onkeydown={(e) => e.key === "Enter" && reload()}
         placeholder="(home)"
       />
@@ -220,6 +346,55 @@
       <button class="rounded border hairline px-2 py-1.5 type-caption" onclick={() => pickUploads(true)}>Folder</button>
       <label class="flex items-center gap-1 type-caption"><input type="checkbox" bind:checked={overwrite} />Replace files</label>
     </div>
+
+    <section class="border-b hairline px-4 py-3" aria-label="Remote filename search">
+      <form class="flex items-center gap-2" onsubmit={(event) => { event.preventDefault(); void searchFiles(); }}>
+        <input class="min-w-0 flex-1 rounded-md border hairline bg-[var(--color-surface-3)] px-3 py-1.5 type-caption" aria-label="Filename substring" placeholder="Search filenames below this directory…" maxlength="256" bind:value={searchQuery} />
+        <button class="rounded border hairline px-2 py-1.5 type-caption disabled:opacity-30" disabled={searchBusy || !searchQuery.trim()}>Search</button>
+        {#if searchBusy}<button type="button" class="rounded border hairline px-2 py-1.5 type-caption" onclick={() => clearSearch(true)}>Cancel</button>{/if}
+      </form>
+      <p class="mt-1 type-micro text-[var(--color-text-3)]">Case-insensitive filename substring over SFTP; no contents or symlinks. Limits: 8 levels, 10,000 entries, 200 results, 512 KiB response, 15 seconds.</p>
+      {#if searchBusy}<p class="mt-2 type-caption" role="status">Searching below {path || "(home)"}…</p>{/if}
+      {#if searchNotice}<p class="mt-2 type-caption" role="status">{searchNotice}</p>{/if}
+      {#if searchError}<p class="mt-2 break-words type-caption text-[var(--color-danger)]" role="alert">Search failed: {searchError}</p>{/if}
+      {#if searchResult}
+        <p class="mt-2 break-all type-caption" role="status">
+          {searchResult.partial ? "Partial search — incomplete" : "Search complete (excluding symlinks and special files)"}{searchResult.limitReached ? "; limit reached" : ""}.
+          {searchResult.entries.length} matches for “{searchedQuery}”; {searchResult.scanned} entries scanned below {searchResult.root || "the requested directory"}.
+          {#if searchResult.reasons.length > 0}Reasons: {searchResult.reasons.join(", ")}.{/if}
+        </p>
+        {#if searchResult.entries.length === 0}
+          <p class="mt-1 type-caption">{searchResult.partial ? "No matching filenames found before the search stopped." : "No matching filenames."}</p>
+        {:else}
+          <ul class="mt-2 max-h-64 space-y-2 overflow-y-auto" aria-label="Filename search results">
+            {#each searchResult.entries as entry (entry.path)}
+              <li class="rounded border hairline p-2 type-caption">
+                <button type="button" class="break-all text-left font-mono text-[var(--color-accent)]" onclick={() => openSearchResult(entry)} aria-label={`${entry.isDir ? "Navigate to" : "Open"} ${entry.path}`}>{entry.isDir ? "Folder: " : "File: "}{entry.path}</button>
+                <p class="mt-1 type-micro text-[var(--color-text-3)]">{entry.mode} · {entry.isDir ? "directory" : fmtSize(entry.size)} · modified {new Date(entry.modTime * 1000).toLocaleString()}</p>
+                {#if !entry.isDir}<button type="button" class="mt-1 rounded border hairline px-2 py-1" onclick={() => openSearchResult(entry, true)}>Open containing folder</button>{/if}
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      {/if}
+    </section>
+
+    {#if reviewBusy}<p class="px-4 py-2 type-caption" role="status">Reading file contents and metadata for deletion review…</p>{/if}
+    {#if receipts.length > 0}
+      <section class="max-h-64 overflow-y-auto border-b hairline px-4 py-3" aria-label="Recoverable deletions">
+        <h2 class="type-caption font-semibold">Recovery receipts</h2>
+        <p class="mt-1 type-micro text-[var(--color-text-3)]">Receipts last until the backend restarts. Keep these paths for later manual recovery. Trash is not automatically purged.</p>
+        {#each receipts as receipt (receipt.id)}
+          <div class="mt-3 space-y-1 border-t hairline pt-2 type-caption">
+            <p class="break-all font-mono">Original: {receipt.originalPath}</p>
+            <p class="break-all font-mono">Trash: {receipt.trashPath}</p>
+            <p>Status: {receipt.status}</p>
+            {#if receipt.warning}<p class="break-words text-[var(--color-warn)]" role="alert">{receipt.warning}</p>{/if}
+            <button class="rounded border hairline px-2 py-1 disabled:opacity-30" disabled={mutationBusy || receipt.status === 'restored'} onclick={() => previewRestore(receipt)}>Review restore</button>
+          </div>
+        {/each}
+      </section>
+    {/if}
 
     <div
       class="relative flex-1 overflow-y-auto"
@@ -290,10 +465,11 @@
                   <Download size="11" />
                 </button>
               <button
-                class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)]"
-                onclick={() => (entryToDelete = { ...e, hostID: host!.id, remotePath: joinPath(path, e.name) })}
-                title="Delete"
-                aria-label="Delete {e.name}"
+                class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)] disabled:opacity-30"
+                disabled={reviewBusy || mutationBusy || e.isDir || e.symlink || !e.mode.startsWith('-')}
+                onclick={() => previewDelete(e)}
+                title={e.isDir || e.symlink ? "Only regular files can be moved to trash" : "Review move to trash"}
+                aria-label="Review move to trash for {e.name}"
               >
                 <Trash2 size="11" />
               </button>
@@ -325,15 +501,26 @@
   />
 {/if}
 
-{#if entryToDelete}
+{#if deleteReview}
   <ConfirmDanger
-    title={entryToDelete.isDir ? "DELETE FOLDER" : "DELETE FILE"}
-    body={entryToDelete.isDir
-      ? `Delete the folder '${entryToDelete.name}' and everything inside it? This removes all contents recursively and cannot be undone.`
-      : `Are you sure you want to delete '${entryToDelete.name}'? This action cannot be undone and will permanently remove the item from the remote server.`}
-    severity={entryToDelete.isDir ? "block-without-confirm" : "warn"}
-    productionHosts={host?.environment === 'production' ? [host.name] : []}
-    onCancel={() => (entryToDelete = null)}
+    title="REVIEW MOVE TO TRASH"
+    body={`Host: ${deleteReview.hostName}. Original: ${deleteReview.preview.originalPath}. Trash: ${deleteReview.preview.trashPath}. File: ${fmtSize(deleteReview.preview.size)}, ${deleteReview.preview.mode}, modified ${new Date(deleteReview.preview.modTime * 1000).toLocaleString()}. Revision: ${deleteReview.preview.revision}. Review expires ${new Date(deleteReview.preview.expiresAt * 1000).toLocaleTimeString()}. Confirm to move this regular file to sibling trash over SFTP. Restore will refuse to overwrite an existing path. This is a two-step move; avoid files being changed by other processes.`}
+    severity="block-without-confirm"
+    allowEnterConfirm={false}
+    productionHosts={deleteReview.production ? [deleteReview.hostName] : []}
+    onCancel={() => (deleteReview = null)}
     onConfirm={remove}
+  />
+{/if}
+
+{#if restoreReview}
+  <ConfirmDanger
+    title="REVIEW RESTORE"
+    body={`Host: ${restoreReview.hostName}. Restore ${restoreReview.receipt.trashPath} to ${restoreReview.receipt.originalPath}? The backend will verify the saved revision and refuse any existing destination, including symlinks. It will only remove the trash name after verifying the restored file.`}
+    severity="block-without-confirm"
+    allowEnterConfirm={false}
+    productionHosts={restoreReview.production ? [restoreReview.hostName] : []}
+    onCancel={() => (restoreReview = null)}
+    onConfirm={restore}
   />
 {/if}

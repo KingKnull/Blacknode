@@ -132,9 +132,9 @@ exist. The Wails v3 framework is a prerelease, so expect churn there too. See
   replacement, and commits with POSIX atomic rename. Optional server-side
   backups (enabled by default, mode `0600`) can be reviewed and restored
   from the editor.
-- **Transfer APIs** — the backend exposes streaming file/directory transfers
-  with progress and cancellation. The Files panel still uses the inline path,
-  capped at 8 MiB; streaming UI integration is pending.
+- **Transfer queue** — streaming file/directory transfers with progress,
+  cancellation and verified file resume. Inline editor operations remain
+  capped at 8 MiB.
 
 ### DevOps
 - **Containers** — Docker `ps` / `logs` and `kubectl get pods` /
@@ -164,7 +164,7 @@ exist. The Wails v3 framework is a prerelease, so expect churn there too. See
   (Real biometrics would need OS keystore APIs — Secure Enclave, Windows
   Hello, TPM2 — that Wails v3 does not currently expose.)
 - **Global command palette** — search views, hosts, snippets, command history,
-  and recordings, plus quick connect and focus-mode actions.
+  recordings and bounded operational records, plus quick connect and focus-mode actions.
 - **Customizable navigation** — Settings → Navigation shows or hides tools
   in the sidebar, section tabs, and New menu. Hidden tools remain accessible
   through the command palette; Terminals, Files, Vault, and Settings remain
@@ -206,12 +206,15 @@ exist. The Wails v3 framework is a prerelease, so expect churn there too. See
 
 ### Run from source
 
-Prerequisites: Go 1.26+, Node 22+, [Wails v3 CLI](https://v3.wails.io/),
+Prerequisites: Go 1.26+, Node 22+, [Wails v3 CLI](https://v3.wails.io/)
+**v3.0.0-beta.34** (matching `go.mod`),
 [Task](https://taskfile.dev/) (optional, recommended).
+On Linux, install the native dependencies below before installing the CLI.
 
 ```bash
 git clone https://github.com/<you>/blacknode
 cd blacknode
+go install "github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.34"
 wails3 dev
 ```
 
@@ -224,9 +227,23 @@ task windows:package    # NSIS installer (requires `choco install nsis`)
 
 ### Build for Linux / macOS
 
+The supported native Linux desktop build target is **Ubuntu 24.04 / GTK4**
+(GTK 4.14.2), pinned in CI. Wails beta.34 requires **GTK >= 4.14** and
+**WebKitGTK 6.0**, plus a C compiler, `pkg-config`, and X11 development headers.
+Debian 12's GTK 4.8.3 is too old (`GtkFileDialog` / `gdk_monitor_get_scale`).
+On Ubuntu 24.04, install and verify these before installing the CLI or building:
+
 ```bash
-task linux:build        # bin/blacknode (Linux)
-task darwin:build       # bin/blacknode (macOS)
+sudo apt-get update
+sudo apt-get install -y build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev libx11-dev
+pkg-config --atleast-version=4.14 gtk4
+pkg-config --exists webkitgtk-6.0
+pkg-config --modversion gtk4 webkitgtk-6.0
+```
+
+```bash
+wails3 task linux:build  # bin/blacknode (Linux)
+wails3 task darwin:build # bin/blacknode (macOS)
 ```
 
 ### Run tests
@@ -234,6 +251,8 @@ task darwin:build       # bin/blacknode (macOS)
 The infrastructure tools and standalone runner are documented in
 [Infrastructure guide](docs/infrastructure.md), including monitoring, directory
 sync, service maps, Trivy, Git runbooks, team access, Helm, and AWS Session Manager.
+See [discussed feature status](docs/discussed-features.md) for completed slices
+and explicit remaining limitations.
 Build the runner with `task build:runner`.
 
 ```bash
@@ -326,8 +345,8 @@ The honest list — features either intentionally narrow or straight-up unfinish
   collectors are not implemented. Alerts evaluate only while hosts are being
   polled; leaving the Metrics panel stops polling. Recovery requires a reading
   three percentage points below the threshold (half the threshold below 6%).
-- **Runbooks are manually triggered and local to this device.** There is no
-  scheduler or cloud sync for runbooks. Each step uses a fresh shell; working
+- **Runbook schedules run while this app or its configured runner is active
+  and unlocked.** Each step uses a fresh shell; working
   directories and shell variables do not carry over. Variable values are
   inserted literally, so review quoting in the final commands.
 - **Session recording is output-only by design.** Stdin (passwords typed
@@ -340,8 +359,8 @@ The honest list — features either intentionally narrow or straight-up unfinish
   only completed recordings in the app's recording directory are deleted.
   Files left by an interrupted session count toward storage but need manual
   removal. Free space or raise the cap before resuming capture after a limit.
-- **Inline file operations are capped at 8 MiB.** The backend streaming APIs
-  exist, but the Files panel still uses inline upload/download.
+- **Inline editor operations are capped at 8 MiB.** Larger transfers use the
+  queue; partially copied directories are retried rather than resumed.
 - **Safe editor saves require POSIX rename support** and permission to create
   files in the target directory. Unix ownership and mode bits are preserved;
   extended ACLs, xattrs, and hard-link identity are not preserved by replacement.
@@ -393,12 +412,12 @@ known-hosts management UI, light theme, custom branded icon.
 
 Not done (with reasons):
 
-- **Phase 10 — automation playbooks (multi-step, scheduled)** — design
-  decision pending.
+- **Phase 10 — advanced automation** — broader provider integration and
+  live rollout validation remain.
 - **Plugin hardening** — the executable/RPC plugin system is implemented;
   stronger process isolation and a broader SDK remain future work.
-- **Phase 13 — team features (RBAC, shared vault)** — needs a backend
-  service. Shared configuration snapshots exist; RBAC and a shared vault do not.
+- **Phase 13 — team features** — the optional runner enforces scoped roles;
+  a shared vault and durable session annotations remain future work.
 - **Phase 15 — comprehensive testing** — extend desktop and cross-platform coverage.
 - **Automatic update installation** — the app checks GitHub releases and
   links to downloads; it does not install updates automatically.

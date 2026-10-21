@@ -68,6 +68,16 @@ export function List(): $CancellablePromise<$models.PublicKeyView[]> {
     });
 }
 
+/**
+ * SetRotationDueDate sets an advisory YYYY-MM-DD date, or clears it with an
+ * empty string. No authentication state changes and no notifications are sent.
+ */
+export function SetRotationDueDate(id: string, date: string): $CancellablePromise<$models.PublicKeyView> {
+    return $Call.ByID(4242978605, id, date).then(($result: any) => {
+        return $$createType0($result);
+    });
+}
+
 // Private type creation functions
 const $$createType0 = $models.PublicKeyView.createFrom;
 const $$createType1 = $Create.Array($$createType0);

@@ -1,10 +1,11 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import { PlatformService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { Integration, FleetDifference } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import type { OperationEvent } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { unpack, downloadText, type Versioned, type Incident } from "./operationRecords";
   import { app } from "./state.svelte";
+  import { useOperationTarget } from "./operationSelection.svelte";
+  import { selectableOperationRecords } from "./operationTargets";
   import HostSelection from "./HostSelection.svelte";
   import IntegrationsPanel from "./IntegrationsPanel.svelte";
   import PageHeader from "./PageHeader.svelte";
@@ -24,17 +25,35 @@
   let query = $state("");
   let minutes = $state(15);
   let queryResult = $state("");
+  let queryOpen = $state(false);
   const incident = $derived(incidents.find((i) => i.id === selectedID));
-  async function refresh() { incidents = (await PlatformService.ListRecords('incident')).map((r) => unpack<Incident>(r)); }
+  async function refresh() { incidents = selectableOperationRecords<Incident>(await PlatformService.ListRecords('incident')); }
   async function loadIntegrations() { integrations = (await PlatformService.ListRecords('integration')).map((r) => unpack<Integration>(r)).filter((i) => ['prometheus','loki'].includes(i.kind)); }
-  async function load() { differences = null; try { events = selectedID ? await PlatformService.Timeline(selectedID,0) : []; } catch (e) { error = String(e); } }
-  onMount(() => { void Promise.all([refresh(),loadIntegrations()]).catch((e) => error = String(e)); });
-  async function capture() { busy = true; error = ''; try { const saved = await PlatformService.CaptureIncident(name,app.serviceContext?.id ?? '',hosts); selectedID = saved.id; await refresh(); await load(); name = ''; } catch (e) { error = String(e); } finally { busy = false; } }
+  let timelineRequest = 0;
+  async function load() { const request = ++timelineRequest; const id = selectedID; differences = null; events = []; try { const next = id ? await PlatformService.Timeline(id,0) : []; if (request === timelineRequest && id === selectedID) events = next; } catch (e) { if (request === timelineRequest && id === selectedID) error = String(e); } }
+  useOperationTarget('incidents', {
+    selection: () => selectedID,
+    load: async () => {
+      const [records, sources] = await Promise.all([PlatformService.ListRecords('incident'), PlatformService.ListRecords('integration')]);
+      return { records, sources };
+    },
+    clear: () => { selectedID = ''; events = []; differences = null; beforeID = ''; note = ''; queryResult = ''; queryOpen = false; error = ''; busy = false; timelineRequest++; },
+    apply: ({ records, sources }, target) => {
+      incidents = selectableOperationRecords<Incident>(records);
+      integrations = sources.map(r => unpack<Integration>(r)).filter(i => ['prometheus','loki'].includes(i.kind));
+      if (!target) return;
+      if (!incidents.some(i => i.id === target.id)) throw new Error('This incident is no longer available.');
+      selectedID = target.id;
+      void load();
+    },
+    error: message => error = message,
+  });
+  async function capture() { const selection = timelineRequest; busy = true; error = ''; try { const saved = await PlatformService.CaptureIncident(name,app.serviceContext?.id ?? '',hosts); if (selection !== timelineRequest) return; await refresh(); if (selection !== timelineRequest) return; selectedID = saved.id; await load(); name = ''; } catch (e) { if (selection === timelineRequest) error = String(e); } finally { busy = false; } }
   async function annotate() { try { await PlatformService.AddIncidentEvidence(selectedID,'note','Investigation note',note); note = ''; await load(); } catch (e) { error = String(e); } }
   async function resolve() { if (!incident) return; try { await PlatformService.SetIncidentStatus(incident.id,incident.status === 'open' ? 'resolved' : 'open',incident.revision); await refresh(); } catch (e) { error = String(e); } }
   async function exportReport(format: string) { try { downloadText(`incident-${selectedID}.${format === 'json' ? 'json' : 'md'}`,await PlatformService.ExportIncident(selectedID,format)); } catch (e) { error = String(e); } }
-  async function compare() { try { differences = await PlatformService.CompareIncidents(beforeID,selectedID); } catch (e) { error = String(e); } }
-  async function runQuery() { busy = true; error = ''; try { const end = Date.now(); queryResult = await PlatformService.QueryObservability(integrationID,query,end-minutes*60000,end,15); } catch (e) { error = String(e); } finally { busy = false; } }
+  async function compare() { const selection = timelineRequest; try { const result = await PlatformService.CompareIncidents(beforeID,selectedID); if (selection === timelineRequest) differences = result; } catch (e) { if (selection === timelineRequest) error = String(e); } }
+  async function runQuery() { const selection = timelineRequest; busy = true; error = ''; try { const end = Date.now(); const result = await PlatformService.QueryObservability(integrationID,query,end-minutes*60000,end,15); if (selection === timelineRequest) queryResult = result; } catch (e) { if (selection === timelineRequest) error = String(e); } finally { if (selection === timelineRequest) busy = false; } }
   async function attach() { try { const integration = integrations.find((i) => i.id === integrationID); await PlatformService.AddIncidentEvidence(selectedID,integration?.kind === 'loki' ? 'logs' : 'metrics',query,queryResult); await load(); } catch (e) { error = String(e); } }
 </script>
 <div class="flex h-full flex-col"><PageHeader icon={Activity} title="Incidents" subtitle="Preserve evidence, compare changes and record the path to recovery" />
@@ -68,7 +87,7 @@
       <h3 class="type-body">Timeline</h3>
       {#each events as event (event.id ?? `${event.scope}:${event.seq}`)}<details class="ops-card"><summary><span class="ops-muted">{new Date(event.at).toLocaleTimeString()}</span> · <strong>{event.level ?? 'info'}</strong> · <span class="font-mono">{event.source ?? event.scope}</span> · {event.title}{#if event.hostName || event.hostID}<span class="ops-muted"> · {event.hostName ?? event.hostID}</span>{/if}</summary><pre class="ops-code">{event.body}</pre></details>{/each}
     {/if}
-    <details class="ops-card"><summary>Query historical metrics and logs</summary><div class="ops-form mt-3"><div class="ops-grid"><label>Integration<select bind:value={integrationID}><option value="">Choose source</option>{#each integrations as i}<option value={i.id}>{i.name} · {i.kind}</option>{/each}</select></label><label>Last minutes<input type="number" min="1" max="20160" bind:value={minutes} /></label></div><label>PromQL or LogQL<textarea rows="2" bind:value={query} placeholder="up"></textarea></label><div class="ops-actions"><button onclick={runQuery} disabled={busy || !integrationID || !query}>Run query</button><button onclick={attach} disabled={!selectedID || !queryResult}>Attach result to incident</button></div>{#if queryResult}<pre class="ops-code">{queryResult}</pre>{/if}</div></details>
+    <details class="ops-card" bind:open={queryOpen}><summary>Query historical metrics and logs</summary><div class="ops-form mt-3"><div class="ops-grid"><label>Integration<select bind:value={integrationID}><option value="">Choose source</option>{#each integrations as i}<option value={i.id}>{i.name} · {i.kind}</option>{/each}</select></label><label>Last minutes<input type="number" min="1" max="20160" bind:value={minutes} /></label></div><label>PromQL or LogQL<textarea rows="2" bind:value={query} placeholder="up"></textarea></label><div class="ops-actions"><button onclick={runQuery} disabled={busy || !integrationID || !query}>Run query</button><button onclick={attach} disabled={!selectedID || !queryResult}>Attach result to incident</button></div>{#if queryResult}<pre class="ops-code">{queryResult}</pre>{/if}</div></details>
     <IntegrationsPanel onSaved={() => void loadIntegrations()} />
   </div>
 </div>

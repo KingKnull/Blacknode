@@ -68,14 +68,16 @@ func (s *SyncService) SetAutoSyncConfig(ctx context.Context, cfg AutoSyncConfig)
 	return nil
 }
 
-// AutoSync performs a push followed by a pull (full bidirectional sync)
-// and returns the resulting status. Called both manually and by the
-// background goroutine.
+// AutoSync performs a pull followed by a push (full bidirectional sync).
+// Merge the remote catalog before publishing, so a second device cannot erase
+// templates it has not received yet by uploading its own incomplete snapshot.
+// Called both manually and by the background goroutine.
 func (s *SyncService) AutoSync(ctx context.Context) (SyncStatus, error) {
-	if _, err := s.Push(ctx); err != nil {
-		return s.Status(ctx)
+	st, err := s.Pull(ctx)
+	if err != nil || st.LastError != "" {
+		return st, err
 	}
-	return s.Pull(ctx)
+	return s.Push(ctx)
 }
 
 // ConflictPreview does a dry-run pull: downloads the remote snapshot,
@@ -143,6 +145,11 @@ func (s *SyncService) ConflictPreview(ctx context.Context) ([]ConflictItem, erro
 		})
 	}
 
+	templates, err := s.previewWorkspaceTemplates(snap.WorkspaceTemplates)
+	if err != nil {
+		return nil, err
+	}
+	items = append(items, templates...)
 	return items, nil
 }
 

@@ -1,6 +1,6 @@
 <script lang="ts">
   import Dialog from "./Dialog.svelte";
-  import { shortcutLabel } from "./shortcuts";
+  import { getShortcuts, shortcutLabel, shortcutMatchesEvent, subscribeShortcuts } from "./shortcuts";
   import { onMount, tick } from "svelte";
   import { app, type View } from "./state.svelte";
   import {
@@ -9,9 +9,17 @@
     HostService,
     HistoryService,
     RecordingService,
+    PlatformService,
+    InfrastructureService,
+    RunbookService,
+    ActivityService,
   } from "../../bindings/github.com/blacknode/blacknode/internal/service";
-  import type { Snippet, Host, HistoryEntry, Recording } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
+  import type { Snippet, Host, HistoryEntry, Recording, OperationDocument } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
+  import type { DeploymentProject, ScanProfile, ServiceWorkspace, VulnerabilityScan } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
+  import { boundedPaletteRecords, parsePaletteRecord, PALETTE_ACTIVITY_LIMIT, redactPaletteText } from "./paletteRecords";
   import { bus } from "./events";
+  import { discardOperationTargetOutside, openOperationTarget } from "./operationSelection.svelte";
+  import { matchingOperationID, type OperationTarget } from "./operationTargets";
   import {
     TerminalSquare,
     Server,
@@ -57,6 +65,7 @@
 
   let input = $state("");
   let highlighted = $state(0);
+  let shortcuts = $state(getShortcuts());
 
   // Keep the keyboard-highlighted row visible inside the scrolling list.
   async function scrollHighlightedIntoView() {
@@ -69,6 +78,138 @@
   let snippets = $state<Snippet[]>([]);
   let historyEntries = $state<HistoryEntry[]>([]);
   let recordings = $state<Recording[]>([]);
+  let operationActions = $state<Action[]>([]);
+  let operationRefreshID = 0;
+
+  $effect(() => { discardOperationTargetOutside(app.view); });
+
+  function recordValue<T extends Record<string, unknown>>(record: OperationDocument): T | null {
+    return parsePaletteRecord<T>(record.body);
+  }
+
+  function navigateRecord(
+    id: string,
+    label: string,
+    hint: string,
+    icon: any,
+    category: string,
+    view: View,
+    keywords = "",
+    target?: OperationTarget,
+  ): Action {
+    return { id, label, hint, icon, category, keywords, run: () => {
+      if (target) openOperationTarget(target.kind, target.id);
+      else app.view = view;
+    } };
+  }
+
+  function fulfilledArray<T>(result: PromiseSettledResult<T[]>): T[] {
+    return result.status === "fulfilled" ? result.value ?? [] : [];
+  }
+
+  async function refreshOperationActions() {
+    const refreshID = ++operationRefreshID;
+    const results = await Promise.allSettled([
+      PlatformService.ListRecords("workspace"),
+      RunbookService.List(),
+      PlatformService.ListRecords("incident"),
+      PlatformService.ListRecords("project"),
+      InfrastructureService.Monitors(),
+      PlatformService.ListRecords("scan-profile"),
+      PlatformService.ListRecords("vulnerability-scan"),
+      ActivityService.List({ limit: PALETTE_ACTIVITY_LIMIT }),
+    ]);
+    if (refreshID !== operationRefreshID) return;
+
+    const [workspaceResult, runbookResult, incidentResult, projectResult, monitorResult, profileResult, scanResult, activityResult] = results;
+    const next: Action[] = [];
+    for (const record of boundedPaletteRecords(fulfilledArray(workspaceResult))) {
+      const workspace = recordValue<ServiceWorkspace & Record<string, unknown>>(record);
+      if (!workspace || !matchingOperationID(record.id, workspace.id) || !workspace.name) continue;
+      const name = redactPaletteText(workspace.name, 100);
+      const environment = redactPaletteText(workspace.environment, 40);
+      const hostCount = Array.isArray(workspace.hostIDs) ? workspace.hostIDs.length : 0;
+      next.push({
+        id: `record:workspace:${record.id}`,
+        label: `Workspace: ${name}`,
+        hint: `${environment || "workspace"} · ${hostCount} hosts`,
+        icon: Share2,
+        category: "Service workspaces",
+        keywords: `${name} ${environment} ${redactPaletteText(workspace.kubeContext, 80)}`,
+        // Workspace activation restores sessions and starts monitoring. Search only navigates.
+        run: () => { app.view = "service-workspaces"; },
+      });
+    }
+
+    for (const runbook of boundedPaletteRecords(fulfilledArray(runbookResult))) {
+      if (!runbook?.id || !runbook.name) continue;
+      const name = redactPaletteText(runbook.name, 100);
+      const steps = Array.isArray(runbook.steps) ? runbook.steps.length : 0;
+      next.push(navigateRecord(
+        `record:runbook:${runbook.id}`,
+        `Runbook: ${name}`,
+        `${steps} steps`,
+        Bookmark,
+        "Runbooks",
+        "runbooks",
+        `${name} ${redactPaletteText(runbook.sourceRepository, 100)} ${redactPaletteText(runbook.workspaceID, 80)}`,
+        { kind: "runbook", id: runbook.id },
+      ));
+    }
+
+    for (const record of boundedPaletteRecords(fulfilledArray(incidentResult))) {
+      const incident = recordValue<Record<string, unknown>>(record);
+      if (!incident || !matchingOperationID(record.id, incident.id) || typeof incident.name !== "string") continue;
+      const name = redactPaletteText(incident.name, 100);
+      const status = redactPaletteText(incident.status, 40);
+      next.push(navigateRecord(`record:incident:${record.id}`, `Incident: ${name}`, status || "incident", Activity, "Incidents", "incidents", `${name} ${status}`, { kind: "incident", id: record.id }));
+    }
+
+    for (const record of boundedPaletteRecords(fulfilledArray(projectResult))) {
+      const project = recordValue<DeploymentProject & Record<string, unknown>>(record);
+      if (!project || !matchingOperationID(record.id, project.id) || !project.name) continue;
+      const name = redactPaletteText(project.name, 100);
+      const tool = redactPaletteText(project.tool, 40);
+      const repository = redactPaletteText(project.repository, 100);
+      next.push(navigateRecord(`record:deployment:${record.id}`, `Deployment: ${name}`, `${tool || "project"}${repository ? ` · ${repository}` : ""}`, Zap, "Deployments", "deployments", `${name} ${tool} ${repository}`, { kind: "deployment", id: record.id }));
+    }
+
+    for (const monitor of boundedPaletteRecords(fulfilledArray(monitorResult))) {
+      const serviceMonitor = monitor?.monitor;
+      if (!serviceMonitor?.id || !serviceMonitor.name) continue;
+      const name = redactPaletteText(serviceMonitor.name, 100);
+      const target = redactPaletteText(serviceMonitor.target, 100);
+      const latest = monitor.state?.samples?.at(-1);
+      next.push(navigateRecord(`record:monitor:${serviceMonitor.id}`, `Monitor: ${name}`, `${redactPaletteText(serviceMonitor.kind, 30) || "check"}${target ? ` · ${target}` : ""}`, Activity, "Monitors", "uptime", `${name} ${target} ${redactPaletteText(latest?.status, 30)}`, { kind: "monitor", id: serviceMonitor.id }));
+    }
+
+    for (const record of boundedPaletteRecords(fulfilledArray(profileResult))) {
+      const profile = recordValue<ScanProfile & Record<string, unknown>>(record);
+      if (!profile || !matchingOperationID(record.id, profile.id) || !profile.name) continue;
+      const name = redactPaletteText(profile.name, 100);
+      const target = redactPaletteText(profile.target, 100);
+      next.push(navigateRecord(`record:scan-profile:${record.id}`, `Scan profile: ${name}`, `${redactPaletteText(profile.kind, 30) || "scan"}${target ? ` · ${target}` : ""}`, ShieldCheck, "Security scans", "security-scans", `${name} ${target}`, { kind: "scan-profile", id: record.id }));
+    }
+
+    for (const record of boundedPaletteRecords(fulfilledArray(scanResult))) {
+      const scan = recordValue<VulnerabilityScan & Record<string, unknown>>(record);
+      const profile = scan?.profile;
+      if (!scan || !matchingOperationID(record.id, scan.id) || !profile?.name) continue;
+      const name = redactPaletteText(profile.name, 100);
+      const findings = Array.isArray(scan.findings) ? scan.findings.length : 0;
+      next.push(navigateRecord(`record:security-scan:${record.id}`, `Security scan: ${name}`, `${findings} findings`, ShieldCheck, "Security scans", "security-scans", `${name} ${redactPaletteText(profile.target, 100)}`, { kind: "security-scan", id: record.id }));
+    }
+
+    for (const activity of boundedPaletteRecords(fulfilledArray(activityResult), PALETTE_ACTIVITY_LIMIT)) {
+      if (!activity?.id || !activity.title) continue;
+      const title = redactPaletteText(activity.title, 100);
+      const source = redactPaletteText(activity.source, 40);
+      const kind = redactPaletteText(activity.kind, 80);
+      next.push(navigateRecord(`record:activity:${activity.id}`, `Activity: ${title}`, `${source || "activity"}${kind ? ` · ${kind}` : ""}`, Activity, "Activity / audit", "activity", `${title} ${source} ${kind}`));
+    }
+
+    operationActions = next;
+  }
 
   const VIEW_ACTIONS: { id: View; label: string; icon: any }[] = [
     { id: "uptime", label: "Go to Uptime monitoring", icon: Activity },
@@ -235,6 +376,7 @@
         },
       }),
     ),
+    ...operationActions,
   ]);
 
   // ── Quick Connect ───────────────────────────────────────────────
@@ -331,6 +473,7 @@
       input = "";
       highlighted = 0;
       void focusInput();
+      void refreshOperationActions();
       // Refresh searchable objects on each open so newly-saved items appear.
       void SnippetService.List().then((s) => {
         snippets = (s ?? []) as Snippet[];
@@ -350,14 +493,14 @@
   }
 
   onMount(() => {
+    const offShortcuts = subscribeShortcuts((next) => { shortcuts = next; });
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return;
       const dialog = (e.target as HTMLElement)?.closest?.('[role="dialog"]');
       if (dialog && (!app.paletteOpen || dialog.getAttribute("aria-label") !== "Command palette")) return;
-      const isMod = e.metaKey || e.ctrlKey;
-      // Bare mod+K only. Mod+Shift+K is "clear scrollback" inside a terminal
-      // pane, and without the shift guard this would fire alongside it.
-      if (isMod && !e.shiftKey && e.key.toLowerCase() === "k") {
+      const target = e.target as HTMLElement | null;
+      if (!app.paletteOpen && (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || target?.isContentEditable)) return;
+      if (shortcutMatchesEvent(e, shortcuts.palette)) {
         e.preventDefault();
         e.stopPropagation();
         app.paletteOpen = !app.paletteOpen;
@@ -388,7 +531,7 @@
       }
     };
     window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
+    return () => { window.removeEventListener("keydown", onKey, true); offShortcuts(); };
   });
 
   // Group filtered into category buckets in input order.
@@ -466,7 +609,7 @@
       <div class="flex shrink-0 items-center gap-4 border-t hairline px-4 py-2 font-mono type-micro text-[var(--color-text-4)]">
         <span class="flex items-center gap-1.5"><kbd class="border border-[var(--color-line-strong)] px-1" style="border-radius: var(--radius-sm);">↑↓</kbd> navigate</span>
         <span class="flex items-center gap-1.5"><kbd class="border border-[var(--color-line-strong)] px-1" style="border-radius: var(--radius-sm);">↵</kbd> select</span>
-        <span class="ml-auto flex items-center gap-1.5"><kbd class="border border-[var(--color-line-strong)] px-1" style="border-radius: var(--radius-sm);">{shortcutLabel("palette")}</kbd> toggle</span>
+         <span class="ml-auto flex items-center gap-1.5"><kbd class="border border-[var(--color-line-strong)] px-1" style="border-radius: var(--radius-sm);">{shortcutLabel("palette", shortcuts)}</kbd> toggle</span>
       </div>
   </Dialog>
 {/if}

@@ -28,6 +28,32 @@ export function Chmod(hostID: string, remotePath: string, mode: string): $Cancel
 }
 
 /**
+ * DeleteReviewed consumes a backend-issued preview. The move is deliberately
+ * NOT assumed atomic: first exclusively link into a new private sibling trash
+ * directory, verify both names, then unlink the original. No rename fallback
+ * can overwrite a destination. Failures after linking retain a recovery receipt
+ * and never trigger a blind retry or cleanup of the only recoverable copy.
+ * SFTP v3 has no path compare-and-swap or no-follow directory handles: external
+ * mutation after the final validation cannot be excluded. Checks fail closed
+ * on observed changes; the mutex serializes this service's deletion operations.
+ */
+export function DeleteReviewed(hostID: string, previewID: string): $CancellablePromise<$models.SFTPDeleteReceipt> {
+    return $Call.ByID(696000003, hostID, previewID).then(($result: any) => {
+        return $$createType0($result);
+    });
+}
+
+/**
+ * DeletedFiles retains receipts for this backend session, including ambiguous
+ * outcomes. It does not discover or purge trash left by an earlier app session.
+ */
+export function DeletedFiles(hostID: string): $CancellablePromise<$models.SFTPDeleteReceipt[]> {
+    return $Call.ByID(3132923853, hostID).then(($result: any) => {
+        return $$createType1($result);
+    });
+}
+
+/**
  * Download fetches a small remote file and returns it base64-encoded, for the
  * in-app editor.
  * 
@@ -60,7 +86,7 @@ export function DownloadTo(hostID: string, remotePath: string, localPath: string
  */
 export function List(hostID: string, dir: string): $CancellablePromise<$models.SFTPEntry[]> {
     return $Call.ByID(353307361, hostID, dir).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType3($result);
     });
 }
 
@@ -69,11 +95,21 @@ export function Mkdir(hostID: string, dir: string): $CancellablePromise<void> {
 }
 
 /**
+ * PreviewDelete is read-only and binds a short-lived, single-use review to the
+ * host, exact path, metadata and SHA-256 of the complete file contents.
+ */
+export function PreviewDelete(hostID: string, remotePath: string): $CancellablePromise<$models.SFTPDeletePreview> {
+    return $Call.ByID(1798817764, hostID, remotePath).then(($result: any) => {
+        return $$createType4($result);
+    });
+}
+
+/**
  * ReadForEdit returns a revision of the exact bytes read, including line endings.
  */
 export function ReadForEdit(hostID: string, remotePath: string): $CancellablePromise<$models.RemoteFileSnapshot> {
     return $Call.ByID(3094968948, hostID, remotePath).then(($result: any) => {
-        return $$createType2($result);
+        return $$createType5($result);
     });
 }
 
@@ -85,9 +121,8 @@ export function ReadLink(hostID: string, remotePath: string): $CancellablePromis
 }
 
 /**
- * Remove deletes a file, an empty directory, or — when recursive is true — a
- * directory tree. RemoveDirectory fails on a non-empty directory, which is why
- * deleting a populated folder needs the explicit walk.
+ * Remove is disabled. Deletion requires a fresh PreviewDelete and an explicit
+ * DeleteReviewed call; directories and symlinks are never deletion candidates.
  */
 export function Remove(hostID: string, target: string, recursive: boolean): $CancellablePromise<void> {
     return $Call.ByID(223589213, hostID, target, recursive);
@@ -104,6 +139,17 @@ export function Rename(hostID: string, oldPath: string, newPath: string): $Cance
 }
 
 /**
+ * RestoreDeleted accepts only this backend's host-bound receipts. Both trash
+ * revision and original destination absence are rechecked; Link refuses even
+ * a destination created between the absence check and the request.
+ */
+export function RestoreDeleted(hostID: string, receiptID: string): $CancellablePromise<$models.SFTPDeleteReceipt> {
+    return $Call.ByID(2159977990, hostID, receiptID).then(($result: any) => {
+        return $$createType0($result);
+    });
+}
+
+/**
  * SaveForEdit checks the revision, optionally backs up the original, and stages
  * a complete replacement before an atomic rename. It never truncates the live
  * file. Servers without POSIX rename support fail without changing the target.
@@ -112,7 +158,20 @@ export function Rename(hostID: string, oldPath: string, newPath: string): $Cance
  */
 export function SaveForEdit(hostID: string, remotePath: string, payloadBase64: string, expectedRevision: string, backup: boolean): $CancellablePromise<$models.RemoteFileSave> {
     return $Call.ByID(2696463547, hostID, remotePath, payloadBase64, expectedRevision, backup).then(($result: any) => {
-        return $$createType3($result);
+        return $$createType6($result);
+    });
+}
+
+/**
+ * Search is a read-only, case-insensitive filename substring search. It uses a
+ * dedicated SFTP subsystem, never a shell or file contents. Unlike ReadDir,
+ * this small SFTP v3 reader consumes one bounded directory packet at a time.
+ * SFTP v3 has no no-follow directory handles: checks reject observed symlinks,
+ * but cannot provide a snapshot against concurrent external path replacement.
+ */
+export function Search(hostID: string, dir: string, query: string): $CancellablePromise<$models.SFTPSearchResult> {
+    return $Call.ByID(2985608713, hostID, dir, query).then(($result: any) => {
+        return $$createType7($result);
     });
 }
 
@@ -122,7 +181,7 @@ export function SaveForEdit(hostID: string, remotePath: string, payloadBase64: s
  */
 export function Stat(hostID: string, remotePath: string): $CancellablePromise<$models.SFTPEntry> {
     return $Call.ByID(3679277559, hostID, remotePath).then(($result: any) => {
-        return $$createType0($result);
+        return $$createType2($result);
     });
 }
 
@@ -158,7 +217,11 @@ export function WriteFile(hostID: string, remotePath: string, payloadB64: string
 }
 
 // Private type creation functions
-const $$createType0 = $models.SFTPEntry.createFrom;
+const $$createType0 = $models.SFTPDeleteReceipt.createFrom;
 const $$createType1 = $Create.Array($$createType0);
-const $$createType2 = $models.RemoteFileSnapshot.createFrom;
-const $$createType3 = $models.RemoteFileSave.createFrom;
+const $$createType2 = $models.SFTPEntry.createFrom;
+const $$createType3 = $Create.Array($$createType2);
+const $$createType4 = $models.SFTPDeletePreview.createFrom;
+const $$createType5 = $models.RemoteFileSnapshot.createFrom;
+const $$createType6 = $models.RemoteFileSave.createFrom;
+const $$createType7 = $models.SFTPSearchResult.createFrom;

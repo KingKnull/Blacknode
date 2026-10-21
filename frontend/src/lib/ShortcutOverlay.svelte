@@ -1,23 +1,27 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { X } from "@lucide/svelte";
   import Dialog from "./Dialog.svelte";
-  import { APP_SHORTCUTS } from "./shortcuts";
+  import { getShortcuts, shortcutLabel, subscribeShortcuts, type ShortcutConfig } from "./shortcuts";
 
   type Props = { onclose: () => void };
   let { onclose }: Props = $props();
 
+  let shortcuts = $state<ShortcutConfig>(getShortcuts());
+  onMount(() => subscribeShortcuts((next) => { shortcuts = next; }));
+
   // Single source of truth for all keyboard shortcuts.
   // Add new shortcuts here — the overlay renders from this list automatically.
-  const GROUPS: { label: string; shortcuts: { keys: string[]; desc: string }[] }[] = [
+  let groups = $derived([
     {
       label: "Navigation",
       shortcuts: [
         { keys: ["Ctrl", "1–9"],  desc: "Switch to tab N" },
         { keys: ["Ctrl", "Tab"],  desc: "Next tab" },
-        { keys: APP_SHORTCUTS.closeTab, desc: "Close tab" },
-        { keys: APP_SHORTCUTS.newTab, desc: "New tab" },
-        { keys: APP_SHORTCUTS.palette, desc: "Command palette" },
-        { keys: APP_SHORTCUTS.focus, desc: "Toggle focus mode" },
+        { keys: shortcutLabel("closeTab", shortcuts).split("+"), desc: "Close tab" },
+        { keys: shortcutLabel("newTab", shortcuts).split("+"), desc: "New tab" },
+        { keys: shortcutLabel("palette", shortcuts).split("+"), desc: "Command palette" },
+        { keys: shortcutLabel("focus", shortcuts).split("+"), desc: "Toggle focus mode" },
         { keys: ["Middle-click"], desc: "Close tab" },
         { keys: ["?"],            desc: "Open this overlay" },
       ],
@@ -46,12 +50,12 @@
     {
       label: "Hosts",
       shortcuts: [
-        { keys: APP_SHORTCUTS.sidebar, desc: "Toggle host sidebar" },
+        { keys: shortcutLabel("sidebar", shortcuts).split("+"), desc: "Toggle host sidebar" },
         { keys: ["Double-click"],       desc: "Connect to host" },
         { keys: ["Right-click"],        desc: "Host actions menu" },
       ],
     },
-  ];
+  ]);
 
   // Escape + focus trap handled by Dialog; '?' also toggles the overlay shut.
   function handleKeydown(e: KeyboardEvent) {
@@ -90,7 +94,7 @@
 
     <!-- Shortcut groups -->
     <div class="divide-y divide-[var(--color-line)]">
-      {#each GROUPS as group}
+       {#each groups as group}
         <div class="px-5 py-4">
           <div class="mb-3 font-mono type-eyebrow text-[var(--color-text-4)]">
             {group.label}

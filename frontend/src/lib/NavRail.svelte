@@ -30,7 +30,7 @@
     <span class="flex h-8 w-8 items-center justify-center border transition-colors {active ? 'border-[var(--color-accent)]/35 bg-[var(--color-accent-soft)]' : 'border-transparent group-hover:bg-[var(--color-surface-2)]'}" style="border-radius: var(--radius-md);">
       <s.Icon size="17" strokeWidth={active ? 2 : 1.6} />
     </span>
-    <span class="type-micro leading-none">{s.label}</span>
+    <span class="max-w-full px-1 text-center type-micro leading-tight">{s.label}</span>
   </button>
 {/snippet}
 

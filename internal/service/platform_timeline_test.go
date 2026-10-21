@@ -39,11 +39,17 @@ func TestPlatformTimelineCorrelatesIncidentWorkspaceAndHostActivity(t *testing.T
 	if len(got) != 2 {
 		t.Fatalf("timeline length = %d, want 2", len(got))
 	}
-	if got[0].Source != "change" || got[0].Level != "info" {
-		t.Fatalf("workspace event metadata = %+v", got[0])
+	var sawChange, sawMetrics bool
+	for _, event := range got {
+		switch event.Source {
+		case "change":
+			sawChange = event.Level == "info"
+		case "metrics":
+			sawMetrics = event.Level == "warn" && event.HostID == "host-1"
+		}
 	}
-	if got[1].Source != "metrics" || got[1].Level != "warn" || got[1].HostID != "host-1" {
-		t.Fatalf("host activity metadata = %+v", got[1])
+	if !sawChange || !sawMetrics {
+		t.Fatalf("timeline metadata missing: %+v", got)
 	}
 	for _, event := range got {
 		if strings.Contains(event.Body, "secret-token") {

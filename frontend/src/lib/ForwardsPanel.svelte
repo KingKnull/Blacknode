@@ -23,6 +23,9 @@
   let forwards = $state<ActiveForward[]>([]);
   let creating = $state(false);
   let busyID = $state<string | null>(null);
+  let startingID = $state<string | null>(null);
+  let refreshing = false;
+  let disposed = false;
   let err = $state("");
   let forwardToDelete = $state<ActiveForward | null>(null);
 
@@ -36,35 +39,51 @@
   let cRemotePort = $state(5432);
   let saving = $state(false);
 
-  onMount(refresh);
+  onMount(() => {
+    void refresh();
+    const timer = setInterval(() => void refresh(), 2000);
+    return () => {
+      disposed = true;
+      clearInterval(timer);
+    };
+  });
 
   async function refresh() {
+    if (refreshing || disposed) return;
+    refreshing = true;
     try {
-      forwards = ((await PortForwardService.List()) ??
-        []) as ActiveForward[];
+      const rows = await PortForwardService.List();
+      if (!disposed) forwards = rows ?? [];
     } catch (e: any) {
-      err = String(e?.message ?? e);
+      if (!disposed) err = String(e?.message ?? e);
+    } finally {
+      refreshing = false;
     }
   }
 
   async function start(f: ActiveForward) {
     busyID = f.id;
+    startingID = f.id;
     err = "";
     try {
       await PortForwardService.Start(f.id);
-      await refresh();
     } catch (e: any) {
       err = String(e?.message ?? e);
     } finally {
+      await refresh();
       busyID = null;
+      startingID = null;
     }
   }
 
   async function stop(f: ActiveForward) {
     busyID = f.id;
+    err = "";
     try {
       await PortForwardService.Stop(f.id);
       await refresh();
+    } catch (e: any) {
+      err = String(e?.message ?? e);
     } finally {
       busyID = null;
     }
@@ -152,13 +171,18 @@
       return `remote ${f.remotePort} → ${f.localAddr}:${f.localPort}`;
     return `${f.localAddr}:${f.localPort} → ${f.remoteAddr}:${f.remotePort}`;
   }
+
+  function statusLabel(f: ActiveForward) {
+    if (startingID === f.id) return "starting";
+    return f.status || (f.active ? "active" : "disconnected");
+  }
 </script>
 
 <div class="flex h-full flex-col">
   <PageHeader
     icon={Network}
     title="Port forwards"
-    subtitle="Local, remote, and SOCKS5 tunnels — survive across reconnects"
+    subtitle="Saved SSH tunnel profiles · listener status only; remote targets are not health-checked"
   >
     {#snippet actions()}
       <button
@@ -201,15 +225,25 @@
                 class="rounded-sm border hairline px-1 type-eyebrow text-[var(--color-text-3)]"
                 >{f.kind}</span
               >
+              <span
+                class="type-micro {f.lastError ? 'text-[var(--color-danger)]' : 'text-[var(--color-text-3)]'}"
+                role="status"
+              >{statusLabel(f)}</span>
             </div>
             <div class="font-mono type-micro text-[var(--color-text-3)]">
               {hostName(f.hostID)} · {kindLabel(f)}
             </div>
+            {#if f.localPortConflict}
+              <div class="mt-1 type-micro text-[var(--color-danger)]">Local port in use — free it or choose another port.</div>
+            {/if}
+            {#if f.lastError || f.localPortError}
+              <div class="mt-1 break-words type-micro text-[var(--color-danger)]">{f.lastError || f.localPortError}</div>
+            {/if}
           </div>
-          {#if f.active}
+          {#if f.active || f.status === "starting"}
             <button
               class="flex items-center gap-1 border hairline-strong px-2 py-1 type-caption hover:bg-[var(--color-surface-3)] disabled:opacity-50"
-              disabled={busyID === f.id}
+              disabled={busyID !== null}
               onclick={() => stop(f)}
             >
               {#if busyID === f.id}<Loader2 size="11" class="animate-spin" />{:else}<Square
@@ -220,7 +254,7 @@
           {:else}
             <button
               class="flex items-center gap-1 bg-[var(--color-accent)] px-2 py-1 type-caption font-medium text-[var(--color-surface-0)] hover:opacity-90 disabled:opacity-50"
-              disabled={busyID === f.id}
+              disabled={busyID !== null}
               onclick={() => start(f)}
             >
               {#if busyID === f.id}<Loader2 size="11" class="animate-spin" />{:else}<Play
@@ -232,6 +266,7 @@
           <button
             class="rounded p-1 text-[var(--color-text-3)] hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)]"
             onclick={() => (forwardToDelete = f)}
+            disabled={busyID !== null || f.status === "starting"}
             title="Delete"
             aria-label="Delete forward {f.name}"
           >

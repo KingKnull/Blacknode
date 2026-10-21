@@ -10,6 +10,7 @@ import * as CAService from "./caservice.js";
 import * as CloudImportService from "./cloudimportservice.js";
 import * as ContainerService from "./containerservice.js";
 import * as DBService from "./dbservice.js";
+import * as DiagnosticService from "./diagnosticservice.js";
 import * as ExecService from "./execservice.js";
 import * as HTTPService from "./httpservice.js";
 import * as HistoryService from "./historyservice.js";
@@ -55,6 +56,7 @@ export {
     CloudImportService,
     ContainerService,
     DBService,
+    DiagnosticService,
     ExecService,
     HTTPService,
     HistoryService,
@@ -179,7 +181,10 @@ export {
     RunbookProgress,
     RunbookResult,
     RunbookStep,
+    SFTPDeletePreview,
+    SFTPDeleteReceipt,
     SFTPEntry,
+    SFTPSearchResult,
     SSHConfigCandidate,
     SSHConnectOptions,
     SSLResult,

@@ -30,8 +30,11 @@ type Key struct {
 	// never leaves the token, so EncryptedPrivateKey and Nonce are empty and
 	// signing goes through the SSH agent. Everything else — public key,
 	// fingerprint, attached certificate — works the same way.
-	Hardware            bool   `json:"hardware,omitempty"`
-	CreatedAt           int64  `json:"createdAt"`
+	Hardware  bool  `json:"hardware,omitempty"`
+	CreatedAt int64 `json:"createdAt"`
+	// RotationDueDate is an advisory calendar date (YYYY-MM-DD), or empty.
+	// It never affects authentication or contains key material.
+	RotationDueDate     string `json:"rotationDueDate"`
 	EncryptedPrivateKey []byte `json:"-"`
 	Nonce               []byte `json:"-"`
 }
@@ -47,6 +50,9 @@ type Keys struct{ db *sql.DB }
 func NewKeys(db *sql.DB) *Keys { return &Keys{db: db} }
 
 func (s *Keys) Create(k Key) (Key, error) {
+	if err := validateRotationDueDate(k.RotationDueDate); err != nil {
+		return Key{}, err
+	}
 	if k.Name == "" {
 		return Key{}, errors.New("name required")
 	}
@@ -72,10 +78,44 @@ func (s *Keys) Create(k Key) (Key, error) {
 	}
 	k.CreatedAt = time.Now().Unix()
 	_, err := s.db.Exec(
-		`INSERT INTO keys (id, name, key_type, public_key, encrypted_private_key, nonce, fingerprint, certificate, created_at, hardware) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		k.ID, k.Name, k.KeyType, k.PublicKey, k.EncryptedPrivateKey, k.Nonce, k.Fingerprint, k.Certificate, k.CreatedAt, boolToInt(k.Hardware),
+		`INSERT INTO keys (id, name, key_type, public_key, encrypted_private_key, nonce, fingerprint, certificate, created_at, hardware, rotation_due_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		k.ID, k.Name, k.KeyType, k.PublicKey, k.EncryptedPrivateKey, k.Nonce, k.Fingerprint, k.Certificate, k.CreatedAt, boolToInt(k.Hardware), k.RotationDueDate,
 	)
 	return k, err
+}
+
+func validateRotationDueDate(date string) error {
+	if date == "" {
+		return nil
+	}
+	parsed, err := time.Parse(time.DateOnly, date)
+	if err != nil || parsed.Year() < 1 || parsed.Format(time.DateOnly) != date {
+		return errors.New("rotation due date must be YYYY-MM-DD (years 0001–9999), or empty to clear")
+	}
+	return nil
+}
+
+// SetRotationDueDate changes reminder metadata only, including for hardware keys.
+// Past dates are valid so an already-due rotation can be tracked.
+func (s *Keys) SetRotationDueDate(id, date string) error {
+	if strings.TrimSpace(id) == "" {
+		return errors.New("id required")
+	}
+	if err := validateRotationDueDate(date); err != nil {
+		return err
+	}
+	result, err := s.db.Exec(`UPDATE keys SET rotation_due_date=? WHERE id=?`, date, id)
+	if err != nil {
+		return err
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }
 
 // SetCertificate attaches (or clears, when cert is empty) an OpenSSH
@@ -94,18 +134,18 @@ func (s *Keys) Delete(id string) error {
 }
 
 func (s *Keys) Get(id string) (Key, error) {
-	row := s.db.QueryRow(`SELECT id, name, key_type, public_key, encrypted_private_key, nonce, fingerprint, certificate, created_at, hardware FROM keys WHERE id = ?`, id)
+	row := s.db.QueryRow(`SELECT id, name, key_type, public_key, encrypted_private_key, nonce, fingerprint, certificate, created_at, hardware, rotation_due_date FROM keys WHERE id = ?`, id)
 	var (
 		k        Key
 		hardware int
 	)
-	err := row.Scan(&k.ID, &k.Name, &k.KeyType, &k.PublicKey, &k.EncryptedPrivateKey, &k.Nonce, &k.Fingerprint, &k.Certificate, &k.CreatedAt, &hardware)
+	err := row.Scan(&k.ID, &k.Name, &k.KeyType, &k.PublicKey, &k.EncryptedPrivateKey, &k.Nonce, &k.Fingerprint, &k.Certificate, &k.CreatedAt, &hardware, &k.RotationDueDate)
 	k.Hardware = hardware != 0
 	return k, err
 }
 
 func (s *Keys) List() ([]Key, error) {
-	rows, err := s.db.Query(`SELECT id, name, key_type, public_key, fingerprint, certificate, created_at, hardware FROM keys ORDER BY name COLLATE NOCASE`)
+	rows, err := s.db.Query(`SELECT id, name, key_type, public_key, fingerprint, certificate, created_at, hardware, rotation_due_date FROM keys ORDER BY name COLLATE NOCASE`)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +156,7 @@ func (s *Keys) List() ([]Key, error) {
 			k        Key
 			hardware int
 		)
-		if err := rows.Scan(&k.ID, &k.Name, &k.KeyType, &k.PublicKey, &k.Fingerprint, &k.Certificate, &k.CreatedAt, &hardware); err != nil {
+		if err := rows.Scan(&k.ID, &k.Name, &k.KeyType, &k.PublicKey, &k.Fingerprint, &k.Certificate, &k.CreatedAt, &hardware, &k.RotationDueDate); err != nil {
 			return nil, err
 		}
 		k.Hardware = hardware != 0

@@ -3,6 +3,7 @@
   import { Clipboard as WailsClipboard } from "@wailsio/runtime";
   import { CAService, KeyService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import { app } from "./state.svelte";
+  import { rotationStatus, rotationReminder, ROTATION_SOON_DAYS } from "./keyRotation";
   import PageHeader from "./PageHeader.svelte";
   import EmptyState from "./EmptyState.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
@@ -18,6 +19,7 @@
     BadgeCheck,
     ShieldCheck,
     Usb,
+    CalendarClock,
   } from "@lucide/svelte";
 
   let creating = $state(false);
@@ -31,6 +33,33 @@
   let securityKeyText = $state("");
   let busy = $state(false);
   let err = $state("");
+  let rotationTarget = $state<{ id: string; name: string } | null>(null);
+  let rotationDate = $state("");
+  let rotationBusy = $state(false);
+  let rotationErr = $state("");
+  let rotationNow = $state(new Date());
+
+  function openRotation(id: string, name: string, date: string) {
+    rotationTarget = { id, name };
+    rotationDate = date;
+    rotationErr = "";
+  }
+
+  async function saveRotation(date: string) {
+    if (!rotationTarget || rotationBusy) return;
+    rotationBusy = true;
+    rotationErr = "";
+    try {
+      await KeyService.SetRotationDueDate(rotationTarget.id, date);
+      await app.refreshKeys();
+      rotationNow = new Date();
+      rotationTarget = null;
+    } catch (e: any) {
+      rotationErr = String(e?.message ?? e);
+    } finally {
+      rotationBusy = false;
+    }
+  }
 
   function reset() {
     newName = "";
@@ -202,6 +231,19 @@
   onMount(() => {
     loadCA();
     caSignKeyID = app.keys[0]?.id ?? "";
+    let live = true;
+    // Refresh before reminding so the first visit also works while initial
+    // app data is still loading. Toasts use only aggregate counts.
+    void app.refreshKeys().then(() => {
+      if (!live) return;
+      rotationNow = new Date();
+      const reminder = rotationReminder(app.keys, rotationNow);
+      if (reminder) app.toast("warn", "SSH KEY ROTATION REMINDER", reminder);
+    }).catch(() => {
+      if (live) app.toast("error", "KEYS UNAVAILABLE", "Could not load key rotation reminders. Reopen Keys to retry.");
+    });
+    const timer = setInterval(() => { rotationNow = new Date(); }, 60_000);
+    return () => { live = false; clearInterval(timer); };
   });
 
   // ── Certificate attach / detach ──────────────────────────────────────
@@ -457,6 +499,7 @@
 
     <div class="space-y-2">
       {#each app.keys as k (k.id)}
+        {@const rotation = rotationStatus(k.rotationDueDate, rotationNow)}
         <div
           class="border hairline surface-2 p-3 transition-colors hover:border-[var(--color-line-strong)]"
         >
@@ -517,6 +560,18 @@
               <Trash2 size="11" />
             </button>
           </div>
+          <div class="mt-2 flex flex-wrap items-center gap-2 type-caption">
+            {#if k.rotationDueDate}
+              <span class={rotation === "overdue" ? "text-[var(--color-danger)]" : rotation === "soon" ? "text-[var(--color-warn)]" : "text-[var(--color-text-3)]"}>
+                {rotation === "overdue" ? "Rotation overdue" : rotation === "soon" ? "Rotation due soon" : "Rotation scheduled"} · {k.rotationDueDate}
+              </span>
+            {:else}
+              <span class="text-[var(--color-text-4)]">No rotation reminder</span>
+            {/if}
+            <button class="flex items-center gap-1 rounded border hairline px-2 py-1 text-[var(--color-text-2)] hover:text-[var(--color-accent)]" onclick={() => openRotation(k.id, k.name, k.rotationDueDate)} aria-label="Set rotation reminder for {k.name}">
+              <CalendarClock size="11" /> {k.rotationDueDate ? "Edit reminder" : "Set reminder"}
+            </button>
+          </div>
           <pre
             class="mt-2 overflow-x-auto rounded bg-[var(--color-code-bg)] px-3 py-2 font-mono type-micro text-[var(--color-text-3)]">{k.publicKey.trim()}</pre>
         </div>
@@ -531,6 +586,31 @@
     {/if}
   </div>
 </div>
+
+{#if rotationTarget}
+  <Dialog
+    onclose={() => { if (!rotationBusy) rotationTarget = null; }}
+    labelledby="rotation-title"
+    backdropClass="bg-black/50 p-4"
+    panelClass="w-full max-w-lg border hairline-strong surface-1 p-4 shadow-2xl"
+    panelStyle="border-radius: var(--radius-md);"
+  >
+    <h3 id="rotation-title" class="type-body font-medium text-[var(--color-text-1)]">Rotation reminder for {rotationTarget.name}</h3>
+    <p class="mt-2 type-caption text-[var(--color-text-3)]">Advisory only: this never disables authentication or rotates a key automatically. Due-soon reminders cover the next {ROTATION_SOON_DAYS} days, including today.</p>
+    <form class="mt-3 space-y-3" onsubmit={(event) => { event.preventDefault(); void saveRotation(rotationDate); }}>
+      <label class="block type-caption text-[var(--color-text-2)]">
+        Due date
+        <input type="date" min="0001-01-01" max="9999-12-31" required bind:value={rotationDate} disabled={rotationBusy} class="mt-1 block w-full rounded border hairline bg-[var(--color-surface-3)] px-3 py-2" />
+      </label>
+      {#if rotationErr}<p role="alert" class="type-caption text-[var(--color-danger)]">{rotationErr}</p>{/if}
+      <div class="flex justify-end gap-2">
+        <button type="button" disabled={rotationBusy} class="border hairline px-3 py-1.5 type-caption" onclick={() => (rotationTarget = null)}>Cancel</button>
+        <button type="button" disabled={rotationBusy} class="border hairline px-3 py-1.5 type-caption" onclick={() => saveRotation("")}>Clear reminder</button>
+        <button type="submit" disabled={rotationBusy || !rotationDate} class="rounded bg-[var(--color-accent)] px-3 py-1.5 type-caption text-[var(--color-surface-0)] disabled:opacity-40">{rotationBusy ? "Saving…" : "Save reminder"}</button>
+      </div>
+    </form>
+  </Dialog>
+{/if}
 
 {#if keyToDelete}
   <ConfirmDanger

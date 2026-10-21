@@ -3,6 +3,7 @@
   import { InfrastructureService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { MonitorView, ServiceMonitor } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import { app } from "./state.svelte";
+  import { useOperationTarget } from "./operationSelection.svelte";
   import PageHeader from "./PageHeader.svelte";
   import { Activity } from "@lucide/svelte";
   const blank = (): ServiceMonitor => ({ id: "", name: "", kind: "http", target: "", hostID: "", intervalSeconds: 60, timeoutSeconds: 10, expectedStatus: 200, expectedDNS: "", certificateDays: 14, failureThreshold: 3, enabled: true, maintenanceStart: 0, maintenanceEnd: 0 });
@@ -15,6 +16,19 @@
   let error = $state("");
   let busy = $state(false);
   let editor = $state(false);
+  let showSamples = $state(false);
+  useOperationTarget('uptime', {
+    load: () => InfrastructureService.Monitors(),
+    selection: () => selected,
+    clear: () => { selected = ''; editor = false; showSamples = false; error = ''; },
+    apply: (next, target) => {
+      monitors = next ?? [];
+      if (!target) return;
+      if (!monitors.some(m => m.monitor.id === target.id)) throw new Error('This monitor is no longer available.');
+      selected = target.id;
+    },
+    error: message => error = message,
+  });
   const current = $derived(monitors.find(m => m.monitor.id === selected));
   const latest = (m: MonitorView) => m.state.samples?.at(-1);
   const status = (m: MonitorView) => !m.monitor.enabled ? 'paused' : !latest(m) ? 'pending' : Date.now() - latest(m)!.at > (m.monitor.intervalSeconds * 3 + m.monitor.timeoutSeconds) * 1000 ? 'stale' : latest(m)!.status;
@@ -24,7 +38,7 @@
   async function refresh() { monitors = await InfrastructureService.Monitors(); }
   async function act(fn: () => Promise<unknown>) { busy = true; error = ''; try { await fn(); await refresh(); } catch (e) { error = String(e); } finally { busy = false; } }
   async function save() { await act(async () => { await InfrastructureService.SaveMonitor({ ...draft, maintenanceStart: maintenanceStart ? new Date(maintenanceStart).getTime() : 0, maintenanceEnd: maintenanceEnd ? new Date(maintenanceEnd).getTime() : 0 }, revision); editor = false; }); }
-  onMount(() => { let live = true; const load = async () => { try { const next = await InfrastructureService.Monitors(); if (live) monitors = next; } catch (e) { if (live) error = String(e); } }; void load(); const timer = setInterval(load, 5000); return () => { live = false; clearInterval(timer); }; });
+  onMount(() => { let live = true; const load = async () => { try { const next = await InfrastructureService.Monitors(); if (live) monitors = next; } catch (e) { if (live) error = String(e); } }; const timer = setInterval(load, 5000); return () => { live = false; clearInterval(timer); }; });
   function points(samples: MonitorView['state']['samples']) { const recent = samples.slice(-100); const max = Math.max(1, ...recent.map(s => s.latencyMS)); return recent.map((s, i) => `${i * 600 / Math.max(1, recent.length - 1)},${90 - s.latencyMS * 80 / max}`).join(' '); }
 </script>
 <div class="flex h-full min-h-0 flex-col">
@@ -48,6 +62,6 @@
       {#each monitors as m (m.monitor.id)}<tr><td><button onclick={() => selected = m.monitor.id}>{m.monitor.name}</button><p class="ops-muted break-all">{m.monitor.target}</p></td><td><span class={status(m) === 'up' ? 'ops-success' : ['down','expiring'].includes(status(m)) ? 'ops-warning' : 'ops-muted'}>{status(m)}</span></td><td>{latest(m)?.latencyMS ?? '—'} ms</td><td>{m.state.samples.length ? `${m.uptimePercent.toFixed(2)}%` : '—'}</td><td>{latest(m)?.certificateExpires ? new Date(latest(m)!.certificateExpires).toLocaleDateString() : '—'}</td><td><div class="ops-actions"><button disabled={busy} onclick={() => act(() => InfrastructureService.CheckMonitor(m.monitor.id))}>Check now</button><button onclick={() => edit(m)}>Edit</button><button disabled={busy} onclick={() => act(() => InfrastructureService.SaveMonitor({ ...m.monitor, enabled: !m.monitor.enabled }, m.revision))}>{m.monitor.enabled ? 'Pause' : 'Enable'}</button><button disabled={busy} onclick={() => act(() => InfrastructureService.DeleteMonitor(m.monitor.id, m.revision))}>Delete</button></div></td></tr>
       {:else}<tr><td colspan="6">Add a monitor to start collecting service health.</td></tr>{/each}
     </tbody></table></div>
-    {#if current}<div class="ops-card ops-form"><h3>{current.monitor.name} · response time</h3><svg viewBox="0 0 600 100" class="h-28 w-full" role="img" aria-label="Recent response times"><polyline points={points(current.state.samples)} fill="none" stroke="var(--color-accent)" stroke-width="2" /></svg><div class="max-h-64 overflow-auto"><table class="ops-table"><thead><tr><th>Time</th><th>Status</th><th>Latency</th><th>Result</th></tr></thead><tbody>{#each [...current.state.samples].reverse().slice(0,100) as sample}<tr><td>{new Date(sample.at).toLocaleString()}</td><td>{sample.status}</td><td>{sample.latencyMS} ms</td><td>{sample.detail}</td></tr>{/each}</tbody></table></div></div>{/if}
+    {#if current}<div class="ops-card ops-form"><h3>{current.monitor.name} · response time</h3><svg viewBox="0 0 600 100" class="h-28 w-full" role="img" aria-label="Recent response times"><polyline points={points(current.state.samples)} fill="none" stroke="var(--color-accent)" stroke-width="2" /></svg><button aria-expanded={showSamples} onclick={() => showSamples = !showSamples}>{showSamples ? 'Hide check results' : 'Show check results'}</button>{#if showSamples}<div class="max-h-64 overflow-auto"><table class="ops-table"><thead><tr><th>Time</th><th>Status</th><th>Latency</th><th>Result</th></tr></thead><tbody>{#each [...current.state.samples].reverse().slice(0,100) as sample}<tr><td>{new Date(sample.at).toLocaleString()}</td><td>{sample.status}</td><td>{sample.latencyMS} ms</td><td>{sample.detail}</td></tr>{/each}</tbody></table></div>{/if}</div>{/if}
   </div>
 </div>

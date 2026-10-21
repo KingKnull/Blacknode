@@ -18,11 +18,22 @@
   } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import type { TeamActivity, KnownHost } from "../../bindings/github.com/blacknode/blacknode/internal/store/models";
   import { app } from "./state.svelte";
+  import {
+    getShortcuts,
+    resetShortcuts,
+    setShortcut,
+    shortcutLabel,
+    shortcutFromKeyboardEvent,
+    subscribeShortcuts,
+    type ShortcutAction,
+    type ShortcutConfig,
+  } from "./shortcuts";
   import { OPTIONAL_VIEWS } from "./navigation";
   import PageHeader from "./PageHeader.svelte";
   import ConfirmDanger from "./ConfirmDanger.svelte";
   import EmptyState from "./EmptyState.svelte";
   import GroupDefaults from "./GroupDefaults.svelte";
+  import DiagnosticsPanel from "./DiagnosticsPanel.svelte";
   import {
     Settings as SettingsIcon,
     Lock,
@@ -40,6 +51,7 @@
     Users,
     ShieldCheck,
     Trash2,
+    Keyboard,
   } from "@lucide/svelte";
 
   let { initialSection = "security" }: { initialSection?: string } = $props();
@@ -50,6 +62,46 @@
   let savingScrollback = $state(false);
   let scrollbackError = $state("");
   let savingTheme = $state(false);
+  let shortcuts = $state<ShortcutConfig>(getShortcuts());
+  let capturingShortcut = $state<ShortcutAction | null>(null);
+  let shortcutError = $state("");
+  const SHORTCUT_FIELDS: { action: ShortcutAction; label: string; description: string }[] = [
+    { action: "newTab", label: "New tab", description: "Open a fresh local terminal tab." },
+    { action: "closeTab", label: "Close tab", description: "Close the active terminal tab." },
+    { action: "palette", label: "Command palette", description: "Open or close the command palette." },
+    { action: "focus", label: "Focus mode", description: "Toggle terminal-only focus mode." },
+    { action: "sidebar", label: "Host sidebar", description: "Show or hide the host sidebar." },
+  ];
+
+  function beginShortcutCapture(action: ShortcutAction) {
+    capturingShortcut = action;
+    shortcutError = "Press a chord with Ctrl, Cmd, or Alt. Escape cancels.";
+  }
+
+  function captureShortcut(event: KeyboardEvent) {
+    if (!capturingShortcut) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.key === "Escape") {
+      capturingShortcut = null;
+      shortcutError = "";
+      return;
+    }
+    const chord = shortcutFromKeyboardEvent(event);
+    if (!chord) {
+      shortcutError = "Use a non-modifier key with Ctrl, Cmd, or Alt. Ctrl+T and Ctrl+W are reserved for the shell.";
+      return;
+    }
+    const result = setShortcut(capturingShortcut, chord);
+    if (!result.ok) {
+      shortcutError = result.error === "conflict"
+        ? `That chord is already assigned to ${result.conflicts?.[0]?.actions.filter((action) => action !== capturingShortcut).join(", ") ?? "another action"}.`
+        : "That chord is not safe for app use.";
+      return;
+    }
+    capturingShortcut = null;
+    shortcutError = "";
+  }
 
   let autoLockMinutes = $state(15);
   let defaultShellPath = $state("");
@@ -360,6 +412,8 @@
     await loadKnownHosts();
   });
 
+  onMount(() => subscribeShortcuts((next) => { shortcuts = next; }));
+
   async function saveNotify() {
     notifyBusy = true;
     notifyTested = "";
@@ -442,15 +496,17 @@
 
   let activeSection = $state("security");
   const SECTIONS = [
-    { id: "security", label: "SECURITY", Icon: Lock },
-    { id: "knownhosts", label: "KNOWN HOSTS", Icon: ShieldCheck },
-    { id: "appearance", label: "APPEARANCE", Icon: Palette },
-    { id: "navigation", label: "NAVIGATION", Icon: SettingsIcon },
-    { id: "notifications", label: "NOTIFICATIONS", Icon: Bell },
-    { id: "shell", label: "LOCAL SHELL", Icon: Activity },
-    { id: "sync", label: "CLOUD SYNC", Icon: Cloud },
-    { id: "team", label: "SHARED CONFIG", Icon: Users },
-    { id: "about", label: "ABOUT", Icon: Info },
+    { id: "security", label: "Security", Icon: Lock },
+    { id: "knownhosts", label: "Known hosts", Icon: ShieldCheck },
+    { id: "appearance", label: "Appearance", Icon: Palette },
+    { id: "navigation", label: "Navigation", Icon: SettingsIcon },
+    { id: "shortcuts", label: "Shortcuts", Icon: Keyboard },
+    { id: "notifications", label: "Notifications", Icon: Bell },
+    { id: "shell", label: "Local shell", Icon: Activity },
+    { id: "sync", label: "Cloud sync", Icon: Cloud },
+    { id: "team", label: "Shared config", Icon: Users },
+    { id: "diagnostics", label: "Diagnostics", Icon: ShieldCheck },
+    { id: "about", label: "About", Icon: Info },
   ];
 
   function scrollTo(id: string, behavior: ScrollBehavior = "smooth") {
@@ -460,29 +516,32 @@
   }
 </script>
 
-<div class="flex h-full flex-col font-mono">
+<svelte:window onkeydown={captureShortcut} />
+
+<div class="flex h-full min-h-0 flex-col font-sans settings-panel">
   <PageHeader
     icon={SettingsIcon}
     title="Settings"
     subtitle="Preferences, security, and integrations"
   />
 
-  <div class="grid flex-1 grid-cols-[200px_1fr] overflow-hidden">
+  <div class="settings-layout grid min-h-0 flex-1 overflow-hidden">
     <!-- Sectioned sidebar -->
-    <aside class="flex flex-col gap-px border-r hairline surface-1 py-4">
+    <aside class="settings-navigation flex min-h-0 flex-col gap-px overflow-y-auto border-r hairline surface-1 py-3" aria-label="Settings sections">
       {#each SECTIONS as s (s.id)}
         <button
-          class="flex items-center gap-3 px-6 py-2.5 text-left type-caption font-bold tracking-widest transition-all {activeSection === s.id ? 'bg-[var(--color-accent)]/8 text-[var(--color-accent)]' : 'text-[var(--color-text-4)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-2)]'}"
+          class="flex shrink-0 items-center gap-2.5 px-4 py-2.5 text-left type-caption font-medium transition-colors {activeSection === s.id ? 'bg-[var(--color-accent-soft)] text-[var(--color-accent)]' : 'text-[var(--color-text-3)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-1)]'}"
           onclick={() => scrollTo(s.id)}
+          aria-current={activeSection === s.id ? "location" : undefined}
         >
-          <s.Icon size="12" />
+          <s.Icon size="14" class="shrink-0" />
           {s.label}
         </button>
       {/each}
     </aside>
 
-    <div class="flex-1 overflow-y-auto p-10">
-      <div class="mx-auto max-w-2xl space-y-12 pb-20">
+    <div class="settings-content min-h-0 min-w-0 overflow-y-auto p-6">
+      <div class="mx-auto max-w-2xl space-y-6 pb-12">
 
         <!-- Security -->
         <section id="section-security" class="border hairline-strong surface-2 p-6 shadow-xl" style="backdrop-filter: blur(12px) saturate(1.2);">
@@ -495,7 +554,7 @@
               <span class="type-caption font-bold text-[var(--color-text-1)]">Auto-lock vault after</span>
               <span class="type-micro text-[var(--color-text-3)]">0 = never lock</span>
             </div>
-            <p id="scrollback-hint" class="mt-0.5 type-caption text-[var(--color-text-3)] leading-relaxed">
+            <p class="mt-0.5 type-caption text-[var(--color-text-3)] leading-relaxed">
               Locks the vault when the app sees no keystroke or click for this many
               minutes. The master key is wiped from memory, and you'll need your
               passphrase to unlock again — "Remember for 60 days" only skips the
@@ -697,6 +756,46 @@
           </div>
         </section>
 
+        <!-- Keyboard shortcuts -->
+        <section id="section-shortcuts" class="border hairline-strong surface-2 p-6 shadow-xl" style="backdrop-filter: blur(12px) saturate(1.2);">
+          <div class="mb-4 flex items-center gap-2">
+            <Keyboard size="14" class="text-[var(--color-accent)]" />
+            <h3 class="type-eyebrow text-[var(--color-text-1)]">Keyboard shortcuts</h3>
+            <button
+              class="ml-auto border hairline-strong px-2.5 py-1.5 type-micro text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)] transition-colors"
+              onclick={() => { shortcuts = resetShortcuts(); capturingShortcut = null; shortcutError = ""; }}
+            >RESET DEFAULTS</button>
+          </div>
+          <p class="mb-4 type-caption text-[var(--color-text-3)] leading-relaxed">
+            Customize app actions without taking plain terminal keys. Each shortcut needs Ctrl, Cmd, or Alt;
+            Ctrl+T and Ctrl+W remain reserved for shell editing unless shifted.
+            Changes apply immediately and are saved locally.
+          </p>
+          <div class="divide-y divide-[var(--color-line)] border hairline">
+            {#each SHORTCUT_FIELDS as field (field.action)}
+              <div class="flex items-center gap-3 px-3 py-3">
+                <div class="min-w-0 flex-1">
+                  <div class="type-caption font-bold text-[var(--color-text-1)]">{field.label}</div>
+                  <div class="type-micro text-[var(--color-text-4)]">{field.description}</div>
+                </div>
+                <kbd class="shrink-0 border hairline-strong bg-[var(--color-surface-3)] px-2 py-1.5 font-mono type-caption text-[var(--color-text-2)]">
+                  {shortcutLabel(field.action, shortcuts)}
+                </kbd>
+                <button
+                  class="shrink-0 border px-2.5 py-1.5 type-micro transition-colors {capturingShortcut === field.action ? 'border-[var(--color-accent)]/60 bg-[var(--color-accent-soft)] text-[var(--color-accent)]' : 'hairline-strong text-[var(--color-text-3)] hover:bg-[var(--color-surface-3)]'}"
+                  onclick={() => beginShortcutCapture(field.action)}
+                >{capturingShortcut === field.action ? "PRESS CHORD…" : "CHANGE"}</button>
+              </div>
+            {/each}
+          </div>
+          {#if capturingShortcut}
+            <p class="mt-3 type-caption text-[var(--color-accent)]" role="status">Capturing {SHORTCUT_FIELDS.find((field) => field.action === capturingShortcut)?.label}. Press Escape to cancel.</p>
+          {/if}
+          {#if shortcutError}
+            <p class="mt-2 type-caption text-[var(--color-danger)]" role="alert">{shortcutError}</p>
+          {/if}
+        </section>
+
         <!-- Notifications -->
         <section id="section-notifications" class="border hairline-strong surface-2 p-6 shadow-xl" style="backdrop-filter: blur(12px) saturate(1.2);">
           <div class="mb-4 flex items-center gap-2">
@@ -825,7 +924,7 @@
 
           <label class="mt-4 block">
             <span class="type-caption font-bold text-[var(--color-text-1)]">Terminal scrollback</span>
-            <p class="mt-0.5 type-caption text-[var(--color-text-3)] leading-relaxed">
+            <p id="scrollback-hint" class="mt-0.5 type-caption text-[var(--color-text-3)] leading-relaxed">
               Lines of history each terminal pane keeps in memory
               ({SCROLLBACK_MIN.toLocaleString()}–{SCROLLBACK_MAX.toLocaleString()}). Memory use is
               paid per pane and depends on the terminal contents. Changes apply to newly opened
@@ -1091,6 +1190,8 @@
           </div>
         </section>
 
+        <DiagnosticsPanel />
+
         <!-- About / Updates -->
         <section id="section-about" class="border hairline-strong surface-2 p-6 shadow-xl" style="backdrop-filter: blur(12px) saturate(1.2);">
           <div class="mb-4 flex items-center gap-2">
@@ -1157,3 +1258,28 @@
     onConfirm={() => forgetKnownHost(confirmForget!)}
   />
 {/if}
+
+<style>
+  .settings-panel { container-type: inline-size; }
+  .settings-layout { grid-template-columns: 176px minmax(0, 1fr); }
+  .settings-content :global(section) { border-radius: var(--radius-lg); scroll-margin-top: 1rem; }
+  .settings-content :global(h3.type-eyebrow) {
+    font-size: var(--text-title);
+    line-height: var(--leading-tight);
+    letter-spacing: var(--tracking-title);
+    text-transform: none;
+  }
+  .settings-content :global(input:not([type="checkbox"])),
+  .settings-content :global(select),
+  .settings-content :global(textarea) { min-width: 0; }
+
+  @container (max-width: 640px) {
+    .settings-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+    .settings-navigation { flex-direction: row; overflow-x: auto; padding: 0.5rem; border-right: 0; border-bottom: 1px solid var(--color-line); }
+    .settings-navigation button { white-space: nowrap; padding: 0.5rem 0.75rem; }
+    .settings-content { padding: 1rem; }
+    .settings-content :global(section) { padding: 1rem; }
+    .settings-content :global(label > div.flex),
+    .settings-content :global(section > div.flex:not(.flex-col)) { flex-wrap: wrap; }
+  }
+</style>

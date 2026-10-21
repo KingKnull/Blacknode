@@ -27,7 +27,7 @@ permissions:
 jobs:
   go:
     name: Go build + test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -41,12 +41,15 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install build deps
-        # GTK4 + webkitgtk-6.0 to match the pkg-config lines Wails compiles
-        # against by default; the gtk3 path is behind a build tag we do not set.
+        # Wails beta.34's GTK4 path requires GTK >= 4.14 (Ubuntu 24.04).
+        # webkitgtk-6.0 matches Wails' default pkg-config dependency.
         # libx11-dev is needed by the X11 global-shortcut file.
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev libx11-dev
+          sudo apt-get install -y build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev libx11-dev
+          pkg-config --atleast-version=4.14 gtk4
+          pkg-config --exists webkitgtk-6.0
+          pkg-config --modversion gtk4 webkitgtk-6.0
 
       - name: gofmt
         # -l lists files that differ from gofmt's output. Failing here rather
@@ -90,7 +93,7 @@ jobs:
 
   frontend:
     name: Frontend check + test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: frontend

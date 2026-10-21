@@ -253,14 +253,14 @@
   }
 </script>
 
-<div class="flex h-full flex-col">
+<div class="ops-console flex h-full min-h-0 flex-col">
   <PageHeader
     icon={ShieldCheck}
     title="Ops console"
     subtitle="Fleet matrix, zero-agent diagnostics, connection health, multiplexers, and incident evidence"
   />
 
-  <div class="flex items-center gap-1 border-b hairline surface-1 px-3 py-2">
+  <div class="flex shrink-0 flex-wrap items-center gap-1 border-b hairline surface-1 px-3 py-2">
     {#each TABS as tab (tab.id)}
       <button
         class="flex items-center gap-1.5 rounded px-2.5 py-1.5 type-caption transition-colors {activeTab === tab.id
@@ -274,7 +274,7 @@
     <div class="ml-auto flex items-center gap-2 type-caption text-[var(--color-text-4)]">
       <select
         aria-label="Host for operations"
-        class="rounded border hairline bg-[var(--color-surface-3)] px-2 py-1 font-mono type-micro text-[var(--color-text-1)]"
+        class="min-w-0 max-w-full rounded border hairline bg-[var(--color-surface-3)] px-2 py-1 type-caption text-[var(--color-text-1)]"
         bind:value={selectedHostID}
         onchange={() => {
           diagnostics = [];
@@ -290,7 +290,7 @@
     </div>
   </div>
 
-  <div class="grid flex-1 overflow-hidden grid-cols-[240px_1fr]">
+  <div class="ops-console-layout grid min-h-0 flex-1 overflow-hidden">
     <aside class="overflow-y-auto border-r hairline">
       <div class="flex items-center justify-between px-3 py-2 type-eyebrow text-[var(--color-text-4)]">
         Hosts
@@ -308,7 +308,7 @@
       {/each}
     </aside>
 
-    <section class="overflow-y-auto">
+    <section class="min-w-0 overflow-y-auto">
       {#if activeTab === "matrix"}
         <div class="space-y-3 p-4">
           <label class="block">
@@ -497,3 +497,12 @@
     />
   {/if}
 </div>
+
+<style>
+  .ops-console { container-type: inline-size; }
+  .ops-console-layout { grid-template-columns: 240px minmax(0, 1fr); }
+  @container (max-width: 640px) {
+    .ops-console-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+    .ops-console-layout > aside { max-height: 9rem; border-right: 0; border-bottom: 1px solid var(--color-line); }
+  }
+</style>
