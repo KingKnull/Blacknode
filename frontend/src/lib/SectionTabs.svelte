@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { onMount, tick } from "svelte";
+  import { tick } from "svelte";
+  import { DropdownMenu } from "bits-ui";
   import { app, type View } from "./state.svelte";
   import { Plus, Server, TerminalSquare, SquareTerminal, Database, Globe2 } from "@lucide/svelte";
 
@@ -13,37 +14,7 @@
   };
   let { views, activeView, onSelect, onNew }: Props = $props();
 
-  let menuOpen = $state(false);
-  let newButton: HTMLButtonElement;
-  let menu = $state<HTMLDivElement>();
   let viewList: HTMLDivElement;
-
-  function closeMenu(restoreFocus = true) {
-    menuOpen = false;
-    if (restoreFocus) newButton?.focus();
-  }
-
-  async function openMenu(last = false) {
-    menuOpen = true;
-    await tick();
-    const items = menu?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]');
-    if (items?.length) items[last ? items.length - 1 : 0].focus();
-  }
-
-  function menuKeydown(e: KeyboardEvent) {
-    const items = [...(menu?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? [])];
-    if (!items.length) return;
-    const index = items.indexOf(document.activeElement as HTMLButtonElement);
-    let next: number;
-    if (e.key === "ArrowDown") next = (index + 1) % items.length;
-    else if (e.key === "ArrowUp") next = (index - 1 + items.length) % items.length;
-    else if (e.key === "Home") next = 0;
-    else if (e.key === "End") next = items.length - 1;
-    else if (e.key === "Tab") { closeMenu(false); return; }
-    else return;
-    e.preventDefault();
-    items[next].focus();
-  }
 
   // Keep the selected tool visible when navigation changes through the rail
   // or command palette, including in narrow windows.
@@ -66,14 +37,6 @@
     { id: "database", label: "New DB connection", Icon: Database },
     { id: "http", label: "New HTTP request", Icon: Globe2 },
   ];
-
-  onMount(() => {
-    const onKeydown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && menuOpen) { e.preventDefault(); closeMenu(); }
-    };
-    window.addEventListener("keydown", onKeydown);
-    return () => window.removeEventListener("keydown", onKeydown);
-  });
 </script>
 
 <div class="flex h-10 shrink-0 items-center gap-1 border-b hairline surface-1 px-3">
@@ -95,32 +58,30 @@
   </div>
 
   <!-- + New -->
-  <div class="relative shrink-0" onfocusout={(e) => { if (menuOpen && e.relatedTarget instanceof Node && !e.currentTarget.contains(e.relatedTarget)) closeMenu(false); }}>
-    <button
-      bind:this={newButton}
-      class="flex items-center gap-1 rounded-md bg-[var(--color-accent)] px-2.5 py-1.5 type-caption font-semibold text-[var(--color-surface-0)] transition-opacity hover:opacity-90"
-      aria-haspopup="menu"
-      aria-expanded={menuOpen}
-      aria-controls={menuOpen ? "new-item-menu" : undefined}
-      onclick={() => { if (menuOpen) closeMenu(); else void openMenu(); }}
-      onkeydown={(e) => { if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); void openMenu(e.key === "ArrowUp"); } }}
-    >
-      <Plus size="13" /> New
-    </button>
-    {#if menuOpen}
-      <button class="fixed inset-0 z-40 cursor-default" tabindex="-1" aria-label="Close menu" onclick={() => closeMenu()}></button>
-      <div bind:this={menu} id="new-item-menu" role="menu" aria-label="Create new" tabindex="-1" onkeydown={menuKeydown} class="fade-up absolute right-0 top-full z-50 mt-1 min-w-[190px] overflow-hidden border hairline-strong surface-2 py-1 shadow-xl shadow-black/40" style="border-radius: var(--radius-md);">
-        {#each NEW_ITEMS.filter((item) => app.isViewVisible(item.id)) as item (item.id)}
-          <button
-            role="menuitem"
-            tabindex="-1"
-            class="flex min-h-8 w-full items-center gap-2.5 px-3 py-2 text-left type-caption text-[var(--color-text-2)] transition-colors hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)] focus-visible:bg-[var(--color-surface-3)]"
-            onclick={() => { closeMenu(); onNew(item.id); }}
-          >
-            <item.Icon size="14" class="text-[var(--color-text-4)]" /> {item.label}
-          </button>
-        {/each}
-      </div>
-    {/if}
+  <div class="relative shrink-0">
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger
+        class="flex items-center gap-1 rounded-md bg-[var(--color-accent)] px-2.5 py-1.5 type-caption font-semibold text-[var(--color-surface-0)] transition-opacity hover:opacity-90"
+      >
+        <Plus size="13" /> New
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content align="end" sideOffset={4} aria-label="Create new" class="fade-up z-50 min-w-[190px] overflow-hidden border hairline-strong surface-2 py-1 shadow-xl shadow-black/40" style="border-radius: var(--radius-md);">
+          {#each NEW_ITEMS.filter((item) => app.isViewVisible(item.id)) as item (item.id)}
+            <DropdownMenu.Item
+              textValue={item.label}
+              class="flex min-h-8 w-full cursor-pointer items-center gap-2.5 px-3 py-2 text-left type-caption text-[var(--color-text-2)] transition-colors hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text-1)] focus-visible:bg-[var(--color-surface-3)] data-highlighted:bg-[var(--color-surface-3)] data-highlighted:text-[var(--color-text-1)]"
+              onSelect={async () => {
+                // Finish menu focus restoration before an action opens a dialog.
+                await tick();
+                onNew(item.id);
+              }}
+            >
+              <item.Icon size="14" class="text-[var(--color-text-4)]" /> {item.label}
+            </DropdownMenu.Item>
+          {/each}
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
   </div>
 </div>

@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { PaneNode } from "./panes";
+  import { separatorKeyValue } from "./separatorKeyboard";
   import Terminal from "./Terminal.svelte";
   import Self from "./Pane.svelte";
   import { SplitSquareHorizontal, SplitSquareVertical, X } from "@lucide/svelte";
@@ -54,6 +55,17 @@
   function resetRatio() {
     if (node.kind !== "split") return;
     onresize?.(node.id, 0.5);
+  }
+
+  function onSeparatorKeyDown(e: KeyboardEvent) {
+    if (node.kind !== "split" || !onresize) return;
+    const value = separatorKeyValue(e,
+      node.direction === "horizontal" ? "vertical" : "horizontal",
+      (node.ratio ?? 0.5) * 100, 5, 95, 1);
+    if (value === undefined) return;
+    e.preventDefault();
+    e.stopPropagation();
+    onresize(node.id, value / 100);
   }
 </script>
 
@@ -138,20 +150,23 @@
     </div>
 
     <!-- Draggable splitter. Visible 1px line + 6px hit area. -->
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions (Resizable separators are focusable range widgets with keyboard handlers.) -->
     <div
-      class="group relative flex shrink-0 items-center justify-center {node.direction ===
+      class="group relative flex shrink-0 items-center justify-center focus-visible:bg-[var(--color-accent)]/30 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--color-accent)] {node.direction ===
       'horizontal'
         ? 'w-1.5 cursor-col-resize'
         : 'h-1.5 cursor-row-resize'} {dragging ? 'bg-[var(--color-accent)]/30' : ''}"
       role="separator"
+      tabindex="0"
+      onkeydown={onSeparatorKeyDown}
       onpointerdown={startDrag}
       onpointermove={onMove}
       onpointerup={endDrag}
       onpointercancel={endDrag}
       ondblclick={resetRatio}
       aria-orientation={node.direction === "horizontal" ? "vertical" : "horizontal"}
-      aria-valuemin="0"
-      aria-valuemax="100"
+      aria-valuemin="5"
+      aria-valuemax="95"
       aria-valuenow={Math.round((node.ratio ?? 0.5) * 100)}
       aria-label="Resize terminal panes"
     >

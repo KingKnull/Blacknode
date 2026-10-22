@@ -9,6 +9,12 @@ import wails from "@wailsio/runtime/plugins/vite";
 // even when the app code changes.
 export default defineConfig({
   plugins: [tailwindcss(), svelte(), wails("./bindings")],
+  // Wails' Linux dev proxy deliberately dials localhost over IPv4. Bind Vite
+  // to the same address so the health check and the reverse proxy cannot
+  // resolve localhost differently on systems that prefer ::1.
+  server: {
+    host: "127.0.0.1",
+  },
   build: {
     rollupOptions: {
       output: {

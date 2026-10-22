@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { Dialog } from "bits-ui";
   import { HostService } from "../../bindings/github.com/blacknode/blacknode/internal/service";
   import type { SSHConfigCandidate } from "../../bindings/github.com/blacknode/blacknode/internal/service/models";
   import { app } from "./state.svelte";
@@ -11,7 +12,6 @@
     KeyRound,
     Lock,
     AlertTriangle,
-    Server,
   } from "@lucide/svelte";
 
   type Props = {
@@ -20,6 +20,9 @@
   };
   let { onclose, onimported }: Props = $props();
 
+  // The parent mounts this component per import. Bits remembers the focused
+  // opener and restores it on dismissal or successful-import unmount.
+  let open = $state(true);
   let candidates = $state<SSHConfigCandidate[]>([]);
   let selected = $state<Set<string>>(new Set());
   let loading = $state(true);
@@ -82,25 +85,24 @@
   }
 </script>
 
-<div
-  class="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
-  role="presentation"
-  onclick={(e) => { if (e.target === e.currentTarget) onclose(); }}
->
-  <div
-    class="flex max-h-[80vh] w-[640px] flex-col overflow-hidden border hairline-strong surface-2 shadow-2xl"
-    style="box-shadow: 0 0 0 1px var(--color-line-strong), 0 0 60px rgba(59,130,246,0.04), 0 40px 80px rgba(0,0,0,0.6);"
-  >
+<Dialog.Root bind:open onOpenChange={(next) => { if (!next) onclose(); }}>
+  <Dialog.Portal>
+    <Dialog.Overlay class="fixed inset-0 z-50 bg-black/80" />
+    <Dialog.Content
+      class="fixed left-1/2 top-1/2 z-50 flex max-h-[80vh] w-[640px] max-w-full -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden border hairline-strong surface-2 shadow-2xl"
+      style="box-shadow: 0 0 0 1px var(--color-line-strong), 0 0 60px rgba(59,130,246,0.04), 0 40px 80px rgba(0,0,0,0.6);"
+    >
     <div class="flex items-center gap-2.5 border-b hairline px-5 py-3">
       <FileText size="12" class="text-[var(--color-accent)]" />
-      <span class="font-mono type-eyebrow text-[var(--color-text-1)]">IMPORT FROM ~/.ssh/config</span>
-      <button
+      <Dialog.Title class="font-mono type-eyebrow text-[var(--color-text-1)]">IMPORT FROM ~/.ssh/config</Dialog.Title>
+      <Dialog.Close
+        aria-label="Close SSH config import"
         class="ml-auto border border-[var(--color-line)] p-1 text-[var(--color-text-4)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-danger)] transition-all"
-        onclick={onclose}
       >
         <X size="12" />
-      </button>
+      </Dialog.Close>
     </div>
+    <Dialog.Description class="sr-only">Select hosts from your SSH config to import. Existing aliases are skipped.</Dialog.Description>
 
     {#if loading}
       <div class="flex h-32 items-center justify-center gap-2 font-mono type-eyebrow text-[var(--color-text-4)]">
@@ -198,9 +200,9 @@
           DEFAULTS: AGENT AUTH (OR KEY IF IDENTITY FILE SET)
         </span>
         <div class="flex items-center gap-2">
-          <button
+          <Dialog.Close
             class="border border-[var(--color-line)] px-3 py-1.5 font-mono type-eyebrow text-[var(--color-text-3)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-1)] transition-all"
-            onclick={onclose}>CANCEL</button
+            >CANCEL</Dialog.Close
           >
           <button
             class="flex items-center gap-1.5 border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 px-3 py-1.5 font-mono type-eyebrow text-[var(--color-accent)] hover:bg-[var(--color-accent)]/18 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
@@ -217,5 +219,6 @@
         </div>
       </div>
     {/if}
-  </div>
-</div>
+    </Dialog.Content>
+  </Dialog.Portal>
+</Dialog.Root>

@@ -39,6 +39,7 @@
   import { bus } from "./events";
   import { isReadOnlyHost } from "./commandPolicy";
   import { pluginIDForSource, parseHostMessage } from "./pluginBridge";
+  import { separatorKeyValue } from "./separatorKeyboard";
   import {
     Radio,
     Layers,
@@ -800,6 +801,15 @@
       localStorage.setItem('blacknode.sidebar-width', sidebarWidth.toString());
     }
   }
+
+  function onSidebarKeyDown(e: KeyboardEvent) {
+    const width = separatorKeyValue(e, "vertical", sidebarWidth, 160, 600, 10);
+    if (width === undefined) return;
+    e.preventDefault();
+    e.stopPropagation();
+    sidebarWidth = width;
+    localStorage.setItem('blacknode.sidebar-width', sidebarWidth.toString());
+  }
 </script>
 
 <svelte:window onmousemove={onMouseMove} onmouseup={onMouseUp} />
@@ -905,20 +915,23 @@
     {#if !focusMode && sidebarOpen}
     <aside class="relative overflow-hidden border-r hairline group/sidebar">
       <HostList />
-      <!-- Resize handle — a separator is the correct role for a drag-to-resize
-           divider, and pointer-drag is its native interaction. A small grip
-           indicator fades in on hover/drag so the affordance is discoverable
-           without being visible all the time. -->
-      <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+      <!-- Resize handle supports dragging or Left/Right, Home/End when focused. -->
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions (Resizable separators are focusable range widgets with keyboard handlers.) -->
       <div
         role="separator"
         aria-orientation="vertical"
-        tabindex="-1"
-        class="absolute inset-y-0 -right-1 z-10 flex w-2 cursor-col-resize items-center justify-center transition-colors {isResizing ? 'bg-[var(--color-accent)]/40' : 'hover:bg-[var(--color-accent)]/20'}"
+        aria-label="Resize host sidebar"
+        aria-valuemin="160"
+        aria-valuemax="600"
+        aria-valuenow={sidebarWidth}
+        aria-valuetext={`${Math.round(sidebarWidth)} pixels`}
+        tabindex="0"
+        class="group absolute inset-y-0 -right-1 z-10 flex w-2 cursor-col-resize items-center justify-center transition-colors focus-visible:bg-[var(--color-accent)]/30 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--color-accent)] {isResizing ? 'bg-[var(--color-accent)]/40' : 'hover:bg-[var(--color-accent)]/20'}"
         onmousedown={startResize}
+        onkeydown={onSidebarKeyDown}
       >
         <span
-          class="h-8 w-[3px] rounded-full bg-[var(--color-line-strong)] opacity-0 transition-opacity duration-150 group-hover/sidebar:opacity-100 {isResizing ? 'opacity-100 bg-[var(--color-accent)]' : ''}"
+          class="h-8 w-[3px] rounded-full bg-[var(--color-line-strong)] opacity-0 transition-opacity duration-150 group-hover/sidebar:opacity-100 group-focus-visible:opacity-100 {isResizing ? 'opacity-100 bg-[var(--color-accent)]' : ''}"
         ></span>
       </div>
     </aside>
